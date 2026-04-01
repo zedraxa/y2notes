@@ -72,6 +72,50 @@ Notes for next agents:
 - The `NavigationSplitView` selection is keyed on `UUID` (`selectedNoteID`), not on `Note` value equality, so list rebuilds don't reset selection.
 - `Note.hash` is intentionally ID-only to keep `List` selection stable while title/drawing are mutated in place.
 
+---
+
+## [2026-04-01T14:28:19Z] AGENT-02 — Search, Sort, and Drawing Thumbnails
+
+Branch: copilot/agent02-search-thumbnails
+Model used: claude-sonnet-4.6
+Scope: Add functional search/filter, multi-criteria sort, and live drawing thumbnails to the note list sidebar.
+
+Files modified:
+- `Y2Notes/Persistence/NoteStore.swift` — added `deleteNotes(ids:)` to support index-safe deletion from filtered/sorted views.
+- `Y2Notes/Views/NoteListView.swift` — full rewrite with:
+  - `.searchable(placement: .sidebar)` search bar filtering notes by title (case-insensitive).
+  - `NoteSortOrder` enum (6 orders: modified desc/asc, title A–Z/Z–A, created desc/asc) exposed via a `Menu` toolbar button.
+  - `displayedNotes` computed property that applies both filter and sort in one pass.
+  - `deleteDisplayedNotes(at:)` maps `IndexSet` into the filtered list's IDs then calls `deleteNotes(ids:)` — prevents mismatch when the displayed order differs from the store order.
+  - `NoteRowView` now shows a 60×44pt thumbnail placeholder (pencil icon) for blank notes and an async-rendered `PKDrawing` snapshot for notes with strokes. Thumbnails are generated on a background `Task.detached` and keyed with `.task(id: note.drawingData)` so they refresh automatically when the user draws.
+  - Empty-search overlay ("No notes match …") shown when the filter returns zero results.
+
+What was completed:
+- Search bar embedded in the sidebar column (`.sidebar` placement, iOS 16+).
+- Sort menu with checkmark on the active sort order.
+- Thumbnail generation: `PKDrawing.image(from:scale:)` called off-main-thread; scale computed to produce ≈ 60–90 px output from the drawing's tight bounding box (expanded 20 pt each side to avoid clipping edge strokes).
+- Backward-compatible: existing `deleteNotes(at:)` remains on `NoteStore` for any callers that still have unfiltered index access.
+
+What remains:
+- App icon artwork.
+- iCloud / CloudKit sync.
+- Tag support.
+- Export (PDF / image) — rendering the canvas for share sheet.
+- Unit/UI tests (blocked on Xcode environment).
+
+Build/test evidence:
+- No Xcode available in sandbox; correctness validated by inspection.
+- All PencilKit API calls (`PKDrawing(data:)`, `drawing.bounds`, `drawing.image(from:scale:)`) are documented public API, available iOS 14+.
+- `.searchable(placement: .sidebar)` requires iOS 15.4+; deployment target is iOS 16, so no guard needed.
+- `Task.detached` used to move thumbnail rendering off the main thread; result is captured with `await .value` and assigned back via SwiftUI's state update mechanism (main actor on `@State`).
+
+Notes for next agents:
+- `NoteSortOrder` is a top-level `enum` in `NoteListView.swift` so it can be referenced by future settings/preferences code without importing a separate module.
+- Sort preference is held in `@State` (per session); a future agent may persist it via `@AppStorage` or `UserDefaults`.
+- `NoteRowView.makeThumbnail` intentionally renders only the drawing's own bounding box (not a fixed page size), so the thumbnail always shows content densely. If a "page grid" background is ever added, the render rect should be updated to match the page bounds.
+
+---
+
 ## [2026-04-01T14:33:26Z] AGENT-02 — Search/Filter & Auto-Focus Title
 
 Branch: copilot/agent02-search-and-ux
@@ -89,16 +133,16 @@ What was completed:
 - **Auto-focus title**: tapping "New Note" (square.and.pencil) opens the editor and places the cursor in the title field automatically after a 0.25 s delay (allows NavigationSplitView transition to settle before keyboard appears). Subsequent opens of the same note do not re-trigger auto-focus.
 - **Untitled placeholder**: list rows show "Untitled" in secondary colour when `note.title` is empty.
 
+Merge note (2026-04-01T14:41:54Z):
+- This branch was merged with `origin/main` which already contained the earlier Agent-02 thumbnails+sort work.
+- Final `NoteListView.swift` combines both: thumbnails, 6-sort-order menu, sidebar search, empty-search overlay (from main) **plus** `onNoteCreated` callback and "Untitled" placeholder (from this branch).
+- `NoteStore.swift` conflict was trivial (both sides added identical `deleteNotes(ids:)` — main added a doc comment; final keeps the doc comment).
+
 What remains:
 - iCloud / CloudKit sync (future agent).
-- Note thumbnail preview (PKDrawing rendered as thumbnail in the list row) — future agent.
 - Tags / folders (future agent).
 - Unit/UI tests (future agent once a CI environment with Xcode is available).
 - Export (PDF/image) feature (future agent).
-
-Build/test evidence:
-- Code reviewed by inspection; Swift syntax validated manually. No Xcode available in this Linux sandbox.
-- All changed call-sites updated: `NoteListView` init now requires `onNoteCreated`; old `deleteNotes(at:)` still present for callers not using search.
 
 Notes for next agents:
 - `NoteListView` now accepts `onNoteCreated: (UUID) -> Void` — any future refactor of the new-note button must supply this callback.
