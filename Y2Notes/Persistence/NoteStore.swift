@@ -1,11 +1,27 @@
 import Foundation
 import Combine
+import UIKit
+
+// MARK: - Save state
+
+/// Describes the current disk-persistence state of the store.
+/// Observe `NoteStore.saveState` to drive save-status UI.
+enum SaveState: Equatable {
+    case idle
+    case saving
+    case saved
+    case error(String)
+}
+
+// MARK: - NoteStore
 
 /// Persistent store for notes and notebooks. Saves to the app's Documents directory as JSON.
 /// All mutations are performed on the main thread (via @Published / @MainActor).
 final class NoteStore: ObservableObject {
     @Published private(set) var notes: [Note] = []
     @Published private(set) var notebooks: [Notebook] = []
+    /// Current disk-write state. Observe this to drive saving / saved / error UI.
+    @Published private(set) var saveState: SaveState = .idle
 
     private let notesURL: URL = {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -17,8 +33,44 @@ final class NoteStore: ObservableObject {
         return docs.appendingPathComponent("y2notes_notebooks.json")
     }()
 
+    /// True when in-memory state has been mutated but not yet flushed to disk.
+    private var isDirty = false
+    /// Repeating timer that autosaves dirty state approximately every 30 s.
+    private var autosaveTimer: Timer?
+
     init() {
         load()
+        startAutosaveTimer()
+        setupLifecycleObservers()
+    }
+
+    deinit {
+        autosaveTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: - Autosave / lifecycle
+
+    private func startAutosaveTimer() {
+        autosaveTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self, self.isDirty else { return }
+            self.flushToDisk()
+        }
+        autosaveTimer?.tolerance = 5
+    }
+
+    private func setupLifecycleObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppWillResignActive),
+            name: UIApplication.willResignActiveNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleAppWillResignActive() {
+        guard isDirty else { return }
+        flushToDisk()
     }
 
     // MARK: - Note CRUD
@@ -61,7 +113,9 @@ final class NoteStore: ObservableObject {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].drawingData = data
         notes[idx].modifiedAt = Date()
-        // Drawing saves are debounced by the caller; we just update state here.
+        // Mark dirty so autosave timer and willResignActive flush pick this up.
+        // The canvas coordinator owns the debounced 0.8 s save trigger.
+        isDirty = true
     }
 
     /// Creates a copy of the note inserted directly after the original.
@@ -170,20 +224,58 @@ final class NoteStore: ObservableObject {
         save()
     }
 
-    // MARK: - Persistence
+    // MARK: - Persistence public API
 
+    /// Marks state clean and immediately flushes both data files to disk.
     func save() {
-        saveJSON(notes, to: notesURL)
-        saveJSON(notebooks, to: notebooksURL)
+        isDirty = false
+        flushToDisk()
     }
 
-    private func saveJSON<T: Encodable>(_ value: T, to url: URL) {
+    // MARK: - Persistence internals
+
+    /// Writes both data files atomically and updates `saveState`.
+    private func flushToDisk() {
+        saveState = .saving
+        var firstError: Error?
         do {
-            let data = try JSONEncoder().encode(value)
-            try data.write(to: url, options: .atomic)
+            let data = try JSONEncoder().encode(notes)
+            try writeAtomically(data, to: notesURL)
         } catch {
-            assertionFailure("Y2Notes: save failed — \(error)")
+            firstError = error
         }
+        do {
+            let data = try JSONEncoder().encode(notebooks)
+            try writeAtomically(data, to: notebooksURL)
+        } catch {
+            if firstError == nil { firstError = error }
+        }
+        if let error = firstError {
+            saveState = .error(error.localizedDescription)
+            assertionFailure("Y2Notes: save failed — \(error)")
+        } else {
+            saveState = .saved
+        }
+    }
+
+    /// Writes `data` to `url` using an atomic swap (write-to-temp + rename), while keeping
+    /// a one-generation backup at `url.bak` to allow recovery from interrupted writes.
+    private func writeAtomically(_ data: Data, to url: URL) throws {
+        let backupURL = url.appendingPathExtension("bak")
+        // Snapshot the current good file as a backup before overwriting it.
+        if FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.removeItem(at: backupURL)
+            if (try? FileManager.default.copyItem(at: url, to: backupURL)) == nil {
+                // Best-effort — the primary write still proceeds. Log in debug builds
+                // so disk-full or permission issues are visible during development.
+                #if DEBUG
+                print("Y2Notes: backup creation failed for \(url.lastPathComponent)")
+                #endif
+            }
+        }
+        // .atomic writes to a temp sibling then renames into place, making the
+        // final swap as close to atomic as the filesystem permits.
+        try data.write(to: url, options: .atomic)
     }
 
     private func load() {
@@ -191,13 +283,34 @@ final class NoteStore: ObservableObject {
         notebooks = loadJSON([Notebook].self, from: notebooksURL) ?? []
     }
 
+    /// Decodes `type` from `url`. On missing or corrupt primary file, falls back to
+    /// the `.bak` sibling created by `writeAtomically` so interrupted writes are recoverable.
     private func loadJSON<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
+        if let value = attemptLoad(type, from: url) {
+            return value
+        }
+        // Primary missing or corrupt — try the backup.
+        let backupURL = url.appendingPathExtension("bak")
+        if let value = attemptLoad(type, from: backupURL) {
+            // Promote the backup to primary so the next save goes to the right place.
+            // If this copy fails, data is still in memory and will be written to the
+            // primary path on the very next save() call.
+            if (try? FileManager.default.copyItem(at: backupURL, to: url)) == nil {
+                #if DEBUG
+                print("Y2Notes: backup promotion failed for \(url.lastPathComponent); data will be rewritten on next save")
+                #endif
+            }
+            return value
+        }
+        return nil
+    }
+
+    private func attemptLoad<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         do {
             let data = try Data(contentsOf: url)
             return try JSONDecoder().decode(type, from: data)
         } catch {
-            // Corrupted store — start fresh rather than crashing.
             return nil
         }
     }

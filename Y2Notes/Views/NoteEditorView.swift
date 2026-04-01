@@ -11,6 +11,10 @@ struct NoteEditorView: View {
     @State private var titleText: String
     @State private var canUndo = false
     @State private var canRedo = false
+    /// Controls the transient "saved" checkmark badge (hidden 2 s after saved).
+    @State private var showSavedBadge = false
+    /// Timestamp of the most recent "saved" event — used to debounce the auto-hide timer.
+    @State private var badgeShownAt: Date?
 
     init(note: Note) {
         self.note = note
@@ -51,6 +55,9 @@ struct NoteEditorView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItemGroup(placement: .navigationBarLeading) {
+                saveStateIndicator
+            }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 noteThemeMenu
 
@@ -82,6 +89,20 @@ struct NoteEditorView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { _ in
             refreshUndoRedoState()
+        }
+        .onReceive(noteStore.$saveState) { state in
+            if state == .saved {
+                showSavedBadge = true
+                let now = Date()
+                badgeShownAt = now
+                // Each rapid save updates `badgeShownAt`; only the last scheduled
+                // callback will actually hide the badge, avoiding premature dismissal.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    if badgeShownAt == now {
+                        showSavedBadge = false
+                    }
+                }
+            }
         }
         .onDisappear {
             noteStore.save()
@@ -143,6 +164,33 @@ struct NoteEditorView: View {
     }
 
     // MARK: - Helpers
+
+    /// Compact toolbar indicator that reflects the current disk-write state.
+    /// - Spinning icon while saving (transitions quickly; mostly visible on slow storage).
+    /// - Checkmark shown for 2 s after a successful save.
+    /// - Warning triangle shown (persistently) when a save error has occurred.
+    @ViewBuilder
+    private var saveStateIndicator: some View {
+        switch noteStore.saveState {
+        case .saving:
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+                .accessibilityLabel("Saving")
+        case .error:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.caption)
+                .accessibilityLabel("Save error")
+        case .saved where showSavedBadge:
+            Image(systemName: "checkmark.circle")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+                .accessibilityLabel("Saved")
+        default:
+            EmptyView()
+        }
+    }
 
     private func refreshUndoRedoState() {
         canUndo = undoManager?.canUndo ?? false
