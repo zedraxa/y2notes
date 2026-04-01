@@ -30,6 +30,11 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    func deleteNotes(ids: [UUID]) {
+        notes.removeAll { ids.contains($0.id) }
+        save()
+    }
+
     func updateTitle(for noteID: UUID, title: String) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].title = title

@@ -5,11 +5,16 @@ import PencilKit
 struct NoteEditorView: View {
     @EnvironmentObject var noteStore: NoteStore
     let note: Note
+    /// When `true`, the title text field is automatically focused so the user can
+    /// rename the note immediately after creation without a second tap.
+    var autoFocusTitle: Bool = false
 
     @State private var titleText: String
+    @FocusState private var titleFocused: Bool
 
-    init(note: Note) {
+    init(note: Note, autoFocusTitle: Bool = false) {
         self.note = note
+        self.autoFocusTitle = autoFocusTitle
         _titleText = State(initialValue: note.title)
     }
 
@@ -29,6 +34,15 @@ struct NoteEditorView: View {
             )
         }
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if autoFocusTitle {
+                // Slight delay lets the NavigationSplitView transition settle before
+                // the keyboard appears, avoiding a layout jump on iPad.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    titleFocused = true
+                }
+            }
+        }
         .onDisappear {
             noteStore.save()
         }
@@ -39,6 +53,7 @@ struct NoteEditorView: View {
             .font(.title2.bold())
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
+            .focused($titleFocused)
             // Single-parameter onChange is the correct form for iOS 16 (deployment target).
             // The two-parameter form requires iOS 17+; a future agent can migrate once the
             // minimum deployment target is raised.

@@ -3,15 +3,26 @@ import SwiftUI
 struct NoteListView: View {
     @EnvironmentObject var noteStore: NoteStore
     @Binding var selectedNoteID: UUID?
+    let onNoteCreated: (UUID) -> Void
+
+    @State private var searchText = ""
+
+    private var filteredNotes: [Note] {
+        guard !searchText.isEmpty else { return noteStore.notes }
+        return noteStore.notes.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
+    }
 
     var body: some View {
         List(selection: $selectedNoteID) {
-            ForEach(noteStore.notes) { note in
+            ForEach(filteredNotes) { note in
                 NoteRowView(note: note)
                     .tag(note.id)
             }
-            .onDelete(perform: noteStore.deleteNotes)
+            .onDelete(perform: deleteFiltered)
         }
+        .searchable(text: $searchText, prompt: "Search notes")
         .navigationTitle("Y2Notes")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -29,6 +40,14 @@ struct NoteListView: View {
     private func createNote() {
         let note = noteStore.addNote()
         selectedNoteID = note.id
+        onNoteCreated(note.id)
+    }
+
+    /// Map offsets in `filteredNotes` back to UUIDs so deletion works correctly
+    /// regardless of whether a search filter is active.
+    private func deleteFiltered(at offsets: IndexSet) {
+        let ids = offsets.map { filteredNotes[$0].id }
+        noteStore.deleteNotes(ids: ids)
     }
 }
 
@@ -39,9 +58,10 @@ private struct NoteRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(note.title)
+            Text(note.title.isEmpty ? "Untitled" : note.title)
                 .font(.headline)
                 .lineLimit(1)
+                .foregroundColor(note.title.isEmpty ? .secondary : .primary)
             Text(note.modifiedAt, style: .relative)
                 .font(.caption)
                 .foregroundColor(.secondary)
