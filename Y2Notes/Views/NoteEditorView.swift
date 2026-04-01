@@ -269,6 +269,14 @@ struct NoteEditorView: View {
 ///   and save flushes — all visible in Instruments → os_signpost.
 /// - Undo/redo state: reports (canUndo, canRedo) from the canvas's own undo manager
 ///   after every drawing change via `onUndoStateChanged`.
+///
+/// **Apple Pencil features (all degrade gracefully)**
+/// - Double-tap (Pencil 2nd gen+, iOS 12.1+): dispatches the user's preferred action.
+/// - Squeeze (Pencil Pro, iOS 17.5+): dispatches the user's preferred squeeze action.
+/// - Ghost nib / hover preview (M2+ iPad Pro, iOS 16.1+): draws an overlay cursor.
+/// - Barrel-roll fountain pen (Pencil Pro, iOS 17.5+): modulates fountain-pen width.
+/// - Contextual palette: compact floating palette anchored near the Pencil tip.
+
 private struct CanvasView: UIViewRepresentable {
     let noteID: UUID
     let drawingData: Data
@@ -354,6 +362,26 @@ private struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.shapeOverlay = overlay
 
+        // ── Hover overlay (non-interactive, floats above the canvas) ─────────
+        let hoverOverlay = PencilHoverOverlayView(frame: .zero)
+        hoverOverlay.translatesAutoresizingMaskIntoConstraints = false
+        hoverOverlay.isUserInteractionEnabled = false
+        canvas.addSubview(hoverOverlay)
+        NSLayoutConstraint.activate([
+            hoverOverlay.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
+            hoverOverlay.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
+            hoverOverlay.topAnchor.constraint(equalTo: canvas.topAnchor),
+            hoverOverlay.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
+        ])
+        context.coordinator.hoverOverlay = hoverOverlay
+
+        // ── Apple Pencil interaction coordinator ─────────────────────────────
+        let pencilCoordinator = PencilInteractionCoordinator()
+        pencilCoordinator.delegate = context.coordinator
+        pencilCoordinator.attach(to: canvas)
+        context.coordinator.pencilCoordinator = pencilCoordinator
+        context.coordinator.canvasRef = canvas
+
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
         context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -421,6 +449,15 @@ private struct CanvasView: UIViewRepresentable {
         var lastZoomResetTrigger: Bool = false
         private var debounceTimer: Timer?
 
+        // Apple Pencil support
+        var pencilCoordinator: PencilInteractionCoordinator?
+        var hoverOverlay: PencilHoverOverlayView?
+        weak var canvasRef: PKCanvasView?
+
+        /// The last active inking tool before switching to the eraser.
+        /// Used to restore the tool when the user double-taps "switch to previous".
+        private var previousInkingTool: PKTool?
+
         init(onDrawingChanged: @escaping (Data) -> Void, onSaveRequested: @escaping () -> Void) {
             self.onDrawingChanged = onDrawingChanged
             self.onSaveRequested  = onSaveRequested
@@ -444,6 +481,88 @@ private struct CanvasView: UIViewRepresentable {
                 editorSignposter.emitEvent("DrawingSaved")
                 self?.onSaveRequested()
             }
+        }
+    }
+}
+
+// MARK: - PencilActionDelegate
+
+extension CanvasView.Coordinator: PencilActionDelegate {
+
+    // MARK: Tool switching
+
+    func pencilDidRequestSwitchToEraser() {
+        guard let canvas = canvasRef else { return }
+        if !(canvas.tool is PKEraserTool) {
+            // Remember current inking tool before switching to eraser.
+            previousInkingTool = canvas.tool
+        }
+        canvas.tool = PKEraserTool(.vector)
+    }
+
+    func pencilDidRequestSwitchToPreviousTool() {
+        guard let canvas = canvasRef else { return }
+        if let previous = previousInkingTool {
+            canvas.tool = previous
+            previousInkingTool = nil
+        } else {
+            // No previous tool recorded — toggle from eraser to default pen.
+            canvas.tool = PKInkingTool(.pen, color: .label, width: 2)
+        }
+    }
+
+    // MARK: Contextual palette
+
+    func pencilDidRequestContextualPalette(at anchorPoint: CGPoint) {
+        guard let canvas = canvasRef,
+              let window = canvas.window else { return }
+        // Convert from canvas coordinates to window coordinates.
+        let windowPoint = canvas.convert(anchorPoint, to: window)
+        ContextualPencilPaletteView.show(
+            at: windowPoint,
+            in: window,
+            canvas: canvas
+        )
+    }
+
+    // MARK: Undo / redo
+
+    func pencilDidRequestUndo() {
+        canvasRef?.undoManager?.undo()
+    }
+
+    func pencilDidRequestRedo() {
+        canvasRef?.undoManager?.redo()
+    }
+
+    // MARK: Hover preview
+
+    func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
+        hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+    }
+
+    // MARK: Barrel-roll fountain pen (Apple Pencil Pro, iOS 17.5+)
+
+    func pencilBarrelRollChanged(angle: CGFloat) {
+        guard #available(iOS 17.5, *), let canvas = canvasRef else { return }
+        guard let inkTool = canvas.tool as? PKInkingTool,
+              inkTool.inkType == .fountainPen else { return }
+
+        // Map barrel-roll angle to a width variation that mimics a calligraphic nib:
+        // • Roll  0 (neutral)       → base width
+        // • Roll ±π/2 (edge-on)     → ~30 % of base width (thin stroke)
+        // • Roll  π  (flipped)      → base width again (symmetrical)
+        let rollFactor   = (cos(angle) + 1) / 2            // 0.0 … 1.0
+        let baseWidth    = inkTool.width
+        let minWidth     = max(baseWidth * 0.3, 1.0)
+        let maxWidth     = baseWidth * 1.8
+        let targetWidth  = minWidth + rollFactor * (maxWidth - minWidth)
+        let clampedWidth = min(max(targetWidth, 1), 20)    // sane bounds
+
+        // Only update when the change is visually meaningful to avoid
+        // rebuilding PKInkingTool on every micro-movement.
+        if abs(clampedWidth - baseWidth) > 0.4 {
+            canvas.tool = PKInkingTool(.fountainPen, color: inkTool.color, width: clampedWidth)
         }
     }
 }
