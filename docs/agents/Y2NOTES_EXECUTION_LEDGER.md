@@ -71,3 +71,45 @@ Notes for next agents:
 - `NoteStore.updateDrawing(for:data:)` updates in-memory state but does NOT flush to disk — the caller (`CanvasView.Coordinator`) owns the debounced save via `onSaveRequested`. Do not change this contract without updating both sides.
 - The `NavigationSplitView` selection is keyed on `UUID` (`selectedNoteID`), not on `Note` value equality, so list rebuilds don't reset selection.
 - `Note.hash` is intentionally ID-only to keep `List` selection stable while title/drawing are mutated in place.
+
+---
+
+## [2026-04-01T14:28:19Z] AGENT-02 — Search, Sort, and Drawing Thumbnails
+
+Branch: copilot/agent02-search-thumbnails
+Model used: claude-sonnet-4.6
+Scope: Add functional search/filter, multi-criteria sort, and live drawing thumbnails to the note list sidebar.
+
+Files modified:
+- `Y2Notes/Persistence/NoteStore.swift` — added `deleteNotes(ids:)` to support index-safe deletion from filtered/sorted views.
+- `Y2Notes/Views/NoteListView.swift` — full rewrite with:
+  - `.searchable(placement: .sidebar)` search bar filtering notes by title (case-insensitive).
+  - `NoteSortOrder` enum (6 orders: modified desc/asc, title A–Z/Z–A, created desc/asc) exposed via a `Menu` toolbar button.
+  - `displayedNotes` computed property that applies both filter and sort in one pass.
+  - `deleteDisplayedNotes(at:)` maps `IndexSet` into the filtered list's IDs then calls `deleteNotes(ids:)` — prevents mismatch when the displayed order differs from the store order.
+  - `NoteRowView` now shows a 60×44pt thumbnail placeholder (pencil icon) for blank notes and an async-rendered `PKDrawing` snapshot for notes with strokes. Thumbnails are generated on a background `Task.detached` and keyed with `.task(id: note.drawingData)` so they refresh automatically when the user draws.
+  - Empty-search overlay ("No notes match …") shown when the filter returns zero results.
+
+What was completed:
+- Search bar embedded in the sidebar column (`.sidebar` placement, iOS 16+).
+- Sort menu with checkmark on the active sort order.
+- Thumbnail generation: `PKDrawing.image(from:scale:)` called off-main-thread; scale computed to produce ≈ 60–90 px output from the drawing's tight bounding box (expanded 20 pt each side to avoid clipping edge strokes).
+- Backward-compatible: existing `deleteNotes(at:)` remains on `NoteStore` for any callers that still have unfiltered index access.
+
+What remains:
+- App icon artwork.
+- iCloud / CloudKit sync.
+- Tag support.
+- Export (PDF / image) — rendering the canvas for share sheet.
+- Unit/UI tests (blocked on Xcode environment).
+
+Build/test evidence:
+- No Xcode available in sandbox; correctness validated by inspection.
+- All PencilKit API calls (`PKDrawing(data:)`, `drawing.bounds`, `drawing.image(from:scale:)`) are documented public API, available iOS 14+.
+- `.searchable(placement: .sidebar)` requires iOS 15.4+; deployment target is iOS 16, so no guard needed.
+- `Task.detached` used to move thumbnail rendering off the main thread; result is captured with `await .value` and assigned back via SwiftUI's state update mechanism (main actor on `@State`).
+
+Notes for next agents:
+- `NoteSortOrder` is a top-level `enum` in `NoteListView.swift` so it can be referenced by future settings/preferences code without importing a separate module.
+- Sort preference is held in `@State` (per session); a future agent may persist it via `@AppStorage` or `UserDefaults`.
+- `NoteRowView.makeThumbnail` intentionally renders only the drawing's own bounding box (not a fixed page size), so the thumbnail always shows content densely. If a "page grid" background is ever added, the render rect should be updated to match the page bounds.
