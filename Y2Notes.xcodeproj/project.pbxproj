@@ -273,6 +273,10 @@
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
+				AA0001000000000000000094 /* PDFNoteModel.swift in Sources */,
+				AA0001000000000000000095 /* PDFStore.swift in Sources */,
+				AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */,
+				AA0001000000000000000097 /* PDFViewerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
