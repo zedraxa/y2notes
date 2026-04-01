@@ -172,7 +172,7 @@ private struct ShelfSidebarView: View {
             }
         }
         .sheet(isPresented: $showNewNotebookSheet) {
-            NewNotebookSheet()
+            NotebookCreationWizard()
         }
         .alert("Rename Notebook", isPresented: Binding(
             get: { notebookToRename != nil },
@@ -541,116 +541,6 @@ private struct ShelfDetailPlaceholder: View {
     }
 }
 
-// MARK: - New Notebook sheet
-
-private struct NewNotebookSheet: View {
-    @EnvironmentObject var noteStore: NoteStore
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var name = ""
-    @State private var selectedCover: NotebookCover = .ocean
-    @State private var selectedTemplateID: String = TemplateRegistry.shared.defaultTemplateID
-    @State private var addDefaultSection = true
-
-    private var templates: [PageTemplate] { TemplateRegistry.shared.allTemplates }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Name") {
-                    TextField("Notebook name", text: $name)
-                        .submitLabel(.done)
-                }
-
-                Section("Cover Color") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 12)], spacing: 12) {
-                        ForEach(NotebookCover.allCases, id: \.self) { cover in
-                            CoverSwatch(cover: cover, isSelected: selectedCover == cover)
-                                .onTapGesture { selectedCover = cover }
-                        }
-                    }
-                    .padding(.vertical, 6)
-                }
-
-                Section {
-                    Toggle("Add default section", isOn: $addDefaultSection)
-                } footer: {
-                    Text("Creates a "Notes" section so pages are organised from the start.")
-                }
-
-                Section("Default Page Template") {
-                    ForEach(templates) { template in
-                        Button {
-                            selectedTemplateID = template.id
-                        } label: {
-                            HStack(spacing: 14) {
-                                Image(systemName: template.systemImage)
-                                    .frame(width: 24)
-                                    .foregroundStyle(.tint)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(template.displayName)
-                                        .foregroundStyle(.primary)
-                                    Text(template.category)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if selectedTemplateID == template.id {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(.tint)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .navigationTitle("New Notebook")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
-                        noteStore.createNotebook(
-                            name: name,
-                            cover: selectedCover,
-                            defaultTemplateID: selectedTemplateID,
-                            addDefaultSection: addDefaultSection
-                        )
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
-}
-
-private struct CoverSwatch: View {
-    let cover: NotebookCover
-    let isSelected: Bool
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(cover.gradient)
-                .aspectRatio(0.75, contentMode: .fit)
-
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-            }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(isSelected ? Color.white : Color.clear, lineWidth: 3)
-        )
-        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
-    }
-}
 
 // MARK: - Move Note sheet
 
