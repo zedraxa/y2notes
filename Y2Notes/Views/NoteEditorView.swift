@@ -51,6 +51,9 @@ struct NoteEditorView: View {
                 .accessibilityLabel("Redo")
             }
         }
+        .onAppear {
+            refreshUndoRedoState()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
             refreshUndoRedoState()
         }

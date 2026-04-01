@@ -116,6 +116,39 @@ Notes for next agents:
 
 ---
 
+## [2026-04-01T14:27:20Z] AGENT-03 — Undo/Redo in Editor
+
+Branch: copilot/agent02-search-thumbnails-undo
+Model used: claude-sonnet-4.6
+Scope: Add functional undo/redo toolbar buttons to the note editor, wired to PencilKit's undo manager with reactive disabled state.
+
+Files modified:
+- `Y2Notes/Views/NoteEditorView.swift` — undo/redo toolbar buttons with reactive enabled/disabled state.
+
+What was completed:
+- **Undo/Redo buttons**: Two toolbar buttons (↩ / ↪) added to `.navigationBarTrailing` in `NoteEditorView`. They call `undoManager?.undo()` / `undoManager?.redo()` via `@Environment(\.undoManager)` — the UIWindowScene undo manager that PencilKit registers stroke actions against.
+- **Reactive disabled state**: `@State private var canUndo` / `canRedo` track button availability. State is refreshed in `.onAppear` and reactively on `.NSUndoManagerDidCloseUndoGroup`, `.NSUndoManagerDidUndoChange`, and `.NSUndoManagerDidRedoChange` via `.onReceive`. Buttons are `.disabled` when no action is available.
+
+What remains:
+- iCloud / CloudKit sync (future agent).
+- Export (PDF/image) feature (future agent).
+- Unit/UI tests (future agent once CI with Xcode is available).
+- App icon artwork (needs a designer pass).
+
+Build/test evidence:
+- No Xcode available in sandbox; correctness validated by inspection.
+- `@Environment(\.undoManager)` and `UndoManager` notification names are documented public API, available iOS 14+.
+- `NotificationCenter.Publisher` is available via SwiftUI's implicit Combine import; no additional `import` statement required.
+
+Open risks:
+- `@Environment(\.undoManager)` provides the window scene's undo manager. On iOS 16+ iPad with a single window, this is the same manager PencilKit uses. Multi-window support (if ever added) is safe because SwiftUI routes the environment value per scene.
+
+Notes for next agents:
+- `canUndo` / `canRedo` state is driven by notifications, not KVO on `UndoManager`. This is the standard SwiftUI pattern; do not replace with polling.
+- If a future agent adds per-note undo isolation (separate `UndoManager` per note), the editor's `@Environment(\.undoManager)` injection point will need updating accordingly.
+
+---
+
 ## [2026-04-01T14:28:48Z] AGENT-02 — Search, Sort & Editor Undo/Redo
 
 Branch: copilot/agent02-search-sort-undo
