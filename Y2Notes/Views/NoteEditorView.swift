@@ -4,9 +4,12 @@ import PencilKit
 /// Full-screen note editor: editable title + PencilKit canvas.
 struct NoteEditorView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @Environment(\.undoManager) private var undoManager
     let note: Note
 
     @State private var titleText: String
+    @State private var canUndo = false
+    @State private var canRedo = false
 
     init(note: Note) {
         self.note = note
@@ -29,9 +32,42 @@ struct NoteEditorView: View {
             )
         }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button {
+                    undoManager?.undo()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                }
+                .disabled(!canUndo)
+                .accessibilityLabel("Undo")
+
+                Button {
+                    undoManager?.redo()
+                } label: {
+                    Image(systemName: "arrow.uturn.forward")
+                }
+                .disabled(!canRedo)
+                .accessibilityLabel("Redo")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
+            refreshUndoRedoState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidUndoChange)) { _ in
+            refreshUndoRedoState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { _ in
+            refreshUndoRedoState()
+        }
         .onDisappear {
             noteStore.save()
         }
+    }
+
+    private func refreshUndoRedoState() {
+        canUndo = undoManager?.canUndo ?? false
+        canRedo = undoManager?.canRedo ?? false
     }
 
     private var titleField: some View {

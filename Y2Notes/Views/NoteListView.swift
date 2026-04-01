@@ -142,8 +142,9 @@ private struct NoteRowView: View {
         HStack(spacing: 12) {
             thumbnailView
             VStack(alignment: .leading, spacing: 4) {
-                Text(note.title)
+                Text(note.title.isEmpty ? "Untitled" : note.title)
                     .font(.headline)
+                    .foregroundColor(note.title.isEmpty ? .secondary : .primary)
                     .lineLimit(1)
                 Text(note.modifiedAt, style: .relative)
                     .font(.caption)
