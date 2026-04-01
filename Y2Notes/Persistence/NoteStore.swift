@@ -30,6 +30,13 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    /// Delete notes by ID. Used when the list is sorted/filtered and IndexSet
+    /// offsets no longer correspond 1-to-1 with `notes`.
+    func deleteNotes(withIDs ids: [UUID]) {
+        notes.removeAll { ids.contains($0.id) }
+        save()
+    }
+
     func updateTitle(for noteID: UUID, title: String) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].title = title
