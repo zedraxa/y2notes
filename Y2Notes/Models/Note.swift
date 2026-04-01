@@ -7,19 +7,24 @@ struct Note: Identifiable, Codable, Hashable {
     var modifiedAt: Date
     /// Serialised PKDrawing data (empty Data = blank canvas).
     var drawingData: Data
+    /// Per-note theme override. When non-nil the editor canvas uses this theme instead
+    /// of the global app theme. App chrome (sidebar, navigation) always follows the global theme.
+    var themeOverride: AppTheme?
 
     init(
         id: UUID = UUID(),
         title: String = "New Note",
         createdAt: Date = Date(),
         modifiedAt: Date = Date(),
-        drawingData: Data = Data()
+        drawingData: Data = Data(),
+        themeOverride: AppTheme? = nil
     ) {
         self.id = id
         self.title = title
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
         self.drawingData = drawingData
+        self.themeOverride = themeOverride
     }
 
     // MARK: Hashable — identity only, so list selection stays stable while content changes.

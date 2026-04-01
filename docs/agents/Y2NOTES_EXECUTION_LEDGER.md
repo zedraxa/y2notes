@@ -178,3 +178,63 @@ Notes for next agents:
 - `NoteStore.deleteNotes(at:)` still exists for future use (e.g. drag-reorder without search active), but `NoteListView` now uses `deleteNotes(withIDs:)` exclusively.
 - `@Environment(\.undoManager)` in `NoteEditorView` resolves to the window-level `UndoManager`. PencilKit routes drawing undos through the responder chain, so this works correctly when `PKCanvasView` is first responder.
 - `displayedNotes` is a pure computed property on the view — `NoteStore.notes` remains unsorted so the store order is stable for future features (e.g. manual reorder).
+
+---
+
+## [2026-04-01T15:50:00Z] AGENT-04 — Runtime Theme Engine
+
+Branch: copilot/implement-runtime-theme-engine
+Model used: claude-sonnet-4.6
+Scope: Implement a native Y2Notes theme system with user-selectable themes, persistent choice, component-level application, canvas/tool contrast protection, and notebook-level theme hooks.
+
+Files created:
+- `Y2Notes/Theme/AppTheme.swift` — `AppTheme` enum (system, light, dark, sepia, midnight, ocean) + `ThemeDefinition` struct with all canvas and UI colour properties. Includes WCAG 2.1 relative-luminance contrast helper (`canvasIsDark`) and `contrastingInkColor` for safe default stroke colour.
+- `Y2Notes/Theme/ThemeStore.swift` — `ObservableObject` that persists the selected theme to `UserDefaults` under the key `y2notes.selectedTheme`. Exposes `select(_:)` and a `definition: ThemeDefinition` convenience property.
+- `Y2Notes/Views/ThemePickerView.swift` — `NavigationStack`-based sheet listing all themes with a colour swatch preview, checkmark on the active choice, and greyed-out/disabled rows for any future premium entries.
+
+Files modified:
+- `Y2Notes/Models/Note.swift` — added `themeOverride: AppTheme?` (optional, Codable, defaults nil). Fully backward-compatible with existing JSON stores since absent keys decode as nil.
+- `Y2Notes/Persistence/NoteStore.swift` — added `updateThemeOverride(for:theme:)` which persists immediately via `save()`.
+- `Y2Notes/Y2NotesApp.swift` — added `@StateObject private var themeStore = ThemeStore()` and injected it as `.environmentObject(themeStore)`.
+- `Y2Notes/ContentView.swift` — added `@EnvironmentObject var themeStore: ThemeStore` and applied `.preferredColorScheme(themeStore.definition.colorScheme)` to the root `NavigationSplitView`.
+- `Y2Notes/Views/NoteListView.swift` — added `paintpalette` toolbar button in `.navigationBarTrailing` that presents `ThemePickerView` as a sheet.
+- `Y2Notes/Views/NoteEditorView.swift` — comprehensive theming:
+  - `@EnvironmentObject var themeStore: ThemeStore` injected.
+  - `effectiveTheme` / `effectiveDefinition` computed properties that prefer `note.themeOverride` over the global theme.
+  - `CanvasView` now accepts `backgroundColor: UIColor` (applied in `makeUIView` and reflected in `updateUIView` when theme changes) and `defaultInkColor: UIColor` (seeds the initial `PKInkingTool` with a contrasting colour — canvas/tool contrast protection).
+  - Per-note theme menu (`paintbrush` / `paintbrush.fill` toolbar icon) with an "App Theme" reset option and per-theme menu items.
+  - Dark-canvas contrast banner: a thin informational strip shown under the title field when `effectiveDefinition.canvasIsDark` is true.
+- `Y2Notes.xcodeproj/project.pbxproj` — registered the three new Swift files as `PBXFileReference`, `PBXBuildFile`, added a `Theme` group, moved `ThemePickerView.swift` into the `Views` group, and added all three build files to the `Sources` build phase.
+
+What was completed:
+- **Native theme system**: `AppTheme` + `ThemeDefinition` — no third-party dependency, no Saber wrapping.
+- **User-selectable themes**: 6 built-in themes selectable via `ThemePickerView`.
+- **Persistent theme choice**: `ThemeStore` reads/writes `UserDefaults`; survives app restart.
+- **Component-level application**: `preferredColorScheme` on the root view; canvas background applied directly to `PKCanvasView`.
+- **Canvas/tool contrast protection**: `ThemeDefinition.canvasIsDark` (WCAG luminance check) drives `contrastingInkColor` seeded into `PKInkingTool`; dark-canvas banner reminds users to choose a light ink.
+- **Notebook-level theme hooks**: `Note.themeOverride: AppTheme?` persisted in JSON; per-note menu in editor overrides the global theme canvas-only.
+- **Future extensibility for premium themes**: `AppTheme.isPremium` flag wired into `ThemePickerView` (disabled + dimmed rows) ready for a premium unlock flow.
+
+What remains:
+- App icon artwork (placeholder empty appiconset).
+- iCloud / CloudKit sync (future agent).
+- Unit/UI tests (future agent once CI with Xcode is available).
+- Export (PDF/image) feature (future agent).
+- Premium theme unlock flow (UI scaffolded; business logic TBD).
+
+Build/test evidence:
+- No Xcode available in sandbox; correctness validated by structural inspection.
+- All PencilKit API calls (`PKInkingTool.init(_:color:width:)`, `PKCanvasView.backgroundColor`) are documented public API available iOS 14+.
+- `UserDefaults` persistence: `ThemeStore` reads on init (safe — key absent returns nil → `.system` default) and writes on every `select(_:)` call.
+- `Note.themeOverride` is Codable-optional: missing JSON key → nil → uses global theme (backward compatible).
+- `project.pbxproj` UUIDs: `AA000100000000000000003x` (file refs), `AA000100000000000000004x` (build files), `AA0001000000000000000033` (group) — sequential, non-colliding with existing `AA000100000000000000001x` range.
+
+Open risks:
+- `PKInkingTool` seeding sets the *initial* tool but the user can switch tools freely in the picker. Switching themes after first use does not retroactively change previously selected tools — intentional (respects user choice).
+- `updateUIView` updates `canvas.backgroundColor` but does not trigger a redraw of existing strokes — PencilKit renders strokes on top of the background so they remain visible.
+- Dark-canvas contrast banner is informational only; strokes already on the canvas before a theme change remain with their original colours.
+
+Notes for next agents:
+- To add a premium theme: create a new `AppTheme` case with `isPremium = true`. The picker automatically shows it greyed-out. Add a purchase/unlock check in `ThemeStore.select(_:)` before calling `apply(_:)`.
+- `ThemeStore` is injected as `@EnvironmentObject`; any view that needs theme colours should read `themeStore.definition` rather than querying `UITraitCollection` directly.
+- `CanvasView.updateUIView` currently only syncs `backgroundColor`. If future themes add canvas tint overlays or paper textures, extend `updateUIView` accordingly.

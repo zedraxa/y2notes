@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var themeStore: ThemeStore
     @State private var selectedNoteID: UUID?
 
     private var selectedNote: Note? {
@@ -20,6 +21,7 @@ struct ContentView: View {
                 emptyState
             }
         }
+        .preferredColorScheme(themeStore.definition.colorScheme)
     }
 
     private var emptyState: some View {

@@ -29,6 +29,7 @@ struct NoteListView: View {
 
     @State private var searchText  = ""
     @State private var sortOrder: NoteSortOrder = .modifiedDesc
+    @State private var showThemePicker = false
 
     // Filtered + sorted projection of the store.
     private var displayedNotes: [Note] {
@@ -67,6 +68,14 @@ struct NoteListView: View {
                 EditButton()
             }
             ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showThemePicker = true
+                } label: {
+                    Image(systemName: "paintpalette")
+                }
+                .accessibilityLabel("Choose theme")
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
                 sortMenu
             }
         }
@@ -74,6 +83,9 @@ struct NoteListView: View {
             if displayedNotes.isEmpty {
                 emptySearchOverlay
             }
+        }
+        .sheet(isPresented: $showThemePicker) {
+            ThemePickerView()
         }
     }
 
