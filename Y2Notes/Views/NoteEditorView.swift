@@ -17,6 +17,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
+    @EnvironmentObject var inkStore: InkEffectStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
@@ -57,19 +58,21 @@ struct NoteEditorView: View {
                 contrastBanner
             }
             Divider()
-            DrawingToolbarView(toolStore: toolStore)
+            DrawingToolbarView(toolStore: toolStore, inkStore: inkStore)
             CanvasView(
                 noteID: note.id,
                 drawingData: note.drawingData,
                 backgroundColor: effectiveDefinition.canvasBackground,
                 defaultInkColor: effectiveDefinition.contrastingInkColor,
-                currentTool: toolStore.pkTool,
+                currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
                 isShapeToolActive: toolStore.activeTool == .shape,
                 activeShapeType: toolStore.activeShapeType,
                 shapeColor: toolStore.activeColor,
                 shapeWidth: toolStore.activeWidth,
                 drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
                 zoomResetTrigger: zoomResetTrigger,
+                activeFX: inkStore.resolvedFX,
+                fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
                 onDrawingChanged: { data in
                     noteStore.updateDrawing(for: note.id, data: data)
                 },
