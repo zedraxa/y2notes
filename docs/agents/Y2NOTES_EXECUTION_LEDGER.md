@@ -127,7 +127,7 @@ Files modified:
 
 What was completed:
 - **Undo/Redo buttons**: Two toolbar buttons (↩ / ↪) added to `.navigationBarTrailing` in `NoteEditorView`. They call `undoManager?.undo()` / `undoManager?.redo()` via `@Environment(\.undoManager)` — the UIWindowScene undo manager that PencilKit registers stroke actions against.
-- **Reactive disabled state**: `@State private var canUndo` / `canRedo` track button availability. State is refreshed in `.onAppear` and reactively on `UndoManager.didCloseUndoGroupNotification`, `didUndoChangeNotification`, and `didRedoChangeNotification` via `.onReceive`. Buttons are `.disabled` when no action is available.
+- **Reactive disabled state**: `@State private var canUndo` / `canRedo` track button availability. State is refreshed in `.onAppear` and reactively on `.NSUndoManagerDidCloseUndoGroup`, `.NSUndoManagerDidUndoChange`, and `.NSUndoManagerDidRedoChange` via `.onReceive`. Buttons are `.disabled` when no action is available.
 
 What remains:
 - iCloud / CloudKit sync (future agent).
@@ -146,3 +146,35 @@ Open risks:
 Notes for next agents:
 - `canUndo` / `canRedo` state is driven by notifications, not KVO on `UndoManager`. This is the standard SwiftUI pattern; do not replace with polling.
 - If a future agent adds per-note undo isolation (separate `UndoManager` per note), the editor's `@Environment(\.undoManager)` injection point will need updating accordingly.
+
+---
+
+## [2026-04-01T14:28:48Z] AGENT-02 — Search, Sort & Editor Undo/Redo
+
+Branch: copilot/agent02-search-sort-undo
+Model used: claude-sonnet-4.6
+Scope: Add searchable note list, modification-date sort, and undo/redo toolbar buttons in the editor.
+
+Files modified:
+- `Y2Notes/Persistence/NoteStore.swift` — added `deleteNotes(withIDs:)` overload
+- `Y2Notes/Views/NoteListView.swift` — search bar, sort by `modifiedAt` desc, ID-based delete, "Untitled" fallback
+- `Y2Notes/Views/NoteEditorView.swift` — Undo / Redo toolbar buttons wired to `@Environment(\.undoManager)`
+
+What was completed:
+- **Searchable list**: `.searchable(text:prompt:)` on the `List`. Case-insensitive title match filters `displayedNotes`.
+- **Auto-sort**: `displayedNotes` sorts `noteStore.notes` by `modifiedAt` descending before filtering, so the most-recently-edited note always floats to the top.
+- **ID-based delete**: `onDelete` now maps the `ForEach` offsets through `displayedNotes` to collect UUIDs, then calls `deleteNotes(withIDs:)`. This is safe when the displayed order differs from the store array order (search/sort active).
+- **"Untitled" placeholder**: `NoteRowView` shows "Untitled" in secondary color when `note.title` is empty, preventing a blank / invisible row.
+- **Undo / Redo toolbar**: Two `ToolbarItemGroup` buttons (arrow.uturn.backward / arrow.uturn.forward) call `undoManager?.undo()` and `undoManager?.redo()`. PencilKit registers drawing operations with the UIKit responder-chain `UndoManager`; when the canvas is first responder, these buttons correctly undo/redo strokes.
+
+What remains:
+- App icon artwork (same as before).
+- iCloud / CloudKit sync (future agent).
+- Unit/UI tests (future agent).
+- Export (PDF/image) feature (future agent).
+- Undo/Redo button enable-state (could observe `UndoManager` notifications to grey them out).
+
+Notes for next agents:
+- `NoteStore.deleteNotes(at:)` still exists for future use (e.g. drag-reorder without search active), but `NoteListView` now uses `deleteNotes(withIDs:)` exclusively.
+- `@Environment(\.undoManager)` in `NoteEditorView` resolves to the window-level `UndoManager`. PencilKit routes drawing undos through the responder chain, so this works correctly when `PKCanvasView` is first responder.
+- `displayedNotes` is a pure computed property on the view — `NoteStore.notes` remains unsorted so the store order is stable for future features (e.g. manual reorder).

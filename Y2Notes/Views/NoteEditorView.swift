@@ -52,23 +52,23 @@ struct NoteEditorView: View {
             }
         }
         .onAppear {
-            refreshUndoState()
+            refreshUndoRedoState()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UndoManager.didCloseUndoGroupNotification)) { _ in
-            refreshUndoState()
+        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
+            refreshUndoRedoState()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UndoManager.didUndoChangeNotification)) { _ in
-            refreshUndoState()
+        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidUndoChange)) { _ in
+            refreshUndoRedoState()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UndoManager.didRedoChangeNotification)) { _ in
-            refreshUndoState()
+        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { _ in
+            refreshUndoRedoState()
         }
         .onDisappear {
             noteStore.save()
         }
     }
 
-    private func refreshUndoState() {
+    private func refreshUndoRedoState() {
         canUndo = undoManager?.canUndo ?? false
         canRedo = undoManager?.canRedo ?? false
     }
