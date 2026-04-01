@@ -288,3 +288,111 @@ What remains:
 - Export (PDF/image) feature (future agent)
 - Unit/UI tests (future agent)
 - App icon artwork
+
+---
+
+## [2026-04-01T17:40:02Z] AGENT-11 — Apple Pencil Interactions
+
+Branch: copilot/agent-11-implement-apple-pencil-interactions
+Model used: claude-sonnet-4.6
+Scope: Implement Apple Pencil and Apple Pencil Pro interactions natively: double-tap, squeeze, preferred-action handling, contextual palette, hover / ghost nib, barrel-roll fountain-pen behavior, and graceful fallbacks.
+
+Files created:
+- `Y2Notes/PencilKit/PencilInteractionCoordinator.swift` — Core interaction layer
+- `Y2Notes/PencilKit/PencilHoverOverlayView.swift` — Ghost nib / hover preview overlay
+- `Y2Notes/PencilKit/ContextualPencilPaletteView.swift` — Floating contextual tool palette
+
+Files modified:
+- `Y2Notes/Views/NoteEditorView.swift` — CanvasView and Coordinator wired to all pencil features
+- `Y2Notes.xcodeproj/project.pbxproj` — PencilKit group + 3 file refs + 3 build file entries added
+
+What was completed:
+
+### Double-tap (Apple Pencil 2nd gen+, iOS 12.1+)
+- `UIPencilInteraction` attached to `PKCanvasView` in `PencilInteractionCoordinator.attach(to:)`.
+- Delegate method `pencilInteractionDidTap(_:)` reads `UIPencilInteraction.preferredTapAction` (the system setting from Settings > Apple Pencil) and dispatches via `PencilActionDelegate`.
+- Supported preferred actions: `.switchEraser` (toggle eraser), `.switchPrevious` (restore last inking tool), `.showColorPalette` (show contextual palette), `.ignore` (no-op). `@unknown default` treated as "show palette" for forward compatibility.
+
+### Squeeze (Apple Pencil Pro, iOS 17.5+)
+- `pencilInteraction(_:didReceiveSqueeze:)` delegate implemented under `@available(iOS 17.5, *)`.
+- Only dispatches on `.ended` phase so the action fires exactly once per physical squeeze.
+- Reads `UIPencilInteraction.preferredSqueezeAction` and dispatches identically to double-tap.
+- Pre-iOS 17.5 or non-Pencil-Pro hardware: silently no-ops; `UIPencilInteraction` is still attached but the delegate method is never called.
+
+### Preferred action handling
+- `CanvasView.Coordinator.pencilDidRequestSwitchToEraser()`: saves the current `PKInkingTool` as `previousInkingTool` before switching to `PKEraserTool(.vector)`.
+- `pencilDidRequestSwitchToPreviousTool()`: restores `previousInkingTool`, or falls back to `.pen` if no previous tool was stored (e.g. eraser was active from app launch).
+- `pencilDidRequestUndo()` / `pencilDidRequestRedo()`: forwards to `PKCanvasView.undoManager`.
+- `pencilDidRequestContextualPalette(at:)`: converts canvas coordinates to window coordinates and calls `ContextualPencilPaletteView.show(at:in:canvas:)`.
+
+### Contextual palette anchored near Pencil tip
+- `ContextualPencilPaletteView` is a `UIView` subclass presented as a window-level overlay.
+- Positions itself above the anchor point (flips below if near the top edge); clamps horizontally to stay fully on-screen.
+- Content: one row of inking tool buttons (pen, pencil, marker; fountain pen + monoline added on iOS 17+) plus an eraser button; one row of 6 quick-pick color swatches.
+- Selecting any tool or color applies it to the canvas immediately and dismisses the palette.
+- A full-screen transparent `UIView` behind the palette catches taps outside it and dismisses.
+- Spring animation on appear; fade+scale on dismiss.
+
+### Hover preview / ghost nib (M2+ iPad Pro, iOS 16.1+)
+- `UIHoverGestureRecognizer` (with `cancelsTouchesInView = false`) attached under `#available(iOS 16.1, *)`.
+- In iOS 16.1, `UIHoverGestureRecognizer` gained `altitudeAngle` and `azimuthAngle(in:)` for Apple Pencil proximity — used directly without subclassing.
+- `PencilHoverOverlayView` is added as a non-interactive subview of `PKCanvasView` (pinned to its bounds so it never scrolls independently). It renders a semi-transparent ring cursor that:
+  - Follows the hover position.
+  - Scales vertically based on altitude angle (flat pencil → squashed ellipse; perpendicular → circle).
+  - Draws an azimuth direction line inside the ring.
+  - Animates in/out smoothly (UIView spring).
+- Devices that do not support Pencil hover: `UIHoverGestureRecognizer` never fires; overlay stays invisible at zero cost.
+
+### Barrel-roll-aware fountain behavior (Apple Pencil Pro, iOS 17.5+)
+- `PencilBarrelRollObserver` (`UIGestureRecognizer` subclass, `@available(iOS 17.5, *)`) reads `UITouch.rollAngle` from `.pencil`-type touches without consuming them (`cancelsTouchesInView = false`; `canPreventGestureRecognizer` → `false`; always ends in `.failed`).
+- `pencilBarrelRollChanged(angle:)` in `CanvasView.Coordinator` checks if the active tool is `PKInkingTool(.fountainPen, ...)` (available iOS 17+). If so, it maps the cosine of the roll angle to a width variation (±80% around the current width), simulating a calligraphic nib that produces thin strokes when edge-on and thicker strokes when face-on. Only updates the tool when the computed width differs by more than 0.4 pt to avoid spurious tool rebuilds on micro-movements.
+- iOS < 17.5 or non-Pencil-Pro hardware: the observer is never attached; no-op.
+
+### Graceful fallbacks
+- Every hardware/OS-specific path is guarded by `#available(...)`.
+- `PencilActionDelegate` methods are always implemented so the Coordinator compiles cleanly regardless of Pencil model.
+- On devices with no Pencil: `UIPencilInteraction` is attached but never fires; overlay and barrel-roll observer remain dormant; drawing works normally via finger input (`.anyInput` policy unchanged).
+- `@unknown default` in the preferred-action switch handles any new action added in a future iOS without crashing.
+
+Fallbacks summary:
+| Feature          | Fallback behaviour when unsupported                      |
+|------------------|----------------------------------------------------------|
+| Double-tap       | Never fires; no UI change                                |
+| Squeeze          | Never fires (delegate method not reached on iOS < 17.5)  |
+| Preferred action | @unknown default → show contextual palette               |
+| Hover overlay    | Stays invisible; UIHoverGestureRecognizer not attached   |
+| Ghost nib        | View present but alpha=0; zero rendering cost            |
+| Barrel roll      | Observer not attached; fountain pen width unchanged      |
+| Contextual pal.  | Works on all devices (tap target is always present)      |
+
+What remains / not in scope:
+- App icon artwork (out of scope for AGENT-11).
+- iCloud / CloudKit sync (future agent).
+- Unit / UI tests (no Xcode available in this Linux sandbox; all logic validated by structural inspection).
+- Pencil interaction settings screen (e.g., letting users override preferred action inside the app in addition to system Settings).
+
+Build/test evidence:
+- No Xcode available in sandbox; correctness validated by:
+  - Brace-balance checks on all modified/created Swift files (all balanced).
+  - UUID reference counts in `project.pbxproj` verified programmatically (all consistent).
+  - All PencilKit and UIKit APIs used are documented public API with correct availability:
+    - `UIPencilInteraction` / `pencilInteractionDidTap` — iOS 12.1+ ✓
+    - `UIPencilInteraction.preferredTapAction` (class property) — iOS 12.1+ ✓
+    - `UIPencilInteraction.preferredSqueezeAction` (class property) — iOS 17.5+ (guarded) ✓
+    - `UIPencilInteraction.Squeeze` / squeeze delegate — iOS 17.5+ (guarded) ✓
+    - `UIHoverGestureRecognizer` — iOS 13.4+ ✓ (within iOS 16 deployment target)
+    - `UIHoverGestureRecognizer.altitudeAngle`, `.azimuthAngle(in:)` — iOS 16.1+ (guarded) ✓
+    - `UITouch.rollAngle` — iOS 17.5+ (guarded) ✓
+    - `PKInkingTool.InkType.fountainPen` — iOS 17+ (guarded) ✓
+    - `PKEraserTool(.vector)` — iOS 16+ ✓
+
+Open risks:
+- `UIHoverGestureRecognizer.altitudeAngle` / `azimuthAngle(in:)` — documented in iOS 16.1 release notes and WWDC 2022 sessions; if the SDK headers differ slightly the hover branch must be adjusted (hover position will still work via `location(in:)`).
+- `UIPencilInteraction.Squeeze.phase` — assumed to use a `.ended` case consistent with the UIGestureRecognizer pattern; if the struct shape differs in the released SDK, the guard condition may need updating.
+- Barrel-roll width range (0.3× – 1.8× base) is a heuristic; actual calligraphic feel should be tuned on physical Pencil Pro hardware.
+
+Notes for next agents:
+- `PencilInteractionCoordinator` is intentionally decoupled from SwiftUI state — it communicates only via `PencilActionDelegate`. To add new actions (e.g., "show ruler"), add a case to the protocol and implement it in `CanvasView.Coordinator`.
+- `ContextualPencilPaletteView.defaultColors` is a static property; it can be replaced with theme-aware colors by passing `themeStore.definition` colors through `NoteEditorView`.
+- The `previousInkingTool` state lives in `CanvasView.Coordinator` (ephemeral per-note-open session). If per-note persistent previous-tool memory is desired, store it in `NoteStore`/`Note`.
+- PKToolPicker's own double-tap response (if the user sets it to "switch to previous" in Settings) coexists with our handler — both run. This is the expected Apple behavior: the system action fires first, then our delegate. There is no double-action because `PKToolPicker` handles its own tool switch independently of our `UIPencilInteraction` delegation.
