@@ -120,10 +120,28 @@ final class NoteStore: ObservableObject {
 
     // MARK: - Notebook CRUD
 
-    /// Creates and stores a new notebook.
+    /// Creates and stores a new notebook with full wizard configuration.
     @discardableResult
-    func addNotebook(name: String, cover: NotebookCover = .ocean) -> Notebook {
-        let nb = Notebook(name: name, cover: cover)
+    func addNotebook(
+        name: String,
+        cover: NotebookCover = .ocean,
+        pageType: PageType = .ruled,
+        pageSize: PageSize = .letter,
+        orientation: PageOrientation = .portrait,
+        defaultTheme: AppTheme? = nil,
+        paperMaterial: PaperMaterial = .standard,
+        customCoverData: Data? = nil
+    ) -> Notebook {
+        let nb = Notebook(
+            name: name,
+            cover: cover,
+            pageType: pageType,
+            pageSize: pageSize,
+            orientation: orientation,
+            defaultTheme: defaultTheme,
+            paperMaterial: paperMaterial,
+            customCoverData: customCoverData
+        )
         notebooks.insert(nb, at: 0)
         save()
         return nb

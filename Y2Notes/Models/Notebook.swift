@@ -32,18 +32,66 @@ struct Notebook: Identifiable, Codable, Hashable {
     var modifiedAt: Date
     var cover: NotebookCover
 
+    // MARK: Creation wizard configuration
+    /// Page ruling style for new notes in this notebook.
+    var pageType: PageType
+    /// Standard page size for new notes.
+    var pageSize: PageSize
+    /// Default page orientation for new notes.
+    var orientation: PageOrientation
+    /// Optional theme override applied to notes in this notebook. nil = follow global app theme.
+    var defaultTheme: AppTheme?
+    /// Simulated paper texture / feel.
+    var paperMaterial: PaperMaterial
+    /// JPEG-compressed custom cover image chosen from the photo library. nil = use built-in gradient.
+    var customCoverData: Data?
+
     init(
         id: UUID = UUID(),
         name: String,
         createdAt: Date = Date(),
         modifiedAt: Date = Date(),
-        cover: NotebookCover = .ocean
+        cover: NotebookCover = .ocean,
+        pageType: PageType = .ruled,
+        pageSize: PageSize = .letter,
+        orientation: PageOrientation = .portrait,
+        defaultTheme: AppTheme? = nil,
+        paperMaterial: PaperMaterial = .standard,
+        customCoverData: Data? = nil
     ) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
         self.cover = cover
+        self.pageType = pageType
+        self.pageSize = pageSize
+        self.orientation = orientation
+        self.defaultTheme = defaultTheme
+        self.paperMaterial = paperMaterial
+        self.customCoverData = customCoverData
+    }
+
+    // MARK: Codable — custom decoder for backward compatibility with saves that pre-date
+    // the pageType / pageSize / orientation / defaultTheme / paperMaterial / customCoverData fields.
+    enum CodingKeys: String, CodingKey {
+        case id, name, createdAt, modifiedAt, cover
+        case pageType, pageSize, orientation, defaultTheme, paperMaterial, customCoverData
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id              = try c.decode(UUID.self,          forKey: .id)
+        name            = try c.decode(String.self,        forKey: .name)
+        createdAt       = try c.decode(Date.self,          forKey: .createdAt)
+        modifiedAt      = try c.decode(Date.self,          forKey: .modifiedAt)
+        cover           = try c.decode(NotebookCover.self, forKey: .cover)
+        pageType        = try c.decodeIfPresent(PageType.self,        forKey: .pageType)      ?? .ruled
+        pageSize        = try c.decodeIfPresent(PageSize.self,        forKey: .pageSize)      ?? .letter
+        orientation     = try c.decodeIfPresent(PageOrientation.self, forKey: .orientation)   ?? .portrait
+        defaultTheme    = try c.decodeIfPresent(AppTheme.self,        forKey: .defaultTheme)
+        paperMaterial   = try c.decodeIfPresent(PaperMaterial.self,   forKey: .paperMaterial) ?? .standard
+        customCoverData = try c.decodeIfPresent(Data.self,            forKey: .customCoverData)
     }
 
     // MARK: Hashable — identity only.
