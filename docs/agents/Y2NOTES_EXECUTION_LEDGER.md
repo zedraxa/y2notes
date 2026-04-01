@@ -762,3 +762,87 @@ Notes for next agents:
 - `DrawingToolStore` is injected at app root via `.environmentObject(toolStore)` — any new view that needs tool state should read it the same way NoteEditorView does
 - `ShapeOverlayView` coordinate space equals the container UIView (not canvas content), which matches the canvas frame since scroll is disabled during shape drawing
 - To add new ink types on iOS 17+, add a case to `DrawingTool`, map it in `DrawingToolStore.pkTool`, add a system image in `ToolModels.swift`
+
+---
+
+## [2026-04-01T22:19:39Z] AGENT-15 — PDF Workflows
+
+Branch: copilot/implement-pdf-workflows
+Model used: claude-sonnet-4.6
+Scope: Implement complete PDF workflows — import from Files/iCloud, per-page PencilKit annotation, annotated-PDF export, full-text search, thumbnail navigation, and hyperlink tap-through.
+
+### Files created
+
+- `Y2Notes/PDF/PDFNoteModel.swift` — `PDFNoteRecord` struct: Identifiable/Codable/Hashable. Fields: `id`, `title`, `pdfFilename` (basename in `Documents/PDFNotes/`), `pageCount`, `annotationData` (`[String: Data]` keyed by page-index string), `currentPage`, `createdAt`, `modifiedAt`. Tolerant `Decodable` init (`decodeIfPresent` for optional fields).
+- `Y2Notes/PDF/PDFStore.swift` — `PDFStore: ObservableObject`:
+  - `@Published private(set) var records: [PDFNoteRecord]`
+  - Stores metadata at `Documents/y2notes_pdfs.json`; stores PDF copies in `Documents/PDFNotes/`
+  - `importPDF(from:URL) -> PDFNoteRecord?` — copies file into PDFNotes dir, reads page count via `PDFDocument`, saves record
+  - `saveAnnotation(recordID:pageIndex:drawing:)` — serialises `PKDrawing` → `Data`, stores in `annotationData`, persists
+  - `loadAnnotation(recordID:pageIndex:) -> PKDrawing` — deserialises or returns empty drawing
+  - `exportAnnotatedPDF(recordID:) -> URL?` — opens `PDFDocument`, iterates pages, renders each `PKDrawing` into a `UIGraphicsPDFRenderer`-generated overlay, writes to a temp file and returns URL
+  - `search(recordID:query:) -> [PDFSelection]` — delegates to `PDFDocument.findString(_:withOptions:)`
+  - `deleteRecord(id:)` — removes PDF file and metadata
+  - `load()` / `save()` — JSON encode/decode with `.bak` fallback pattern matching NoteStore
+- `Y2Notes/PDF/PDFPageAnnotationView.swift` — `PDFPageAnnotationView: UIViewRepresentable` wrapping `PKCanvasView`:
+  - Syncs `PKDrawing` in/out via `Binding<PKDrawing>`
+  - Supports finger/pencil drawing policy from `DrawingToolStore` environment object
+  - Passes active `PKTool` from `DrawingToolStore.pkTool`
+  - Coordinator handles `canvasViewDrawingDidChange` → publishes updated drawing upstream
+- `Y2Notes/PDF/PDFViewerView.swift` — `PDFViewerView: View` presented from `ShelfView`:
+  - `PDFKit.PDFView` wrapped as `UIViewRepresentable` (`PDFKitView`)
+  - `PDFPageAnnotationView` overlaid on top of `PDFKitView` and sized to match the current page
+  - Toolbar: page counter (current/total), back/forward buttons, export button, search button
+  - Search bar with `TextField`; matches highlighted via `PDFView.highlight(selection:)`
+  - Hyperlink tap handled by `PDFViewDelegate.didTap(on:)` → opens `UIApplication.open` for `PDFActionURL`
+  - Annotation layer toggleable (eye icon) — hides `PDFPageAnnotationView` without discarding data
+  - Saves annotation on every drawing change (debounced via `Task { try await Task.sleep(…) }`)
+  - Resume-from-last-page on open via `record.currentPage`
+
+### Files modified
+
+- `Y2Notes/Views/ShelfView.swift`:
+  - `@EnvironmentObject var pdfStore: PDFStore` added to `ShelfView`, `SidebarView`, `PDFLibraryView`, `PDFCardView`
+  - "PDFs" sidebar item with badge showing import count
+  - `PDFLibraryView` — grid of `PDFCardView` tiles; "+ Import PDF" toolbar button triggering `fileImporter(contentTypes: [.pdf])`; swipe-to-delete; empty state placeholder
+  - `PDFCardView` — async thumbnail of page 0 via `PDFDocument` + `PDFPage.thumbnail(of:for:)`; title; page-count caption
+  - Navigation: tapping a card sets `selectedPDFID`; `NavigationSplitView` detail pane shows `PDFViewerView`
+- `Y2Notes/Y2NotesApp.swift` — Added `@StateObject private var pdfStore = PDFStore()` and `.environmentObject(pdfStore)` alongside existing stores.
+- `Y2Notes.xcodeproj/project.pbxproj`:
+  - PBXFileReference: `AA90`=PDFNoteModel, `AA91`=PDFStore, `AA92`=PDFPageAnnotationView, `AA93`=PDFViewerView
+  - PBXBuildFile: `AA94`–`AA97` (Sources build phase)
+  - PBXGroup `AA8F` (path = PDF) under Y2Notes root group
+  - All four files added to Sources build phase
+
+### What was completed
+
+- **Import**: `fileImporter` sheet; `PDFStore.importPDF` copies file and records metadata
+- **Per-page annotation**: `PKCanvasView` overlaid on each PDF page; `PKDrawing` serialised per page and persisted
+- **Export**: `PDFStore.exportAnnotatedPDF` merges PencilKit strokes onto each PDF page and returns a shareable URL (presented via `ShareLink` / activity sheet)
+- **Full-text search**: `PDFDocument.findString` results; matched selections highlighted in `PDFView`
+- **Thumbnail navigation**: async `PDFPage.thumbnail` in `PDFCardView`; resume from last-viewed page
+- **Hyperlink tap-through**: `PDFViewDelegate` intercepts `PDFActionURL` and opens in `UIApplication`
+
+### What remains
+
+- iCloud Drive sync for PDF imports (future agent)
+- Unit/UI tests (future agent once CI with Xcode is available)
+- Per-page zoom/scroll state persistence (currently resets on page change)
+
+### Build/test evidence
+
+- No Xcode available in sandbox; correctness validated by structural inspection
+- All PDFKit and PencilKit APIs used are public iOS 16+ API
+- `PDFStore` uses same `.bak` backup pattern as `NoteStore` for resilience
+
+### Open risks
+
+- Annotation overlay coordinate mapping assumes `PDFView.displayMode = .singlePage`; continuous scroll mode would require recalculating overlay frame per visible page
+- `exportAnnotatedPDF` uses `UIGraphicsImageRenderer` for annotation rasterisation at 2× scale; very large PDFs may be memory-intensive
+
+### Notes for next agents
+
+- `PDFStore` is injected at app root via `.environmentObject(pdfStore)` — any new PDF-related view should consume it the same way `PDFViewerView` does
+- `PDFNoteRecord.pdfFilename` is the basename only; resolve full URL via `pdfStore.pdfDirectory.appendingPathComponent(record.pdfFilename)`
+- `PDFPageAnnotationView` reads `DrawingToolStore` as `@EnvironmentObject`; ensure `toolStore` is present in the environment when presenting `PDFViewerView`
+- pbxproj IDs reserved by AGENT-15: file refs `AA90`–`AA93`, build files `AA94`–`AA97`, group `AA8F`
