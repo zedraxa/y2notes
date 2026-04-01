@@ -247,7 +247,13 @@ final class NoteStore: ObservableObject {
         // Snapshot the current good file as a backup before overwriting it.
         if FileManager.default.fileExists(atPath: url.path) {
             try? FileManager.default.removeItem(at: backupURL)
-            try? FileManager.default.copyItem(at: url, to: backupURL)
+            if (try? FileManager.default.copyItem(at: url, to: backupURL)) == nil {
+                // Best-effort — the primary write still proceeds. Log in debug builds
+                // so disk-full or permission issues are visible during development.
+                #if DEBUG
+                print("Y2Notes: backup creation failed for \(url.lastPathComponent)")
+                #endif
+            }
         }
         // .atomic writes to a temp sibling then renames into place, making the
         // final swap as close to atomic as the filesystem permits.
@@ -269,7 +275,13 @@ final class NoteStore: ObservableObject {
         let backupURL = url.appendingPathExtension("bak")
         if let value = attemptLoad(type, from: backupURL) {
             // Promote the backup to primary so the next save goes to the right place.
-            try? FileManager.default.copyItem(at: backupURL, to: url)
+            // If this copy fails, data is still in memory and will be written to the
+            // primary path on the very next save() call.
+            if (try? FileManager.default.copyItem(at: backupURL, to: url)) == nil {
+                #if DEBUG
+                print("Y2Notes: backup promotion failed for \(url.lastPathComponent); data will be rewritten on next save")
+                #endif
+            }
             return value
         }
         return nil

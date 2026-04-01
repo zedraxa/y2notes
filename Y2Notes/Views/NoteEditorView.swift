@@ -13,6 +13,8 @@ struct NoteEditorView: View {
     @State private var canRedo = false
     /// Controls the transient "saved" checkmark badge (hidden 2 s after saved).
     @State private var showSavedBadge = false
+    /// Timestamp of the most recent "saved" event — used to debounce the auto-hide timer.
+    @State private var badgeShownAt: Date?
 
     init(note: Note) {
         self.note = note
@@ -91,9 +93,14 @@ struct NoteEditorView: View {
         .onReceive(noteStore.$saveState) { state in
             if state == .saved {
                 showSavedBadge = true
-                // Hide the badge after 2 s so it doesn't crowd the toolbar permanently.
+                let now = Date()
+                badgeShownAt = now
+                // Each rapid save updates `badgeShownAt`; only the last scheduled
+                // callback will actually hide the badge, avoiding premature dismissal.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    showSavedBadge = false
+                    if badgeShownAt == now {
+                        showSavedBadge = false
+                    }
                 }
             }
         }
