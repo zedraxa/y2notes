@@ -549,6 +549,10 @@ private struct NewNotebookSheet: View {
 
     @State private var name = ""
     @State private var selectedCover: NotebookCover = .ocean
+    @State private var selectedTemplateID: String = TemplateRegistry.shared.defaultTemplateID
+    @State private var addDefaultSection = true
+
+    private var templates: [PageTemplate] { TemplateRegistry.shared.allTemplates }
 
     var body: some View {
         NavigationStack {
@@ -557,6 +561,7 @@ private struct NewNotebookSheet: View {
                     TextField("Notebook name", text: $name)
                         .submitLabel(.done)
                 }
+
                 Section("Cover Color") {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 12)], spacing: 12) {
                         ForEach(NotebookCover.allCases, id: \.self) { cover in
@@ -565,6 +570,39 @@ private struct NewNotebookSheet: View {
                         }
                     }
                     .padding(.vertical, 6)
+                }
+
+                Section {
+                    Toggle("Add default section", isOn: $addDefaultSection)
+                } footer: {
+                    Text("Creates a "Notes" section so pages are organised from the start.")
+                }
+
+                Section("Default Page Template") {
+                    ForEach(templates) { template in
+                        Button {
+                            selectedTemplateID = template.id
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: template.systemImage)
+                                    .frame(width: 24)
+                                    .foregroundStyle(.tint)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(template.displayName)
+                                        .foregroundStyle(.primary)
+                                    Text(template.category)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if selectedTemplateID == template.id {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.tint)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .navigationTitle("New Notebook")
@@ -575,17 +613,18 @@ private struct NewNotebookSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        noteStore.addNotebook(
-                            name: trimmed.isEmpty ? "Untitled" : trimmed,
-                            cover: selectedCover
+                        noteStore.createNotebook(
+                            name: name,
+                            cover: selectedCover,
+                            defaultTemplateID: selectedTemplateID,
+                            addDefaultSection: addDefaultSection
                         )
                         dismiss()
                     }
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
     }
 }
 

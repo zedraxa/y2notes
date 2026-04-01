@@ -19,6 +19,8 @@
 		AA0001000000000000000040 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000030 /* AppTheme.swift */; };
 		AA0001000000000000000041 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000031 /* ThemeStore.swift */; };
 		AA0001000000000000000042 /* ThemePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000032 /* ThemePickerView.swift */; };
+		AA0001000000000000000060 /* NotebookSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000050 /* NotebookSection.swift */; };
+		AA0001000000000000000061 /* PageTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000051 /* PageTemplate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +38,8 @@
 		AA0001000000000000000030 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		AA0001000000000000000031 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		AA0001000000000000000032 /* ThemePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePickerView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000050 /* NotebookSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookSection.swift; sourceTree = "<group>"; };
+		AA0001000000000000000051 /* PageTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTemplate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +89,8 @@
 			children = (
 				AA0001000000000000000013 /* Note.swift */,
 				AA0001000000000000000022 /* Notebook.swift */,
+				AA0001000000000000000050 /* NotebookSection.swift */,
+				AA0001000000000000000051 /* PageTemplate.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -197,6 +203,8 @@
 				AA0001000000000000000040 /* AppTheme.swift in Sources */,
 				AA0001000000000000000041 /* ThemeStore.swift in Sources */,
 				AA0001000000000000000042 /* ThemePickerView.swift in Sources */,
+				AA0001000000000000000060 /* NotebookSection.swift in Sources */,
+				AA0001000000000000000061 /* PageTemplate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
