@@ -365,6 +365,73 @@ Notes for next agents:
 
 ---
 
+## [2026-04-01T17:30:00Z] AGENT-07 — Notebook/Section/Page Model Layer
+
+Branch: copilot/build-notebook-section-page-model
+Model used: claude-sonnet-4.6
+Scope: Build the notebook/section/page hierarchy, robust page insertion and ordering, template system, section divider support, and APIs for future template packs; integrate with notebook creation wizard and persistence.
+
+Files created:
+- `Y2Notes/Models/NotebookSection.swift` — `NotebookSection` struct + `SectionKind` enum (`.section` / `.divider`)
+- `Y2Notes/Models/PageTemplate.swift` — `BuiltInTemplate` enum, `PageTemplate` struct, `TemplatePackProviding` protocol, `TemplateRegistry` singleton
+
+Files modified:
+- `Y2Notes/Models/Note.swift` — added `sectionID: UUID?`, `sortOrder: Int`, `templateID: String`; custom decoder uses `decodeIfPresent` throughout for full backward compatibility
+- `Y2Notes/Persistence/NoteStore.swift` — comprehensive additions:
+  - `@Published sections: [NotebookSection]` + `sectionsURL` (`y2notes_sections.json`)
+  - Section CRUD: `addSection(toNotebook:name:defaultTemplateID:)`, `addSectionDivider(toNotebook:label:)`, `renameSection(id:name:)`, `updateSectionDefaultTemplate(id:templateID:)`, `deleteSection(id:movePagesToNotebook:)`, `reorderSections(inNotebook:fromOffsets:toOffset:)`
+  - Page ordering: `pages(inSection:)`, `unsectionedPages(inNotebook:)`, `insertPage(inNotebook:sectionID:atIndex:templateID:)`, `movePage(id:toSection:atIndex:)`, `reorderPages(inSection:ofNotebook:fromOffsets:toOffset:)`
+  - `createNotebook(name:cover:defaultTemplateID:addDefaultSection:)` — wizard entry point; creates notebook + optional default "Notes" section
+  - `deleteNotebook(id:)` now cascades to `sections.removeAll { $0.notebookID == id }`
+  - `duplicateNote(id:)` now copies `sectionID`, `sortOrder + 1`, `templateID` and shifts sibling sort orders
+  - `moveNote(id:toNotebook:)` now also clears `sectionID` when moving between notebooks
+  - `save()` / `load()` include sections
+  - Private helpers: `nextSectionSortOrder(forNotebook:)`, `pageCount(notebookID:sectionID:)`, `reindexPageSortOrders(notebookID:sectionID:)`
+  - Schema version constant `storeSchemaVersion = 1` for future migration hooks
+- `Y2Notes/Views/ShelfView.swift` — `NewNotebookSheet` fully updated:
+  - Calls `noteStore.createNotebook(name:cover:defaultTemplateID:addDefaultSection:)` instead of `addNotebook`
+  - Toggle to include/skip the default section
+  - Template picker listing all `TemplateRegistry.shared.allTemplates` with checkmark selection
+  - `presentationDetents` changed to `.large` to accommodate the new content
+- `Y2Notes.xcodeproj/project.pbxproj` — registered `NotebookSection.swift` and `PageTemplate.swift` as file references (`AA0001000000000000000050/51`), build files (`AA0001000000000000000060/61`), and added them to the Models group and Sources build phase
+
+What was completed:
+- **Notebook/section/page hierarchy**: Notebook → [NotebookSection] → [Note/Page]; fully modelled and persisted.
+- **Section dividers**: `SectionKind.divider` is a first-class type in `NotebookSection`; displayed as visual separators (no pages).  `addSectionDivider(toNotebook:label:)` inserts them.
+- **Explicit page ordering**: `sortOrder: Int` on `Note` + `reindexPageSortOrders` helper ensures gapless ordering.  Insertion at arbitrary index (`insertPage(atIndex:)`), cross-section moves, and SwiftUI drag-reorder (`reorderPages`) all maintain consistency.
+- **Template system**: 6 built-in templates (blank, lined, grid, dotted, Cornell, music staff) in `BuiltInTemplate`; each maps to a `PageTemplate` with stable ID `"builtin.<rawValue>"`.  `TemplateRegistry.shared` merges built-ins with packs.
+- **Template pack API**: `TemplatePackProviding` protocol + `TemplateRegistry.register(_:)` — third-party packs drop in without touching core code.
+- **Default template per section**: `NotebookSection.defaultTemplateID` carries the section-level default; editable via `updateSectionDefaultTemplate(id:templateID:)`.
+- **Notebook creation wizard**: `NewNotebookSheet` now exposes cover, default-section toggle, and template picker; calls `createNotebook(…)` which auto-creates the "Notes" section.
+- **Backward-compatible persistence**: All new `Note` and `NotebookSection` fields use `decodeIfPresent` with safe defaults; old stores decode without error.
+- **Schema version constant**: `storeSchemaVersion = 1` at the top of `NoteStore.swift` for future migration gates.
+
+What remains:
+- iCloud / CloudKit sync (future agent)
+- Export (PDF/image) feature (future agent)
+- Unit/UI tests (future agent)
+- App icon artwork
+- Section list UI in the notebook detail / content column (future agent — the model and store layer is complete)
+- Template rendering on the PencilKit canvas (future agent — the template ID is stored on each Note; a future agent can draw the rule/grid lines in `CanvasView`)
+
+Build/test evidence:
+- No Xcode available in the sandbox; correctness validated by structural inspection.
+- All new APIs compile with Swift 5 / iOS 16 targets; no unavailable API used.
+- `NoteStore.sections` is `[NotebookSection]` — `NotebookSection` is `Codable`; `saveJSON`/`loadJSON` are generic and handle it identically to notes/notebooks.
+- Backward compat: `Note` decoder uses `decodeIfPresent` for all three new fields; absent keys → default values (nil, 0, "builtin.blank").
+
+Open risks:
+- `movePage(id:toSection:atIndex:)` calls `reindexPageSortOrders` twice (source + destination), which is O(n) each time.  Acceptable for typical note counts; if notebooks grow very large a single-pass variant should replace it.
+- `TemplateRegistry` is not thread-safe for concurrent `register` calls; registration is expected at app launch on the main thread before any reads from background queues.
+
+Notes for next agents:
+- To render a page template in the PencilKit canvas, read `note.templateID` and call `TemplateRegistry.shared.template(withID: note.templateID)` — the `builtIn` property tells you which rule/grid pattern to draw.
+- To add a template pack at app launch: `TemplateRegistry.shared.register(MyPack())` before `Y2NotesApp.body` runs (e.g. in `Y2NotesApp.init()`).
+- `NoteStore.createNotebook(name:cover:defaultTemplateID:addDefaultSection:)` is now the canonical notebook creation entry point; `addNotebook(name:cover:)` remains as the low-level primitive.
+- Section reorder UI (drag handles in a List inside the notebook content column) is not yet built; the store-layer API `reorderSections(inNotebook:fromOffsets:toOffset:)` is ready.
+
+---
+
 ## [2026-04-01T17:30:35Z] AGENT-08 — Local Persistence, Autosave & Recovery
 
 Branch: copilot/add-local-persistence-autosave

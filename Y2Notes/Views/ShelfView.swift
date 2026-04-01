@@ -541,6 +541,7 @@ private struct ShelfDetailPlaceholder: View {
     }
 }
 
+
 // MARK: - Move Note sheet
 
 private struct MoveNoteSheet: View {
