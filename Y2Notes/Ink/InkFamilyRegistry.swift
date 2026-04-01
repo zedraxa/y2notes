@@ -86,7 +86,7 @@ final class InkFamilyRegistry {
                   baseWidth: 2.5, isBuiltIn: true),
     ]}
 
-    // MARK: - Watercolour
+    // MARK: - Watercolor
 
     private static func watercolorPresets() -> [InkPreset] {[
         InkPreset(name: "Aqua Wash",
