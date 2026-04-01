@@ -14,6 +14,8 @@
 		AA000100000000000000001D /* NoteEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000015 /* NoteEditorView.swift */; };
 		AA000100000000000000001E /* NoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000016 /* NoteStore.swift */; };
 		AA000100000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000017 /* Assets.xcassets */; };
+		AA0001000000000000000023 /* Notebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000022 /* Notebook.swift */; };
+		AA0001000000000000000025 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000024 /* ShelfView.swift */; };
 		AA0001000000000000000040 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000030 /* AppTheme.swift */; };
 		AA0001000000000000000041 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000031 /* ThemeStore.swift */; };
 		AA0001000000000000000042 /* ThemePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000032 /* ThemePickerView.swift */; };
@@ -24,8 +26,10 @@
 		AA0001000000000000000011 /* Y2NotesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NotesApp.swift; sourceTree = "<group>"; };
 		AA0001000000000000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000013 /* Note.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Note.swift; sourceTree = "<group>"; };
+		AA0001000000000000000022 /* Notebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notebook.swift; sourceTree = "<group>"; };
 		AA0001000000000000000014 /* NoteListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteListView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000015 /* NoteEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteEditorView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000024 /* ShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000016 /* NoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteStore.swift; sourceTree = "<group>"; };
 		AA0001000000000000000017 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0001000000000000000018 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -80,6 +84,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000013 /* Note.swift */,
+				AA0001000000000000000022 /* Notebook.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -89,6 +94,7 @@
 			children = (
 				AA0001000000000000000014 /* NoteListView.swift */,
 				AA0001000000000000000015 /* NoteEditorView.swift */,
+				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
 			);
 			path = Views;
@@ -186,6 +192,8 @@
 				AA000100000000000000001C /* NoteListView.swift in Sources */,
 				AA000100000000000000001D /* NoteEditorView.swift in Sources */,
 				AA000100000000000000001E /* NoteStore.swift in Sources */,
+				AA0001000000000000000023 /* Notebook.swift in Sources */,
+				AA0001000000000000000025 /* ShelfView.swift in Sources */,
 				AA0001000000000000000040 /* AppTheme.swift in Sources */,
 				AA0001000000000000000041 /* ThemeStore.swift in Sources */,
 				AA0001000000000000000042 /* ThemePickerView.swift in Sources */,

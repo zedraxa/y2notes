@@ -238,3 +238,53 @@ Notes for next agents:
 - To add a premium theme: create a new `AppTheme` case with `isPremium = true`. The picker automatically shows it greyed-out. Add a purchase/unlock check in `ThemeStore.select(_:)` before calling `apply(_:)`.
 - `ThemeStore` is injected as `@EnvironmentObject`; any view that needs theme colours should read `themeStore.definition` rather than querying `UITraitCollection` directly.
 - `CanvasView.updateUIView` currently only syncs `backgroundColor`. If future themes add canvas tint overlays or paper textures, extend `updateUIView` accordingly.
+
+---
+
+## [2026-04-01T15:35:03Z] AGENT-05 — Build Shelf/Library Experience
+
+Branch: copilot/agent-05-build-shelf-experience
+Model used: claude-sonnet-4.6
+Scope: Premium iPad-first shelf UI — notebooks, folders, recents, favorites, notebook cover thumbnails, quick create, rename/move/duplicate/delete flows, polished empty and loading states.
+
+Files created:
+- `Y2Notes/Models/Notebook.swift` — `Notebook` model + `NotebookCover` enum (ocean/forest/sunset/lavender/slate/sand)
+- `Y2Notes/Views/ShelfView.swift` — complete library/shelf UI:
+  - `LibrarySection` enum (allNotes, recents, favorites, notebook(UUID))
+  - `ShelfView` — 3-column `NavigationSplitView` (sidebar / note grid / editor); auto-clears selection when note deleted
+  - `ShelfSidebarView` — Library sections (All Notes, Recents, Favorites with badge counts) + Notebooks list with mini colored covers, context menu (rename / change cover / delete), swipe-to-delete, inline alert for rename, "+" header button for new notebook
+  - `NotebookSidebarRow` — mini gradient cover swatch + name + note count
+  - `NoteGridView` — `LazyVGrid` adaptive columns; context menus (rename, favorite/unfavorite, duplicate, move, delete); creates note in current notebook when in notebook section; polished loading/empty states per section
+  - `NoteCardView` — card with 130pt canvas thumbnail (async, background thread), title, relative date, star badge for favorites, selection ring
+  - `ShelfDetailPlaceholder` — empty editor detail state
+  - `NewNotebookSheet` — form with name field + cover color picker (6 swatches with checkmark)
+  - `CoverSwatch` — gradient swatch with selection indicator
+  - `MoveNoteSheet` — "Unfiled" option + list of notebooks with current selection checkmark
+  - `NotebookCover.gradient` / `NotebookCover.displayName` — SwiftUI extension (keeps model pure Foundation)
+
+Files modified:
+- `Y2Notes/Models/Note.swift` — added `isFavorited: Bool`, `notebookID: UUID?`; custom `Decodable` init using `decodeIfPresent` for backward compatibility with existing saved notes
+- `Y2Notes/Persistence/NoteStore.swift` — added `notebooks: [Notebook]`; separate `y2notes_notebooks.json` save file (existing note save format unchanged); new API: `addNote(inNotebook:)`, `duplicateNote(id:)`, `moveNote(id:toNotebook:)`, `toggleFavorite(id:)`, `addNotebook`, `renameNotebook`, `updateNotebookCover`, `deleteNotebook` (unfiles notes); computed helpers: `recentNotes`, `favoritedNotes`, `notes(inNotebook:)`; generic `saveJSON`/`loadJSON` helpers
+- `Y2Notes/ContentView.swift` — replaced multi-column body with single `ShelfView()` call
+- `Y2Notes.xcodeproj/project.pbxproj` — registered `Notebook.swift` and `ShelfView.swift` in Models/Views groups and Sources build phase
+
+What was completed:
+- Premium iPad-first shelf UI with 3-column NavigationSplitView
+- Notebooks with colored gradient covers (6 themes)
+- All Notes / Recents (top-10) / Favorites sections with live badge counts
+- Notebook cover thumbnails on note cards (async PKDrawing rendering)
+- Quick create: pencil toolbar button in note grid, "+" header button in Notebooks sidebar section
+- Rename flow: alert for both notes and notebooks
+- Move flow: sheet listing all notebooks with current location indicator
+- Duplicate flow: context menu creates copy filed in same notebook
+- Delete flow: context menu (destructive) + sidebar swipe-to-delete for notebooks
+- Change Cover flow: context menu sub-menu in notebook sidebar
+- Polished empty states per section (icon + title + subtitle + CTA button)
+- Loading state (ProgressView) on cards while thumbnail renders
+- Backward-compatible persistence (existing note JSON decodes cleanly)
+
+What remains:
+- iCloud / CloudKit sync (future agent)
+- Export (PDF/image) feature (future agent)
+- Unit/UI tests (future agent)
+- App icon artwork

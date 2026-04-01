@@ -7,6 +7,10 @@ struct Note: Identifiable, Codable, Hashable {
     var modifiedAt: Date
     /// Serialised PKDrawing data (empty Data = blank canvas).
     var drawingData: Data
+    /// Whether the user has starred this note.
+    var isFavorited: Bool
+    /// The notebook this note belongs to (nil = unfiled).
+    var notebookID: UUID?
     /// Per-note theme override. When non-nil the editor canvas uses this theme instead
     /// of the global app theme. App chrome (sidebar, navigation) always follows the global theme.
     var themeOverride: AppTheme?
@@ -17,6 +21,8 @@ struct Note: Identifiable, Codable, Hashable {
         createdAt: Date = Date(),
         modifiedAt: Date = Date(),
         drawingData: Data = Data(),
+        isFavorited: Bool = false,
+        notebookID: UUID? = nil,
         themeOverride: AppTheme? = nil
     ) {
         self.id = id
@@ -24,7 +30,27 @@ struct Note: Identifiable, Codable, Hashable {
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
         self.drawingData = drawingData
+        self.isFavorited = isFavorited
+        self.notebookID = notebookID
         self.themeOverride = themeOverride
+    }
+
+    // MARK: Codable — custom decoder for backward compatibility with old saves
+    // that pre-date the isFavorited / notebookID / themeOverride fields.
+    enum CodingKeys: String, CodingKey {
+        case id, title, createdAt, modifiedAt, drawingData, isFavorited, notebookID, themeOverride
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id           = try c.decode(UUID.self,   forKey: .id)
+        title        = try c.decode(String.self, forKey: .title)
+        createdAt    = try c.decode(Date.self,   forKey: .createdAt)
+        modifiedAt   = try c.decode(Date.self,   forKey: .modifiedAt)
+        drawingData  = try c.decode(Data.self,   forKey: .drawingData)
+        isFavorited  = try c.decodeIfPresent(Bool.self,     forKey: .isFavorited)  ?? false
+        notebookID   = try c.decodeIfPresent(UUID.self,     forKey: .notebookID)
+        themeOverride = try c.decodeIfPresent(AppTheme.self, forKey: .themeOverride)
     }
 
     // MARK: Hashable — identity only, so list selection stays stable while content changes.
