@@ -6,12 +6,19 @@ import PencilKit
 /// Shows tool buttons, colour swatch, width control, and a horizontally
 /// scrollable presets strip. Contextual sub-pickers appear for the eraser
 /// (pixel/stroke mode) and shape tool (line/rectangle/circle/arrow).
+///
+/// An ink-effects button (✦ wand icon) opens `InkEffectPickerView` when
+/// `inkStore` is provided.  The button is omitted if `inkStore` is nil so
+/// the base drawing path is unaffected by the premium ink system.
 struct DrawingToolbarView: View {
     @ObservedObject var toolStore: DrawingToolStore
+    /// Optional — nil disables the ink-effects button entirely.
+    var inkStore: InkEffectStore? = nil
 
     @State private var showWidthPopover   = false
     @State private var showSaveAlert      = false
     @State private var showPresetManager  = false
+    @State private var showInkPicker      = false
     @State private var newPresetName      = ""
 
     // MARK: - Color Binding
@@ -58,6 +65,11 @@ struct DrawingToolbarView: View {
         .sheet(isPresented: $showPresetManager) {
             PresetManagerView(toolStore: toolStore)
         }
+        .sheet(isPresented: $showInkPicker) {
+            if let inkStore {
+                InkEffectPickerView(inkStore: inkStore)
+            }
+        }
     }
 
     // MARK: - Main Row
@@ -99,6 +111,11 @@ struct DrawingToolbarView: View {
 
             Spacer(minLength: 8)
 
+            // Ink effects button — only shown when InkEffectStore is available
+            if let inkStore {
+                inkEffectsButton(inkStore: inkStore)
+            }
+
             // Manage / add preset buttons
             Button {
                 newPresetName = toolStore.activeTool.displayName
@@ -125,6 +142,29 @@ struct DrawingToolbarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
+    }
+
+    // MARK: - Ink Effects Button
+
+    @ViewBuilder
+    private func inkEffectsButton(inkStore: InkEffectStore) -> some View {
+        let isActive = inkStore.activePreset != nil
+        Button {
+            showInkPicker = true
+        } label: {
+            Image(systemName: isActive ? "wand.and.stars.inverse" : "wand.and.stars")
+                .font(.system(size: 16, weight: isActive ? .semibold : .regular))
+                .frame(width: 32, height: 32)
+                .background(
+                    isActive
+                        ? Color.accentColor.opacity(0.18)
+                        : Color.clear
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isActive ? "Ink effects: \(inkStore.activePreset?.name ?? "")" : "Ink effects")
     }
 
     // MARK: - Tool Button
