@@ -19,9 +19,16 @@
 		AA0001000000000000000040 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000030 /* AppTheme.swift */; };
 		AA0001000000000000000041 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000031 /* ThemeStore.swift */; };
 		AA0001000000000000000042 /* ThemePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000032 /* ThemePickerView.swift */; };
-		AA0001000000000000000050 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
-		AA0001000000000000000051 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
-		AA0001000000000000000052 /* ContextualPencilPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000055 /* ContextualPencilPaletteView.swift */; };
+		AA0001000000000000000060 /* NotebookSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000050 /* NotebookSection.swift */; };
+		AA0001000000000000000061 /* PageTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000051 /* PageTemplate.swift */; };
+		AA0001000000000000000052 /* NotebookConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000070 /* NotebookConfig.swift */; };
+		AA0001000000000000000057 /* NotebookCreationWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000071 /* NotebookCreationWizard.swift */; };
+		AA0001000000000000000083 /* ToolModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000080 /* ToolModels.swift */; };
+		AA0001000000000000000084 /* DrawingToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000081 /* DrawingToolStore.swift */; };
+		AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000082 /* DrawingToolbarView.swift */; };
+		AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
+		AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
+		AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000055 /* ContextualPencilPaletteView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +46,13 @@
 		AA0001000000000000000030 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		AA0001000000000000000031 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		AA0001000000000000000032 /* ThemePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePickerView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000050 /* NotebookSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookSection.swift; sourceTree = "<group>"; };
+		AA0001000000000000000051 /* PageTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTemplate.swift; sourceTree = "<group>"; };
+		AA0001000000000000000070 /* NotebookConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookConfig.swift; sourceTree = "<group>"; };
+		AA0001000000000000000071 /* NotebookCreationWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCreationWizard.swift; sourceTree = "<group>"; };
+		AA0001000000000000000080 /* ToolModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolModels.swift; sourceTree = "<group>"; };
+		AA0001000000000000000081 /* DrawingToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000082 /* DrawingToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolbarView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000053 /* PencilInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilInteractionCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000054 /* PencilHoverOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHoverOverlayView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000055 /* ContextualPencilPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualPencilPaletteView.swift; sourceTree = "<group>"; };
@@ -81,6 +95,7 @@
 				AA0001000000000000000010 /* Persistence */,
 				AA0001000000000000000033 /* Theme */,
 				AA0001000000000000000056 /* PencilKit */,
+				AA0001000000000000000086 /* Tools */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 			);
@@ -92,6 +107,9 @@
 			children = (
 				AA0001000000000000000013 /* Note.swift */,
 				AA0001000000000000000022 /* Notebook.swift */,
+				AA0001000000000000000050 /* NotebookSection.swift */,
+				AA0001000000000000000051 /* PageTemplate.swift */,
+				AA0001000000000000000070 /* NotebookConfig.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -103,6 +121,8 @@
 				AA0001000000000000000015 /* NoteEditorView.swift */,
 				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
+				AA0001000000000000000082 /* DrawingToolbarView.swift */,
+				AA0001000000000000000071 /* NotebookCreationWizard.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -132,6 +152,15 @@
 				AA0001000000000000000055 /* ContextualPencilPaletteView.swift */,
 			);
 			path = PencilKit;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000086 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000080 /* ToolModels.swift */,
+				AA0001000000000000000081 /* DrawingToolStore.swift */,
+			);
+			path = Tools;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -214,9 +243,16 @@
 				AA0001000000000000000040 /* AppTheme.swift in Sources */,
 				AA0001000000000000000041 /* ThemeStore.swift in Sources */,
 				AA0001000000000000000042 /* ThemePickerView.swift in Sources */,
-				AA0001000000000000000050 /* PencilInteractionCoordinator.swift in Sources */,
-				AA0001000000000000000051 /* PencilHoverOverlayView.swift in Sources */,
-				AA0001000000000000000052 /* ContextualPencilPaletteView.swift in Sources */,
+				AA0001000000000000000060 /* NotebookSection.swift in Sources */,
+				AA0001000000000000000061 /* PageTemplate.swift in Sources */,
+				AA0001000000000000000052 /* NotebookConfig.swift in Sources */,
+				AA0001000000000000000057 /* NotebookCreationWizard.swift in Sources */,
+				AA0001000000000000000083 /* ToolModels.swift in Sources */,
+				AA0001000000000000000084 /* DrawingToolStore.swift in Sources */,
+				AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */,
+				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
+				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
+				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

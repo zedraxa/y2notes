@@ -1,16 +1,39 @@
 import SwiftUI
 import PencilKit
+import OSLog
 
-/// Full-screen note editor: editable title + PencilKit canvas.
+// MARK: - Performance instrumentation
+
+/// Human-readable editor lifecycle messages — visible in Console.app.
+private let editorLogger = Logger(subsystem: "com.y2notes.app", category: "editor")
+
+/// Instruments-visible signposts for canvas setup, drawing changes, and save flushes.
+private let editorSignposter = OSSignposter(subsystem: "com.y2notes.app", category: "editor.perf")
+
+// MARK: - NoteEditorView
+
+/// Full-screen note editor: editable title + drawing toolbar + PencilKit canvas.
 struct NoteEditorView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var themeStore: ThemeStore
+    @EnvironmentObject var toolStore: DrawingToolStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
     @State private var titleText: String
     @State private var canUndo = false
     @State private var canRedo = false
+    /// Controls the transient "saved" checkmark badge (hidden 2 s after saved).
+    @State private var showSavedBadge = false
+    /// Timestamp of the most recent "saved" event — used to debounce the auto-hide timer.
+    @State private var badgeShownAt: Date?
+
+    /// When true only Apple Pencil input draws; finger touches pan/zoom the canvas.
+    /// When false any touch input draws. Persisted across sessions via AppStorage.
+    @AppStorage("y2notes.pencilOnlyDrawing") private var pencilOnlyDrawing = false
+
+    /// Toggling this value signals the canvas to animate back to 1× zoom.
+    @State private var zoomResetTrigger = false
 
     init(note: Note) {
         self.note = note
@@ -19,8 +42,6 @@ struct NoteEditorView: View {
 
     // MARK: - Effective theme
 
-    /// The theme that governs this note's canvas.
-    /// A per-note override takes precedence over the global app theme.
     private var effectiveTheme: AppTheme {
         note.themeOverride ?? themeStore.selectedTheme
     }
@@ -36,23 +57,59 @@ struct NoteEditorView: View {
                 contrastBanner
             }
             Divider()
+            DrawingToolbarView(toolStore: toolStore)
             CanvasView(
                 noteID: note.id,
                 drawingData: note.drawingData,
                 backgroundColor: effectiveDefinition.canvasBackground,
                 defaultInkColor: effectiveDefinition.contrastingInkColor,
+                currentTool: toolStore.pkTool,
+                isShapeToolActive: toolStore.activeTool == .shape,
+                activeShapeType: toolStore.activeShapeType,
+                shapeColor: toolStore.activeColor,
+                shapeWidth: toolStore.activeWidth,
+                drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
+                zoomResetTrigger: zoomResetTrigger,
                 onDrawingChanged: { data in
                     noteStore.updateDrawing(for: note.id, data: data)
                 },
                 onSaveRequested: {
                     noteStore.save()
+                },
+                onUndoStateChanged: { canUndoVal, canRedoVal in
+                    canUndo = canUndoVal
+                    canRedo = canRedoVal
                 }
             )
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItemGroup(placement: .navigationBarLeading) {
+                saveStateIndicator
+            }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 noteThemeMenu
+
+                // Finger / Pencil drawing policy toggle.
+                // When pencil-only mode is active the icon is a filled pencil tip;
+                // tapping it re-enables finger drawing (shows hand+pencil icon).
+                Button {
+                    pencilOnlyDrawing.toggle()
+                } label: {
+                    Image(systemName: pencilOnlyDrawing ? "pencil.tip" : "hand.and.pencil")
+                }
+                // Labels describe the *action* the button performs, not the current state.
+                .accessibilityLabel(
+                    pencilOnlyDrawing ? "Enable finger drawing" : "Enable Pencil-only drawing"
+                )
+
+                // Zoom reset — animates the canvas back to 1× scale.
+                Button {
+                    zoomResetTrigger.toggle()
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                }
+                .accessibilityLabel("Reset zoom to 100%")
 
                 Button {
                     undoManager?.undo()
@@ -74,6 +131,8 @@ struct NoteEditorView: View {
         .onAppear {
             refreshUndoRedoState()
         }
+        // Notification-based fallback to keep undo/redo state in sync even when the
+        // canvas delegate fires before the onUndoStateChanged callback is invoked.
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
             refreshUndoRedoState()
         }
@@ -83,6 +142,20 @@ struct NoteEditorView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { _ in
             refreshUndoRedoState()
         }
+        .onReceive(noteStore.$saveState) { state in
+            if state == .saved {
+                showSavedBadge = true
+                let now = Date()
+                badgeShownAt = now
+                // Each rapid save updates `badgeShownAt`; only the last scheduled
+                // callback will actually hide the badge, avoiding premature dismissal.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    if badgeShownAt == now {
+                        showSavedBadge = false
+                    }
+                }
+            }
+        }
         .onDisappear {
             noteStore.save()
         }
@@ -90,10 +163,8 @@ struct NoteEditorView: View {
 
     // MARK: - Per-note theme menu
 
-    /// Compact toolbar menu for overriding the theme on this note only.
     private var noteThemeMenu: some View {
         Menu {
-            // "Use app theme" option — clears any override.
             Button {
                 noteStore.updateThemeOverride(for: note.id, theme: nil)
             } label: {
@@ -103,9 +174,7 @@ struct NoteEditorView: View {
                     Text("App Theme")
                 }
             }
-
             Divider()
-
             ForEach(AppTheme.allCases) { theme in
                 Button {
                     noteStore.updateThemeOverride(for: note.id, theme: theme)
@@ -126,8 +195,6 @@ struct NoteEditorView: View {
 
     // MARK: - Contrast banner
 
-    /// Thin informational strip shown when the canvas background is dark,
-    /// reminding users to use a light ink colour for visibility.
     private var contrastBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "eye.fill")
@@ -144,6 +211,33 @@ struct NoteEditorView: View {
 
     // MARK: - Helpers
 
+    /// Compact toolbar indicator that reflects the current disk-write state.
+    /// - Spinning icon while saving (transitions quickly; mostly visible on slow storage).
+    /// - Checkmark shown for 2 s after a successful save.
+    /// - Warning triangle shown (persistently) when a save error has occurred.
+    @ViewBuilder
+    private var saveStateIndicator: some View {
+        switch noteStore.saveState {
+        case .saving:
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+                .accessibilityLabel("Saving")
+        case .error:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.caption)
+                .accessibilityLabel("Save error")
+        case .saved where showSavedBadge:
+            Image(systemName: "checkmark.circle")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+                .accessibilityLabel("Saved")
+        default:
+            EmptyView()
+        }
+    }
+
     private func refreshUndoRedoState() {
         canUndo = undoManager?.canUndo ?? false
         canRedo = undoManager?.canRedo ?? false
@@ -154,9 +248,6 @@ struct NoteEditorView: View {
             .font(.title2.bold())
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            // Single-parameter onChange is the correct form for iOS 16 (deployment target).
-            // The two-parameter form requires iOS 17+; a future agent can migrate once the
-            // minimum deployment target is raised.
             .onChange(of: titleText) { newValue in
                 noteStore.updateTitle(for: note.id, title: newValue)
             }
@@ -165,12 +256,19 @@ struct NoteEditorView: View {
 
 // MARK: - PencilKit canvas bridge
 
-/// UIViewRepresentable wrapper around PKCanvasView with PKToolPicker and
-/// full Apple Pencil interaction support.
+/// UIViewRepresentable that wraps a PKCanvasView inside a plain UIView container.
+/// The container also hosts a ShapeOverlayView that intercepts gestures when the
+/// shape tool is active so shapes can be committed as PKStrokes.
 ///
-/// - `backgroundColor`: canvas background colour provided by the active theme.
-/// - `defaultInkColor`: contrasting ink colour applied when first creating the canvas,
-///   ensuring strokes are visible regardless of the theme's canvas background.
+/// Features
+/// - Tool driven by `DrawingToolStore` via `currentTool` (no floating PKToolPicker).
+/// - Finger vs Pencil drawing policy: controlled by `drawingPolicy`.
+/// - Zoom/pan: pinch-to-zoom from 0.25× to 5×; zoom-reset via `zoomResetTrigger`.
+/// - Shape overlay: dashed preview + PKStroke commit when shape tool is active.
+/// - Performance: `OSSignposter` intervals for canvas setup; events for drawing changes
+///   and save flushes — all visible in Instruments → os_signpost.
+/// - Undo/redo state: reports (canUndo, canRedo) from the canvas's own undo manager
+///   after every drawing change via `onUndoStateChanged`.
 ///
 /// **Apple Pencil features (all degrade gracefully)**
 /// - Double-tap (Pencil 2nd gen+, iOS 12.1+): dispatches the user's preferred action.
@@ -178,41 +276,93 @@ struct NoteEditorView: View {
 /// - Ghost nib / hover preview (M2+ iPad Pro, iOS 16.1+): draws an overlay cursor.
 /// - Barrel-roll fountain pen (Pencil Pro, iOS 17.5+): modulates fountain-pen width.
 /// - Contextual palette: compact floating palette anchored near the Pencil tip.
+
 private struct CanvasView: UIViewRepresentable {
     let noteID: UUID
     let drawingData: Data
     let backgroundColor: UIColor
     let defaultInkColor: UIColor
+    let currentTool: PKTool
+    let isShapeToolActive: Bool
+    let activeShapeType: ShapeType
+    let shapeColor: UIColor
+    let shapeWidth: Double
+    /// Controls whether finger touches draw or pan/zoom the canvas.
+    let drawingPolicy: PKCanvasViewDrawingPolicy
+    /// Flip this value to trigger an animated reset to 1× zoom scale.
+    let zoomResetTrigger: Bool
     let onDrawingChanged: (Data) -> Void
     let onSaveRequested: () -> Void
+    /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
+    let onUndoStateChanged: ((Bool, Bool) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onDrawingChanged: onDrawingChanged, onSaveRequested: onSaveRequested)
     }
 
-    func makeUIView(context: Context) -> PKCanvasView {
+    func makeUIView(context: Context) -> UIView {
+        let setupState = editorSignposter.beginInterval("CanvasSetup")
+        editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - begin")
+
+        let container = UIView()
+        container.backgroundColor = backgroundColor
+        container.clipsToBounds = true
+
+        // ── PencilKit canvas ─────────────────────────────────────────────────
         let canvas = PKCanvasView()
         canvas.delegate = context.coordinator
-        // Allow any input (finger + Apple Pencil); requires no special hardware.
-        canvas.drawingPolicy = .anyInput
+        canvas.drawingPolicy = drawingPolicy
         canvas.alwaysBounceVertical = true
         canvas.backgroundColor = backgroundColor
+        canvas.tool = currentTool
 
-        // Seed a contrasting default inking tool so strokes are visible on first use.
-        canvas.tool = PKInkingTool(.pen, color: defaultInkColor, width: 2)
+        // Zoom/pan: PKCanvasView inherits UIScrollView zoom support.
+        // 0.25× minimum lets users step back for a full-page view.
+        // 5×   maximum provides fine-detail writing precision.
+        canvas.minimumZoomScale = 0.25
+        canvas.maximumZoomScale = 5.0
+        canvas.bouncesZoom = true
 
         // Restore previously saved drawing, if any.
         if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
             canvas.drawing = drawing
         }
 
-        // Attach the tool picker — it floats above the canvas on iPad.
-        let picker = PKToolPicker()
-        picker.setVisible(true, forFirstResponder: canvas)
-        picker.addObserver(canvas)
-        context.coordinator.toolPicker = picker
+        container.addSubview(canvas)
+        canvas.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            canvas.topAnchor.constraint(equalTo: container.topAnchor),
+            canvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            canvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            canvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.canvas = canvas
+        canvas.isUserInteractionEnabled = !isShapeToolActive
 
-        // Hover overlay: transparent sibling above the canvas.
+        // ── Shape overlay ────────────────────────────────────────────────────
+        let overlay = ShapeOverlayView(
+            shapeType: activeShapeType,
+            strokeColor: shapeColor,
+            strokeWidth: CGFloat(shapeWidth)
+        ) { stroke in
+            // PKDrawing.strokes is a read-only sequence; appending requires building
+            // a new PKDrawing from the full stroke list — this is the standard
+            // PencilKit pattern since PKDrawing is an immutable value type.
+            canvas.drawing = PKDrawing(strokes: Array(canvas.drawing.strokes) + [stroke])
+        }
+        overlay.isHidden = !isShapeToolActive
+
+        container.addSubview(overlay)
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: container.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.shapeOverlay = overlay
+
+        // ── Hover overlay (non-interactive, floats above the canvas) ─────────
         let hoverOverlay = PencilHoverOverlayView(frame: .zero)
         hoverOverlay.translatesAutoresizingMaskIntoConstraints = false
         hoverOverlay.isUserInteractionEnabled = false
@@ -225,34 +375,78 @@ private struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.hoverOverlay = hoverOverlay
 
-        // Apple Pencil interaction coordinator.
+        // ── Apple Pencil interaction coordinator ─────────────────────────────
         let pencilCoordinator = PencilInteractionCoordinator()
         pencilCoordinator.delegate = context.coordinator
         pencilCoordinator.attach(to: canvas)
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
 
-        // Become first responder so the tool picker appears automatically.
+        // Seed coordinator state so the first updateUIView call does not misfire.
+        context.coordinator.onUndoStateChanged = onUndoStateChanged
+        context.coordinator.lastZoomResetTrigger = zoomResetTrigger
+
+        // Become first responder so Apple Pencil is ready immediately.
         DispatchQueue.main.async {
             canvas.becomeFirstResponder()
+            editorSignposter.endInterval("CanvasSetup", setupState)
+            editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - complete")
         }
 
-        return canvas
+        return container
     }
 
-    func updateUIView(_ uiView: PKCanvasView, context: Context) {
-        // Update canvas background when the theme changes.
-        if uiView.backgroundColor != backgroundColor {
+    func updateUIView(_ uiView: UIView, context: Context) {
+        guard let canvas = context.coordinator.canvas else { return }
+
+        // Sync background colour when the theme changes.
+        if canvas.backgroundColor != backgroundColor {
+            canvas.backgroundColor = backgroundColor
             uiView.backgroundColor = backgroundColor
         }
+
+        // Sync drawing policy when the user toggles the finger/pencil preference.
+        if canvas.drawingPolicy != drawingPolicy {
+            canvas.drawingPolicy = drawingPolicy
+        }
+
+        // Update the active tool from DrawingToolStore.
+        canvas.tool = currentTool
+        canvas.isUserInteractionEnabled = !isShapeToolActive
+
+        // Sync shape overlay properties.
+        if let overlay = context.coordinator.shapeOverlay {
+            overlay.isHidden    = !isShapeToolActive
+            overlay.shapeType   = activeShapeType
+            overlay.strokeColor = shapeColor
+            overlay.strokeWidth = CGFloat(shapeWidth)
+        }
+
+        // Zoom reset: animate to 1× when the trigger value flips.
+        if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
+            context.coordinator.lastZoomResetTrigger = zoomResetTrigger
+            // Dispatch to avoid mutating scroll state mid-layout-pass.
+            DispatchQueue.main.async {
+                canvas.setZoomScale(1.0, animated: true)
+                editorLogger.debug("[\(noteID, privacy: .public)] zoom reset to 1×")
+            }
+        }
+
+        // Keep the undo state callback current (closures capture SwiftUI state by value).
+        context.coordinator.onUndoStateChanged = onUndoStateChanged
     }
 
-    // MARK: Coordinator
+    // MARK: - Coordinator
 
     final class Coordinator: NSObject, PKCanvasViewDelegate {
         let onDrawingChanged: (Data) -> Void
         let onSaveRequested: () -> Void
-        var toolPicker: PKToolPicker?
+        weak var canvas: PKCanvasView?
+        weak var shapeOverlay: ShapeOverlayView?
+        /// Updated by updateUIView to always hold the freshest closure.
+        var onUndoStateChanged: ((Bool, Bool) -> Void)?
+        /// Tracks the last zoom-reset trigger seen so we only react to flips.
+        var lastZoomResetTrigger: Bool = false
         private var debounceTimer: Timer?
 
         // Apple Pencil support
@@ -266,16 +460,25 @@ private struct CanvasView: UIViewRepresentable {
 
         init(onDrawingChanged: @escaping (Data) -> Void, onSaveRequested: @escaping () -> Void) {
             self.onDrawingChanged = onDrawingChanged
-            self.onSaveRequested = onSaveRequested
+            self.onSaveRequested  = onSaveRequested
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            editorSignposter.emitEvent("DrawingChanged")
+
             let data = canvasView.drawing.dataRepresentation()
             onDrawingChanged(data)
+
+            // Report undo/redo availability directly from the canvas's undo manager.
+            // PKCanvasView inherits UIResponder.undoManager which traverses the responder
+            // chain — the same manager PencilKit registers stroke actions against.
+            let um = canvasView.undoManager
+            onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
 
             // Debounce disk writes: flush 0.8 s after the last stroke.
             debounceTimer?.invalidate()
             debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
+                editorSignposter.emitEvent("DrawingSaved")
                 self?.onSaveRequested()
             }
         }
@@ -364,3 +567,189 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     }
 }
 
+// MARK: - Shape Overlay View
+
+/// Transparent UIView overlay that captures pan gestures when the shape tool is
+/// active. Displays a dashed CAShapeLayer preview while the user drags, then
+/// converts the finished gesture path into a PKStroke and calls onShapeDrawn.
+final class ShapeOverlayView: UIView {
+    var shapeType: ShapeType
+    var strokeColor: UIColor { didSet { previewLayer.strokeColor = strokeColor.cgColor } }
+    var strokeWidth: CGFloat  { didSet { previewLayer.lineWidth  = strokeWidth } }
+    private let onShapeDrawn: (PKStroke) -> Void
+
+    private let previewLayer = CAShapeLayer()
+    private var startPoint: CGPoint = .zero
+
+    init(
+        shapeType: ShapeType,
+        strokeColor: UIColor,
+        strokeWidth: CGFloat,
+        onShapeDrawn: @escaping (PKStroke) -> Void
+    ) {
+        self.shapeType   = shapeType
+        self.strokeColor = strokeColor
+        self.strokeWidth = strokeWidth
+        self.onShapeDrawn = onShapeDrawn
+        super.init(frame: .zero)
+
+        backgroundColor = .clear
+        isOpaque = false
+
+        previewLayer.fillColor      = UIColor.clear.cgColor
+        previewLayer.strokeColor    = strokeColor.cgColor
+        previewLayer.lineWidth      = strokeWidth
+        previewLayer.lineDashPattern = [6, 4]
+        previewLayer.isHidden       = true
+        layer.addSublayer(previewLayer)
+
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
+        pan.maximumNumberOfTouches = 1
+        addGestureRecognizer(pan)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        previewLayer.frame = bounds
+    }
+
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        let point = gesture.location(in: self)
+        switch gesture.state {
+        case .began:
+            startPoint = point
+            previewLayer.isHidden = false
+        case .changed:
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            previewLayer.path = makeBezierPath(from: startPoint, to: point).cgPath
+            CATransaction.commit()
+        case .ended:
+            previewLayer.isHidden = true
+            previewLayer.path     = nil
+            onShapeDrawn(makeStroke(from: startPoint, to: point))
+        default:
+            previewLayer.isHidden = true
+            previewLayer.path     = nil
+        }
+    }
+
+    // MARK: Path Construction
+
+    private func makeBezierPath(from: CGPoint, to: CGPoint) -> UIBezierPath {
+        switch shapeType {
+        case .line:
+            let p = UIBezierPath(); p.move(to: from); p.addLine(to: to)
+            return p
+        case .rectangle:
+            return UIBezierPath(rect: CGRect(
+                x: min(from.x, to.x), y: min(from.y, to.y),
+                width: abs(to.x - from.x), height: abs(to.y - from.y)
+            ))
+        case .circle:
+            return UIBezierPath(ovalIn: CGRect(
+                x: min(from.x, to.x), y: min(from.y, to.y),
+                width: abs(to.x - from.x), height: abs(to.y - from.y)
+            ))
+        case .arrow:
+            let p = UIBezierPath(); p.move(to: from); p.addLine(to: to)
+            let angle   = atan2(to.y - from.y, to.x - from.x)
+            let headLen = min(24, hypot(to.x - from.x, to.y - from.y) * 0.25)
+            let left  = CGPoint(x: to.x - headLen * cos(angle - .pi / 6),
+                                y: to.y - headLen * sin(angle - .pi / 6))
+            let right = CGPoint(x: to.x - headLen * cos(angle + .pi / 6),
+                                y: to.y - headLen * sin(angle + .pi / 6))
+            p.move(to: to); p.addLine(to: left)
+            p.move(to: to); p.addLine(to: right)
+            return p
+        }
+    }
+
+    // MARK: Stroke Construction
+
+    private func makeStroke(from: CGPoint, to: CGPoint) -> PKStroke {
+        let ink    = PKInk(.pen, color: strokeColor)
+        let points = samplePath(makeBezierPath(from: from, to: to), spacing: 3)
+
+        // Ensure at least two points so PencilKit renders a visible stroke.
+        let resolved = points.count >= 2 ? points : [from, to]
+
+        let pkPoints = resolved.enumerated().map { i, pt in
+            PKStrokePoint(
+                location: pt,
+                timeOffset: TimeInterval(i) * 0.005,
+                size: CGSize(width: strokeWidth, height: strokeWidth),
+                opacity: 1,
+                force: 1,
+                azimuth: 0,
+                altitude: .pi / 2
+            )
+        }
+        let pkPath = PKStrokePath(controlPoints: pkPoints, creationDate: Date())
+        return PKStroke(ink: ink, path: pkPath, transform: .identity, mask: nil)
+    }
+
+    /// Densely samples a UIBezierPath into evenly-spaced CGPoints.
+    private func samplePath(_ bezier: UIBezierPath, spacing: CGFloat) -> [CGPoint] {
+        var result: [CGPoint] = []
+        var prev: CGPoint = .zero
+
+        bezier.cgPath.applyWithBlock { ptr in
+            let el = ptr.pointee
+            switch el.type {
+            case .moveToPoint:
+                prev = el.points[0]; result.append(prev)
+
+            case .addLineToPoint:
+                let end = el.points[0]
+                linearSample(from: prev, to: end, spacing: spacing, into: &result)
+                prev = end
+
+            case .addQuadCurveToPoint:
+                let ctrl = el.points[0]; let end = el.points[1]
+                let steps = max(4, Int(hypot(end.x - prev.x, end.y - prev.y) / spacing))
+                for i in 1...steps {
+                    let t = CGFloat(i) / CGFloat(steps)
+                    result.append(CGPoint(
+                        x: (1-t)*(1-t)*prev.x + 2*(1-t)*t*ctrl.x + t*t*end.x,
+                        y: (1-t)*(1-t)*prev.y + 2*(1-t)*t*ctrl.y + t*t*end.y
+                    ))
+                }; prev = end
+
+            case .addCurveToPoint:
+                let c1 = el.points[0]; let c2 = el.points[1]; let end = el.points[2]
+                let steps = max(8, Int(hypot(end.x - prev.x, end.y - prev.y) / spacing))
+                for i in 1...steps {
+                    let t = CGFloat(i) / CGFloat(steps); let mt = 1 - t
+                    result.append(CGPoint(
+                        x: mt*mt*mt*prev.x + 3*mt*mt*t*c1.x + 3*mt*t*t*c2.x + t*t*t*end.x,
+                        y: mt*mt*mt*prev.y + 3*mt*mt*t*c1.y + 3*mt*t*t*c2.y + t*t*t*end.y
+                    ))
+                }; prev = end
+
+            case .closeSubpath:
+                if let first = result.first {
+                    linearSample(from: prev, to: first, spacing: spacing, into: &result)
+                    prev = first
+                }
+
+            @unknown default: break
+            }
+        }
+        return result
+    }
+
+    private func linearSample(from: CGPoint, to: CGPoint, spacing: CGFloat, into result: inout [CGPoint]) {
+        let dist  = hypot(to.x - from.x, to.y - from.y)
+        let steps = max(1, Int(dist / spacing))
+        for i in 1...steps {
+            let t = CGFloat(i) / CGFloat(steps)
+            result.append(CGPoint(
+                x: from.x + t * (to.x - from.x),
+                y: from.y + t * (to.y - from.y)
+            ))
+        }
+    }
+}
