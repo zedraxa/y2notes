@@ -291,6 +291,80 @@ What remains:
 
 ---
 
+## [2026-04-01T17:29:26Z] AGENT-06 — Notebook Creation Wizard
+
+Branch: copilot/implement-notebook-creation-wizard
+Model used: claude-sonnet-4.6
+Scope: Premium three-step notebook creation wizard — built-in cover selection, custom cover upload, page type / size / orientation, paper material, default theme, sensible defaults, validation, clean persistence.
+
+Files created:
+- `Y2Notes/Models/NotebookConfig.swift` — Four new model enums:
+  - `PageType` (blank / ruled / dot / grid) — display name, subtitle, SF Symbol image.
+  - `PageSize` (letter / A4 / A5) — display name, physical dimensions subtitle.
+  - `PageOrientation` (portrait / landscape) — display name, SF Symbol image.
+  - `PaperMaterial` (standard / premium / craft / recycled) — display name, description, SF Symbol, `pageTint: Color` (subtle background tint).
+- `Y2Notes/Views/NotebookCreationWizard.swift` — Full three-step wizard (~850 lines):
+  - `NotebookDraft` private struct — holds all in-flight selections; passed as `@Binding` to each step.
+  - `WizardStep` private enum (`cover/paper/details`) — drives step title and animated transitions.
+  - `NotebookCreationWizard` — root view; `NavigationStack` + step-state machine; animated slide transitions (forward = trailing→leading, backward = leading→trailing); calls `noteStore.addNotebook` on completion.
+  - `WizardStepIndicator` — pill-shaped progress dots with animated width change.
+  - `NotebookCoverPreview` — live notebook thumbnail (spine highlight gradient, book icon, live title label) rendered from current draft; animated on cover change.
+  - `CoverStepView` — Segmented "Built-in / Custom Photo" tab; built-in 6-swatch grid (`WizardCoverSwatch` with scale+shadow selection feedback); `PhotosPicker` for custom cover (loads raw `Data`, decodes to `UIImage`, compresses to JPEG @ 0.75 quality, stored in `draft.customCoverData`); remove-photo button.
+  - `WizardCoverSwatch` — gradient swatch with `scaleEffect` + shadow animation on selection; `cover.displayName` label.
+  - `PaperStepView` — 2×2 `PageTypeCard` grid, segmented `PageSize` picker (with subtitle), dual `OrientationButton` (portrait / landscape), four `PaperMaterialRow` entries.
+  - `PageTypeCard` — card with `PageTypeMiniCanvas` preview and name/subtitle.
+  - `PageTypeMiniCanvas` — `Canvas`-based procedural drawings: blank (empty), ruled (5 horizontal lines), dot (4×5 dot grid), grid (5×4 crosshatch). No images; pure SwiftUI Canvas API.
+  - `OrientationButton` — full-width selection card with SF Symbol, label, and checkmark.
+  - `PaperMaterialRow` — selection row with `pageTint` circle swatch, name, description, checkmark.
+  - `DetailsStepView` — live cover preview, notebook name `TextField` (auto-focus via `.task` sleep), `"Follow App Theme"` + per-`AppTheme` menu picker, summary card (size, style, material, theme), Create button.
+  - Shared helpers `wizardNextButton` / `wizardNavButtons` — styled primary/secondary button rows used across steps.
+
+Files modified:
+- `Y2Notes/Models/Notebook.swift` — Added `pageType: PageType`, `pageSize: PageSize`, `orientation: PageOrientation`, `defaultTheme: AppTheme?`, `paperMaterial: PaperMaterial`, `customCoverData: Data?`; updated `init` with defaults; custom `Decodable` init using `decodeIfPresent` for all six new fields — fully backward-compatible with existing `y2notes_notebooks.json` stores.
+- `Y2Notes/Persistence/NoteStore.swift` — Replaced single-line `addNotebook(name:cover:)` with full-signature version accepting all six new configuration parameters (all with sensible defaults — existing callers compiled without change).
+- `Y2Notes/Views/ShelfView.swift` — Replaced `NewNotebookSheet` presentation with `NotebookCreationWizard()`; removed dead `NewNotebookSheet` and `CoverSwatch` private structs (~60 lines removed).
+- `Y2Notes.xcodeproj/project.pbxproj` — Registered `NotebookConfig.swift` (file ref `AA0001000000000000000050`, build file `AA0001000000000000000052`, added to Models group) and `NotebookCreationWizard.swift` (file ref `AA0001000000000000000051`, build file `AA0001000000000000000053`, added to Views group) in the Sources build phase.
+
+What was completed:
+- **Three-step wizard with animated step transitions** — slide-in/out from leading/trailing edge depending on navigation direction; spring physics on all transitions and selection feedback.
+- **Built-in cover selection** — six gradient covers (ocean/forest/sunset/lavender/slate/sand) with live notebook preview updating instantly.
+- **Custom cover upload** — `PhotosPicker` with async `loadTransferable`, JPEG recompression for storage efficiency, preview thumbnail, and remove-photo action.
+- **Page type selection** — blank / ruled / dot / grid, each with a procedurally-drawn mini Canvas preview and selection feedback.
+- **Page size / orientation** — Letter / A4 / A5 segmented picker; portrait / landscape button pair.
+- **Paper material** — standard / premium / craft / recycled rows with per-material `pageTint` tint circle, name and description.
+- **Default theme** — `.menu` picker with "Follow App Theme" default option and all six `AppTheme` cases.
+- **Live cover preview with title** — `NotebookCoverPreview` updates live across all three steps as name/cover/photo change.
+- **Sensible defaults** — ruled · letter · portrait · standard paper · follow app theme; wizard opens on step 1 with these pre-selected.
+- **Validation** — blank name silently becomes "Untitled"; no blocking validation gates to keep the flow low-friction.
+- **Clean persistence** — all six new `Notebook` fields are `Codable` and persist in `y2notes_notebooks.json`; absent keys decode to sensible defaults (backward compatible).
+- **Premium feel** — `.spring()` animations throughout; scale + shadow on cover swatch selection; step indicator pills animate width; presentation with drag indicator.
+
+What remains:
+- Notebook defaultTheme + paperMaterial applied to notes opened within that notebook (future agent).
+- Export / share (future agent).
+- iCloud / CloudKit sync (future agent).
+- App icon artwork.
+
+Build/test evidence:
+- No Xcode in sandbox; correctness validated by structural inspection.
+- Brace balance verified programmatically (all files balanced).
+- All APIs used are iOS 16+ public: `PhotosPicker`/`PhotosPickerItem` (PhotosUI iOS 16), `Canvas` (SwiftUI iOS 15), `@FocusState` (iOS 15), `safeAreaInset` (iOS 15), `Material.bar` (iOS 15).
+- `onChange(of:perform:)` retained for iOS 16 compatibility (two-parameter form is iOS 17+); note added in code.
+- Auto-focus uses `Task.sleep` inside `.task` modifier — avoids `DispatchQueue` anti-pattern.
+- `PhotosPicker` raw `Data` → `UIImage` → JPEG compression pipeline handles HEIC, JPEG, PNG inputs uniformly.
+- `Notebook.customCoverData` stored as base64 in JSON (JSONEncoder default for `Data`); acceptable for cover images at 0.75 JPEG quality.
+
+Open risks:
+- Custom cover images are stored inline in `y2notes_notebooks.json`. Large images compressed at 0.75 JPEG are typically 50–200 KB; for many notebooks this could grow the JSON file. A future agent may want to migrate to per-notebook files in a `Covers/` subdirectory.
+- `PhotosPickerItem.loadTransferable(type: Data.self)` returns raw image file bytes (HEIC/JPEG/PNG). This is re-encoded as JPEG before storage, normalising formats.
+
+Notes for next agents:
+- `Notebook.defaultTheme` is persisted but not yet applied in the editor. To apply it: in `NoteEditorView`, read `noteStore.notebooks.first(where: { $0.id == note.notebookID })?.defaultTheme` as the notebook-level override, with lower priority than the per-note `note.themeOverride` but higher priority than the global `ThemeStore`.
+- `Notebook.pageType` and `paperMaterial` are persisted but not yet applied to the canvas. `paperMaterial.pageTint` returns a `Color` ready to be blended with the canvas background.
+- The wizard replaces `NewNotebookSheet` entirely; `CoverSwatch` is removed from `ShelfView.swift`. Any agent re-introducing a quick-create flow should use `NotebookCreationWizard` or a subset of its step views.
+
+---
+
 ## [2026-04-01T17:30:35Z] AGENT-08 — Local Persistence, Autosave & Recovery
 
 Branch: copilot/add-local-persistence-autosave

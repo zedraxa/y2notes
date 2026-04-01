@@ -172,7 +172,7 @@ private struct ShelfSidebarView: View {
             }
         }
         .sheet(isPresented: $showNewNotebookSheet) {
-            NewNotebookSheet()
+            NotebookCreationWizard()
         }
         .alert("Rename Notebook", isPresented: Binding(
             get: { notebookToRename != nil },
@@ -538,78 +538,6 @@ private struct ShelfDetailPlaceholder: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
-    }
-}
-
-// MARK: - New Notebook sheet
-
-private struct NewNotebookSheet: View {
-    @EnvironmentObject var noteStore: NoteStore
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var name = ""
-    @State private var selectedCover: NotebookCover = .ocean
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Name") {
-                    TextField("Notebook name", text: $name)
-                        .submitLabel(.done)
-                }
-                Section("Cover Color") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 12)], spacing: 12) {
-                        ForEach(NotebookCover.allCases, id: \.self) { cover in
-                            CoverSwatch(cover: cover, isSelected: selectedCover == cover)
-                                .onTapGesture { selectedCover = cover }
-                        }
-                    }
-                    .padding(.vertical, 6)
-                }
-            }
-            .navigationTitle("New Notebook")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
-                        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        noteStore.addNotebook(
-                            name: trimmed.isEmpty ? "Untitled" : trimmed,
-                            cover: selectedCover
-                        )
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-}
-
-private struct CoverSwatch: View {
-    let cover: NotebookCover
-    let isSelected: Bool
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(cover.gradient)
-                .aspectRatio(0.75, contentMode: .fit)
-
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-            }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(isSelected ? Color.white : Color.clear, lineWidth: 3)
-        )
-        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
     }
 }
 
