@@ -44,11 +44,19 @@ struct NoteEditorView: View {
     /// Index of the currently highlighted find match.
     @State private var findMatchIndex: Int = 0
 
+    /// Whether the editor is in keyboard text-entry mode (true) or drawing mode (false).
+    @State private var isTextMode = false
+    /// Live content of the typed-text layer. Seeded from `note.typedText` on init.
+    @State private var typedTextContent: String
+    /// Debounce timer for persisting text changes — mirrors the 0.8 s drawing debounce.
+    @State private var textSaveTimer: Timer?
+
     private let searchService = SearchService()
 
     init(note: Note) {
         self.note = note
         _titleText = State(initialValue: note.title)
+        _typedTextContent = State(initialValue: note.typedText)
     }
 
     // MARK: - Effective theme
@@ -64,47 +72,64 @@ struct NoteEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             titleField
-            if effectiveDefinition.canvasIsDark {
+            if effectiveDefinition.canvasIsDark && !isTextMode {
                 contrastBanner
             }
             Divider()
-            DrawingToolbarView(toolStore: toolStore)
+            if !isTextMode {
+                DrawingToolbarView(toolStore: toolStore)
+            }
             if showFindBar {
                 findBar
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
-            CanvasView(
-                noteID: note.id,
-                drawingData: note.drawingData,
-                backgroundColor: effectiveDefinition.canvasBackground,
-                defaultInkColor: effectiveDefinition.contrastingInkColor,
-                currentTool: toolStore.pkTool,
-                isShapeToolActive: toolStore.activeTool == .shape,
-                activeShapeType: toolStore.activeShapeType,
-                shapeColor: toolStore.activeColor,
-                shapeWidth: toolStore.activeWidth,
-                drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
-                zoomResetTrigger: zoomResetTrigger,
-                onDrawingChanged: { data in
-                    noteStore.updateDrawing(for: note.id, data: data)
-                },
-                onSaveRequested: {
-                    noteStore.save()
-                },
-                onUndoStateChanged: { canUndoVal, canRedoVal in
-                    canUndo = canUndoVal
-                    canRedo = canRedoVal
-                }
-            )
+            if isTextMode {
+                textLayer
+            } else {
+                CanvasView(
+                    noteID: note.id,
+                    drawingData: note.drawingData,
+                    backgroundColor: effectiveDefinition.canvasBackground,
+                    defaultInkColor: effectiveDefinition.contrastingInkColor,
+                    currentTool: toolStore.pkTool,
+                    isShapeToolActive: toolStore.activeTool == .shape,
+                    activeShapeType: toolStore.activeShapeType,
+                    shapeColor: toolStore.activeColor,
+                    shapeWidth: toolStore.activeWidth,
+                    drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
+                    zoomResetTrigger: zoomResetTrigger,
+                    onDrawingChanged: { data in
+                        noteStore.updateDrawing(for: note.id, data: data)
+                    },
+                    onSaveRequested: {
+                        noteStore.save()
+                    },
+                    onUndoStateChanged: { canUndoVal, canRedoVal in
+                        canUndo = canUndoVal
+                        canRedo = canRedoVal
+                    }
+                )
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         .animation(.spring(duration: 0.25), value: showFindBar)
+        .animation(.spring(duration: 0.25), value: isTextMode)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarLeading) {
                 saveStateIndicator
             }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 noteThemeMenu
+
+                // Draw ↔ Type mode toggle.
+                // "keyboard" switches to text mode; "pencil" returns to drawing mode.
+                Button {
+                    flushTextNow()
+                    isTextMode.toggle()
+                } label: {
+                    Image(systemName: isTextMode ? "pencil" : "keyboard")
+                }
+                .accessibilityLabel(isTextMode ? "Switch to drawing mode" : "Switch to text mode")
 
                 // In-document find bar toggle.
                 Button {
@@ -118,42 +143,41 @@ struct NoteEditorView: View {
                 }
                 .accessibilityLabel(showFindBar ? "Hide find bar" : "Find in note")
 
-                // Finger / Pencil drawing policy toggle.
-                // When pencil-only mode is active the icon is a filled pencil tip;
-                // tapping it re-enables finger drawing (shows hand+pencil icon).
-                Button {
-                    pencilOnlyDrawing.toggle()
-                } label: {
-                    Image(systemName: pencilOnlyDrawing ? "pencil.tip" : "hand.and.pencil")
-                }
-                // Labels describe the *action* the button performs, not the current state.
-                .accessibilityLabel(
-                    pencilOnlyDrawing ? "Enable finger drawing" : "Enable Pencil-only drawing"
-                )
+                if !isTextMode {
+                    // Finger / Pencil drawing policy toggle.
+                    Button {
+                        pencilOnlyDrawing.toggle()
+                    } label: {
+                        Image(systemName: pencilOnlyDrawing ? "pencil.tip" : "hand.and.pencil")
+                    }
+                    .accessibilityLabel(
+                        pencilOnlyDrawing ? "Enable finger drawing" : "Enable Pencil-only drawing"
+                    )
 
-                // Zoom reset — animates the canvas back to 1× scale.
-                Button {
-                    zoomResetTrigger.toggle()
-                } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                }
-                .accessibilityLabel("Reset zoom to 100%")
+                    // Zoom reset — animates the canvas back to 1× scale.
+                    Button {
+                        zoomResetTrigger.toggle()
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    }
+                    .accessibilityLabel("Reset zoom to 100%")
 
-                Button {
-                    undoManager?.undo()
-                } label: {
-                    Image(systemName: "arrow.uturn.backward")
-                }
-                .disabled(!canUndo)
-                .accessibilityLabel("Undo")
+                    Button {
+                        undoManager?.undo()
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .disabled(!canUndo)
+                    .accessibilityLabel("Undo")
 
-                Button {
-                    undoManager?.redo()
-                } label: {
-                    Image(systemName: "arrow.uturn.forward")
+                    Button {
+                        undoManager?.redo()
+                    } label: {
+                        Image(systemName: "arrow.uturn.forward")
+                    }
+                    .disabled(!canRedo)
+                    .accessibilityLabel("Redo")
                 }
-                .disabled(!canRedo)
-                .accessibilityLabel("Redo")
             }
         }
         .onAppear {
@@ -185,6 +209,7 @@ struct NoteEditorView: View {
             }
         }
         .onDisappear {
+            flushTextNow()
             noteStore.save()
         }
     }
@@ -363,6 +388,41 @@ struct NoteEditorView: View {
         } else {
             findMatchIndex = (findMatchIndex - 1 + findMatches.count) % findMatches.count
         }
+    }
+
+    // MARK: - Typed text layer
+
+    /// Full-height scrollable text editor shown when the user is in keyboard (text) mode.
+    /// Uses the note's effective theme for background and text colours.
+    private var textLayer: some View {
+        TextEditor(text: $typedTextContent)
+            .font(.body)
+            .scrollContentBackground(.hidden)
+            .background(Color(uiColor: effectiveDefinition.canvasBackground))
+            .foregroundStyle(Color(uiColor: effectiveDefinition.primaryText))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: typedTextContent) { _ in scheduleTextSave() }
+    }
+
+    /// Schedules a debounced persist of the current `typedTextContent`.
+    /// Mirrors the 0.8 s debounce used by the drawing layer.
+    private func scheduleTextSave() {
+        textSaveTimer?.invalidate()
+        let id   = note.id
+        let text = typedTextContent
+        let store = noteStore
+        textSaveTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { _ in
+            store.updateTypedText(for: id, text: text)
+        }
+    }
+
+    /// Immediately cancels the pending debounce timer and persists typed text to the store.
+    private func flushTextNow() {
+        textSaveTimer?.invalidate()
+        textSaveTimer = nil
+        noteStore.updateTypedText(for: note.id, text: typedTextContent)
     }
 }
 
