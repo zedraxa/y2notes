@@ -23,6 +23,9 @@
 		AA0001000000000000000061 /* PageTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000051 /* PageTemplate.swift */; };
 		AA0001000000000000000052 /* NotebookConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000070 /* NotebookConfig.swift */; };
 		AA0001000000000000000053 /* NotebookCreationWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000071 /* NotebookCreationWizard.swift */; };
+		AA0001000000000000000083 /* ToolModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000080 /* ToolModels.swift */; };
+		AA0001000000000000000084 /* DrawingToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000081 /* DrawingToolStore.swift */; };
+		AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000082 /* DrawingToolbarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +47,9 @@
 		AA0001000000000000000051 /* PageTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTemplate.swift; sourceTree = "<group>"; };
 		AA0001000000000000000070 /* NotebookConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookConfig.swift; sourceTree = "<group>"; };
 		AA0001000000000000000071 /* NotebookCreationWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCreationWizard.swift; sourceTree = "<group>"; };
+		AA0001000000000000000080 /* ToolModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolModels.swift; sourceTree = "<group>"; };
+		AA0001000000000000000081 /* DrawingToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000082 /* DrawingToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolbarView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +88,7 @@
 				AA000100000000000000000F /* Views */,
 				AA0001000000000000000010 /* Persistence */,
 				AA0001000000000000000033 /* Theme */,
+				AA0001000000000000000086 /* Tools */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 			);
@@ -107,6 +114,7 @@
 				AA0001000000000000000015 /* NoteEditorView.swift */,
 				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
+				AA0001000000000000000082 /* DrawingToolbarView.swift */,
 				AA0001000000000000000071 /* NotebookCreationWizard.swift */,
 			);
 			path = Views;
@@ -127,6 +135,15 @@
 				AA0001000000000000000031 /* ThemeStore.swift */,
 			);
 			path = Theme;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000086 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000080 /* ToolModels.swift */,
+				AA0001000000000000000081 /* DrawingToolStore.swift */,
+			);
+			path = Tools;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -209,10 +226,13 @@
 				AA0001000000000000000040 /* AppTheme.swift in Sources */,
 				AA0001000000000000000041 /* ThemeStore.swift in Sources */,
 				AA0001000000000000000042 /* ThemePickerView.swift in Sources */,
-			AA0001000000000000000060 /* NotebookSection.swift in Sources */,
+				AA0001000000000000000060 /* NotebookSection.swift in Sources */,
 				AA0001000000000000000061 /* PageTemplate.swift in Sources */,
 				AA0001000000000000000052 /* NotebookConfig.swift in Sources */,
 				AA0001000000000000000053 /* NotebookCreationWizard.swift in Sources */,
+				AA0001000000000000000083 /* ToolModels.swift in Sources */,
+				AA0001000000000000000084 /* DrawingToolStore.swift in Sources */,
+				AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
