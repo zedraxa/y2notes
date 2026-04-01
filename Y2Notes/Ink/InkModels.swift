@@ -75,7 +75,7 @@ enum InkFamily: String, CaseIterable, Codable, Identifiable {
         case .standard:   return "Standard"
         case .metallic:   return "Metallic"
         case .neon:       return "Neon"
-        case .watercolor: return "Watercolour"
+        case .watercolor: return "Watercolor"
         case .fire:       return "Fire"
         case .glitch:     return "Glitch"
         case .phantom:    return "Phantom"

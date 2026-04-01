@@ -19,10 +19,10 @@ struct DrawingToolbarView: View {
     var onOpenInspector: (() -> Void)? = nil
 
     @State private var showStrokePopover = false
-    @State private var showSaveAlert      = false
-    @State private var showPresetManager  = false
-    @State private var showInkPicker      = false
-    @State private var newPresetName      = ""
+    @State private var showSaveAlert = false
+    @State private var showPresetManager = false
+    @State private var showInkPicker = false
+    @State private var newPresetName = ""
 
     // MARK: - Color Binding
 
