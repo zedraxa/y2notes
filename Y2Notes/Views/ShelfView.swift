@@ -60,7 +60,10 @@ struct ShelfView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            ShelfSidebarView(selectedSection: $selectedSection)
+            ShelfSidebarView(
+                selectedSection: $selectedSection,
+                onSelectNote: { id in selectedNoteID = id }
+            )
         } content: {
             NoteGridView(
                 section: selectedSection ?? .allNotes,
@@ -92,6 +95,10 @@ private struct ShelfSidebarView: View {
     @State private var showNewNotebookSheet = false
     @State private var notebookToRename: Notebook?
     @State private var renameText = ""
+    @State private var showLibrarySearch = false
+
+    // Binding passed down from ShelfView so tapping a search result selects the note.
+    var onSelectNote: (UUID) -> Void
 
     var body: some View {
         List(selection: $selectedSection) {
@@ -108,6 +115,14 @@ private struct ShelfSidebarView: View {
                     .tag(LibrarySection.favorites)
                     .badge(noteStore.favoritedNotes.count)
                     .foregroundStyle(noteStore.favoritedNotes.isEmpty ? .secondary : .yellow)
+            }
+
+            // ── Study ─────────────────────────────────────────────────────
+            Section("Study") {
+                NavigationLink(destination: StudySetListView()) {
+                    Label("Study Sets", systemImage: "rectangle.on.rectangle.angled")
+                        .badge(noteStore.studySets.count)
+                }
             }
 
             // ── Notebooks ─────────────────────────────────────────────────
@@ -170,9 +185,20 @@ private struct ShelfSidebarView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 EditButton()
             }
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    showLibrarySearch = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .accessibilityLabel("Search library")
+            }
         }
         .sheet(isPresented: $showNewNotebookSheet) {
             NotebookCreationWizard()
+        }
+        .sheet(isPresented: $showLibrarySearch) {
+            LibrarySearchView(onSelectNote: onSelectNote)
         }
         .alert("Rename Notebook", isPresented: Binding(
             get: { notebookToRename != nil },

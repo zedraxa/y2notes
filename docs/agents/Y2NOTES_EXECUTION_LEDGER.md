@@ -762,3 +762,41 @@ Notes for next agents:
 - `DrawingToolStore` is injected at app root via `.environmentObject(toolStore)` — any new view that needs tool state should read it the same way NoteEditorView does
 - `ShapeOverlayView` coordinate space equals the container UIView (not canvas content), which matches the canvas frame since scroll is disabled during shape drawing
 - To add new ink types on iOS 17+, add a case to `DrawingTool`, map it in `DrawingToolStore.pkTool`, add a system image in `ToolModels.swift`
+
+---
+
+## [2026-04-01T21:51:00Z] AGENT-16 — Search and Study Foundations
+
+Branch: copilot/add-library-wide-search
+Model used: claude-sonnet-4.6
+Scope: Library-wide search, in-document search, search architecture, study set / flashcard data model, SM-2 spaced-repetition schema.
+
+### Files created
+- `Y2Notes/Search/SearchService.swift` — pure search engine covering title, typedText, notebook name; `InDocumentMatch` for find-in-note; open extension points for future PDF text + handwriting OCR.
+- `Y2Notes/Models/StudySet.swift` — `StudyCard`, `StudySet`, `ReviewRating`, `StudyCardProgress` (SM-2 spaced repetition with `applying(rating:)` scheduler).
+- `Y2Notes/Views/LibrarySearchView.swift` — full-screen library search sheet grouped by notebook; relevance-sorted results with match-type badges; integrates with `NoteStore` and `SearchService`.
+- `Y2Notes/Views/StudySetListView.swift` — study set list, card list, add-card sheet, due-today review prompt.
+- `Y2Notes/Views/StudySessionView.swift` — active recall session: flip animation, Again/Hard/Good/Easy rating buttons driving SM-2 progress, session completion screen.
+
+### Files modified
+- `Y2Notes/Models/Note.swift` — Added `typedText: String` field (backward-compatible decoder default "").
+- `Y2Notes/Persistence/NoteStore.swift` — Added `@Published studySets`, `studyCards`, `cardProgress`; `updateTypedText(for:text:)`; full study-set/card CRUD; `recordReview(cardID:rating:)` SM-2 hook; `saveStudy()` / `loadStudy()` to `y2notes_study.json`; `loadStudy()` called in `init()`.
+- `Y2Notes/Views/ShelfView.swift` — Search button (magnifyingglass) in sidebar toolbar opens `LibrarySearchView` sheet; "Study" section in sidebar with `StudySetListView` navigation link.
+- `Y2Notes/Views/NoteEditorView.swift` — In-document find bar (collapsible, above canvas): query field, match count, prev/next navigation, "Drawing only" hint for drawing-only notes.
+- `Y2Notes.xcodeproj/project.pbxproj` — Registered all 5 new Swift files (file refs AA88–8C, build files AA8D–91, Search group AA87).
+
+### Search architecture
+- **V1 live:** title match (score 100), typedText match (score 50), notebook name match (score 20).
+- **Extension point:** Add `case pdfText` / `case handwritingOCR` to `SearchMatchType`; populate the corresponding `Note` field; wire into `SearchService.search()` — no call-site changes needed.
+- In-document find searches `note.typedText`; for drawing-only notes shows "Drawing only" hint.
+
+### Study / spaced repetition schema
+- SM-2 algorithm in `StudyCardProgress.applying(rating:)` — interval ramps 1 → 6 → interval×easeFactor.
+- `isDueToday` property drives due-card queue in session view.
+- Persisted in `y2notes_study.json` alongside existing notes/notebooks files, same atomic-write + `.bak` backup pattern.
+
+### What remains
+- Typed text entry UI in the editor (keyboard text layer over canvas) — future agent.
+- PDF import + text extraction — future agent.
+- Handwriting OCR — future agent (architecture ready: add `Note.ocrText`, wire `SearchMatchType.handwritingOCR`).
+- iCloud / CloudKit sync of study progress — future agent.

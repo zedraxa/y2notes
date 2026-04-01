@@ -29,6 +29,11 @@
 		AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
 		AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
 		AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000055 /* ContextualPencilPaletteView.swift */; };
+		AA000100000000000000008D /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000088 /* SearchService.swift */; };
+		AA000100000000000000008E /* StudySet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000089 /* StudySet.swift */; };
+		AA000100000000000000008F /* LibrarySearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008A /* LibrarySearchView.swift */; };
+		AA0001000000000000000090 /* StudySetListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008B /* StudySetListView.swift */; };
+		AA0001000000000000000091 /* StudySessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008C /* StudySessionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +61,11 @@
 		AA0001000000000000000053 /* PencilInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilInteractionCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000054 /* PencilHoverOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHoverOverlayView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000055 /* ContextualPencilPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualPencilPaletteView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000088 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
+		AA0001000000000000000089 /* StudySet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySet.swift; sourceTree = "<group>"; };
+		AA000100000000000000008A /* LibrarySearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySearchView.swift; sourceTree = "<group>"; };
+		AA000100000000000000008B /* StudySetListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySetListView.swift; sourceTree = "<group>"; };
+		AA000100000000000000008C /* StudySessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySessionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,6 +106,7 @@
 				AA0001000000000000000033 /* Theme */,
 				AA0001000000000000000056 /* PencilKit */,
 				AA0001000000000000000086 /* Tools */,
+				AA0001000000000000000087 /* Search */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 			);
@@ -110,6 +121,7 @@
 				AA0001000000000000000050 /* NotebookSection.swift */,
 				AA0001000000000000000051 /* PageTemplate.swift */,
 				AA0001000000000000000070 /* NotebookConfig.swift */,
+				AA0001000000000000000089 /* StudySet.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -123,6 +135,9 @@
 				AA0001000000000000000032 /* ThemePickerView.swift */,
 				AA0001000000000000000082 /* DrawingToolbarView.swift */,
 				AA0001000000000000000071 /* NotebookCreationWizard.swift */,
+				AA000100000000000000008A /* LibrarySearchView.swift */,
+				AA000100000000000000008B /* StudySetListView.swift */,
+				AA000100000000000000008C /* StudySessionView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -161,6 +176,14 @@
 				AA0001000000000000000081 /* DrawingToolStore.swift */,
 			);
 			path = Tools;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000087 /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000088 /* SearchService.swift */,
+			);
+			path = Search;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -253,6 +276,11 @@
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
+				AA000100000000000000008D /* SearchService.swift in Sources */,
+				AA000100000000000000008E /* StudySet.swift in Sources */,
+				AA000100000000000000008F /* LibrarySearchView.swift in Sources */,
+				AA0001000000000000000090 /* StudySetListView.swift in Sources */,
+				AA0001000000000000000091 /* StudySessionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

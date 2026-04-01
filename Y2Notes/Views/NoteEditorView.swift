@@ -35,6 +35,17 @@ struct NoteEditorView: View {
     /// Toggling this value signals the canvas to animate back to 1× zoom.
     @State private var zoomResetTrigger = false
 
+    /// Whether the in-document find bar is visible.
+    @State private var showFindBar = false
+    /// Current query in the in-document find bar.
+    @State private var findQuery = ""
+    /// Matches in the note's typedText produced by the current query.
+    @State private var findMatches: [InDocumentMatch] = []
+    /// Index of the currently highlighted find match.
+    @State private var findMatchIndex: Int = 0
+
+    private let searchService = SearchService()
+
     init(note: Note) {
         self.note = note
         _titleText = State(initialValue: note.title)
@@ -58,6 +69,10 @@ struct NoteEditorView: View {
             }
             Divider()
             DrawingToolbarView(toolStore: toolStore)
+            if showFindBar {
+                findBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
             CanvasView(
                 noteID: note.id,
                 drawingData: note.drawingData,
@@ -83,12 +98,25 @@ struct NoteEditorView: View {
             )
         }
         .navigationBarTitleDisplayMode(.inline)
+        .animation(.spring(duration: 0.25), value: showFindBar)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarLeading) {
                 saveStateIndicator
             }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 noteThemeMenu
+
+                // In-document find bar toggle.
+                Button {
+                    showFindBar.toggle()
+                    if !showFindBar {
+                        findQuery = ""
+                        findMatches = []
+                    }
+                } label: {
+                    Image(systemName: showFindBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                }
+                .accessibilityLabel(showFindBar ? "Hide find bar" : "Find in note")
 
                 // Finger / Pencil drawing policy toggle.
                 // When pencil-only mode is active the icon is a filled pencil tip;
@@ -251,6 +279,90 @@ struct NoteEditorView: View {
             .onChange(of: titleText) { newValue in
                 noteStore.updateTitle(for: note.id, title: newValue)
             }
+    }
+
+    // MARK: - In-document find bar
+
+    /// Compact find bar shown between the toolbar and the canvas.
+    /// Searches the note's `typedText`; shows a count and previous/next navigation.
+    /// For drawing-only notes (empty typedText) it shows a context message.
+    private var findBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.body)
+
+            TextField("Find in note…", text: $findQuery)
+                .textFieldStyle(.plain)
+                .font(.body)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+                .onChange(of: findQuery) { _ in updateFindMatches() }
+                .submitLabel(.search)
+                .onSubmit { advanceFindMatch(forward: true) }
+
+            if !findMatches.isEmpty {
+                Text("\(findMatchIndex + 1)/\(findMatches.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+            } else if !findQuery.isEmpty {
+                Text(note.typedText.isEmpty ? "Drawing only" : "0 results")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+            }
+
+            Spacer(minLength: 0)
+
+            if !findMatches.isEmpty {
+                Button {
+                    advanceFindMatch(forward: false)
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .disabled(findMatches.count <= 1)
+                .accessibilityLabel("Previous match")
+
+                Button {
+                    advanceFindMatch(forward: true)
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .disabled(findMatches.count <= 1)
+                .accessibilityLabel("Next match")
+            }
+
+            Button {
+                showFindBar = false
+                findQuery = ""
+                findMatches = []
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityLabel("Close find bar")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color(uiColor: .secondarySystemBackground))
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+    }
+
+    private func updateFindMatches() {
+        findMatches = searchService.findInDocument(query: findQuery, note: note)
+        findMatchIndex = 0
+    }
+
+    private func advanceFindMatch(forward: Bool) {
+        guard !findMatches.isEmpty else { return }
+        if forward {
+            findMatchIndex = (findMatchIndex + 1) % findMatches.count
+        } else {
+            findMatchIndex = (findMatchIndex - 1 + findMatches.count) % findMatches.count
+        }
     }
 }
 
