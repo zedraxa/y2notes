@@ -30,6 +30,44 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    func deleteNote(noteID: UUID) {
+        notes.removeAll { $0.id == noteID }
+        save()
+    }
+
+    @discardableResult
+    func duplicateNote(noteID: UUID) -> Note? {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return nil }
+        let source = notes[idx]
+        let copy = Note(
+            title: Self.copyTitle(from: source.title),
+            createdAt: Date(),
+            modifiedAt: Date(),
+            drawingData: source.drawingData
+        )
+        notes.insert(copy, at: idx + 1)
+        save()
+        return copy
+    }
+
+    /// Returns an appropriate copy title, incrementing the counter on repeated duplicates.
+    /// Examples: "My Note" → "My Note (Copy)", then → "My Note (Copy 2)", → "My Note (Copy 3)", etc.
+    private static func copyTitle(from title: String) -> String {
+        guard !title.isEmpty else { return "Note (Copy)" }
+        if title.hasSuffix(" (Copy)") {
+            let base = String(title.dropLast(" (Copy)".count))
+            return "\(base) (Copy 2)"
+        }
+        for n in 2...99 {
+            let suffix = " (Copy \(n))"
+            if title.hasSuffix(suffix) {
+                let base = String(title.dropLast(suffix.count))
+                return "\(base) (Copy \(n + 1))"
+            }
+        }
+        return "\(title) (Copy)"
+    }
+
     func updateTitle(for noteID: UUID, title: String) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].title = title
