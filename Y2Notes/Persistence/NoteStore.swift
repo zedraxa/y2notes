@@ -50,6 +50,13 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    /// Sets or clears the per-note theme override. Pass nil to revert to the global app theme.
+    func updateThemeOverride(for noteID: UUID, theme: AppTheme?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].themeOverride = theme
+        save()
+    }
+
     func updateDrawing(for noteID: UUID, data: Data) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].drawingData = data

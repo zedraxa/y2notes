@@ -4,6 +4,7 @@ import PencilKit
 /// Full-screen note editor: editable title + PencilKit canvas.
 struct NoteEditorView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var themeStore: ThemeStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
@@ -16,13 +17,30 @@ struct NoteEditorView: View {
         _titleText = State(initialValue: note.title)
     }
 
+    // MARK: - Effective theme
+
+    /// The theme that governs this note's canvas.
+    /// A per-note override takes precedence over the global app theme.
+    private var effectiveTheme: AppTheme {
+        note.themeOverride ?? themeStore.selectedTheme
+    }
+
+    private var effectiveDefinition: ThemeDefinition {
+        effectiveTheme.definition
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             titleField
+            if effectiveDefinition.canvasIsDark {
+                contrastBanner
+            }
             Divider()
             CanvasView(
                 noteID: note.id,
                 drawingData: note.drawingData,
+                backgroundColor: effectiveDefinition.canvasBackground,
+                defaultInkColor: effectiveDefinition.contrastingInkColor,
                 onDrawingChanged: { data in
                     noteStore.updateDrawing(for: note.id, data: data)
                 },
@@ -34,6 +52,8 @@ struct NoteEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
+                noteThemeMenu
+
                 Button {
                     undoManager?.undo()
                 } label: {
@@ -68,6 +88,62 @@ struct NoteEditorView: View {
         }
     }
 
+    // MARK: - Per-note theme menu
+
+    /// Compact toolbar menu for overriding the theme on this note only.
+    private var noteThemeMenu: some View {
+        Menu {
+            // "Use app theme" option — clears any override.
+            Button {
+                noteStore.updateThemeOverride(for: note.id, theme: nil)
+            } label: {
+                if note.themeOverride == nil {
+                    Label("App Theme", systemImage: "checkmark")
+                } else {
+                    Text("App Theme")
+                }
+            }
+
+            Divider()
+
+            ForEach(AppTheme.allCases) { theme in
+                Button {
+                    noteStore.updateThemeOverride(for: note.id, theme: theme)
+                } label: {
+                    if note.themeOverride == theme {
+                        Label(theme.displayName, systemImage: "checkmark")
+                    } else {
+                        Label(theme.displayName, systemImage: theme.systemImage)
+                    }
+                }
+                .disabled(theme.isPremium)
+            }
+        } label: {
+            Image(systemName: note.themeOverride == nil ? "paintbrush" : "paintbrush.fill")
+                .accessibilityLabel("Note theme")
+        }
+    }
+
+    // MARK: - Contrast banner
+
+    /// Thin informational strip shown when the canvas background is dark,
+    /// reminding users to use a light ink colour for visibility.
+    private var contrastBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "eye.fill")
+                .font(.caption2)
+            Text("Dark canvas — use a light ink colour for best contrast")
+                .font(.caption2)
+        }
+        .foregroundStyle(Color(uiColor: effectiveDefinition.secondaryText))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: effectiveDefinition.canvasBackground).opacity(0.8))
+    }
+
+    // MARK: - Helpers
+
     private func refreshUndoRedoState() {
         canUndo = undoManager?.canUndo ?? false
         canRedo = undoManager?.canRedo ?? false
@@ -91,9 +167,15 @@ struct NoteEditorView: View {
 
 /// UIViewRepresentable wrapper around PKCanvasView with PKToolPicker.
 /// Handles Apple Pencil, finger drawing, and gracefully runs without a Pencil.
+///
+/// - `backgroundColor`: canvas background colour provided by the active theme.
+/// - `defaultInkColor`: contrasting ink colour applied when first creating the canvas,
+///   ensuring strokes are visible regardless of the theme's canvas background.
 private struct CanvasView: UIViewRepresentable {
     let noteID: UUID
     let drawingData: Data
+    let backgroundColor: UIColor
+    let defaultInkColor: UIColor
     let onDrawingChanged: (Data) -> Void
     let onSaveRequested: () -> Void
 
@@ -107,7 +189,10 @@ private struct CanvasView: UIViewRepresentable {
         // Allow any input (finger + Apple Pencil); requires no special hardware.
         canvas.drawingPolicy = .anyInput
         canvas.alwaysBounceVertical = true
-        canvas.backgroundColor = .systemBackground
+        canvas.backgroundColor = backgroundColor
+
+        // Seed a contrasting default inking tool so strokes are visible on first use.
+        canvas.tool = PKInkingTool(.pen, color: defaultInkColor, width: 2)
 
         // Restore previously saved drawing, if any.
         if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
@@ -129,7 +214,10 @@ private struct CanvasView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
-        // No-op: mutations flow through the Coordinator delegate.
+        // Update canvas background when the theme changes.
+        if uiView.backgroundColor != backgroundColor {
+            uiView.backgroundColor = backgroundColor
+        }
     }
 
     // MARK: Coordinator
@@ -157,3 +245,4 @@ private struct CanvasView: UIViewRepresentable {
         }
     }
 }
+
