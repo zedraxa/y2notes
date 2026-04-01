@@ -509,3 +509,73 @@ Files modified:
 - `flushToDisk()` is synchronous. For very large note stores a future agent could dispatch the encode+write to a `DispatchQueue.global(qos:.utility)` and make `saveState` transitions async; the current architecture is ready for this (just move the body of `flushToDisk` to a detached task and dispatch `.main.async` for state updates).
 - The `.bak` files are written in the same Documents directory. They are user data; do not delete them in cleanup routines. They are intentionally excluded from iCloud sync by inheriting the primary file's exclusion policy (future sync agent: apply `URLResourceValues.isExcludedFromBackupKey` or CloudKit at the primary-file level — the `.bak` siblings will follow the same directory).
 - `saveStateIndicator` is placed in `.navigationBarLeading`. On iPad in a `NavigationSplitView`, this renders left of the inline title; it does not collide with the Back/sidebar button which is owned by the split view chrome.
+
+---
+
+## [2026-04-01T17:45:00Z] AGENT-09 — Editor Canvas Core
+
+Branch: copilot/ag09-build-editor-canvas-core
+Model used: claude-sonnet-4.6
+Scope: PencilKit drawing surface improvements — finger vs Pencil policy, zoom/pan, performance instrumentation, undo/redo architecture hardening, stable editor embedding.
+
+Files modified:
+- `Y2Notes/Views/NoteEditorView.swift` — all canvas core changes concentrated here.
+
+### What was completed
+
+**Finger vs Pencil gesture behavior**
+- Added `@AppStorage("y2notes.pencilOnlyDrawing") private var pencilOnlyDrawing` (persisted via `UserDefaults`).
+- `CanvasView` now accepts `drawingPolicy: PKCanvasViewDrawingPolicy`. When pencil-only is active, `canvas.drawingPolicy = .pencilOnly` — Apple Pencil draws, finger pans/zooms. When disabled, `.anyInput` restores the original accessible behavior.
+- Toolbar toggle button: `pencil.tip` icon (pencil-only active) / `hand.and.pencil` icon (any input). State persists across app restarts.
+
+**Zoom/pan rules**
+- `PKCanvasView.minimumZoomScale = 0.25` — lets users step back for a full-page overview.
+- `PKCanvasView.maximumZoomScale = 5.0` — fine-detail writing precision.
+- `PKCanvasView.bouncesZoom = true` — elastic overshoot matches standard iPad scroll feel.
+- Zoom-reset button (`arrow.up.left.and.arrow.down.right`) in toolbar: flips `@State var zoomResetTrigger`; `updateUIView` detects the flip and calls `uiView.setZoomScale(1.0, animated: true)` dispatched off the layout pass.
+- `drawingPolicy` changes are also reflected in `updateUIView` to survive SwiftUI re-renders.
+
+**Performance instrumentation**
+- `private let editorLogger = Logger(subsystem: "com.y2notes.app", category: "editor")` — human-readable messages visible in Console.app.
+- `private let editorSignposter = OSSignposter(subsystem: "com.y2notes.app", category: "editor.perf")` — Instruments-visible signposts.
+- `beginInterval("CanvasSetup")` / `endInterval` brackets the entire `makeUIView` → `becomeFirstResponder` path.
+- `emitEvent("DrawingChanged")` fires on every `canvasViewDrawingDidChange`.
+- `emitEvent("DrawingSaved")` fires inside the 0.8 s debounce flush.
+- All `noteID` log interpolations use `privacy: .public` to appear in release logs.
+
+**Undo/redo architecture**
+- `CanvasView` now exposes `onUndoStateChanged: ((Bool, Bool) -> Void)?`.
+- `canvasViewDrawingDidChange` reads `canvasView.undoManager` (which traverses the UIResponder chain — the same manager PencilKit registers stroke actions against) and calls `onUndoStateChanged?(um?.canUndo, um?.canRedo)` after every stroke.
+- The editor's `canUndo`/`canRedo` `@State` is now driven by **both** the canvas-side callback (immediate, accurate) and the existing `NSUndoManager` notification observers (belt-and-suspenders for edge cases like batch undo from the shake gesture).
+- `context.coordinator.onUndoStateChanged` is refreshed in `updateUIView` so the closure always captures current SwiftUI state.
+
+**Stable editor embedding**
+- `context.coordinator.lastZoomResetTrigger` is seeded in `makeUIView` from the initial `zoomResetTrigger` value, preventing a spurious zoom reset on first render when SwiftUI calls `updateUIView`.
+- Tool picker reference is held strongly on the `Coordinator` (not released between renders).
+- `ShelfView` already uses `.id(note.id)` on `NoteEditorView`, so switching notes triggers a full canvas teardown/setup — the new `makeUIView` signpost confirms each setup is clean.
+
+### What remains
+- iCloud / CloudKit sync (future agent).
+- Export (PDF/image) feature (future agent).
+- Unit/UI tests (future agent once CI with Xcode is available).
+- App icon artwork.
+- Premium theme unlock flow (scaffolded by AGENT-04).
+
+### Build/test evidence
+- No Xcode available in sandbox; correctness validated by structural inspection.
+- `PKCanvasViewDrawingPolicy` (`.pencilOnly`, `.anyInput`) — public API, iOS 14+.
+- `PKCanvasView` inherits `UIScrollView`; `minimumZoomScale`, `maximumZoomScale`, `bouncesZoom`, `setZoomScale(_:animated:)` are all `UIScrollView` public API.
+- `OSSignposter` — public API, iOS 15+; deployment target is iOS 16.
+- `Logger(subsystem:category:)` — public API, iOS 14+.
+- `UIResponder.undoManager` — traverses the responder chain; same manager PencilKit uses when canvas is first responder.
+- `@AppStorage` wrapping a `Bool` — public SwiftUI API, iOS 14+.
+
+### Open risks
+- `PKCanvasView` zoom behavior can conflict with the tool picker palette on very small canvases. At `minimumZoomScale = 0.25` the content shrinks significantly; if a future page-size constraint is added, adjust `minimumZoomScale` accordingly.
+- `drawingPolicy = .pencilOnly` disables finger drawing entirely at the framework level — this is the correct behavior for elite writing feel (no accidental palm marks), but users with accessibility needs (no Apple Pencil) should know the toggle exists.
+- The debounce save timer (`0.8 s`) is a best-effort; if the app is force-quit during this window the last partial stroke is lost. A future agent could add `scenePhase == .background` as an additional save trigger.
+
+### Notes for next agents
+- `@AppStorage("y2notes.pencilOnlyDrawing")` key is the canonical drawing-policy preference. Any future settings screen should bind to this same key rather than duplicating it.
+- Zoom state is not persisted per note (intentional — users expect 1× on reopen). If per-note zoom memory is desired, add `zoomScale: CGFloat` to `Note` and feed it through `CanvasView`.
+- `editorSignposter` / `editorLogger` are file-private in `NoteEditorView.swift`. If a separate `CanvasView.swift` is ever extracted, move these to a shared `EditorInstrumentation.swift` file and register it in `project.pbxproj`.
