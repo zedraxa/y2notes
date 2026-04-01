@@ -3,24 +3,27 @@ import PencilKit
 
 /// Compact horizontal tool palette embedded between the title bar and canvas.
 ///
-/// Shows tool buttons, colour swatch, width control, and a horizontally
-/// scrollable presets strip. Contextual sub-pickers appear for the eraser
-/// (pixel/stroke mode) and shape tool (line/rectangle/circle/arrow).
+/// Shows tool buttons, colour swatch, width/opacity control, and an optional
+/// contextual sub-picker for eraser mode or shape type. A "sliders" button on
+/// the far right opens the AdvancedToolsPanel inspector when provided.
 struct DrawingToolbarView: View {
     @ObservedObject var toolStore: DrawingToolStore
 
-    @State private var showWidthPopover   = false
-    @State private var showSaveAlert      = false
-    @State private var showPresetManager  = false
-    @State private var newPresetName      = ""
+    /// Called when the user taps the inspector toggle button.
+    var onOpenInspector: (() -> Void)? = nil
+
+    @State private var showStrokePopover = false
 
     // MARK: - Color Binding
 
-    /// Bridges UIColor ↔ SwiftUI Color for the system ColorPicker.
     private var colorBinding: Binding<Color> {
         Binding(
             get: { Color(uiColor: toolStore.activeColor) },
-            set: { toolStore.activeColor = UIColor($0) }
+            set: { newColor in
+                let uiColor = UIColor(newColor)
+                toolStore.activeColor = uiColor
+                toolStore.addRecentColor(uiColor)
+            }
         )
     }
 
@@ -36,28 +39,11 @@ struct DrawingToolbarView: View {
                 rowDivider
                 shapeSubPicker
             }
-            if !toolStore.presets.isEmpty {
-                rowDivider
-                presetsStrip
-            }
         }
         .background(.bar)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
-        .alert("Save Preset", isPresented: $showSaveAlert) {
-            TextField("Preset name", text: $newPresetName)
-            Button("Save") {
-                toolStore.saveCurrentAsPreset(name: newPresetName)
-                newPresetName = ""
-            }
-            Button("Cancel", role: .cancel) { newPresetName = "" }
-        } message: {
-            Text("Save the current tool, colour, and width as a reusable preset.")
-        }
-        .sheet(isPresented: $showPresetManager) {
-            PresetManagerView(toolStore: toolStore)
-        }
     }
 
     // MARK: - Main Row
@@ -83,45 +69,39 @@ struct DrawingToolbarView: View {
                 .disabled(!toolStore.activeTool.isInking)
                 .opacity(toolStore.activeTool.isInking ? 1 : 0.35)
 
-            // Width indicator — tap to reveal slider
+            // Width/opacity indicator — tap to reveal popover
             Button {
-                showWidthPopover.toggle()
+                showStrokePopover.toggle()
             } label: {
                 widthSwatch
             }
             .buttonStyle(.plain)
-            .popover(isPresented: $showWidthPopover) {
-                widthPopover
+            .popover(isPresented: $showStrokePopover) {
+                strokeSettingsPopover
             }
             .disabled(!toolStore.activeTool.isInking)
             .opacity(toolStore.activeTool.isInking ? 1 : 0.35)
-            .accessibilityLabel("Stroke width \(Int(toolStore.activeWidth))pt")
+            .accessibilityLabel("Stroke width \(Int(toolStore.activeWidth))pt, opacity \(Int(toolStore.activeOpacity * 100))%")
 
             Spacer(minLength: 8)
 
-            // Manage / add preset buttons
-            Button {
-                newPresetName = toolStore.activeTool.displayName
-                showSaveAlert = true
-            } label: {
-                Image(systemName: "plus.circle")
-                    .font(.system(size: 16))
-                    .frame(width: 32, height: 32)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Save as preset")
+            // Inspector toggle
+            if onOpenInspector != nil {
+                Divider()
+                    .frame(height: 26)
+                    .padding(.horizontal, 6)
 
-            Button {
-                showPresetManager = true
-            } label: {
-                Image(systemName: "list.bullet")
-                    .font(.system(size: 16))
-                    .frame(width: 32, height: 32)
-                    .foregroundStyle(.secondary)
+                Button {
+                    onOpenInspector?()
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 16))
+                        .frame(width: 36, height: 36)
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open Inspector")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Manage presets")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
@@ -158,7 +138,7 @@ struct DrawingToolbarView: View {
                 .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
                 .frame(width: 36, height: 36)
             Circle()
-                .fill(Color(uiColor: toolStore.activeColor))
+                .fill(Color(uiColor: toolStore.activeColor).opacity(toolStore.activeOpacity))
                 .frame(
                     width: min(28, CGFloat(toolStore.activeWidth) * 2 + 4),
                     height: min(28, CGFloat(toolStore.activeWidth) * 2 + 4)
@@ -166,42 +146,69 @@ struct DrawingToolbarView: View {
         }
     }
 
-    // MARK: - Width Popover
+    // MARK: - Stroke Settings Popover
 
-    private var widthPopover: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Stroke Width")
+    private var strokeSettingsPopover: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Stroke")
                 .font(.headline)
-            HStack(spacing: 8) {
-                Text("1")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Slider(value: $toolStore.activeWidth, in: 1...30, step: 0.5)
-                    .frame(minWidth: 200)
-                Text("30")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+
+            // Width
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Width")
+                        .font(.subheadline)
+                    Spacer()
+                    Text("\(String(format: "%.1f", toolStore.activeWidth)) pt")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Text("1")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Slider(value: $toolStore.activeWidth, in: 1...30, step: 0.5)
+                        .frame(minWidth: 200)
+                    Text("30")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
+
+            // Opacity
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Opacity")
+                        .font(.subheadline)
+                    Spacer()
+                    Text("\(Int(toolStore.activeOpacity * 100))%")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Text("5%")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Slider(value: $toolStore.activeOpacity, in: 0.05...1.0, step: 0.05)
+                        .frame(minWidth: 200)
+                    Text("100%")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Live preview dot
             HStack {
                 Spacer()
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color(.systemGray6))
+                    let dotSize = min(44, CGFloat(toolStore.activeWidth) * 2.4)
                     Circle()
-                        .fill(Color(uiColor: toolStore.activeColor))
-                        .frame(
-                            width:  min(44, CGFloat(toolStore.activeWidth) * 2.2),
-                            height: min(44, CGFloat(toolStore.activeWidth) * 2.2)
-                        )
+                        .fill(Color(uiColor: toolStore.activeColor).opacity(toolStore.activeOpacity))
+                        .frame(width: dotSize, height: dotSize)
                 }
                 .frame(width: 240, height: 52)
-                Spacer()
-            }
-            HStack {
-                Spacer()
-                Text("\(Int(toolStore.activeWidth)) pt")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 Spacer()
             }
         }
@@ -276,134 +283,10 @@ struct DrawingToolbarView: View {
         .padding(.vertical, 5)
     }
 
-    // MARK: - Presets Strip
-
-    private var presetsStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(toolStore.presets) { preset in
-                    presetChip(preset)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-        }
-    }
-
-    private func presetChip(_ preset: ToolPreset) -> some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(Color(uiColor: preset.uiColor))
-                .frame(width: 9, height: 9)
-            Text(preset.name)
-                .font(.caption.weight(.medium))
-                .lineLimit(1)
-            if preset.isFavorite {
-                Image(systemName: "star.fill")
-                    .font(.system(size: 8))
-                    .foregroundStyle(.yellow)
-            }
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(Color(.systemGray5))
-        .clipShape(Capsule())
-        .onTapGesture {
-            toolStore.applyPreset(preset)
-        }
-        .contextMenu {
-            Button {
-                toolStore.toggleFavorite(presetID: preset.id)
-            } label: {
-                Label(
-                    preset.isFavorite ? "Remove from Favourites" : "Add to Favourites",
-                    systemImage: preset.isFavorite ? "star.slash" : "star"
-                )
-            }
-            Divider()
-            Button(role: .destructive) {
-                toolStore.deletePreset(id: preset.id)
-            } label: {
-                Label("Delete Preset", systemImage: "trash")
-            }
-        }
-    }
-
     // MARK: - Helpers
 
     private var rowDivider: some View {
         Divider()
             .padding(.horizontal, 12)
-    }
-}
-
-// MARK: - Preset Manager Sheet
-
-/// Full-screen sheet for reordering, favouriting, and deleting saved presets.
-private struct PresetManagerView: View {
-    @ObservedObject var toolStore: DrawingToolStore
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                if toolStore.presets.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "square.dashed")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                        Text("No Presets")
-                            .font(.headline)
-                        Text("Save a tool, colour, and width combo from the toolbar.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-                } else {
-                    ForEach(toolStore.presets) { preset in
-                        HStack(spacing: 10) {
-                            Circle()
-                                .fill(Color(uiColor: preset.uiColor))
-                                .frame(width: 20, height: 20)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(preset.name)
-                                    .font(.body)
-                                Text("\(preset.tool.displayName) · \(Int(preset.width)) pt")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button {
-                                toolStore.toggleFavorite(presetID: preset.id)
-                            } label: {
-                                Image(systemName: preset.isFavorite ? "star.fill" : "star")
-                                    .foregroundStyle(preset.isFavorite ? .yellow : .secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            toolStore.applyPreset(preset)
-                            dismiss()
-                        }
-                    }
-                    .onDelete { toolStore.presets.remove(atOffsets: $0) }
-                    .onMove  { toolStore.movePresets(from: $0, to: $1) }
-                }
-            }
-            .navigationTitle("Presets")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
     }
 }

@@ -35,6 +35,9 @@ struct NoteEditorView: View {
     /// Toggling this value signals the canvas to animate back to 1× zoom.
     @State private var zoomResetTrigger = false
 
+    /// Controls visibility of the right-side AdvancedToolsPanel inspector overlay.
+    @State private var showAdvancedPanel = false
+
     init(note: Note) {
         self.note = note
         _titleText = State(initialValue: note.title)
@@ -51,14 +54,19 @@ struct NoteEditorView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            titleField
-            if effectiveDefinition.canvasIsDark {
-                contrastBanner
-            }
-            Divider()
-            DrawingToolbarView(toolStore: toolStore)
-            CanvasView(
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 0) {
+                titleField
+                if effectiveDefinition.canvasIsDark {
+                    contrastBanner
+                }
+                Divider()
+                DrawingToolbarView(toolStore: toolStore, onOpenInspector: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        showAdvancedPanel.toggle()
+                    }
+                })
+                CanvasView(
                 noteID: note.id,
                 drawingData: note.drawingData,
                 backgroundColor: effectiveDefinition.canvasBackground,
@@ -81,7 +89,21 @@ struct NoteEditorView: View {
                     canRedo = canRedoVal
                 }
             )
-        }
+            }  // end VStack
+
+            // Advanced tools inspector — slides in from the right
+            if showAdvancedPanel {
+                AdvancedToolsPanel(toolStore: toolStore, isPresented: $showAdvancedPanel)
+                    .padding(.top, 8)
+                    .padding(.trailing, 8)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal:   .move(edge: .trailing).combined(with: .opacity)
+                    ))
+                    .zIndex(1)
+            }
+        }  // end ZStack
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showAdvancedPanel)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarLeading) {

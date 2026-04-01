@@ -102,8 +102,8 @@ enum ShapeType: String, CaseIterable, Codable {
 
 // MARK: - Tool Preset
 
-/// A saved combination of drawing tool, colour, and stroke width that the user
-/// can apply with a single tap and optionally mark as a favourite.
+/// A saved combination of drawing tool, colour, stroke width, and opacity that
+/// the user can apply with a single tap and optionally mark as a favourite.
 struct ToolPreset: Identifiable, Codable, Equatable {
     var id: UUID
     var name: String
@@ -111,6 +111,8 @@ struct ToolPreset: Identifiable, Codable, Equatable {
     /// RGBA components stored individually in 0…1 range so no UIColor Codable needed.
     var colorComponents: [Double]
     var width: Double
+    /// Stroke opacity applied as alpha on the ink colour (0.05–1.0). Default 1.0.
+    var opacity: Double
     var isFavorite: Bool
 
     init(
@@ -119,12 +121,14 @@ struct ToolPreset: Identifiable, Codable, Equatable {
         tool: DrawingTool,
         color: UIColor = .black,
         width: Double = 3.0,
+        opacity: Double = 1.0,
         isFavorite: Bool = false
     ) {
         self.id = id
         self.name = name
         self.tool = tool
         self.width = width
+        self.opacity = opacity
         self.isFavorite = isFavorite
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
@@ -139,5 +143,33 @@ struct ToolPreset: Identifiable, Codable, Equatable {
             blue:  CGFloat(colorComponents[2]),
             alpha: CGFloat(colorComponents[3])
         )
+    }
+
+    // MARK: - Codable (manual to handle missing `opacity` in older stored data)
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, tool, colorComponents, width, opacity, isFavorite
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id              = try c.decode(UUID.self,        forKey: .id)
+        name            = try c.decode(String.self,      forKey: .name)
+        tool            = try c.decode(DrawingTool.self, forKey: .tool)
+        colorComponents = try c.decode([Double].self,    forKey: .colorComponents)
+        width           = try c.decode(Double.self,      forKey: .width)
+        opacity         = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1.0
+        isFavorite      = try c.decode(Bool.self,        forKey: .isFavorite)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,              forKey: .id)
+        try c.encode(name,            forKey: .name)
+        try c.encode(tool,            forKey: .tool)
+        try c.encode(colorComponents, forKey: .colorComponents)
+        try c.encode(width,           forKey: .width)
+        try c.encode(opacity,         forKey: .opacity)
+        try c.encode(isFavorite,      forKey: .isFavorite)
     }
 }
