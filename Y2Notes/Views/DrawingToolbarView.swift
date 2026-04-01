@@ -3,16 +3,26 @@ import PencilKit
 
 /// Compact horizontal tool palette embedded between the title bar and canvas.
 ///
-/// Shows tool buttons, colour swatch, width/opacity control, and an optional
-/// contextual sub-picker for eraser mode or shape type. A "sliders" button on
-/// the far right opens the AdvancedToolsPanel inspector when provided.
+/// Shows tool buttons, colour swatch, width/opacity control, and a horizontally
+/// scrollable presets strip. Contextual sub-pickers appear for the eraser
+/// (pixel/stroke mode) and shape tool (line/rectangle/circle/arrow).
+///
+/// An ink-effects button (✦ wand icon) opens `InkEffectPickerView` when
+/// `inkStore` is provided.  The button is omitted if `inkStore` is nil so
+/// the base drawing path is unaffected by the premium ink system. A "sliders"
+/// button on the far right opens the AdvancedToolsPanel inspector when provided.
 struct DrawingToolbarView: View {
     @ObservedObject var toolStore: DrawingToolStore
-
+    /// Optional — nil disables the ink-effects button entirely.
+    var inkStore: InkEffectStore? = nil
     /// Called when the user taps the inspector toggle button.
     var onOpenInspector: (() -> Void)? = nil
 
     @State private var showStrokePopover = false
+    @State private var showSaveAlert      = false
+    @State private var showPresetManager  = false
+    @State private var showInkPicker      = false
+    @State private var newPresetName      = ""
 
     // MARK: - Color Binding
 
@@ -39,11 +49,33 @@ struct DrawingToolbarView: View {
                 rowDivider
                 shapeSubPicker
             }
+            if !toolStore.presets.isEmpty {
+                rowDivider
+                presetsStrip
+            }
         }
         .background(.bar)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
+        .alert("Save Preset", isPresented: $showSaveAlert) {
+            TextField("Preset name", text: $newPresetName)
+            Button("Save") {
+                toolStore.saveCurrentAsPreset(name: newPresetName)
+                newPresetName = ""
+            }
+            Button("Cancel", role: .cancel) { newPresetName = "" }
+        } message: {
+            Text("Save the current tool, colour, and width as a reusable preset.")
+        }
+        .sheet(isPresented: $showPresetManager) {
+            PresetManagerView(toolStore: toolStore)
+        }
+        .sheet(isPresented: $showInkPicker) {
+            if let inkStore {
+                InkEffectPickerView(inkStore: inkStore)
+            }
+        }
     }
 
     // MARK: - Main Row
@@ -85,6 +117,35 @@ struct DrawingToolbarView: View {
 
             Spacer(minLength: 8)
 
+            // Ink effects button — only shown when InkEffectStore is available
+            if let inkStore {
+                inkEffectsButton(inkStore: inkStore)
+            }
+
+            // Manage / add preset buttons
+            Button {
+                newPresetName = toolStore.activeTool.displayName
+                showSaveAlert = true
+            } label: {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 16))
+                    .frame(width: 32, height: 32)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Save as preset")
+
+            Button {
+                showPresetManager = true
+            } label: {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 16))
+                    .frame(width: 32, height: 32)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Manage presets")
+
             // Inspector toggle
             if onOpenInspector != nil {
                 Divider()
@@ -105,6 +166,29 @@ struct DrawingToolbarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
+    }
+
+    // MARK: - Ink Effects Button
+
+    @ViewBuilder
+    private func inkEffectsButton(inkStore: InkEffectStore) -> some View {
+        let isActive = inkStore.activePreset != nil
+        Button {
+            showInkPicker = true
+        } label: {
+            Image(systemName: isActive ? "wand.and.stars.inverse" : "wand.and.stars")
+                .font(.system(size: 16, weight: isActive ? .semibold : .regular))
+                .frame(width: 32, height: 32)
+                .background(
+                    isActive
+                        ? Color.accentColor.opacity(0.18)
+                        : Color.clear
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isActive ? "Ink effects: \(inkStore.activePreset?.name ?? "")" : "Ink effects")
     }
 
     // MARK: - Tool Button

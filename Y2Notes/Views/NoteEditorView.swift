@@ -17,6 +17,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
+    @EnvironmentObject var inkStore: InkEffectStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
@@ -61,34 +62,36 @@ struct NoteEditorView: View {
                     contrastBanner
                 }
                 Divider()
-                DrawingToolbarView(toolStore: toolStore, onOpenInspector: {
+                DrawingToolbarView(toolStore: toolStore, inkStore: inkStore, onOpenInspector: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                         showAdvancedPanel.toggle()
                     }
                 })
                 CanvasView(
-                noteID: note.id,
-                drawingData: note.drawingData,
-                backgroundColor: effectiveDefinition.canvasBackground,
-                defaultInkColor: effectiveDefinition.contrastingInkColor,
-                currentTool: toolStore.pkTool,
-                isShapeToolActive: toolStore.activeTool == .shape,
-                activeShapeType: toolStore.activeShapeType,
-                shapeColor: toolStore.activeColor,
-                shapeWidth: toolStore.activeWidth,
-                drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
-                zoomResetTrigger: zoomResetTrigger,
-                onDrawingChanged: { data in
-                    noteStore.updateDrawing(for: note.id, data: data)
-                },
-                onSaveRequested: {
-                    noteStore.save()
-                },
-                onUndoStateChanged: { canUndoVal, canRedoVal in
-                    canUndo = canUndoVal
-                    canRedo = canRedoVal
-                }
-            )
+                    noteID: note.id,
+                    drawingData: note.drawingData,
+                    backgroundColor: effectiveDefinition.canvasBackground,
+                    defaultInkColor: effectiveDefinition.contrastingInkColor,
+                    currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
+                    isShapeToolActive: toolStore.activeTool == .shape,
+                    activeShapeType: toolStore.activeShapeType,
+                    shapeColor: toolStore.activeColor,
+                    shapeWidth: toolStore.activeWidth,
+                    drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
+                    zoomResetTrigger: zoomResetTrigger,
+                    activeFX: inkStore.resolvedFX,
+                    fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
+                    onDrawingChanged: { data in
+                        noteStore.updateDrawing(for: note.id, data: data)
+                    },
+                    onSaveRequested: {
+                        noteStore.save()
+                    },
+                    onUndoStateChanged: { canUndoVal, canRedoVal in
+                        canUndo = canUndoVal
+                        canRedo = canRedoVal
+                    }
+                )
             }  // end VStack
 
             // Advanced tools inspector — slides in from the right
@@ -313,6 +316,8 @@ private struct CanvasView: UIViewRepresentable {
     let drawingPolicy: PKCanvasViewDrawingPolicy
     /// Flip this value to trigger an animated reset to 1× zoom scale.
     let zoomResetTrigger: Bool
+    let activeFX: WritingFXType
+    let fxColor: UIColor
     let onDrawingChanged: (Data) -> Void
     let onSaveRequested: () -> Void
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
