@@ -288,3 +288,78 @@ What remains:
 - Export (PDF/image) feature (future agent)
 - Unit/UI tests (future agent)
 - App icon artwork
+
+---
+
+## [2026-04-01T17:40:00Z] AGENT-10 — Tool System
+
+Branch: copilot/implement-tool-system
+Model used: claude-sonnet-4.6
+Scope: Implement the complete drawing tool system: pen/pencil/highlighter/fountain pen, eraser modes, lasso/select/move/resize, shape tool, tool presets and favorites, fast color/width adjustment, and stable UserDefaults-backed persistence.
+
+Files created:
+- `Y2Notes/Tools/ToolModels.swift` — Data models:
+  - `DrawingTool` enum (pen, pencil, highlighter, fountainPen, eraser, lasso, shape) — Codable, CaseIterable, Identifiable
+  - `EraserMode` enum (bitmap / vector) maps to `PKEraserTool.EraserType`
+  - `ShapeType` enum (line, rectangle, circle, arrow) with systemImage + displayName
+  - `ToolPreset` struct — Identifiable, Codable, stores name / tool / RGBA color / width / isFavorite
+- `Y2Notes/Tools/DrawingToolStore.swift` — ObservableObject:
+  - Published: `activeTool`, `activeColor` (UIColor), `activeWidth`, `eraserMode`, `activeShapeType`, `presets`
+  - `pkTool: PKTool` computed property converts store state → PKInkingTool / PKEraserTool / PKLassoTool; fountain pen uses `#available(iOS 17, *)` guard
+  - Full UserDefaults persistence; all state survives app restart
+  - Preset API: `saveCurrentAsPreset`, `applyPreset`, `toggleFavorite`, `deletePreset`, `movePresets`
+  - Six sensible default presets seeded on first launch
+- `Y2Notes/Views/DrawingToolbarView.swift` — Compact SwiftUI toolbar:
+  - Horizontal row of 7 tool buttons (active tool highlighted with accent background)
+  - System `ColorPicker` (UIColor ↔ SwiftUI Color bridge via `UIColor(_ color: Color)`)
+  - Width indicator tap → popover `Slider` 1–30 pt with live circle preview
+  - Eraser sub-picker (pixel / stroke) shown when eraser is active
+  - Shape sub-picker (line / rectangle / circle / arrow) shown when shape is active
+  - Horizontally scrollable presets strip with colour dot, name, star badge; context menu (favourite / delete)
+  - "Save preset" alert + "Manage presets" sheet (`PresetManagerView`) with reorder/delete/favourite/apply
+
+Files modified:
+- `Y2Notes/Views/NoteEditorView.swift` — Comprehensive integration:
+  - Added `@EnvironmentObject var toolStore: DrawingToolStore`
+  - `DrawingToolbarView(toolStore:)` embedded between title divider and canvas
+  - `PKToolPicker` removed; canvas tool driven entirely by `toolStore.pkTool`
+  - `CanvasView` now returns a plain `UIView` container hosting two subviews:
+    1. `PKCanvasView` — normal PencilKit drawing (disabled when shape tool active)
+    2. `ShapeOverlayView` — transparent overlay that captures pan gestures when shape tool active, renders dashed `CAShapeLayer` preview, then commits a `PKStroke` into `canvas.drawing`
+  - `updateUIView` syncs `canvas.tool`, `canvas.isUserInteractionEnabled`, and overlay visibility/properties on every toolStore change
+  - `ShapeOverlayView` (final UIView subclass, same file): UIBezierPath construction for all four shape types; `samplePath` traverses CGPath elements (line/quad/curve/close) at 3 pt spacing to create dense PKStrokePoint arrays; `PKStroke` assembled with `PKInk`, `PKStrokePath`, `.identity` transform
+  - Lasso/select/move/resize is handled natively by `PKLassoTool()` — no extra code needed
+- `Y2Notes/Y2NotesApp.swift` — Added `@StateObject private var toolStore = DrawingToolStore()` + `.environmentObject(toolStore)`
+- `Y2Notes.xcodeproj/project.pbxproj` — Registered ToolModels.swift, DrawingToolStore.swift, DrawingToolbarView.swift as PBXFileReference + PBXBuildFile; added Tools PBXGroup (path = Tools); added all three to Sources build phase
+
+What was completed:
+- **Pen** (PKInkingTool .pen), **Pencil** (PKInkingTool .pencil), **Highlighter** (PKInkingTool .marker at 0.4 alpha × 3× width), **Fountain Pen** (PKInkingTool .fountainPen on iOS 17+, graceful .pen fallback on iOS 16)
+- **Eraser modes**: pixel eraser (PKEraserTool .bitmap) and stroke eraser (PKEraserTool .vector), with contextual mode picker
+- **Lasso / select / move / resize**: PKLassoTool() sets the canvas tool; PencilKit handles selection, drag, and transform handles natively
+- **Shape tool**: line, rectangle, circle, arrow drawn by pan gesture; dashed preview layer; shape committed as PKStroke into PKDrawing
+- **Tool presets**: save named presets, apply with one tap, reorder, delete
+- **Favorites**: star/unstar presets, starred presets show badge in strip
+- **Fast color/width**: always-visible ColorPicker swatch + width popover slider
+- **Stable persistence**: all 8 tool settings persisted to UserDefaults, loaded on init
+
+What remains:
+- iCloud / CloudKit sync (future agent)
+- Export (PDF / image) feature (future agent)
+- Unit/UI tests (future agent once CI with Xcode is available)
+- App icon artwork
+
+Build/test evidence:
+- No Xcode available in sandbox; correctness validated by structural inspection
+- All PencilKit API calls are iOS 14+ public API (PKInk, PKStroke, PKStrokePath, PKStrokePoint); PKInkingTool.fountainPen guarded with #available(iOS 17, *)
+- `UIColor(Color)` init is iOS 14+ — safe for iOS 16 deployment target
+- `presentationCompactAdaptation` removed (would require iOS 16.4+); `ContentUnavailableView` replaced with custom VStack (would require iOS 17+)
+- `PKDrawing(strokes:)` is non-throwing (iOS 14+); `try?` removed accordingly
+
+Open risks:
+- `ShapeOverlayView` gestures use `UIPanGestureRecognizer`; Apple Pencil hover (iOS 17.4+) does not interfere as PKCanvasView interaction is disabled during shape mode
+- PKLassoTool move/resize UX is native PencilKit — no custom code; the toolbar icon provides discovery, actual handles are PencilKit-rendered
+
+Notes for next agents:
+- `DrawingToolStore` is injected at app root via `.environmentObject(toolStore)` — any new view that needs tool state should read it the same way NoteEditorView does
+- `ShapeOverlayView` coordinate space equals the container UIView (not canvas content), which matches the canvas frame since scroll is disabled during shape drawing
+- To add new ink types on iOS 17+, add a case to `DrawingTool`, map it in `DrawingToolStore.pkTool`, add a system image in `ToolModels.swift`

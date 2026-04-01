@@ -19,6 +19,9 @@
 		AA0001000000000000000040 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000030 /* AppTheme.swift */; };
 		AA0001000000000000000041 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000031 /* ThemeStore.swift */; };
 		AA0001000000000000000042 /* ThemePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000032 /* ThemePickerView.swift */; };
+		AA0001000000000000000058 /* ToolModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000050 /* ToolModels.swift */; };
+		AA0001000000000000000059 /* DrawingToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000051 /* DrawingToolStore.swift */; };
+		AA000100000000000000005A /* DrawingToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000052 /* DrawingToolbarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +39,9 @@
 		AA0001000000000000000030 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		AA0001000000000000000031 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		AA0001000000000000000032 /* ThemePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePickerView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000050 /* ToolModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolModels.swift; sourceTree = "<group>"; };
+		AA0001000000000000000051 /* DrawingToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000052 /* DrawingToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolbarView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,6 +80,7 @@
 				AA000100000000000000000F /* Views */,
 				AA0001000000000000000010 /* Persistence */,
 				AA0001000000000000000033 /* Theme */,
+				AA0001000000000000000053 /* Tools */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 			);
@@ -96,6 +103,7 @@
 				AA0001000000000000000015 /* NoteEditorView.swift */,
 				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
+				AA0001000000000000000052 /* DrawingToolbarView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -115,6 +123,15 @@
 				AA0001000000000000000031 /* ThemeStore.swift */,
 			);
 			path = Theme;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000053 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000050 /* ToolModels.swift */,
+				AA0001000000000000000051 /* DrawingToolStore.swift */,
+			);
+			path = Tools;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -197,6 +214,9 @@
 				AA0001000000000000000040 /* AppTheme.swift in Sources */,
 				AA0001000000000000000041 /* ThemeStore.swift in Sources */,
 				AA0001000000000000000042 /* ThemePickerView.swift in Sources */,
+				AA0001000000000000000058 /* ToolModels.swift in Sources */,
+				AA0001000000000000000059 /* DrawingToolStore.swift in Sources */,
+				AA000100000000000000005A /* DrawingToolbarView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
