@@ -369,7 +369,7 @@ private struct CanvasView: UIViewRepresentable {
         let pageBackground = PageBackgroundView(frame: .zero)
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
-        pageBackground.lineColor    = rulingLineColor(for: backgroundColor)
+        pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
         pageBackground.showGrain    = paperMaterial.hasGrainTexture
         pageBackground.isUserInteractionEnabled = false
 
@@ -484,7 +484,7 @@ private struct CanvasView: UIViewRepresentable {
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
                 bg.pageColor  = backgroundColor
-                bg.lineColor  = rulingLineColor(for: backgroundColor)
+                bg.lineColor  = Self.rulingLineColor(for: backgroundColor)
             }
             if bg.pageType != pageType {
                 bg.pageType = pageType
@@ -532,9 +532,27 @@ private struct CanvasView: UIViewRepresentable {
     /// On dark backgrounds the lines are white at low opacity; on light backgrounds
     /// they are black at low opacity.
     private static func rulingLineColor(for background: UIColor) -> UIColor {
-        var white: CGFloat = 0
-        background.getWhite(&white, alpha: nil)
-        return white < 0.5
+        let isDarkBackground: Bool = {
+            var white: CGFloat = 0
+            if background.getWhite(&white, alpha: nil) {
+                return white < 0.5
+            }
+
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            if background.getRed(&red, green: &green, blue: &blue, alpha: nil) {
+                let relativeLuminance =
+                    (0.2126 * red) +
+                    (0.7152 * green) +
+                    (0.0722 * blue)
+                return relativeLuminance < 0.5
+            }
+
+            return false
+        }()
+
+        return isDarkBackground
             ? UIColor.white.withAlphaComponent(0.12)
             : UIColor.label.withAlphaComponent(0.10)
     }
