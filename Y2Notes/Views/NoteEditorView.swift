@@ -526,6 +526,19 @@ private struct CanvasView: UIViewRepresentable {
         context.coordinator.onUndoStateChanged = onUndoStateChanged
     }
 
+    // MARK: - Ruling line color helper
+
+    /// Returns a ruling line color that is visible against the given background.
+    /// On dark backgrounds the lines are white at low opacity; on light backgrounds
+    /// they are black at low opacity.
+    private static func rulingLineColor(for background: UIColor) -> UIColor {
+        var white: CGFloat = 0
+        background.getWhite(&white, alpha: nil)
+        return white < 0.5
+            ? UIColor.white.withAlphaComponent(0.12)
+            : UIColor.label.withAlphaComponent(0.10)
+    }
+
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, PKCanvasViewDelegate {
