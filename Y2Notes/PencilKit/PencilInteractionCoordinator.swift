@@ -135,7 +135,9 @@ final class PencilInteractionCoordinator: NSObject {
             break
         @unknown default:
             // A new system action added in a future OS; treat as "show contextual palette"
-            // so the user gets a useful response regardless.
+            // so the user gets a useful response regardless.  lastPencilPosition may be
+            // .zero if the Pencil has not yet moved; the palette will still appear on-screen
+            // because ContextualPencilPaletteView clamps its frame inside the window bounds.
             delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
         }
     }

@@ -46,6 +46,7 @@ final class ContextualPencilPaletteView: UIView {
 
         let palette = ContextualPencilPaletteView(
             anchorPoint: anchorPoint,
+            window: window,
             canvas: canvas,
             colors: colors
         )
@@ -66,16 +67,17 @@ final class ContextualPencilPaletteView: UIView {
 
     private init(
         anchorPoint: CGPoint,
+        window: UIWindow,
         canvas: PKCanvasView,
         colors: [UIColor]
     ) {
         self.canvas = canvas
         super.init(frame: .zero)
 
-        setupBackground(in: canvas.window ?? UIApplication.keyWindowIfAvailable)
+        setupBackground(in: window)
         setupAppearance()
         buildContent(colors: colors)
-        layoutPalette(anchorPoint: anchorPoint, in: canvas.window ?? UIApplication.keyWindowIfAvailable)
+        layoutPalette(anchorPoint: anchorPoint, in: window)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
@@ -142,9 +144,9 @@ final class ContextualPencilPaletteView: UIView {
             (.marker,  "highlighter",      false),
         ]
 
-        // Additional tools available in iOS 17 (PencilKit Pro).
+        // Additional tools available in iOS 17.5 (PencilKit Pro / Pencil Pro).
         var allTools: [(PKInkingTool.InkType, String, Bool)] = tools
-        if #available(iOS 17, *) {
+        if #available(iOS 17.5, *) {
             allTools.append(contentsOf: [
                 (.fountainPen, "paintbrush.pointed", false),
                 (.monoline,    "minus",              false),

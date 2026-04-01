@@ -341,7 +341,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Barrel-roll fountain pen (Apple Pencil Pro, iOS 17.5+)
 
     func pencilBarrelRollChanged(angle: CGFloat) {
-        guard #available(iOS 17, *), let canvas = canvasRef else { return }
+        guard #available(iOS 17.5, *), let canvas = canvasRef else { return }
         guard let inkTool = canvas.tool as? PKInkingTool,
               inkTool.inkType == .fountainPen else { return }
 
