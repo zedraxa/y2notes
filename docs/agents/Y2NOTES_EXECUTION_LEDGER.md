@@ -288,3 +288,83 @@ What remains:
 - Export (PDF/image) feature (future agent)
 - Unit/UI tests (future agent)
 - App icon artwork
+
+---
+
+## [2026-04-01T17:30:35Z] AGENT-08 — Local Persistence, Autosave & Recovery
+
+Branch: copilot/add-local-persistence-autosave
+Model used: claude-sonnet-4.6
+Scope: Own local persistence reliability: atomic saves with backup, autosave timer, recovery from interrupted writes, reopen integrity, and clear save-state hooks for UI.
+
+Files modified:
+- `Y2Notes/Persistence/NoteStore.swift` — full persistence overhaul
+- `Y2Notes/Views/NoteEditorView.swift` — save-state indicator in editor toolbar
+
+### What was completed
+
+**`SaveState` enum (top-level in `NoteStore.swift`)**
+- Cases: `.idle`, `.saving`, `.saved`, `.error(String)`.
+- `NoteStore` publishes `@Published private(set) var saveState: SaveState` so any view can react.
+
+**Atomic save with one-generation backup (`writeAtomically(_:to:)`)**
+- Before overwriting the primary file, the existing good file is copied to a `.bak` sibling (`y2notes_notes.json.bak`, `y2notes_notebooks.json.bak`).
+- The actual write uses `Data.write(to:options:.atomic)` which writes to a temp sibling then renames into place — the most atomic operation the filesystem supports.
+- Result: a complete interrupted-write scenario leaves the `.bak` intact for recovery.
+
+**Backup fallback on load (`loadJSON` / `attemptLoad`)**
+- `loadJSON` first attempts the primary file via `attemptLoad`.
+- On missing or corrupt primary, it falls back to the `.bak` sibling.
+- If the backup is used successfully, it is promoted to primary (`copyItem`) so the next save goes to the correct path.
+- This provides reopen integrity after app crash, force-quit, or interrupted write.
+
+**Autosave timer**
+- 30-second repeating `Timer` started in `init()` with 5-second tolerance (energy efficient).
+- Fires only when `isDirty == true`; calls `flushToDisk()`.
+- Invalidated in `deinit`.
+
+**Lifecycle flush on app resign-active**
+- Observes `UIApplication.willResignActiveNotification`.
+- Immediately flushes if `isDirty`, ensuring drawing changes are not lost when the user switches away before the 0.8 s canvas debounce fires.
+- Observer removed in `deinit`.
+
+**`isDirty` flag**
+- `updateDrawing(for:data:)` sets `isDirty = true` instead of calling `save()` — the debounced flush from the canvas coordinator is the primary trigger; autosave + lifecycle flush are the safety net.
+- `save()` clears `isDirty` before calling `flushToDisk()`.
+
+**`flushToDisk()` private method**
+- Encodes both `notes` and `notebooks` independently; collects the first error but continues to try the second file.
+- Sets `saveState` to `.saving` on entry, `.saved` on full success, `.error(description)` on any failure.
+- Still calls `assertionFailure` in debug builds so save errors are never silent during development.
+
+**Save-state indicator in `NoteEditorView`**
+- New `@State private var showSavedBadge: Bool` tracks the transient "saved" checkmark.
+- `onReceive(noteStore.$saveState)`: when `.saved`, sets `showSavedBadge = true`; hides it after 2 s via `DispatchQueue.main.asyncAfter`.
+- `saveStateIndicator` `@ViewBuilder`:
+  - `.saving` → `arrow.triangle.2.circlepath` (secondary tint)
+  - `.error` → `exclamationmark.triangle.fill` (orange, persistent)
+  - `.saved` while badge visible → `checkmark.circle` (secondary, fades after 2 s)
+  - otherwise → `EmptyView`
+- Placed in `.navigationBarLeading` `ToolbarItemGroup` so it doesn't crowd the existing trailing items (theme menu, undo, redo).
+
+### What remains
+- iCloud / CloudKit sync (future agent)
+- Export (PDF / image) feature (future agent)
+- Unit/UI tests (future agent)
+- App icon artwork
+
+### Build / test evidence
+- No Xcode available in this Linux sandbox; correctness validated by structural inspection.
+- All APIs used are documented public API available on iOS 14+:
+  - `Data.write(to:options:.atomic)` — Foundation
+  - `FileManager.copyItem(at:to:)` / `removeItem(at:)` — Foundation
+  - `Timer.scheduledTimer(withTimeInterval:repeats:block:)` — Foundation
+  - `UIApplication.willResignActiveNotification` — UIKit
+  - `NotificationCenter.default.addObserver(_:selector:name:object:)` — Foundation
+  - `@Published`, `ObservableObject`, `@ViewBuilder` — Combine / SwiftUI
+
+### Notes for next agents
+- `isDirty` is a plain `Bool` (no Combine publisher). It is set on the main thread by `updateDrawing` and read/cleared on the main thread by `save()` and the timer — no race conditions with the current synchronous save design.
+- `flushToDisk()` is synchronous. For very large note stores a future agent could dispatch the encode+write to a `DispatchQueue.global(qos:.utility)` and make `saveState` transitions async; the current architecture is ready for this (just move the body of `flushToDisk` to a detached task and dispatch `.main.async` for state updates).
+- The `.bak` files are written in the same Documents directory. They are user data; do not delete them in cleanup routines. They are intentionally excluded from iCloud sync by inheriting the primary file's exclusion policy (future sync agent: apply `URLResourceValues.isExcludedFromBackupKey` or CloudKit at the primary-file level — the `.bak` siblings will follow the same directory).
+- `saveStateIndicator` is placed in `.navigationBarLeading`. On iPad in a `NavigationSplitView`, this renders left of the inline title; it does not collide with the Back/sidebar button which is owned by the split view chrome.
