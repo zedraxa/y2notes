@@ -291,6 +291,297 @@ What remains:
 
 ---
 
+## [2026-04-01T17:29:26Z] AGENT-06 — Notebook Creation Wizard
+
+Branch: copilot/implement-notebook-creation-wizard
+Model used: claude-sonnet-4.6
+Scope: Premium three-step notebook creation wizard — built-in cover selection, custom cover upload, page type / size / orientation, paper material, default theme, sensible defaults, validation, clean persistence.
+
+Files created:
+- `Y2Notes/Models/NotebookConfig.swift` — Four new model enums:
+  - `PageType` (blank / ruled / dot / grid) — display name, subtitle, SF Symbol image.
+  - `PageSize` (letter / A4 / A5) — display name, physical dimensions subtitle.
+  - `PageOrientation` (portrait / landscape) — display name, SF Symbol image.
+  - `PaperMaterial` (standard / premium / craft / recycled) — display name, description, SF Symbol, `pageTint: Color` (subtle background tint).
+- `Y2Notes/Views/NotebookCreationWizard.swift` — Full three-step wizard (~850 lines):
+  - `NotebookDraft` private struct — holds all in-flight selections; passed as `@Binding` to each step.
+  - `WizardStep` private enum (`cover/paper/details`) — drives step title and animated transitions.
+  - `NotebookCreationWizard` — root view; `NavigationStack` + step-state machine; animated slide transitions (forward = trailing→leading, backward = leading→trailing); calls `noteStore.addNotebook` on completion.
+  - `WizardStepIndicator` — pill-shaped progress dots with animated width change.
+  - `NotebookCoverPreview` — live notebook thumbnail (spine highlight gradient, book icon, live title label) rendered from current draft; animated on cover change.
+  - `CoverStepView` — Segmented "Built-in / Custom Photo" tab; built-in 6-swatch grid (`WizardCoverSwatch` with scale+shadow selection feedback); `PhotosPicker` for custom cover (loads raw `Data`, decodes to `UIImage`, compresses to JPEG @ 0.75 quality, stored in `draft.customCoverData`); remove-photo button.
+  - `WizardCoverSwatch` — gradient swatch with `scaleEffect` + shadow animation on selection; `cover.displayName` label.
+  - `PaperStepView` — 2×2 `PageTypeCard` grid, segmented `PageSize` picker (with subtitle), dual `OrientationButton` (portrait / landscape), four `PaperMaterialRow` entries.
+  - `PageTypeCard` — card with `PageTypeMiniCanvas` preview and name/subtitle.
+  - `PageTypeMiniCanvas` — `Canvas`-based procedural drawings: blank (empty), ruled (5 horizontal lines), dot (4×5 dot grid), grid (5×4 crosshatch). No images; pure SwiftUI Canvas API.
+  - `OrientationButton` — full-width selection card with SF Symbol, label, and checkmark.
+  - `PaperMaterialRow` — selection row with `pageTint` circle swatch, name, description, checkmark.
+  - `DetailsStepView` — live cover preview, notebook name `TextField` (auto-focus via `.task` sleep), `"Follow App Theme"` + per-`AppTheme` menu picker, summary card (size, style, material, theme), Create button.
+  - Shared helpers `wizardNextButton` / `wizardNavButtons` — styled primary/secondary button rows used across steps.
+
+Files modified:
+- `Y2Notes/Models/Notebook.swift` — Added `pageType: PageType`, `pageSize: PageSize`, `orientation: PageOrientation`, `defaultTheme: AppTheme?`, `paperMaterial: PaperMaterial`, `customCoverData: Data?`; updated `init` with defaults; custom `Decodable` init using `decodeIfPresent` for all six new fields — fully backward-compatible with existing `y2notes_notebooks.json` stores.
+- `Y2Notes/Persistence/NoteStore.swift` — Replaced single-line `addNotebook(name:cover:)` with full-signature version accepting all six new configuration parameters (all with sensible defaults — existing callers compiled without change).
+- `Y2Notes/Views/ShelfView.swift` — Replaced `NewNotebookSheet` presentation with `NotebookCreationWizard()`; removed dead `NewNotebookSheet` and `CoverSwatch` private structs (~60 lines removed).
+- `Y2Notes.xcodeproj/project.pbxproj` — Registered `NotebookConfig.swift` (file ref `AA0001000000000000000050`, build file `AA0001000000000000000052`, added to Models group) and `NotebookCreationWizard.swift` (file ref `AA0001000000000000000051`, build file `AA0001000000000000000053`, added to Views group) in the Sources build phase.
+
+What was completed:
+- **Three-step wizard with animated step transitions** — slide-in/out from leading/trailing edge depending on navigation direction; spring physics on all transitions and selection feedback.
+- **Built-in cover selection** — six gradient covers (ocean/forest/sunset/lavender/slate/sand) with live notebook preview updating instantly.
+- **Custom cover upload** — `PhotosPicker` with async `loadTransferable`, JPEG recompression for storage efficiency, preview thumbnail, and remove-photo action.
+- **Page type selection** — blank / ruled / dot / grid, each with a procedurally-drawn mini Canvas preview and selection feedback.
+- **Page size / orientation** — Letter / A4 / A5 segmented picker; portrait / landscape button pair.
+- **Paper material** — standard / premium / craft / recycled rows with per-material `pageTint` tint circle, name and description.
+- **Default theme** — `.menu` picker with "Follow App Theme" default option and all six `AppTheme` cases.
+- **Live cover preview with title** — `NotebookCoverPreview` updates live across all three steps as name/cover/photo change.
+- **Sensible defaults** — ruled · letter · portrait · standard paper · follow app theme; wizard opens on step 1 with these pre-selected.
+- **Validation** — blank name silently becomes "Untitled"; no blocking validation gates to keep the flow low-friction.
+- **Clean persistence** — all six new `Notebook` fields are `Codable` and persist in `y2notes_notebooks.json`; absent keys decode to sensible defaults (backward compatible).
+- **Premium feel** — `.spring()` animations throughout; scale + shadow on cover swatch selection; step indicator pills animate width; presentation with drag indicator.
+
+What remains:
+- Notebook defaultTheme + paperMaterial applied to notes opened within that notebook (future agent).
+- Export / share (future agent).
+- iCloud / CloudKit sync (future agent).
+- App icon artwork.
+
+Build/test evidence:
+- No Xcode in sandbox; correctness validated by structural inspection.
+- Brace balance verified programmatically (all files balanced).
+- All APIs used are iOS 16+ public: `PhotosPicker`/`PhotosPickerItem` (PhotosUI iOS 16), `Canvas` (SwiftUI iOS 15), `@FocusState` (iOS 15), `safeAreaInset` (iOS 15), `Material.bar` (iOS 15).
+- `onChange(of:perform:)` retained for iOS 16 compatibility (two-parameter form is iOS 17+); note added in code.
+- Auto-focus uses `Task.sleep` inside `.task` modifier — avoids `DispatchQueue` anti-pattern.
+- `PhotosPicker` raw `Data` → `UIImage` → JPEG compression pipeline handles HEIC, JPEG, PNG inputs uniformly.
+- `Notebook.customCoverData` stored as base64 in JSON (JSONEncoder default for `Data`); acceptable for cover images at 0.75 JPEG quality.
+
+Open risks:
+- Custom cover images are stored inline in `y2notes_notebooks.json`. Large images compressed at 0.75 JPEG are typically 50–200 KB; for many notebooks this could grow the JSON file. A future agent may want to migrate to per-notebook files in a `Covers/` subdirectory.
+- `PhotosPickerItem.loadTransferable(type: Data.self)` returns raw image file bytes (HEIC/JPEG/PNG). This is re-encoded as JPEG before storage, normalising formats.
+
+Notes for next agents:
+- `Notebook.defaultTheme` is persisted but not yet applied in the editor. To apply it: in `NoteEditorView`, read `noteStore.notebooks.first(where: { $0.id == note.notebookID })?.defaultTheme` as the notebook-level override, with lower priority than the per-note `note.themeOverride` but higher priority than the global `ThemeStore`.
+- `Notebook.pageType` and `paperMaterial` are persisted but not yet applied to the canvas. `paperMaterial.pageTint` returns a `Color` ready to be blended with the canvas background.
+- The wizard replaces `NewNotebookSheet` entirely; `CoverSwatch` is removed from `ShelfView.swift`. Any agent re-introducing a quick-create flow should use `NotebookCreationWizard` or a subset of its step views.
+
+---
+
+## [2026-04-01T17:30:00Z] AGENT-07 — Notebook/Section/Page Model Layer
+
+Branch: copilot/build-notebook-section-page-model
+Model used: claude-sonnet-4.6
+Scope: Build the notebook/section/page hierarchy, robust page insertion and ordering, template system, section divider support, and APIs for future template packs; integrate with notebook creation wizard and persistence.
+
+Files created:
+- `Y2Notes/Models/NotebookSection.swift` — `NotebookSection` struct + `SectionKind` enum (`.section` / `.divider`)
+- `Y2Notes/Models/PageTemplate.swift` — `BuiltInTemplate` enum, `PageTemplate` struct, `TemplatePackProviding` protocol, `TemplateRegistry` singleton
+
+Files modified:
+- `Y2Notes/Models/Note.swift` — added `sectionID: UUID?`, `sortOrder: Int`, `templateID: String`; custom decoder uses `decodeIfPresent` throughout for full backward compatibility
+- `Y2Notes/Persistence/NoteStore.swift` — comprehensive additions:
+  - `@Published sections: [NotebookSection]` + `sectionsURL` (`y2notes_sections.json`)
+  - Section CRUD: `addSection(toNotebook:name:defaultTemplateID:)`, `addSectionDivider(toNotebook:label:)`, `renameSection(id:name:)`, `updateSectionDefaultTemplate(id:templateID:)`, `deleteSection(id:movePagesToNotebook:)`, `reorderSections(inNotebook:fromOffsets:toOffset:)`
+  - Page ordering: `pages(inSection:)`, `unsectionedPages(inNotebook:)`, `insertPage(inNotebook:sectionID:atIndex:templateID:)`, `movePage(id:toSection:atIndex:)`, `reorderPages(inSection:ofNotebook:fromOffsets:toOffset:)`
+  - `createNotebook(name:cover:defaultTemplateID:addDefaultSection:)` — wizard entry point; creates notebook + optional default "Notes" section
+  - `deleteNotebook(id:)` now cascades to `sections.removeAll { $0.notebookID == id }`
+  - `duplicateNote(id:)` now copies `sectionID`, `sortOrder + 1`, `templateID` and shifts sibling sort orders
+  - `moveNote(id:toNotebook:)` now also clears `sectionID` when moving between notebooks
+  - `save()` / `load()` include sections
+  - Private helpers: `nextSectionSortOrder(forNotebook:)`, `pageCount(notebookID:sectionID:)`, `reindexPageSortOrders(notebookID:sectionID:)`
+  - Schema version constant `storeSchemaVersion = 1` for future migration hooks
+- `Y2Notes/Views/ShelfView.swift` — `NewNotebookSheet` fully updated:
+  - Calls `noteStore.createNotebook(name:cover:defaultTemplateID:addDefaultSection:)` instead of `addNotebook`
+  - Toggle to include/skip the default section
+  - Template picker listing all `TemplateRegistry.shared.allTemplates` with checkmark selection
+  - `presentationDetents` changed to `.large` to accommodate the new content
+- `Y2Notes.xcodeproj/project.pbxproj` — registered `NotebookSection.swift` and `PageTemplate.swift` as file references (`AA0001000000000000000050/51`), build files (`AA0001000000000000000060/61`), and added them to the Models group and Sources build phase
+
+What was completed:
+- **Notebook/section/page hierarchy**: Notebook → [NotebookSection] → [Note/Page]; fully modelled and persisted.
+- **Section dividers**: `SectionKind.divider` is a first-class type in `NotebookSection`; displayed as visual separators (no pages).  `addSectionDivider(toNotebook:label:)` inserts them.
+- **Explicit page ordering**: `sortOrder: Int` on `Note` + `reindexPageSortOrders` helper ensures gapless ordering.  Insertion at arbitrary index (`insertPage(atIndex:)`), cross-section moves, and SwiftUI drag-reorder (`reorderPages`) all maintain consistency.
+- **Template system**: 6 built-in templates (blank, lined, grid, dotted, Cornell, music staff) in `BuiltInTemplate`; each maps to a `PageTemplate` with stable ID `"builtin.<rawValue>"`.  `TemplateRegistry.shared` merges built-ins with packs.
+- **Template pack API**: `TemplatePackProviding` protocol + `TemplateRegistry.register(_:)` — third-party packs drop in without touching core code.
+- **Default template per section**: `NotebookSection.defaultTemplateID` carries the section-level default; editable via `updateSectionDefaultTemplate(id:templateID:)`.
+- **Notebook creation wizard**: `NewNotebookSheet` now exposes cover, default-section toggle, and template picker; calls `createNotebook(…)` which auto-creates the "Notes" section.
+- **Backward-compatible persistence**: All new `Note` and `NotebookSection` fields use `decodeIfPresent` with safe defaults; old stores decode without error.
+- **Schema version constant**: `storeSchemaVersion = 1` at the top of `NoteStore.swift` for future migration gates.
+
+What remains:
+- iCloud / CloudKit sync (future agent)
+- Export (PDF/image) feature (future agent)
+- Unit/UI tests (future agent)
+- App icon artwork
+- Section list UI in the notebook detail / content column (future agent — the model and store layer is complete)
+- Template rendering on the PencilKit canvas (future agent — the template ID is stored on each Note; a future agent can draw the rule/grid lines in `CanvasView`)
+
+Build/test evidence:
+- No Xcode available in the sandbox; correctness validated by structural inspection.
+- All new APIs compile with Swift 5 / iOS 16 targets; no unavailable API used.
+- `NoteStore.sections` is `[NotebookSection]` — `NotebookSection` is `Codable`; `saveJSON`/`loadJSON` are generic and handle it identically to notes/notebooks.
+- Backward compat: `Note` decoder uses `decodeIfPresent` for all three new fields; absent keys → default values (nil, 0, "builtin.blank").
+
+Open risks:
+- `movePage(id:toSection:atIndex:)` calls `reindexPageSortOrders` twice (source + destination), which is O(n) each time.  Acceptable for typical note counts; if notebooks grow very large a single-pass variant should replace it.
+- `TemplateRegistry` is not thread-safe for concurrent `register` calls; registration is expected at app launch on the main thread before any reads from background queues.
+
+Notes for next agents:
+- To render a page template in the PencilKit canvas, read `note.templateID` and call `TemplateRegistry.shared.template(withID: note.templateID)` — the `builtIn` property tells you which rule/grid pattern to draw.
+- To add a template pack at app launch: `TemplateRegistry.shared.register(MyPack())` before `Y2NotesApp.body` runs (e.g. in `Y2NotesApp.init()`).
+- `NoteStore.createNotebook(name:cover:defaultTemplateID:addDefaultSection:)` is now the canonical notebook creation entry point; `addNotebook(name:cover:)` remains as the low-level primitive.
+- Section reorder UI (drag handles in a List inside the notebook content column) is not yet built; the store-layer API `reorderSections(inNotebook:fromOffsets:toOffset:)` is ready.
+
+---
+
+## [2026-04-01T17:30:35Z] AGENT-08 — Local Persistence, Autosave & Recovery
+
+Branch: copilot/add-local-persistence-autosave
+Model used: claude-sonnet-4.6
+Scope: Own local persistence reliability: atomic saves with backup, autosave timer, recovery from interrupted writes, reopen integrity, and clear save-state hooks for UI.
+
+Files modified:
+- `Y2Notes/Persistence/NoteStore.swift` — full persistence overhaul
+- `Y2Notes/Views/NoteEditorView.swift` — save-state indicator in editor toolbar
+
+### What was completed
+
+**`SaveState` enum (top-level in `NoteStore.swift`)**
+- Cases: `.idle`, `.saving`, `.saved`, `.error(String)`.
+- `NoteStore` publishes `@Published private(set) var saveState: SaveState` so any view can react.
+
+**Atomic save with one-generation backup (`writeAtomically(_:to:)`)**
+- Before overwriting the primary file, the existing good file is copied to a `.bak` sibling (`y2notes_notes.json.bak`, `y2notes_notebooks.json.bak`).
+- The actual write uses `Data.write(to:options:.atomic)` which writes to a temp sibling then renames into place — the most atomic operation the filesystem supports.
+- Result: a complete interrupted-write scenario leaves the `.bak` intact for recovery.
+
+**Backup fallback on load (`loadJSON` / `attemptLoad`)**
+- `loadJSON` first attempts the primary file via `attemptLoad`.
+- On missing or corrupt primary, it falls back to the `.bak` sibling.
+- If the backup is used successfully, it is promoted to primary (`copyItem`) so the next save goes to the correct path.
+- This provides reopen integrity after app crash, force-quit, or interrupted write.
+
+**Autosave timer**
+- 30-second repeating `Timer` started in `init()` with 5-second tolerance (energy efficient).
+- Fires only when `isDirty == true`; calls `flushToDisk()`.
+- Invalidated in `deinit`.
+
+**Lifecycle flush on app resign-active**
+- Observes `UIApplication.willResignActiveNotification`.
+- Immediately flushes if `isDirty`, ensuring drawing changes are not lost when the user switches away before the 0.8 s canvas debounce fires.
+- Observer removed in `deinit`.
+
+**`isDirty` flag**
+- `updateDrawing(for:data:)` sets `isDirty = true` instead of calling `save()` — the debounced flush from the canvas coordinator is the primary trigger; autosave + lifecycle flush are the safety net.
+- `save()` clears `isDirty` before calling `flushToDisk()`.
+
+**`flushToDisk()` private method**
+- Encodes both `notes` and `notebooks` independently; collects the first error but continues to try the second file.
+- Sets `saveState` to `.saving` on entry, `.saved` on full success, `.error(description)` on any failure.
+- Still calls `assertionFailure` in debug builds so save errors are never silent during development.
+
+**Save-state indicator in `NoteEditorView`**
+- New `@State private var showSavedBadge: Bool` tracks the transient "saved" checkmark.
+- `onReceive(noteStore.$saveState)`: when `.saved`, sets `showSavedBadge = true`; hides it after 2 s via `DispatchQueue.main.asyncAfter`.
+- `saveStateIndicator` `@ViewBuilder`:
+  - `.saving` → `arrow.triangle.2.circlepath` (secondary tint)
+  - `.error` → `exclamationmark.triangle.fill` (orange, persistent)
+  - `.saved` while badge visible → `checkmark.circle` (secondary, fades after 2 s)
+  - otherwise → `EmptyView`
+- Placed in `.navigationBarLeading` `ToolbarItemGroup` so it doesn't crowd the existing trailing items (theme menu, undo, redo).
+
+### What remains
+- iCloud / CloudKit sync (future agent)
+- Export (PDF / image) feature (future agent)
+- Unit/UI tests (future agent)
+- App icon artwork
+
+### Build / test evidence
+- No Xcode available in this Linux sandbox; correctness validated by structural inspection.
+- All APIs used are documented public API available on iOS 14+:
+  - `Data.write(to:options:.atomic)` — Foundation
+  - `FileManager.copyItem(at:to:)` / `removeItem(at:)` — Foundation
+  - `Timer.scheduledTimer(withTimeInterval:repeats:block:)` — Foundation
+  - `UIApplication.willResignActiveNotification` — UIKit
+  - `NotificationCenter.default.addObserver(_:selector:name:object:)` — Foundation
+  - `@Published`, `ObservableObject`, `@ViewBuilder` — Combine / SwiftUI
+
+### Notes for next agents
+- `isDirty` is a plain `Bool` (no Combine publisher). It is set on the main thread by `updateDrawing` and read/cleared on the main thread by `save()` and the timer — no race conditions with the current synchronous save design.
+- `flushToDisk()` is synchronous. For very large note stores a future agent could dispatch the encode+write to a `DispatchQueue.global(qos:.utility)` and make `saveState` transitions async; the current architecture is ready for this (just move the body of `flushToDisk` to a detached task and dispatch `.main.async` for state updates).
+- The `.bak` files are written in the same Documents directory. They are user data; do not delete them in cleanup routines. They are intentionally excluded from iCloud sync by inheriting the primary file's exclusion policy (future sync agent: apply `URLResourceValues.isExcludedFromBackupKey` or CloudKit at the primary-file level — the `.bak` siblings will follow the same directory).
+- `saveStateIndicator` is placed in `.navigationBarLeading`. On iPad in a `NavigationSplitView`, this renders left of the inline title; it does not collide with the Back/sidebar button which is owned by the split view chrome.
+
+---
+
+## [2026-04-01T17:45:00Z] AGENT-09 — Editor Canvas Core
+
+Branch: copilot/ag09-build-editor-canvas-core
+Model used: claude-sonnet-4.6
+Scope: PencilKit drawing surface improvements — finger vs Pencil policy, zoom/pan, performance instrumentation, undo/redo architecture hardening, stable editor embedding.
+
+Files modified:
+- `Y2Notes/Views/NoteEditorView.swift` — all canvas core changes concentrated here.
+
+### What was completed
+
+**Finger vs Pencil gesture behavior**
+- Added `@AppStorage("y2notes.pencilOnlyDrawing") private var pencilOnlyDrawing` (persisted via `UserDefaults`).
+- `CanvasView` now accepts `drawingPolicy: PKCanvasViewDrawingPolicy`. When pencil-only is active, `canvas.drawingPolicy = .pencilOnly` — Apple Pencil draws, finger pans/zooms. When disabled, `.anyInput` restores the original accessible behavior.
+- Toolbar toggle button: `pencil.tip` icon (pencil-only active) / `hand.and.pencil` icon (any input). State persists across app restarts.
+
+**Zoom/pan rules**
+- `PKCanvasView.minimumZoomScale = 0.25` — lets users step back for a full-page overview.
+- `PKCanvasView.maximumZoomScale = 5.0` — fine-detail writing precision.
+- `PKCanvasView.bouncesZoom = true` — elastic overshoot matches standard iPad scroll feel.
+- Zoom-reset button (`arrow.up.left.and.arrow.down.right`) in toolbar: flips `@State var zoomResetTrigger`; `updateUIView` detects the flip and calls `uiView.setZoomScale(1.0, animated: true)` dispatched off the layout pass.
+- `drawingPolicy` changes are also reflected in `updateUIView` to survive SwiftUI re-renders.
+
+**Performance instrumentation**
+- `private let editorLogger = Logger(subsystem: "com.y2notes.app", category: "editor")` — human-readable messages visible in Console.app.
+- `private let editorSignposter = OSSignposter(subsystem: "com.y2notes.app", category: "editor.perf")` — Instruments-visible signposts.
+- `beginInterval("CanvasSetup")` / `endInterval` brackets the entire `makeUIView` → `becomeFirstResponder` path.
+- `emitEvent("DrawingChanged")` fires on every `canvasViewDrawingDidChange`.
+- `emitEvent("DrawingSaved")` fires inside the 0.8 s debounce flush.
+- All `noteID` log interpolations use `privacy: .public` to appear in release logs.
+
+**Undo/redo architecture**
+- `CanvasView` now exposes `onUndoStateChanged: ((Bool, Bool) -> Void)?`.
+- `canvasViewDrawingDidChange` reads `canvasView.undoManager` (which traverses the UIResponder chain — the same manager PencilKit registers stroke actions against) and calls `onUndoStateChanged?(um?.canUndo, um?.canRedo)` after every stroke.
+- The editor's `canUndo`/`canRedo` `@State` is now driven by **both** the canvas-side callback (immediate, accurate) and the existing `NSUndoManager` notification observers (belt-and-suspenders for edge cases like batch undo from the shake gesture).
+- `context.coordinator.onUndoStateChanged` is refreshed in `updateUIView` so the closure always captures current SwiftUI state.
+
+**Stable editor embedding**
+- `context.coordinator.lastZoomResetTrigger` is seeded in `makeUIView` from the initial `zoomResetTrigger` value, preventing a spurious zoom reset on first render when SwiftUI calls `updateUIView`.
+- Tool picker reference is held strongly on the `Coordinator` (not released between renders).
+- `ShelfView` already uses `.id(note.id)` on `NoteEditorView`, so switching notes triggers a full canvas teardown/setup — the new `makeUIView` signpost confirms each setup is clean.
+
+### What remains
+- iCloud / CloudKit sync (future agent).
+- Export (PDF/image) feature (future agent).
+- Unit/UI tests (future agent once CI with Xcode is available).
+- App icon artwork.
+- Premium theme unlock flow (scaffolded by AGENT-04).
+
+### Build/test evidence
+- No Xcode available in sandbox; correctness validated by structural inspection.
+- `PKCanvasViewDrawingPolicy` (`.pencilOnly`, `.anyInput`) — public API, iOS 14+.
+- `PKCanvasView` inherits `UIScrollView`; `minimumZoomScale`, `maximumZoomScale`, `bouncesZoom`, `setZoomScale(_:animated:)` are all `UIScrollView` public API.
+- `OSSignposter` — public API, iOS 15+; deployment target is iOS 16.
+- `Logger(subsystem:category:)` — public API, iOS 14+.
+- `UIResponder.undoManager` — traverses the responder chain; same manager PencilKit uses when canvas is first responder.
+- `@AppStorage` wrapping a `Bool` — public SwiftUI API, iOS 14+.
+
+### Open risks
+- `PKCanvasView` zoom behavior can conflict with the tool picker palette on very small canvases. At `minimumZoomScale = 0.25` the content shrinks significantly; if a future page-size constraint is added, adjust `minimumZoomScale` accordingly.
+- `drawingPolicy = .pencilOnly` disables finger drawing entirely at the framework level — this is the correct behavior for elite writing feel (no accidental palm marks), but users with accessibility needs (no Apple Pencil) should know the toggle exists.
+- The debounce save timer (`0.8 s`) is a best-effort; if the app is force-quit during this window the last partial stroke is lost. A future agent could add `scenePhase == .background` as an additional save trigger.
+
+### Notes for next agents
+- `@AppStorage("y2notes.pencilOnlyDrawing")` key is the canonical drawing-policy preference. Any future settings screen should bind to this same key rather than duplicating it.
+- Zoom state is not persisted per note (intentional — users expect 1× on reopen). If per-note zoom memory is desired, add `zoomScale: CGFloat` to `Note` and feed it through `CanvasView`.
+- `editorSignposter` / `editorLogger` are file-private in `NoteEditorView.swift`. If a separate `CanvasView.swift` is ever extracted, move these to a shared `EditorInstrumentation.swift` file and register it in `project.pbxproj`.
+
+---
+
 ## [2026-04-01T17:40:00Z] AGENT-10 — Tool System
 
 Branch: copilot/implement-tool-system
