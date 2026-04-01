@@ -213,8 +213,10 @@ private struct CanvasView: UIViewRepresentable {
             strokeColor: shapeColor,
             strokeWidth: CGFloat(shapeWidth)
         ) { stroke in
-            let existing = Array(canvas.drawing.strokes)
-            canvas.drawing = PKDrawing(strokes: existing + [stroke])
+            // PKDrawing.strokes is a read-only sequence; appending requires building
+            // a new PKDrawing from the full stroke list — this is the standard
+            // PencilKit pattern since PKDrawing is an immutable value type.
+            canvas.drawing = PKDrawing(strokes: Array(canvas.drawing.strokes) + [stroke])
         }
         overlay.isHidden = !isShapeToolActive
 
