@@ -632,6 +632,15 @@ final class NoteStore: ObservableObject {
         notes[idx].modifiedAt = Date()
         isDirty = true
     }
+
+    /// Updates the OCR-recognised text for a note.
+    /// Called by a future handwriting-OCR agent after processing `drawingData`.
+    func updateOCRText(for noteID: UUID, text: String) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].ocrText = text
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
 }
 
 // MARK: - Study set & flashcard persistence

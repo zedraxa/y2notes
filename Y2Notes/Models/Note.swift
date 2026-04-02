@@ -25,8 +25,12 @@ struct Note: Identifiable, Codable, Hashable {
 
     /// Keyboard-typed text content for this note.
     /// Empty string = drawing-only note. Used by `SearchService` and the in-document find bar.
-    /// Architecture extension point: future agents can populate this from PDF extraction or OCR.
     var typedText: String
+
+    /// Recognised text from handwriting via on-device OCR.
+    /// Empty string until an OCR pass runs on the note's `drawingData`.
+    /// Searched by `SearchService` as `SearchMatchType.handwritingOCR`.
+    var ocrText: String
 
     init(
         id: UUID = UUID(),
@@ -40,7 +44,8 @@ struct Note: Identifiable, Codable, Hashable {
         sortOrder: Int = 0,
         templateID: String = "builtin.blank",
         themeOverride: AppTheme? = nil,
-        typedText: String = ""
+        typedText: String = "",
+        ocrText: String = ""
     ) {
         self.id = id
         self.title = title
@@ -54,13 +59,14 @@ struct Note: Identifiable, Codable, Hashable {
         self.templateID = templateID
         self.themeOverride = themeOverride
         self.typedText = typedText
+        self.ocrText = ocrText
     }
 
     // MARK: Codable — custom decoder for backward compatibility with old saves
     // that pre-date the isFavorited / notebookID / themeOverride / sectionID / sortOrder / templateID fields.
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData
-        case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride, typedText
+        case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride, typedText, ocrText
     }
 
     init(from decoder: Decoder) throws {
@@ -77,6 +83,7 @@ struct Note: Identifiable, Codable, Hashable {
         templateID    = try c.decodeIfPresent(String.self,   forKey: .templateID)   ?? "builtin.blank"
         themeOverride = try c.decodeIfPresent(AppTheme.self, forKey: .themeOverride)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
+        ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
     }
 
     // MARK: Hashable — identity only, so list selection stays stable while content changes.
