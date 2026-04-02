@@ -130,6 +130,7 @@ final class NoteStore: ObservableObject {
     func updateThemeOverride(for noteID: UUID, theme: AppTheme?) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].themeOverride = theme
+        notes[idx].modifiedAt = Date()
         save()
     }
 

@@ -748,13 +748,14 @@ private struct CanvasView: UIViewRepresentable {
         // Update the active tool from DrawingToolStore — but ONLY when:
         // 1. The user is not mid-stroke (setting tool mid-stroke kills PencilKit's
         //    internal pressure/tilt pipeline, destroying pressure sensitivity).
-        // 2. The tool actually changed (PKInkingTool is a value type; rebuilding an
-        //    identical tool still resets PencilKit's state).
+        // 2. The tool actually changed. We compare a lightweight snapshot of the
+        //    tool's identity (type + ink type + color + width) to avoid redundant
+        //    assignments that would reset PencilKit's state.
         if !context.coordinator.isDrawing {
-            let toolDesc = String(describing: currentTool)
-            if context.coordinator.lastToolDescription != toolDesc {
+            let snapshot = ToolSnapshot(currentTool)
+            if context.coordinator.lastToolSnapshot != snapshot {
                 canvas.tool = currentTool
-                context.coordinator.lastToolDescription = toolDesc
+                context.coordinator.lastToolSnapshot = snapshot
             }
         }
         canvas.isUserInteractionEnabled = !isShapeToolActive
@@ -839,7 +840,7 @@ private struct CanvasView: UIViewRepresentable {
 
         /// Tracks the last PKTool identity set on the canvas so updateUIView
         /// skips redundant assignments that would reset PencilKit's state.
-        var lastToolDescription: String?
+        var lastToolSnapshot: ToolSnapshot?
 
         /// Stable base width captured from the tool when a fountain-pen stroke
         /// begins. Used for barrel-roll modulation so the feedback loop does
@@ -978,6 +979,37 @@ extension CanvasView.Coordinator: PencilActionDelegate {
         let currentWidth = inkTool.width
         if abs(clampedWidth - currentWidth) > 0.8 {
             canvas.tool = PKInkingTool(.fountainPen, color: inkTool.color, width: clampedWidth)
+        }
+    }
+}
+
+// MARK: - Tool Snapshot
+
+/// Lightweight, equatable snapshot of a PKTool's identity.
+/// Used to avoid redundant `canvas.tool` assignments in `updateUIView` that
+/// would reset PencilKit's pressure/tilt pipeline.
+struct ToolSnapshot: Equatable {
+    let kind: String       // "inking", "eraser", "lasso"
+    let inkType: String?   // e.g. "pen", "pencil", "marker", "fountainPen"
+    let colorHash: Int?
+    let width: CGFloat?
+
+    init(_ tool: PKTool) {
+        if let ink = tool as? PKInkingTool {
+            kind = "inking"
+            inkType = ink.inkType.rawValue
+            colorHash = ink.color.hash
+            width = ink.width
+        } else if tool is PKEraserTool {
+            kind = "eraser"
+            inkType = nil
+            colorHash = nil
+            width = nil
+        } else {
+            kind = "lasso"
+            inkType = nil
+            colorHash = nil
+            width = nil
         }
     }
 }
