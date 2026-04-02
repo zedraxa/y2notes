@@ -17,6 +17,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
+    @EnvironmentObject var inkStore: InkEffectStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
@@ -77,7 +78,7 @@ struct NoteEditorView: View {
             }
             Divider()
             if !isTextMode {
-                DrawingToolbarView(toolStore: toolStore)
+                DrawingToolbarView(toolStore: toolStore, inkStore: inkStore)
             }
             if showFindBar {
                 findBar
@@ -91,13 +92,15 @@ struct NoteEditorView: View {
                     drawingData: note.drawingData,
                     backgroundColor: effectiveDefinition.canvasBackground,
                     defaultInkColor: effectiveDefinition.contrastingInkColor,
-                    currentTool: toolStore.pkTool,
+                    currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
                     isShapeToolActive: toolStore.activeTool == .shape,
                     activeShapeType: toolStore.activeShapeType,
                     shapeColor: toolStore.activeColor,
                     shapeWidth: toolStore.activeWidth,
                     drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
                     zoomResetTrigger: zoomResetTrigger,
+                    activeFX: inkStore.resolvedFX,
+                    fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
                     onDrawingChanged: { data in
                         noteStore.updateDrawing(for: note.id, data: data)
                     },
@@ -463,6 +466,11 @@ private struct CanvasView: UIViewRepresentable {
     let drawingPolicy: PKCanvasViewDrawingPolicy
     /// Flip this value to trigger an animated reset to 1× zoom scale.
     let zoomResetTrigger: Bool
+    /// The resolved ink writing-FX type from `InkEffectStore`. `.none` when no
+    /// premium ink preset is active or the device doesn't support FX.
+    let activeFX: WritingFXType
+    /// The colour associated with the active ink preset (used by FX overlays).
+    let fxColor: UIColor
     let onDrawingChanged: (Data) -> Void
     let onSaveRequested: () -> Void
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.

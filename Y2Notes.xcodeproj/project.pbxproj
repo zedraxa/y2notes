@@ -31,9 +31,13 @@
 		AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000055 /* ContextualPencilPaletteView.swift */; };
 		AA000100000000000000008D /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000088 /* SearchService.swift */; };
 		AA000100000000000000008E /* StudySet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000089 /* StudySet.swift */; };
-		AA000100000000000000008F /* LibrarySearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008A /* LibrarySearchView.swift */; };
-		AA0001000000000000000090 /* StudySetListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008B /* StudySetListView.swift */; };
-		AA0001000000000000000091 /* StudySessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008C /* StudySessionView.swift */; };
+		AA0001000000000000000098 /* LibrarySearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008A /* LibrarySearchView.swift */; };
+		AA0001000000000000000099 /* StudySetListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008B /* StudySetListView.swift */; };
+		AA000100000000000000009A /* StudySessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008C /* StudySessionView.swift */; };
+		AA0001000000000000000094 /* PDFNoteModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000090 /* PDFNoteModel.swift */; };
+		AA0001000000000000000095 /* PDFStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000091 /* PDFStore.swift */; };
+		AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000092 /* PDFPageAnnotationView.swift */; };
+		AA0001000000000000000097 /* PDFViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000093 /* PDFViewerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +70,10 @@
 		AA000100000000000000008A /* LibrarySearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySearchView.swift; sourceTree = "<group>"; };
 		AA000100000000000000008B /* StudySetListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySetListView.swift; sourceTree = "<group>"; };
 		AA000100000000000000008C /* StudySessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySessionView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000090 /* PDFNoteModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFNoteModel.swift; sourceTree = "<group>"; };
+		AA0001000000000000000091 /* PDFStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000092 /* PDFPageAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFPageAnnotationView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000093 /* PDFViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFViewerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,6 +115,7 @@
 				AA0001000000000000000056 /* PencilKit */,
 				AA0001000000000000000086 /* Tools */,
 				AA0001000000000000000087 /* Search */,
+				AA000100000000000000008F /* PDF */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 			);
@@ -178,12 +187,24 @@
 			path = Tools;
 			sourceTree = "<group>";
 		};
+<<<<<<< HEAD
 		AA0001000000000000000087 /* Search */ = {
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000088 /* SearchService.swift */,
 			);
 			path = Search;
+=======
+		AA000100000000000000008F /* PDF */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000090 /* PDFNoteModel.swift */,
+				AA0001000000000000000091 /* PDFStore.swift */,
+				AA0001000000000000000092 /* PDFPageAnnotationView.swift */,
+				AA0001000000000000000093 /* PDFViewerView.swift */,
+			);
+			path = PDF;
+>>>>>>> origin/main
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -276,11 +297,18 @@
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
+<<<<<<< HEAD
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
 				AA000100000000000000008F /* LibrarySearchView.swift in Sources */,
 				AA0001000000000000000090 /* StudySetListView.swift in Sources */,
 				AA0001000000000000000091 /* StudySessionView.swift in Sources */,
+=======
+				AA0001000000000000000094 /* PDFNoteModel.swift in Sources */,
+				AA0001000000000000000095 /* PDFStore.swift in Sources */,
+				AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */,
+				AA0001000000000000000097 /* PDFViewerView.swift in Sources */,
+>>>>>>> origin/main
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
