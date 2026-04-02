@@ -46,6 +46,12 @@
 		AA00010000000000000000A0 /* InkFamilyRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009A /* InkFamilyRegistry.swift */; };
 		AA00010000000000000000A1 /* InkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009B /* InkEffectStore.swift */; };
 		AA00010000000000000000A2 /* InkEffectPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009C /* InkEffectPickerView.swift */; };
+		AA00010000000000000000AE /* GoogleDriveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A8 /* GoogleDriveModels.swift */; };
+		AA00010000000000000000AF /* GoogleDriveAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A9 /* GoogleDriveAuthManager.swift */; };
+		AA00010000000000000000B0 /* GoogleDriveClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000AA /* GoogleDriveClient.swift */; };
+		AA00010000000000000000B1 /* GoogleDriveSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000AB /* GoogleDriveSyncEngine.swift */; };
+		AA00010000000000000000B2 /* GoogleDriveOfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000AC /* GoogleDriveOfflineQueue.swift */; };
+		AA00010000000000000000B3 /* GoogleDriveSyncStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000AD /* GoogleDriveSyncStatusView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -90,6 +96,12 @@
 		AA000100000000000000009A /* InkFamilyRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkFamilyRegistry.swift; sourceTree = "<group>"; };
 		AA000100000000000000009B /* InkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectStore.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A8 /* GoogleDriveModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveModels.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A9 /* GoogleDriveAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveAuthManager.swift; sourceTree = "<group>"; };
+		AA00010000000000000000AA /* GoogleDriveClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveClient.swift; sourceTree = "<group>"; };
+		AA00010000000000000000AB /* GoogleDriveSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncEngine.swift; sourceTree = "<group>"; };
+		AA00010000000000000000AC /* GoogleDriveOfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveOfflineQueue.swift; sourceTree = "<group>"; };
+		AA00010000000000000000AD /* GoogleDriveSyncStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncStatusView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +145,7 @@
 				AA0001000000000000000087 /* Search */,
 				AA000100000000000000008F /* PDF */,
 				AA000100000000000000009D /* Ink */,
+				AA00010000000000000000A7 /* GoogleDrive */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 			);
@@ -236,6 +249,19 @@
 				AA000100000000000000009B /* InkEffectStore.swift */,
 			);
 			path = Ink;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000000A7 /* GoogleDrive */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000000A8 /* GoogleDriveModels.swift */,
+				AA00010000000000000000A9 /* GoogleDriveAuthManager.swift */,
+				AA00010000000000000000AA /* GoogleDriveClient.swift */,
+				AA00010000000000000000AB /* GoogleDriveSyncEngine.swift */,
+				AA00010000000000000000AC /* GoogleDriveOfflineQueue.swift */,
+				AA00010000000000000000AD /* GoogleDriveSyncStatusView.swift */,
+			);
+			path = GoogleDrive;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -345,6 +371,12 @@
 				AA00010000000000000000A2 /* InkEffectPickerView.swift in Sources */,
 				AA00010000000000000000A3 /* AdvancedToolsPanel.swift in Sources */,
 				AA00010000000000000000A5 /* CustomToolAuthoringView.swift in Sources */,
+				AA00010000000000000000AE /* GoogleDriveModels.swift in Sources */,
+				AA00010000000000000000AF /* GoogleDriveAuthManager.swift in Sources */,
+				AA00010000000000000000B0 /* GoogleDriveClient.swift in Sources */,
+				AA00010000000000000000B1 /* GoogleDriveSyncEngine.swift in Sources */,
+				AA00010000000000000000B2 /* GoogleDriveOfflineQueue.swift in Sources */,
+				AA00010000000000000000B3 /* GoogleDriveSyncStatusView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
