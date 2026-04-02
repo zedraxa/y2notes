@@ -598,6 +598,20 @@ private struct CanvasView: UIViewRepresentable {
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
     let onUndoStateChanged: ((Bool, Bool) -> Void)?
 
+    // MARK: - Page dimensions
+
+    /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
+    private static let a4AspectRatio: CGFloat = 1.414
+
+    /// Fixed page size for the canvas content area. Uses the portrait screen
+    /// width with an A4 aspect ratio so the page fills the screen in width
+    /// and provides vertical scrolling room like a real paper page.
+    static let pageSize: CGSize = {
+        let screen = UIScreen.main.bounds
+        let w = min(screen.width, screen.height)
+        return CGSize(width: w, height: ceil(w * a4AspectRatio))
+    }()
+
     func makeCoordinator() -> Coordinator {
         Coordinator(onDrawingChanged: onDrawingChanged, onSaveRequested: onSaveRequested)
     }
@@ -611,7 +625,10 @@ private struct CanvasView: UIViewRepresentable {
         container.clipsToBounds = true
 
         // ── Page background (ruling + paper tint, sits behind the canvas) ──────
-        let pageBackground = PageBackgroundView(frame: .zero)
+        // Frame-based layout sized to the fixed page dimensions so the ruling
+        // zooms and scrolls together with the PencilKit drawing content.
+        let ps = Self.pageSize
+        let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: ps))
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
@@ -619,13 +636,6 @@ private struct CanvasView: UIViewRepresentable {
         pageBackground.isUserInteractionEnabled = false
 
         container.addSubview(pageBackground)
-        pageBackground.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            pageBackground.topAnchor.constraint(equalTo: container.topAnchor),
-            pageBackground.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            pageBackground.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            pageBackground.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
         context.coordinator.pageBackground = pageBackground
 
         // ── PencilKit canvas ─────────────────────────────────────────────────
@@ -644,6 +654,10 @@ private struct CanvasView: UIViewRepresentable {
         canvas.maximumZoomScale = 5.0
         canvas.bouncesZoom = true
 
+        // Set the canvas content area to the fixed page dimensions so the user
+        // can draw across the full page and scroll vertically.
+        canvas.contentSize = ps
+
         // Restore previously saved drawing, if any.
         if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
             canvas.drawing = drawing
@@ -659,6 +673,10 @@ private struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.canvas = canvas
         canvas.isUserInteractionEnabled = !isShapeToolActive
+
+        // Begin observing scroll/zoom so the page background tracks the canvas
+        // content (zoom + pan).
+        context.coordinator.observeCanvasScroll(canvas)
 
         // ── Shape overlay ────────────────────────────────────────────────────
         let overlay = ShapeOverlayView(
@@ -738,6 +756,9 @@ private struct CanvasView: UIViewRepresentable {
             if bg.showGrain != grainWanted {
                 bg.showGrain = grainWanted
             }
+            // Re-sync position/scale in case SwiftUI re-rendered while
+            // the canvas was scrolled or zoomed.
+            context.coordinator.syncBackgroundWithCanvas(canvas)
         }
 
         // Sync drawing policy when the user toggles the finger/pencil preference.
@@ -851,6 +872,11 @@ private struct CanvasView: UIViewRepresentable {
         /// Used to restore the tool when the user double-taps "switch to previous".
         private var previousInkingTool: PKTool?
 
+        // KVO observers that keep the page background in sync with canvas
+        // scroll offset and zoom scale. Invalidated automatically on dealloc.
+        private var contentOffsetObservation: NSKeyValueObservation?
+        private var zoomScaleObservation: NSKeyValueObservation?
+
         init(onDrawingChanged: @escaping (Data) -> Void, onSaveRequested: @escaping () -> Void) {
             self.onDrawingChanged = onDrawingChanged
             self.onSaveRequested  = onSaveRequested
@@ -889,6 +915,48 @@ private struct CanvasView: UIViewRepresentable {
                 editorSignposter.emitEvent("DrawingSaved")
                 self?.onSaveRequested()
             }
+        }
+
+        // MARK: - Canvas scroll / zoom → background sync
+
+        /// Start observing the canvas's contentOffset and zoomScale via KVO so
+        /// the page background (ruling) follows zoom and scroll.
+        func observeCanvasScroll(_ canvas: PKCanvasView) {
+            contentOffsetObservation = canvas.observe(\.contentOffset, options: [.new]) { [weak self] sv, _ in
+                self?.syncBackgroundWithCanvas(sv)
+            }
+            zoomScaleObservation = canvas.observe(\.zoomScale, options: [.new]) { [weak self] sv, _ in
+                self?.syncBackgroundWithCanvas(sv)
+            }
+        }
+
+        /// Positions and scales the page background to match the canvas content.
+        ///
+        /// The background view sits in the container (same coordinate space as
+        /// the canvas viewport). To make it visually overlay the canvas content:
+        ///
+        /// - **Scale** by `zoomScale` so ruling lines scale with drawing strokes.
+        /// - **Translate** to compensate for `contentOffset` so the background
+        ///   pans with the content.
+        ///
+        /// The math: a content point `(px, py)` appears in the viewport at
+        /// `(px * z − o.x, py * z − o.y)`. The view's transform is applied
+        /// around its center, so we derive `tx`/`ty` to make the visual frame
+        /// origin land at `(−o.x, −o.y)`.
+        func syncBackgroundWithCanvas(_ scrollView: UIScrollView) {
+            guard let bg = pageBackground else { return }
+            let z = scrollView.zoomScale
+            let o = scrollView.contentOffset
+            let pw = bg.bounds.width
+            let ph = bg.bounds.height
+            let tx = -o.x + pw * (z - 1) / 2
+            let ty = -o.y + ph * (z - 1) / 2
+
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            bg.transform = CGAffineTransform(scaleX: z, y: z)
+                .concatenating(CGAffineTransform(translationX: tx, y: ty))
+            CATransaction.commit()
         }
     }
 }
