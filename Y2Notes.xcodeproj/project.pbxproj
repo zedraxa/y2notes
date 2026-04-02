@@ -58,6 +58,7 @@
 		AA00010000000000000000BF /* GoogleDriveSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000B9 /* GoogleDriveSyncEngine.swift */; };
 		AA00010000000000000000C0 /* GoogleDriveOfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000BA /* GoogleDriveOfflineQueue.swift */; };
 		AA00010000000000000000C1 /* GoogleDriveSyncStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000BB /* GoogleDriveSyncStatusView.swift */; };
+		AA00010000000000000000C8 /* NoteCreationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000C7 /* NoteCreationSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -114,6 +115,7 @@
 		AA00010000000000000000B9 /* GoogleDriveSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncEngine.swift; sourceTree = "<group>"; };
 		AA00010000000000000000BA /* GoogleDriveOfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveOfflineQueue.swift; sourceTree = "<group>"; };
 		AA00010000000000000000BB /* GoogleDriveSyncStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncStatusView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000C7 /* NoteCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteCreationSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -197,6 +199,7 @@
 				AA00010000000000000000A4 /* AdvancedToolsPanel.swift */,
 				AA00010000000000000000A6 /* CustomToolAuthoringView.swift */,
 				AA00010000000000000000AD /* OnboardingView.swift */,
+				AA00010000000000000000C7 /* NoteCreationSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -419,6 +422,7 @@
 				AA00010000000000000000BF /* GoogleDriveSyncEngine.swift in Sources */,
 				AA00010000000000000000C0 /* GoogleDriveOfflineQueue.swift in Sources */,
 				AA00010000000000000000C1 /* GoogleDriveSyncStatusView.swift in Sources */,
+				AA00010000000000000000C8 /* NoteCreationSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

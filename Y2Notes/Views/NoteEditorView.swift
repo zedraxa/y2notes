@@ -745,8 +745,18 @@ private struct CanvasView: UIViewRepresentable {
             canvas.drawingPolicy = drawingPolicy
         }
 
-        // Update the active tool from DrawingToolStore.
-        canvas.tool = currentTool
+        // Update the active tool from DrawingToolStore — but ONLY when:
+        // 1. The user is not mid-stroke (setting tool mid-stroke kills PencilKit's
+        //    internal pressure/tilt pipeline, destroying pressure sensitivity).
+        // 2. The tool actually changed (PKInkingTool is a value type; rebuilding an
+        //    identical tool still resets PencilKit's state).
+        if !context.coordinator.isDrawing {
+            let toolDesc = String(describing: currentTool)
+            if context.coordinator.lastToolDescription != toolDesc {
+                canvas.tool = currentTool
+                context.coordinator.lastToolDescription = toolDesc
+            }
+        }
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
         // Sync shape overlay properties.
@@ -822,6 +832,20 @@ private struct CanvasView: UIViewRepresentable {
         var hoverOverlay: PencilHoverOverlayView?
         weak var canvasRef: PKCanvasView?
 
+        /// True while the user is actively drawing a stroke. Used to prevent
+        /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
+        /// would reset PencilKit's internal pressure/tilt pipeline.
+        private(set) var isDrawing = false
+
+        /// Tracks the last PKTool identity set on the canvas so updateUIView
+        /// skips redundant assignments that would reset PencilKit's state.
+        var lastToolDescription: String?
+
+        /// Stable base width captured from the tool when a fountain-pen stroke
+        /// begins. Used for barrel-roll modulation so the feedback loop does
+        /// not shift the reference width on every micro-movement.
+        var barrelRollBaseWidth: CGFloat?
+
         /// The last active inking tool before switching to the eraser.
         /// Used to restore the tool when the user double-taps "switch to previous".
         private var previousInkingTool: PKTool?
@@ -829,6 +853,21 @@ private struct CanvasView: UIViewRepresentable {
         init(onDrawingChanged: @escaping (Data) -> Void, onSaveRequested: @escaping () -> Void) {
             self.onDrawingChanged = onDrawingChanged
             self.onSaveRequested  = onSaveRequested
+        }
+
+        // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
+
+        func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
+            isDrawing = true
+            // Capture base width for barrel-roll modulation at stroke start.
+            if let inkTool = canvasView.tool as? PKInkingTool {
+                barrelRollBaseWidth = inkTool.width
+            }
+        }
+
+        func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+            isDrawing = false
+            barrelRollBaseWidth = nil
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -916,12 +955,19 @@ extension CanvasView.Coordinator: PencilActionDelegate {
         guard let inkTool = canvas.tool as? PKInkingTool,
               inkTool.inkType == .fountainPen else { return }
 
+        // Use the stable base width captured at stroke start (not the current
+        // tool width, which drifts if we've already modulated once).
+        guard let baseWidth = barrelRollBaseWidth else { return }
+
+        // Don't modulate while between strokes — let PencilKit keep its
+        // native barrel-roll behaviour for the initial stroke setup.
+        guard isDrawing else { return }
+
         // Map barrel-roll angle to a width variation that mimics a calligraphic nib:
         // • Roll  0 (neutral)       → base width
         // • Roll ±π/2 (edge-on)     → ~30 % of base width (thin stroke)
         // • Roll  π  (flipped)      → base width again (symmetrical)
         let rollFactor   = (cos(angle) + 1) / 2            // 0.0 … 1.0
-        let baseWidth    = inkTool.width
         let minWidth     = max(baseWidth * 0.3, 1.0)
         let maxWidth     = baseWidth * 1.8
         let targetWidth  = minWidth + rollFactor * (maxWidth - minWidth)
@@ -929,7 +975,8 @@ extension CanvasView.Coordinator: PencilActionDelegate {
 
         // Only update when the change is visually meaningful to avoid
         // rebuilding PKInkingTool on every micro-movement.
-        if abs(clampedWidth - baseWidth) > 0.4 {
+        let currentWidth = inkTool.width
+        if abs(clampedWidth - currentWidth) > 0.8 {
             canvas.tool = PKInkingTool(.fountainPen, color: inkTool.color, width: clampedWidth)
         }
     }

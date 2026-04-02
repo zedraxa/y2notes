@@ -524,13 +524,25 @@ struct NoteGridView: View {
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 260)
-            Button(action: createNote) {
-                Label("New Note", systemImage: "square.and.pencil")
+            Button(action: quickNote) {
+                Label("Quick Note", systemImage: "square.and.pencil")
                     .font(.body.weight(.medium))
                     .padding(.horizontal, 24)
                     .padding(.vertical, 10)
                     .background(.tint.opacity(0.12), in: Capsule())
                     .foregroundStyle(.tint)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                showNoteCreationSheet = true
+            } label: {
+                Label("New Note…", systemImage: "doc.badge.plus")
+                    .font(.body.weight(.medium))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(Color.secondary.opacity(0.08), in: Capsule())
+                    .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
         }
