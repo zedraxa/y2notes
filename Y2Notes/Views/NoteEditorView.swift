@@ -71,14 +71,14 @@ struct NoteEditorView: View {
         return noteStore.notebooks.first { $0.id == id }
     }
 
-    /// Page ruling style from the notebook, or `.blank` for unfiled notes.
+    /// Page ruling style: note-level override → notebook setting → `.blank` fallback.
     private var effectivePageType: PageType {
-        notebook?.pageType ?? .blank
+        note.pageType ?? notebook?.pageType ?? .blank
     }
 
-    /// Paper material from the notebook, or `.standard` for unfiled notes.
+    /// Paper material: note-level override → notebook setting → `.standard` fallback.
     private var effectivePaperMaterial: PaperMaterial {
-        notebook?.paperMaterial ?? .standard
+        note.paperMaterial ?? notebook?.paperMaterial ?? .standard
     }
 
     // MARK: - Effective theme
@@ -173,6 +173,9 @@ struct NoteEditorView: View {
             }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 noteThemeMenu
+
+                // Page setup menu — GoodNotes-style per-page paper type & material picker.
+                pageSetupMenu
 
                 // Draw ↔ Type mode toggle.
                 // "keyboard" switches to text mode; "pencil" returns to drawing mode.
@@ -321,6 +324,47 @@ struct NoteEditorView: View {
         } label: {
             Image(systemName: note.themeOverride == nil ? "paintbrush" : "paintbrush.fill")
                 .accessibilityLabel("Note theme")
+        }
+    }
+
+    /// GoodNotes-style page setup menu — lets users change the page ruling and paper material
+    /// for the current note without leaving the editor.
+    private var pageSetupMenu: some View {
+        Menu {
+            // Paper type section
+            Section("Paper Type") {
+                ForEach(PageType.allCases) { pt in
+                    Button {
+                        noteStore.updatePageType(for: note.id, pageType: pt)
+                    } label: {
+                        if effectivePageType == pt {
+                            Label(pt.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pt.displayName, systemImage: pt.systemImage)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            // Paper material section
+            Section("Paper Material") {
+                ForEach(PaperMaterial.allCases) { pm in
+                    Button {
+                        noteStore.updatePaperMaterial(for: note.id, paperMaterial: pm)
+                    } label: {
+                        if effectivePaperMaterial == pm {
+                            Label(pm.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pm.displayName, systemImage: pm.systemImage)
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "doc.richtext")
+                .accessibilityLabel("Page setup")
         }
     }
 

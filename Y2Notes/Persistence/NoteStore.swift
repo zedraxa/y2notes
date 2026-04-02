@@ -90,10 +90,19 @@ final class NoteStore: ObservableObject {
 
     // MARK: - Note CRUD
 
-    /// Creates a new note, optionally filing it into a notebook.
+    /// Creates a new note, optionally filing it into a notebook and with per-note paper settings.
     @discardableResult
-    func addNote(inNotebook notebookID: UUID? = nil) -> Note {
-        let note = Note(title: "Note \(notes.count + 1)", notebookID: notebookID)
+    func addNote(
+        inNotebook notebookID: UUID? = nil,
+        pageType: PageType? = nil,
+        paperMaterial: PaperMaterial? = nil
+    ) -> Note {
+        let note = Note(
+            title: "Note \(notes.count + 1)",
+            notebookID: notebookID,
+            pageType: pageType,
+            paperMaterial: paperMaterial
+        )
         notes.insert(note, at: 0)
         save()
         return note
@@ -124,6 +133,24 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    /// Sets or clears the per-note page type override.
+    /// Pass nil to inherit from the notebook (or fall back to `.blank` for unfiled notes).
+    func updatePageType(for noteID: UUID, pageType: PageType?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].pageType = pageType
+        notes[idx].modifiedAt = Date()
+        save()
+    }
+
+    /// Sets or clears the per-note paper material override.
+    /// Pass nil to inherit from the notebook (or fall back to `.standard` for unfiled notes).
+    func updatePaperMaterial(for noteID: UUID, paperMaterial: PaperMaterial?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].paperMaterial = paperMaterial
+        notes[idx].modifiedAt = Date()
+        save()
+    }
+
     func updateDrawing(for noteID: UUID, data: Data) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].drawingData = data
@@ -146,7 +173,9 @@ final class NoteStore: ObservableObject {
             notebookID: original.notebookID,
             sectionID: original.sectionID,
             sortOrder: original.sortOrder + 1,
-            templateID: original.templateID
+            templateID: original.templateID,
+            pageType: original.pageType,
+            paperMaterial: original.paperMaterial
         )
         // Shift pages that follow the original so the copy slots in right after it.
         for i in notes.indices

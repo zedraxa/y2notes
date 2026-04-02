@@ -330,6 +330,8 @@ struct NoteGridView: View {
     @State private var showMoveSheet: Note?
     @State private var noteToRename: Note?
     @State private var renameText = ""
+    @State private var showNoteCreationSheet = false
+    @State private var showNotebookWizard = false
 
     private var notes: [Note] {
         switch section {
@@ -385,16 +387,46 @@ struct NoteGridView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button(action: createNote) {
-                    Image(systemName: "square.and.pencil")
+                // GoodNotes-style "+" New menu with multiple creation options.
+                Menu {
+                    Button {
+                        quickNote()
+                    } label: {
+                        Label("Quick Note", systemImage: "square.and.pencil")
+                    }
+
+                    Button {
+                        showNoteCreationSheet = true
+                    } label: {
+                        Label("New Note…", systemImage: "doc.badge.plus")
+                    }
+
+                    Divider()
+
+                    Button {
+                        showNotebookWizard = true
+                    } label: {
+                        Label("New Notebook…", systemImage: "book.closed.fill")
+                    }
+                } label: {
+                    Image(systemName: "plus")
                 }
-                .accessibilityLabel("New Note")
+                .accessibilityLabel("New")
             }
             if let nb = notebookForSection {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NotebookCoverBadge(cover: nb.cover)
                 }
             }
+        }
+        .sheet(isPresented: $showNoteCreationSheet) {
+            NoteCreationSheet(
+                notebookID: notebookIDForSection,
+                onCreated: { id in selectedNoteID = id }
+            )
+        }
+        .sheet(isPresented: $showNotebookWizard) {
+            NotebookCreationWizard()
         }
         .sheet(item: $showMoveSheet) { note in
             MoveNoteSheet(note: note)
@@ -457,11 +489,23 @@ struct NoteGridView: View {
         }
     }
 
-    private func createNote() {
-        let notebookID: UUID?
-        if case .notebook(let id) = section { notebookID = id } else { notebookID = nil }
-        let note = noteStore.addNote(inNotebook: notebookID)
+    /// Quick Note — creates a note instantly with the notebook's paper settings (or blank for unfiled).
+    /// GoodNotes equivalent: "Quick Note" from the "+" menu.
+    private func quickNote() {
+        let nbID = notebookIDForSection
+        // Inherit paper settings from the notebook when inside one.
+        let nb = nbID.flatMap { id in noteStore.notebooks.first { $0.id == id } }
+        let note = noteStore.addNote(
+            inNotebook: nbID,
+            pageType: nb?.pageType,
+            paperMaterial: nb?.paperMaterial
+        )
         selectedNoteID = note.id
+    }
+
+    private var notebookIDForSection: UUID? {
+        if case .notebook(let id) = section { return id }
+        return nil
     }
 
     // MARK: Empty state
