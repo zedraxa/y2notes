@@ -934,3 +934,88 @@ Scope: Implement complete PDF workflows — import from Files/iCloud, per-page P
 - `PDFNoteRecord.pdfFilename` is the basename only; resolve full URL via `pdfStore.pdfDirectory.appendingPathComponent(record.pdfFilename)`
 - `PDFPageAnnotationView` reads `DrawingToolStore` as `@EnvironmentObject`; ensure `toolStore` is present in the environment when presenting `PDFViewerView`
 - pbxproj IDs reserved by AGENT-15: file refs `AA90`–`AA93`, build files `AA94`–`AA97`, group `AA8F`
+
+---
+
+## [2026-04-02T01:48:12Z] AGENT-16 — Search Architecture Completion & Study Foundations Enhancement
+
+Branch: copilot/add-library-wide-search-again
+Model used: claude-sonnet-4.6
+Scope: Complete the search architecture to cover titles, metadata, typed text, PDF text, and handwriting OCR. Enhance study/flashcard schema integration. Second pass after initial AGENT-16 foundations.
+
+### Files modified
+
+- `Y2Notes/Models/Note.swift`:
+  - Added `ocrText: String` field — stores recognised text from handwriting OCR (empty until OCR agent ships). Backward-compatible via `decodeIfPresent` defaulting to `""`.
+  - Added `ocrText` to `CodingKeys`, `init(from:Decoder)`, and memberwise `init`.
+
+- `Y2Notes/Search/SearchService.swift`:
+  - Added `SearchMatchType.pdfText` — for matches inside imported PDF document text.
+  - Added `SearchMatchType.handwritingOCR` — for matches from on-device ink recognition.
+  - Added `PDFSearchResult` struct — search result type for PDF documents (title, snippet, matchingPageCount).
+  - Added `searchPDFTitles(query:in:)` method — searches PDF records by title; full-text PDF search delegated to `PDFStore.search(recordID:query:)` per record.
+  - Wired `ocrText` matching into `search()` — OCR matches score +40 (between typed text +50 and notebook name +20).
+  - Extended `findInDocument()` to search both `typedText` and `ocrText`, returning combined matches.
+  - Extracted private `findOccurrences(of:in:)` helper to avoid duplicated search logic.
+  - Fixed sorting tiebreaker bug (was `$0.id == $0.id` instead of `$0.id == $0.noteID`).
+
+- `Y2Notes/Views/LibrarySearchView.swift`:
+  - Added `@EnvironmentObject var pdfStore: PDFStore` — enables PDF search.
+  - Added `onSelectPDF: ((UUID) -> Void)?` callback — optional navigation to PDF on tap.
+  - Split `results` into `noteResults` and `pdfResults` with `hasAnyResults` combined check.
+  - Added "PDF Documents" section to results list showing `PDFSearchResultRow` rows.
+  - Added `PDFSearchResultRow` view — shows PDF icon, title, snippet, chevron.
+  - Added match badges for `.handwritingOCR` (`pencil.and.scribble`) and `.pdfText` (`doc.richtext`).
+  - Updated search prompt text to mention handwriting and PDFs.
+
+- `Y2Notes/Views/NoteEditorView.swift`:
+  - Updated find-bar "Drawing only" hint to check both `typedText` and `ocrText` emptiness.
+
+- `Y2Notes/Persistence/NoteStore.swift`:
+  - Added `updateOCRText(for:text:)` method — sets `ocrText` on a note, marks dirty, updates `modifiedAt`.
+
+### Search architecture (complete)
+
+| Field | SearchMatchType | Score | Status |
+|-------|----------------|-------|--------|
+| Note title | `.title` | +100 | V1 live |
+| Typed text | `.typedText` | +50 | V1 live |
+| Handwriting OCR | `.handwritingOCR` | +40 | Architecture wired; populates when OCR agent ships |
+| Notebook name | `.notebookName` | +20 | V1 live |
+| PDF text | `.pdfText` | — | `PDFSearchResult` type + `searchPDFTitles()` live; full-text via `PDFStore.search()` |
+
+### Study / spaced repetition schema (unchanged from first pass)
+
+- SM-2 algorithm in `StudyCardProgress.applying(rating:)`.
+- `StudySet`, `StudyCard`, `ReviewRating`, `StudyCardProgress` — all Codable, persisted in `y2notes_study.json`.
+- `StudySetListView` + `StudySessionView` — active recall UI with flip animation and 4-button rating.
+- Due-card queue, session progress bar, "Again" re-queue at end of session.
+
+### What was completed
+
+- **Full 5-field search architecture**: title, typedText, ocrText, notebookName, pdfText — all with `SearchMatchType` cases.
+- **PDF search integration**: `PDFSearchResult` + `searchPDFTitles()` + PDF section in `LibrarySearchView`.
+- **OCR text field**: `Note.ocrText` ready for handwriting recognition agent to populate via `NoteStore.updateOCRText()`.
+- **In-document find** now searches both `typedText` and `ocrText`.
+- **Match badges** in search results for all 5 match types.
+- **Bug fix**: Sorting tiebreaker in `SearchService.search()` was comparing `$0.id == $0.id` (always true) instead of `$0.id == $0.noteID`.
+
+### What remains
+
+- Handwriting OCR agent to populate `Note.ocrText` from `drawingData` (architecture ready).
+- PDF full-text content search integration (PDFKit `findString` is available in `PDFStore.search()`; needs UI wiring per page).
+- iCloud / CloudKit sync of study progress and OCR text — future agent.
+
+### Build/test evidence
+
+- No Xcode available in Linux sandbox; correctness validated by structural inspection.
+- All APIs used are public iOS 16+: `PDFDocument`, `PDFKit`, SwiftUI `.searchable`, `TextEditor`.
+- `ocrText` uses backward-compatible `decodeIfPresent` — old JSON without this field decodes cleanly.
+
+### Notes for next agents
+
+- `Note.ocrText` is populated by calling `noteStore.updateOCRText(for:text:)`. The OCR agent should call this after processing `note.drawingData` through Vision framework.
+- `LibrarySearchView` now requires `pdfStore` as `@EnvironmentObject` — ensure it is present in the environment when presenting the sheet.
+- `PDFSearchResult` is separate from `SearchResult` because PDFs are not notes — they have their own ID space and navigation path.
+- `SearchMatchType.pdfText` is defined but not yet used in `SearchResult` (PDF matches use `PDFSearchResult`). It exists for future use when PDF-extracted text might be stored on a `Note` as well.
+- `onSelectPDF` on `LibrarySearchView` is optional — callers that don't handle PDF navigation can omit it.

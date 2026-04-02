@@ -2,23 +2,28 @@ import SwiftUI
 
 // MARK: - Library search view
 
-/// Full-screen sheet that searches all notes by title, typed text, and notebook name.
+/// Full-screen sheet that searches all notes by title, typed text, OCR text, and notebook name.
+/// Also searches imported PDF documents by title.
 ///
-/// Results are grouped by notebook and sorted by relevance score.
-/// Tapping a result calls `onSelectNote` so the caller can navigate to the note.
+/// Results are grouped by notebook (notes) and shown in a separate section (PDFs),
+/// sorted by relevance score.
+/// Tapping a result calls `onSelectNote` or `onSelectPDF` so the caller can navigate.
 struct LibrarySearchView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var pdfStore:  PDFStore
     @Environment(\.dismiss) private var dismiss
 
-    /// Called when the user taps a result row. Dismiss the sheet and navigate to the note.
+    /// Called when the user taps a note result row.
     let onSelectNote: (UUID) -> Void
+    /// Called when the user taps a PDF result row. Defaults to no-op.
+    var onSelectPDF: ((UUID) -> Void)?
 
     @State private var query = ""
     @FocusState private var queryFieldFocused: Bool
 
     private let searchService = SearchService()
 
-    private var results: [SearchResult] {
+    private var noteResults: [SearchResult] {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
         return searchService.search(
             query: query,
@@ -27,10 +32,19 @@ struct LibrarySearchView: View {
         )
     }
 
-    /// Results grouped by notebook (nil group = unfiled).
-    private var groupedResults: [(notebookName: String, results: [SearchResult])] {
+    private var pdfResults: [PDFSearchResult] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        return searchService.searchPDFTitles(query: query, in: pdfStore.records)
+    }
+
+    private var hasAnyResults: Bool {
+        !noteResults.isEmpty || !pdfResults.isEmpty
+    }
+
+    /// Note results grouped by notebook (nil group = unfiled).
+    private var groupedNoteResults: [(notebookName: String, results: [SearchResult])] {
         var groups: [UUID?: [SearchResult]] = [:]
-        for result in results {
+        for result in noteResults {
             groups[result.notebookID, default: []].append(result)
         }
 
@@ -59,7 +73,7 @@ struct LibrarySearchView: View {
             Group {
                 if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     searchPrompt
-                } else if results.isEmpty {
+                } else if !hasAnyResults {
                     noResults
                 } else {
                     resultsList
@@ -75,7 +89,7 @@ struct LibrarySearchView: View {
             .searchable(
                 text: $query,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search titles, text, notebooks…"
+                prompt: "Search titles, text, notebooks, PDFs…"
             )
             .onAppear { queryFieldFocused = true }
         }
@@ -91,7 +105,7 @@ struct LibrarySearchView: View {
             Text("Search across all your notes")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Text("Matches titles, typed text, and notebook names")
+            Text("Matches titles, typed text, handwriting, notebook names, and PDFs")
                 .font(.callout)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -125,7 +139,8 @@ struct LibrarySearchView: View {
 
     private var resultsList: some View {
         List {
-            ForEach(groupedResults, id: \.notebookName) { group in
+            // ── Note results grouped by notebook ─────────────────────────
+            ForEach(groupedNoteResults, id: \.notebookName) { group in
                 Section(group.notebookName) {
                     ForEach(group.results) { result in
                         if let note = noteStore.notes.first(where: { $0.id == result.noteID }) {
@@ -139,12 +154,26 @@ struct LibrarySearchView: View {
                     }
                 }
             }
+
+            // ── PDF results ──────────────────────────────────────────────
+            if !pdfResults.isEmpty {
+                Section("PDF Documents") {
+                    ForEach(pdfResults) { pdfResult in
+                        PDFSearchResultRow(result: pdfResult)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                dismiss()
+                                onSelectPDF?(pdfResult.pdfRecordID)
+                            }
+                    }
+                }
+            }
         }
         .listStyle(.insetGrouped)
     }
 }
 
-// MARK: - Result row
+// MARK: - Note result row
 
 private struct SearchResultRow: View {
     let note: Note
@@ -185,11 +214,54 @@ private struct SearchResultRow: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            if result.matchTypes.contains(.handwritingOCR) {
+                Image(systemName: "pencil.and.scribble")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if result.matchTypes.contains(.pdfText) {
+                Image(systemName: "doc.richtext")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
             if result.matchTypes.contains(.notebookName) {
                 Image(systemName: "book.closed")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+// MARK: - PDF result row
+
+private struct PDFSearchResultRow: View {
+    let result: PDFSearchResult
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.richtext.fill")
+                .font(.title3)
+                .foregroundStyle(.red.opacity(0.7))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(result.pdfTitle)
+                    .font(.body.weight(.medium))
+                    .lineLimit(1)
+                if !result.snippet.isEmpty {
+                    Text(result.snippet)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 2)
     }
 }
