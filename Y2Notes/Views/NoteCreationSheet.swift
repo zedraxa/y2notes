@@ -141,7 +141,7 @@ private struct PaperTypeCard: View {
             VStack(spacing: 2) {
                 Text(pageType.displayName)
                     .font(.subheadline.weight(.medium))
-                    .foregroundColor(isSelected ? .accentColor : .primary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
                 Text(pageType.subtitle)
                     .font(.caption2)
                     .foregroundStyle(.secondary)

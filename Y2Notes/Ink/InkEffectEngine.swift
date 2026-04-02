@@ -345,10 +345,10 @@ final class InkEffectEngine {
 
     private func circleCGImage(diameter: CGFloat) -> CGImage? {
         let size = CGSize(width: diameter, height: diameter)
-        UIGraphicsBeginImageContextWithOptions(size, false, 0)
-        defer { UIGraphicsEndImageContext() }
-        UIColor.white.setFill()
-        UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
-        return UIGraphicsGetImageFromCurrentImageContext()?.cgImage
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { _ in
+            UIColor.white.setFill()
+            UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
+        }.cgImage
     }
 }

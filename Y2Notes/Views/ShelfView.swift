@@ -303,7 +303,7 @@ private struct NotebookSidebarRow: View {
                 .overlay(
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.85))
+                        .foregroundStyle(.white.opacity(0.85))
                 )
                 .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
 
@@ -593,7 +593,7 @@ private struct NotebookCoverBadge: View {
             .overlay(
                 Image(systemName: "book.closed.fill")
                     .font(.system(size: 10))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundStyle(.white.opacity(0.85))
             )
             .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
     }
@@ -928,7 +928,7 @@ private struct MoveNoteSheet: View {
                                         .overlay(
                                             Image(systemName: "book.closed.fill")
                                                 .font(.system(size: 12))
-                                                .foregroundColor(.white.opacity(0.85))
+                                                .foregroundStyle(.white.opacity(0.85))
                                         )
                                     Text(notebook.name)
                                         .foregroundStyle(.primary)

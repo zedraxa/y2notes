@@ -150,10 +150,10 @@ struct NoteListView: View {
             VStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 44))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                 Text("No notes match \"\(searchText)\"")
                     .font(.title3)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(uiColor: .systemGroupedBackground))
@@ -188,11 +188,11 @@ private struct NoteRowView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(note.title.isEmpty ? "Untitled" : note.title)
                     .font(.headline)
-                    .foregroundColor(note.title.isEmpty ? .secondary : .primary)
+                    .foregroundStyle(note.title.isEmpty ? Color.secondary : Color.primary)
                     .lineLimit(1)
                 Text(note.modifiedAt, style: .relative)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 4)
@@ -222,7 +222,7 @@ private struct NoteRowView: View {
             } else {
                 Image(systemName: "pencil.and.scribble")
                     .font(.system(size: 20))
-                    .foregroundColor(.secondary.opacity(0.4))
+                    .foregroundStyle(Color.secondary.opacity(0.4))
             }
         }
         .frame(width: 60, height: 44)
