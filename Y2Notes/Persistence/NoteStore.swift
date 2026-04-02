@@ -266,8 +266,8 @@ final class NoteStore: ObservableObject {
     ///   - toSection: Target `NotebookSection` ID, or nil for the notebook root.
     ///   - atIndex: 0-based target position within the destination.
     func movePage(id: UUID, toSection targetSectionID: UUID?, atIndex targetIndex: Int) {
-        guard let srcIdx = notes.firstIndex(where: { $0.id == id }) else { return }
-        let notebookID   = notes[srcIdx].notebookID
+        guard let srcIdx = notes.firstIndex(where: { $0.id == id }),
+              let notebookID = notes[srcIdx].notebookID else { return }
         let fromSection  = notes[srcIdx].sectionID
         let fromOrder    = notes[srcIdx].sortOrder
 

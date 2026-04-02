@@ -1020,7 +1020,7 @@ final class ShapeOverlayView: UIView {
         var result: [CGPoint] = []
         var prev: CGPoint = .zero
 
-        bezier.cgPath.applyWithBlock { ptr in
+        bezier.cgPath.applyWithBlock { (ptr: UnsafePointer<CGPathElement>) in
             let el = ptr.pointee
             switch el.type {
             case .moveToPoint:
@@ -1035,22 +1035,21 @@ final class ShapeOverlayView: UIView {
                 let ctrl = el.points[0]; let end = el.points[1]
                 let steps = max(4, Int(hypot(end.x - prev.x, end.y - prev.y) / spacing))
                 for i in 1...steps {
-                    let t = CGFloat(i) / CGFloat(steps)
-                    result.append(CGPoint(
-                        x: (1-t)*(1-t)*prev.x + 2*(1-t)*t*ctrl.x + t*t*end.x,
-                        y: (1-t)*(1-t)*prev.y + 2*(1-t)*t*ctrl.y + t*t*end.y
-                    ))
+                    let t: CGFloat = CGFloat(i) / CGFloat(steps)
+                    let mt: CGFloat = 1 - t
+                    let px: CGFloat = mt*mt*prev.x + 2*mt*t*ctrl.x + t*t*end.x
+                    let py: CGFloat = mt*mt*prev.y + 2*mt*t*ctrl.y + t*t*end.y
+                    result.append(CGPoint(x: px, y: py))
                 }; prev = end
 
             case .addCurveToPoint:
                 let c1 = el.points[0]; let c2 = el.points[1]; let end = el.points[2]
                 let steps = max(8, Int(hypot(end.x - prev.x, end.y - prev.y) / spacing))
                 for i in 1...steps {
-                    let t = CGFloat(i) / CGFloat(steps); let mt = 1 - t
-                    result.append(CGPoint(
-                        x: mt*mt*mt*prev.x + 3*mt*mt*t*c1.x + 3*mt*t*t*c2.x + t*t*t*end.x,
-                        y: mt*mt*mt*prev.y + 3*mt*mt*t*c1.y + 3*mt*t*t*c2.y + t*t*t*end.y
-                    ))
+                    let t: CGFloat = CGFloat(i) / CGFloat(steps); let mt: CGFloat = 1 - t
+                    let px: CGFloat = mt*mt*mt*prev.x + 3*mt*mt*t*c1.x + 3*mt*t*t*c2.x + t*t*t*end.x
+                    let py: CGFloat = mt*mt*mt*prev.y + 3*mt*mt*t*c1.y + 3*mt*t*t*c2.y + t*t*t*end.y
+                    result.append(CGPoint(x: px, y: py))
                 }; prev = end
 
             case .closeSubpath:

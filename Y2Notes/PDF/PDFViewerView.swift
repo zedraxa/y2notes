@@ -19,7 +19,7 @@ struct PDFViewerView: View {
     @State private var isAnnotating: Bool = true
     @State private var isSearching: Bool = false
     @State private var searchQuery: String = ""
-    @State private var searchResults: [PDFSearchResult] = []
+    @State private var searchResults: [PDFPageSearchResult] = []
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
 
@@ -271,14 +271,14 @@ struct PDFViewerView: View {
         guard let document = PDFDocument(url: url) else { return }
 
         let selections = document.findString(searchQuery, withOptions: .caseInsensitive)
-        var results: [PDFSearchResult] = []
+        var results: [PDFPageSearchResult] = []
         for selection in selections {
             if let page = selection.pages.first {
                 let pageIndex = document.index(for: page)
                 guard pageIndex != NSNotFound else { continue }
                 let snippet = selection.string ?? searchQuery
                 // First match per page for the result strip; all contribute to navigation.
-                results.append(PDFSearchResult(pageIndex: pageIndex, snippet: snippet))
+                results.append(PDFPageSearchResult(pageIndex: pageIndex, snippet: snippet))
             }
         }
         searchResults = results
@@ -312,9 +312,9 @@ struct PDFViewerView: View {
     }
 }
 
-// MARK: - PDFSearchResult
+// MARK: - PDFPageSearchResult
 
-struct PDFSearchResult: Identifiable {
+struct PDFPageSearchResult: Identifiable {
     let id      = UUID()
     let pageIndex: Int
     let snippet: String
