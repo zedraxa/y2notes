@@ -17,6 +17,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
+    @EnvironmentObject var inkStore: InkEffectStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
@@ -83,13 +84,13 @@ struct NoteEditorView: View {
                 contrastBanner
             }
             Divider()
-            DrawingToolbarView(toolStore: toolStore)
+            DrawingToolbarView(toolStore: toolStore, inkStore: inkStore)
             CanvasView(
                 noteID: note.id,
                 drawingData: note.drawingData,
                 backgroundColor: canvasBackgroundColor,
                 defaultInkColor: effectiveDefinition.contrastingInkColor,
-                currentTool: toolStore.pkTool,
+                currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
                 isShapeToolActive: toolStore.activeTool == .shape,
                 activeShapeType: toolStore.activeShapeType,
                 shapeColor: toolStore.activeColor,
@@ -98,6 +99,8 @@ struct NoteEditorView: View {
                 zoomResetTrigger: zoomResetTrigger,
                 pageType: effectivePageType,
                 paperMaterial: effectivePaperMaterial,
+                activeFX: inkStore.resolvedFX,
+                fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
                 onDrawingChanged: { data in
                     noteStore.updateDrawing(for: note.id, data: data)
                 },
@@ -348,6 +351,10 @@ private struct CanvasView: UIViewRepresentable {
     let pageType: PageType
     /// Paper material used for background tint and grain texture.
     let paperMaterial: PaperMaterial
+    /// Active writing FX type from the ink-effects system (`.none` = no FX).
+    let activeFX: WritingFXType
+    /// Ink colour resolved for the active FX preset.
+    let fxColor: UIColor
     let onDrawingChanged: (Data) -> Void
     let onSaveRequested: () -> Void
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
