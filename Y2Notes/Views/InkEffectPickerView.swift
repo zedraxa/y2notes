@@ -143,7 +143,7 @@ private struct InkPresetCard: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 6) {
-                // Color swatch
+                // Colour swatch
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color(uiColor: preset.uiColor))
                     .frame(height: 32)
