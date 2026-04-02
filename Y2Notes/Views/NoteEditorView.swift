@@ -423,7 +423,7 @@ struct NoteEditorView: View {
             .font(.title2.bold())
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .onChange(of: titleText) { newValue in
+            .onChange(of: titleText) { _, newValue in
                 noteStore.updateTitle(for: note.id, title: newValue)
             }
     }
@@ -444,7 +444,7 @@ struct NoteEditorView: View {
                 .font(.body)
                 .autocorrectionDisabled(true)
                 .textInputAutocapitalization(.never)
-                .onChange(of: findQuery) { _ in updateFindMatches() }
+                .onChange(of: findQuery) { _, _ in updateFindMatches() }
                 .submitLabel(.search)
                 .onSubmit { advanceFindMatch(forward: true) }
 
@@ -525,7 +525,7 @@ struct NoteEditorView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onChange(of: typedTextContent) { _ in scheduleTextSave() }
+            .onChange(of: typedTextContent) { _, _ in scheduleTextSave() }
     }
 
     /// Schedules a debounced persist of the current `typedTextContent`.

@@ -311,9 +311,7 @@ private struct CoverStepView: View {
         .safeAreaInset(edge: .bottom) {
             wizardNextButton(label: "Next: Paper Style", action: onNext)
         }
-        // onChange(of:perform:) is the correct form for iOS 16 compatibility;
-        // the two-parameter variant was introduced in iOS 17.
-        .onChange(of: coverMode) { mode in
+        .onChange(of: coverMode) { _, mode in
             if mode == .builtIn { draft.useCustomCover = false }
         }
         .task(id: pickerItem) {
