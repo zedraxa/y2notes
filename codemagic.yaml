@@ -8,7 +8,7 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: y2notesbundle
+        bundle_identifier: com.y2notes.app
       vars:
         XCODE_PROJECT: "Y2Notes.xcodeproj"
         XCODE_SCHEME: "Y2Notes"
@@ -17,7 +17,7 @@ workflows:
     scripts:
       - name: Set up code signing settings on Xcode project
         script: |
-          xcode-project use-profiles
+          xcode-project use-profiles --project "$XCODE_PROJECT"
       - name: Build ipa for App Store distribution
         script: |
           xcode-project build-ipa \
