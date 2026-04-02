@@ -71,14 +71,14 @@ struct NoteEditorView: View {
         return noteStore.notebooks.first { $0.id == id }
     }
 
-    /// Page ruling style from the notebook, or `.blank` for unfiled notes.
+    /// Page ruling style: note-level override → notebook setting → `.blank` fallback.
     private var effectivePageType: PageType {
-        notebook?.pageType ?? .blank
+        note.pageType ?? notebook?.pageType ?? .blank
     }
 
-    /// Paper material from the notebook, or `.standard` for unfiled notes.
+    /// Paper material: note-level override → notebook setting → `.standard` fallback.
     private var effectivePaperMaterial: PaperMaterial {
-        notebook?.paperMaterial ?? .standard
+        note.paperMaterial ?? notebook?.paperMaterial ?? .standard
     }
 
     // MARK: - Effective theme
@@ -173,6 +173,9 @@ struct NoteEditorView: View {
             }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 noteThemeMenu
+
+                // Page setup menu — GoodNotes-style per-page paper type & material picker.
+                pageSetupMenu
 
                 // Draw ↔ Type mode toggle.
                 // "keyboard" switches to text mode; "pencil" returns to drawing mode.
@@ -321,6 +324,47 @@ struct NoteEditorView: View {
         } label: {
             Image(systemName: note.themeOverride == nil ? "paintbrush" : "paintbrush.fill")
                 .accessibilityLabel("Note theme")
+        }
+    }
+
+    /// GoodNotes-style page setup menu — lets users change the page ruling and paper material
+    /// for the current note without leaving the editor.
+    private var pageSetupMenu: some View {
+        Menu {
+            // Paper type section
+            Section("Paper Type") {
+                ForEach(PageType.allCases) { pt in
+                    Button {
+                        noteStore.updatePageType(for: note.id, pageType: pt)
+                    } label: {
+                        if effectivePageType == pt {
+                            Label(pt.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pt.displayName, systemImage: pt.systemImage)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            // Paper material section
+            Section("Paper Material") {
+                ForEach(PaperMaterial.allCases) { pm in
+                    Button {
+                        noteStore.updatePaperMaterial(for: note.id, paperMaterial: pm)
+                    } label: {
+                        if effectivePaperMaterial == pm {
+                            Label(pm.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pm.displayName, systemImage: pm.systemImage)
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "doc.richtext")
+                .accessibilityLabel("Page setup")
         }
     }
 
@@ -554,6 +598,20 @@ private struct CanvasView: UIViewRepresentable {
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
     let onUndoStateChanged: ((Bool, Bool) -> Void)?
 
+    // MARK: - Page dimensions
+
+    /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
+    private static let a4AspectRatio: CGFloat = 1.414
+
+    /// Fixed page size for the canvas content area. Uses the portrait screen
+    /// width with an A4 aspect ratio so the page fills the screen in width
+    /// and provides vertical scrolling room like a real paper page.
+    static let pageSize: CGSize = {
+        let screen = UIScreen.main.bounds
+        let w = min(screen.width, screen.height)
+        return CGSize(width: w, height: ceil(w * a4AspectRatio))
+    }()
+
     func makeCoordinator() -> Coordinator {
         Coordinator(onDrawingChanged: onDrawingChanged, onSaveRequested: onSaveRequested)
     }
@@ -567,7 +625,10 @@ private struct CanvasView: UIViewRepresentable {
         container.clipsToBounds = true
 
         // ── Page background (ruling + paper tint, sits behind the canvas) ──────
-        let pageBackground = PageBackgroundView(frame: .zero)
+        // Frame-based layout sized to the fixed page dimensions so the ruling
+        // zooms and scrolls together with the PencilKit drawing content.
+        let ps = Self.pageSize
+        let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: ps))
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
@@ -575,13 +636,6 @@ private struct CanvasView: UIViewRepresentable {
         pageBackground.isUserInteractionEnabled = false
 
         container.addSubview(pageBackground)
-        pageBackground.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            pageBackground.topAnchor.constraint(equalTo: container.topAnchor),
-            pageBackground.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            pageBackground.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            pageBackground.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
         context.coordinator.pageBackground = pageBackground
 
         // ── PencilKit canvas ─────────────────────────────────────────────────
@@ -600,6 +654,10 @@ private struct CanvasView: UIViewRepresentable {
         canvas.maximumZoomScale = 5.0
         canvas.bouncesZoom = true
 
+        // Set the canvas content area to the fixed page dimensions so the user
+        // can draw across the full page and scroll vertically.
+        canvas.contentSize = ps
+
         // Restore previously saved drawing, if any.
         if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
             canvas.drawing = drawing
@@ -615,6 +673,10 @@ private struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.canvas = canvas
         canvas.isUserInteractionEnabled = !isShapeToolActive
+
+        // Begin observing scroll/zoom so the page background tracks the canvas
+        // content (zoom + pan).
+        context.coordinator.observeCanvasScroll(canvas)
 
         // ── Shape overlay ────────────────────────────────────────────────────
         let overlay = ShapeOverlayView(
@@ -694,6 +756,9 @@ private struct CanvasView: UIViewRepresentable {
             if bg.showGrain != grainWanted {
                 bg.showGrain = grainWanted
             }
+            // Re-sync position/scale in case SwiftUI re-rendered while
+            // the canvas was scrolled or zoomed.
+            context.coordinator.syncBackgroundWithCanvas(canvas)
         }
 
         // Sync drawing policy when the user toggles the finger/pencil preference.
@@ -701,8 +766,19 @@ private struct CanvasView: UIViewRepresentable {
             canvas.drawingPolicy = drawingPolicy
         }
 
-        // Update the active tool from DrawingToolStore.
-        canvas.tool = currentTool
+        // Update the active tool from DrawingToolStore — but ONLY when:
+        // 1. The user is not mid-stroke (setting tool mid-stroke kills PencilKit's
+        //    internal pressure/tilt pipeline, destroying pressure sensitivity).
+        // 2. The tool actually changed. We compare a lightweight snapshot of the
+        //    tool's identity (type + ink type + color + width) to avoid redundant
+        //    assignments that would reset PencilKit's state.
+        if !context.coordinator.isDrawing {
+            let snapshot = ToolSnapshot(currentTool)
+            if context.coordinator.lastToolSnapshot != snapshot {
+                canvas.tool = currentTool
+                context.coordinator.lastToolSnapshot = snapshot
+            }
+        }
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
         // Sync shape overlay properties.
@@ -778,13 +854,47 @@ private struct CanvasView: UIViewRepresentable {
         var hoverOverlay: PencilHoverOverlayView?
         weak var canvasRef: PKCanvasView?
 
+        /// True while the user is actively drawing a stroke. Used to prevent
+        /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
+        /// would reset PencilKit's internal pressure/tilt pipeline.
+        private(set) var isDrawing = false
+
+        /// Tracks the last PKTool identity set on the canvas so updateUIView
+        /// skips redundant assignments that would reset PencilKit's state.
+        var lastToolSnapshot: ToolSnapshot?
+
+        /// Stable base width captured from the tool when a fountain-pen stroke
+        /// begins. Used for barrel-roll modulation so the feedback loop does
+        /// not shift the reference width on every micro-movement.
+        var barrelRollBaseWidth: CGFloat?
+
         /// The last active inking tool before switching to the eraser.
         /// Used to restore the tool when the user double-taps "switch to previous".
         private var previousInkingTool: PKTool?
 
+        // KVO observers that keep the page background in sync with canvas
+        // scroll offset and zoom scale. Invalidated automatically on dealloc.
+        private var contentOffsetObservation: NSKeyValueObservation?
+        private var zoomScaleObservation: NSKeyValueObservation?
+
         init(onDrawingChanged: @escaping (Data) -> Void, onSaveRequested: @escaping () -> Void) {
             self.onDrawingChanged = onDrawingChanged
             self.onSaveRequested  = onSaveRequested
+        }
+
+        // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
+
+        func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
+            isDrawing = true
+            // Capture base width for barrel-roll modulation at stroke start.
+            if let inkTool = canvasView.tool as? PKInkingTool {
+                barrelRollBaseWidth = inkTool.width
+            }
+        }
+
+        func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+            isDrawing = false
+            barrelRollBaseWidth = nil
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -805,6 +915,48 @@ private struct CanvasView: UIViewRepresentable {
                 editorSignposter.emitEvent("DrawingSaved")
                 self?.onSaveRequested()
             }
+        }
+
+        // MARK: - Canvas scroll / zoom → background sync
+
+        /// Start observing the canvas's contentOffset and zoomScale via KVO so
+        /// the page background (ruling) follows zoom and scroll.
+        func observeCanvasScroll(_ canvas: PKCanvasView) {
+            contentOffsetObservation = canvas.observe(\.contentOffset, options: [.new]) { [weak self] sv, _ in
+                self?.syncBackgroundWithCanvas(sv)
+            }
+            zoomScaleObservation = canvas.observe(\.zoomScale, options: [.new]) { [weak self] sv, _ in
+                self?.syncBackgroundWithCanvas(sv)
+            }
+        }
+
+        /// Positions and scales the page background to match the canvas content.
+        ///
+        /// The background view sits in the container (same coordinate space as
+        /// the canvas viewport). To make it visually overlay the canvas content:
+        ///
+        /// - **Scale** by `zoomScale` so ruling lines scale with drawing strokes.
+        /// - **Translate** to compensate for `contentOffset` so the background
+        ///   pans with the content.
+        ///
+        /// The math: a content point `(px, py)` appears in the viewport at
+        /// `(px * z − o.x, py * z − o.y)`. The view's transform is applied
+        /// around its center, so we derive `tx`/`ty` to make the visual frame
+        /// origin land at `(−o.x, −o.y)`.
+        func syncBackgroundWithCanvas(_ scrollView: UIScrollView) {
+            guard let bg = pageBackground else { return }
+            let z = scrollView.zoomScale
+            let o = scrollView.contentOffset
+            let pw = bg.bounds.width
+            let ph = bg.bounds.height
+            let tx = -o.x + pw * (z - 1) / 2
+            let ty = -o.y + ph * (z - 1) / 2
+
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            bg.transform = CGAffineTransform(scaleX: z, y: z)
+                .concatenating(CGAffineTransform(translationX: tx, y: ty))
+            CATransaction.commit()
         }
     }
 }
@@ -872,12 +1024,19 @@ extension CanvasView.Coordinator: PencilActionDelegate {
         guard let inkTool = canvas.tool as? PKInkingTool,
               inkTool.inkType == .fountainPen else { return }
 
+        // Use the stable base width captured at stroke start (not the current
+        // tool width, which drifts if we've already modulated once).
+        guard let baseWidth = barrelRollBaseWidth else { return }
+
+        // Don't modulate while between strokes — let PencilKit keep its
+        // native barrel-roll behaviour for the initial stroke setup.
+        guard isDrawing else { return }
+
         // Map barrel-roll angle to a width variation that mimics a calligraphic nib:
         // • Roll  0 (neutral)       → base width
         // • Roll ±π/2 (edge-on)     → ~30 % of base width (thin stroke)
         // • Roll  π  (flipped)      → base width again (symmetrical)
         let rollFactor   = (cos(angle) + 1) / 2            // 0.0 … 1.0
-        let baseWidth    = inkTool.width
         let minWidth     = max(baseWidth * 0.3, 1.0)
         let maxWidth     = baseWidth * 1.8
         let targetWidth  = minWidth + rollFactor * (maxWidth - minWidth)
@@ -885,8 +1044,40 @@ extension CanvasView.Coordinator: PencilActionDelegate {
 
         // Only update when the change is visually meaningful to avoid
         // rebuilding PKInkingTool on every micro-movement.
-        if abs(clampedWidth - baseWidth) > 0.4 {
+        let currentWidth = inkTool.width
+        if abs(clampedWidth - currentWidth) > 0.8 {
             canvas.tool = PKInkingTool(.fountainPen, color: inkTool.color, width: clampedWidth)
+        }
+    }
+}
+
+// MARK: - Tool Snapshot
+
+/// Lightweight, equatable snapshot of a PKTool's identity.
+/// Used to avoid redundant `canvas.tool` assignments in `updateUIView` that
+/// would reset PencilKit's pressure/tilt pipeline.
+struct ToolSnapshot: Equatable {
+    let kind: String       // "inking", "eraser", "lasso"
+    let inkType: String?   // e.g. "pen", "pencil", "marker", "fountainPen"
+    let colorHash: Int?
+    let width: CGFloat?
+
+    init(_ tool: PKTool) {
+        if let ink = tool as? PKInkingTool {
+            kind = "inking"
+            inkType = ink.inkType.rawValue
+            colorHash = ink.color.hash
+            width = ink.width
+        } else if tool is PKEraserTool {
+            kind = "eraser"
+            inkType = nil
+            colorHash = nil
+            width = nil
+        } else {
+            kind = "lasso"
+            inkType = nil
+            colorHash = nil
+            width = nil
         }
     }
 }

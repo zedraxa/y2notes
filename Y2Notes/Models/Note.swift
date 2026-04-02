@@ -23,6 +23,12 @@ struct Note: Identifiable, Codable, Hashable {
     /// of the global app theme. App chrome (sidebar, navigation) always follows the global theme.
     var themeOverride: AppTheme?
 
+    /// Per-note page ruling override (nil = inherit from notebook, or `.blank` for unfiled notes).
+    var pageType: PageType?
+
+    /// Per-note paper material override (nil = inherit from notebook, or `.standard` for unfiled notes).
+    var paperMaterial: PaperMaterial?
+
     /// Keyboard-typed text content for this note.
     /// Empty string = drawing-only note. Used by `SearchService` and the in-document find bar.
     var typedText: String
@@ -44,6 +50,8 @@ struct Note: Identifiable, Codable, Hashable {
         sortOrder: Int = 0,
         templateID: String = "builtin.blank",
         themeOverride: AppTheme? = nil,
+        pageType: PageType? = nil,
+        paperMaterial: PaperMaterial? = nil,
         typedText: String = "",
         ocrText: String = ""
     ) {
@@ -58,6 +66,8 @@ struct Note: Identifiable, Codable, Hashable {
         self.sortOrder = sortOrder
         self.templateID = templateID
         self.themeOverride = themeOverride
+        self.pageType = pageType
+        self.paperMaterial = paperMaterial
         self.typedText = typedText
         self.ocrText = ocrText
     }
@@ -66,7 +76,9 @@ struct Note: Identifiable, Codable, Hashable {
     // that pre-date the isFavorited / notebookID / themeOverride / sectionID / sortOrder / templateID fields.
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData
-        case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride, typedText, ocrText
+        case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
+        case pageType, paperMaterial
+        case typedText, ocrText
     }
 
     init(from decoder: Decoder) throws {
@@ -82,6 +94,8 @@ struct Note: Identifiable, Codable, Hashable {
         sortOrder     = try c.decodeIfPresent(Int.self,      forKey: .sortOrder)    ?? 0
         templateID    = try c.decodeIfPresent(String.self,   forKey: .templateID)   ?? "builtin.blank"
         themeOverride = try c.decodeIfPresent(AppTheme.self, forKey: .themeOverride)
+        pageType      = try c.decodeIfPresent(PageType.self,      forKey: .pageType)
+        paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
     }

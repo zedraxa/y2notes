@@ -30,6 +30,8 @@ struct NoteListView: View {
     @State private var searchText  = ""
     @State private var sortOrder: NoteSortOrder = .modifiedDesc
     @State private var showThemePicker = false
+    @State private var showNoteCreationSheet = false
+    @State private var showNotebookWizard = false
 
     // Filtered + sorted projection of the store.
     private var displayedNotes: [Note] {
@@ -59,10 +61,31 @@ struct NoteListView: View {
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search notes")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button(action: createNote) {
-                    Image(systemName: "square.and.pencil")
+                // GoodNotes-style "+" New menu.
+                Menu {
+                    Button {
+                        quickNote()
+                    } label: {
+                        Label("Quick Note", systemImage: "square.and.pencil")
+                    }
+
+                    Button {
+                        showNoteCreationSheet = true
+                    } label: {
+                        Label("New Note…", systemImage: "doc.badge.plus")
+                    }
+
+                    Divider()
+
+                    Button {
+                        showNotebookWizard = true
+                    } label: {
+                        Label("New Notebook…", systemImage: "book.closed.fill")
+                    }
+                } label: {
+                    Image(systemName: "plus")
                 }
-                .accessibilityLabel("New note")
+                .accessibilityLabel("New")
             }
             ToolbarItem(placement: .navigationBarLeading) {
                 EditButton()
@@ -86,6 +109,15 @@ struct NoteListView: View {
         }
         .sheet(isPresented: $showThemePicker) {
             ThemePickerView()
+        }
+        .sheet(isPresented: $showNoteCreationSheet) {
+            NoteCreationSheet(
+                notebookID: nil,
+                onCreated: { id in selectedNoteID = id }
+            )
+        }
+        .sheet(isPresented: $showNotebookWizard) {
+            NotebookCreationWizard()
         }
     }
 
@@ -130,7 +162,7 @@ struct NoteListView: View {
 
     // MARK: Actions
 
-    private func createNote() {
+    private func quickNote() {
         let note = noteStore.addNote()
         selectedNoteID = note.id
     }
