@@ -3,8 +3,6 @@ workflows:
     name: iOS TestFlight Distribution
     max_build_duration: 120
     instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: Y2Notes App Store Connect
     environment:
       ios_signing:
         distribution_type: app_store
@@ -12,6 +10,9 @@ workflows:
       vars:
         XCODE_PROJECT: "Y2Notes.xcodeproj"
         XCODE_SCHEME: "Y2Notes"
+        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
+        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
       xcode: latest
       cocoapods: default
     scripts:
@@ -36,7 +37,7 @@ workflows:
           success: true
           failure: true
       app_store_connect:
-        auth: integration
+        auth: api_key
         submit_to_testflight: true
         beta_groups:
           - Internal Testers
