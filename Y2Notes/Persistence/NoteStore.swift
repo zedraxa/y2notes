@@ -632,6 +632,15 @@ final class NoteStore: ObservableObject {
         notes[idx].modifiedAt = Date()
         isDirty = true
     }
+
+    // MARK: - Reload from disk (Drive sync)
+
+    /// Reloads all data from disk. Called after a Google Drive import or backup restore
+    /// overwrites the local JSON files.
+    func reloadFromDisk() {
+        load()
+        loadStudy()
+    }
 }
 
 // MARK: - Study set & flashcard persistence

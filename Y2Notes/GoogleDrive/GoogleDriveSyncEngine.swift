@@ -511,27 +511,3 @@ final class GoogleDriveSyncEngine: ObservableObject {
         }
     }
 }
-
-// MARK: - NoteStore extension for reload
-
-extension NoteStore {
-    /// Reloads all data from disk. Called after a Drive import or backup restore
-    /// overwrites the local JSON files.
-    func reloadFromDisk() {
-        let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-
-        if let notesData = try? Data(contentsOf: docsDir.appendingPathComponent("y2notes_notes.json")),
-           let decoded = try? JSONDecoder().decode([Note].self, from: notesData) {
-            notes = decoded
-        }
-        if let nbData = try? Data(contentsOf: docsDir.appendingPathComponent("y2notes_notebooks.json")),
-           let decoded = try? JSONDecoder().decode([Notebook].self, from: nbData) {
-            notebooks = decoded
-        }
-        if let secData = try? Data(contentsOf: docsDir.appendingPathComponent("y2notes_sections.json")),
-           let decoded = try? JSONDecoder().decode([NotebookSection].self, from: secData) {
-            sections = decoded
-        }
-        loadStudy()
-    }
-}
