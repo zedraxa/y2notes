@@ -10,9 +10,6 @@ workflows:
       vars:
         XCODE_PROJECT: "Y2Notes.xcodeproj"
         XCODE_SCHEME: "Y2Notes"
-        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
-        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
       xcode: latest
       cocoapods: default
     scripts:
