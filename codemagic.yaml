@@ -8,7 +8,7 @@ workflows:
         distribution_type: development
         bundle_identifier: y2notesbundle
       vars:
-        XCODE_WORKSPACE: "Y2Notes.xcodeproj"
+        XCODE_PROJECT: "Y2Notes.xcodeproj"
         XCODE_SCHEME: "Y2Notes"
       xcode: latest
       cocoapods: default
@@ -19,7 +19,7 @@ workflows:
       - name: Build ipa for testing
         script: |
           xcode-project build-ipa \
-            --project "$XCODE_WORKSPACE" \
+            --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME" \
             --archive-flags="-destination 'generic/platform=iOS'"
     artifacts:
