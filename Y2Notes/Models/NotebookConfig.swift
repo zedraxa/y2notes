@@ -92,12 +92,33 @@ enum PageOrientation: String, CaseIterable, Codable, Identifiable {
 
 // MARK: - PaperMaterial
 
-/// Simulated paper texture / physical feel of notebook pages.
+/// Simulated paper surface / feel of notebook pages.
+///
+/// **Ink-response hooks (AGENT-13)**
+/// Every case exposes two lightweight hooks that `DrawingToolStore.pkTool`
+/// reads when building the active `PKInkingTool`:
+///
+/// - `inkAlphaMultiplier` — scale factor applied to stroke opacity.
+///   Values below 1.0 simulate ink absorption (matte / textured surfaces).
+///   This is subtle by design: the minimum shipped value is 0.84.
+///
+/// - `hasGrainTexture` — when `true` the canvas host adds a very faint noise
+///   overlay (`PageBackgroundView`) to suggest paper tooth without impacting
+///   drawing performance.
+///
+/// These hooks are applied in `DrawingToolStore.pkTool` and `PageBackgroundView`
+/// respectively.  They are intentionally coarse-grained to stay reliable
+/// across the full range of Apple Pencil pressure inputs.
 enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
+    // Original four
     case standard = "standard"
     case premium  = "premium"
     case craft    = "craft"
     case recycled = "recycled"
+    // Surface-finish variants (AGENT-13)
+    case matte    = "matte"
+    case glossy   = "glossy"
+    case textured = "textured"
 
     var id: String { rawValue }
 
@@ -107,6 +128,9 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
         case .premium:  return "Premium"
         case .craft:    return "Craft"
         case .recycled: return "Recycled"
+        case .matte:    return "Matte"
+        case .glossy:   return "Glossy"
+        case .textured: return "Textured"
         }
     }
 
@@ -116,6 +140,9 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
         case .premium:  return "Thick, fountain-pen friendly weight"
         case .craft:    return "Warm kraft texture for creativity"
         case .recycled: return "Eco-friendly, lightly textured"
+        case .matte:    return "Soft finish, reduced glare"
+        case .glossy:   return "High-sheen, vibrant ink colors"
+        case .textured: return "Laid paper with visible tooth"
         }
     }
 
@@ -125,6 +152,9 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
         case .premium:  return "doc.fill"
         case .craft:    return "leaf.fill"
         case .recycled: return "arrow.3.trianglepath"
+        case .matte:    return "square.on.square"
+        case .glossy:   return "sparkles"
+        case .textured: return "squareshape.controlhandles.on.squareshape.controlhandles"
         }
     }
 
@@ -135,6 +165,36 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
         case .premium:  return Color(red: 0.99, green: 0.98, blue: 1.00)
         case .craft:    return Color(red: 0.96, green: 0.90, blue: 0.79)
         case .recycled: return Color(red: 0.94, green: 0.94, blue: 0.92)
+        case .matte:    return Color(red: 0.97, green: 0.97, blue: 0.97)
+        case .glossy:   return Color(red: 1.00, green: 1.00, blue: 1.00)
+        case .textured: return Color(red: 0.95, green: 0.93, blue: 0.90)
+        }
+    }
+
+    // MARK: Ink-response hooks
+
+    /// Multiplier applied to stroke opacity when generating `PKInkingTool`.
+    /// Values below 1.0 simulate ink absorption by rough or matte paper.
+    /// Kept in the range [0.84, 1.0] so the effect is always perceptible but
+    /// never harsh.
+    var inkAlphaMultiplier: Double {
+        switch self {
+        case .standard: return 1.00
+        case .premium:  return 1.00
+        case .matte:    return 0.92
+        case .glossy:   return 1.00
+        case .craft:    return 0.88
+        case .recycled: return 0.90
+        case .textured: return 0.84
+        }
+    }
+
+    /// When `true`, `PageBackgroundView` renders a very faint noise grain over
+    /// the page surface to suggest paper tooth visually.
+    var hasGrainTexture: Bool {
+        switch self {
+        case .craft, .recycled, .textured: return true
+        default: return false
         }
     }
 }
