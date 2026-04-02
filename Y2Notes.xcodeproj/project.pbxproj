@@ -330,7 +330,7 @@
 				TargetAttributes = {
 					AA0001000000000000000002 = {
 						CreatedOnToolsVersion = 15.0;
-						DevelopmentTeam = "";
+						DevelopmentTeam = L7623VR559;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -548,7 +548,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = L7623VR559;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Y2Notes/Info.plist;
@@ -557,7 +557,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = y2notesbundle;
+				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -574,7 +574,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = L7623VR559;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Y2Notes/Info.plist;
@@ -583,7 +583,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = y2notesbundle;
+				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
