@@ -186,10 +186,10 @@ struct SearchService {
         }
 
         // Sort: highest score first; title A-Z within the same score band.
-        return results.sorted {
-            if $0.score != $1.score { return $0.score > $1.score }
-            let t0 = notes.first { $0.id == $0.noteID }?.title ?? ""
-            let t1 = notes.first { $0.id == $1.noteID }?.title ?? ""
+        return results.sorted { lhs, rhs in
+            if lhs.score != rhs.score { return lhs.score > rhs.score }
+            let t0 = notes.first { $0.id == lhs.noteID }?.title ?? ""
+            let t1 = notes.first { $0.id == rhs.noteID }?.title ?? ""
             return t0.localizedCompare(t1) == .orderedAscending
         }
     }
