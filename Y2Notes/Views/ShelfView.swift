@@ -106,7 +106,7 @@ struct ShelfView: View {
             }
         }
         // Clear note selection when switching to the PDF section and vice versa.
-        .onChange(of: selectedSection) { section in
+        .onChange(of: selectedSection) { _, section in
             if case .pdfLibrary = section {
                 selectedNoteID = nil
             } else {
@@ -114,13 +114,13 @@ struct ShelfView: View {
             }
         }
         // If the selected note is deleted elsewhere, clear the selection.
-        .onChange(of: noteStore.notes) { _ in
+        .onChange(of: noteStore.notes) { _, _ in
             if let id = selectedNoteID, !noteStore.notes.contains(where: { $0.id == id }) {
                 selectedNoteID = nil
             }
         }
         // If the selected PDF record is deleted, clear the selection.
-        .onChange(of: pdfStore.records) { _ in
+        .onChange(of: pdfStore.records) { _, _ in
             if let id = selectedPDFID, !pdfStore.records.contains(where: { $0.id == id }) {
                 selectedPDFID = nil
             }

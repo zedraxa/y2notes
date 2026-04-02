@@ -86,7 +86,7 @@ struct PDFViewerView: View {
             ShareSheet(activityItems: shareItems)
                 .ignoresSafeArea()
         }
-        .onChange(of: currentPage) { page in
+        .onChange(of: currentPage) { _, page in
             pdfStore.updateCurrentPage(id: record.id, page: page)
         }
     }
