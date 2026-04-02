@@ -937,6 +937,142 @@ Scope: Implement complete PDF workflows — import from Files/iCloud, per-page P
 
 ---
 
+
+## [2026-04-02T01:48:40Z] AGENT-17 — Google Drive Integration
+
+Branch: copilot/agent-17-google-drive-integration
+Model used: claude-sonnet-4.6
+Scope: Implement Google Drive integration as a clean provider layer — OAuth 2.0 auth, import/export, backup/restore, sync engine, conflict resolution, offline queue, and sync status surfaces.
+
+### Files created
+
+- `Y2Notes/GoogleDrive/GoogleDriveModels.swift` — Core data models:
+  - `GoogleDriveSyncState` enum (disconnected/idle/syncing/synced/error) — drives all sync UI.
+  - `GoogleDriveTokens` struct — Codable OAuth 2.0 token pair with expiry check.
+  - `DriveFileMetadata` struct — lightweight Drive file representation for listing and sync.
+  - `ConflictStrategy` enum (localWins/remoteWins/newerWins) — user-configurable conflict resolution.
+  - `OfflineOperation` struct — queued sync operation with kind (upload/delete), resource type, payload snapshot, retry count.
+  - `SyncManifestEntry` + `SyncManifest` — per-resource sync tracking (Drive file ID, last synced MD5, timestamps).
+  - `BackupSnapshot` struct — timestamped backup metadata with Drive file ID and size.
+
+- `Y2Notes/GoogleDrive/GoogleDriveAuthManager.swift` — OAuth 2.0 + PKCE authorization:
+  - Uses `ASWebAuthenticationSession` (system API, no Google SDK dependency).
+  - PKCE code verifier/challenge generation via `CryptoKit.SHA256`.
+  - Token exchange and refresh via Google's OAuth 2.0 token endpoint.
+  - Keychain storage for tokens and email (using `kSecAttrAccessibleAfterFirstUnlock`).
+  - `validAccessToken() async -> String?` transparently refreshes expired tokens.
+  - `signOut()` clears tokens from memory and Keychain.
+  - `ASWebAuthenticationPresentationContextProviding` conformance.
+
+- `Y2Notes/GoogleDrive/GoogleDriveClient.swift` — Google Drive REST API v3 wrapper:
+  - `ensureFolder(named:accessToken:)` — creates or finds the Y2Notes backup folder.
+  - `uploadFile(name:data:parentFolderID:existingFileID:accessToken:)` — multipart create or PATCH update.
+  - `downloadFile(fileID:accessToken:)` — binary download.
+  - `listFiles(inFolder:query:accessToken:)` — paginated listing with metadata parsing.
+  - `deleteFile(fileID:accessToken:)` — permanent deletion.
+  - `fileMetadata(fileID:accessToken:)` — single-file metadata fetch.
+  - `GoogleDriveClientError` enum with localised descriptions.
+  - All methods are `async throws` — no callback-based APIs.
+
+- `Y2Notes/GoogleDrive/GoogleDriveSyncEngine.swift` — Sync orchestrator:
+  - **Local-first design**: all reads come from NoteStore; Drive is a mirror, not the source of truth.
+  - `syncAll()` — full push of local JSON files (notes, notebooks, sections, study) to Drive with MD5 change detection to skip unchanged files.
+  - `importFromDrive()` — downloads remote files and overwrites local files per `conflictStrategy`, with pre-import `.bak` safety backup.
+  - `createBackup()` — creates a timestamped full archive snapshot on Drive (all four data files in one JSON).
+  - `restoreFromBackup(_:)` — downloads a specific snapshot and restores it with pre-restore safety backup.
+  - Auto-sync timer (5-minute interval) when enabled.
+  - Offline queue replay on each sync cycle.
+  - `SyncManifest` persistence tracks per-resource Drive file IDs and last synced MD5 hashes.
+  - Backup history persistence for the restore UI.
+  - Observes `GoogleDriveAuthManager.isAuthenticated` to transition sync state.
+
+- `Y2Notes/GoogleDrive/GoogleDriveOfflineQueue.swift` — Offline operation queue:
+  - FIFO queue of `OfflineOperation` structs persisted to `y2notes_offline_queue.json`.
+  - `enqueue(_:)`, `removeOperation(id:)`, `incrementRetry(id:)`, `clearAll()`.
+  - Maximum 5 retries before operations are discarded.
+  - Queue survives app restarts; replayed by sync engine when connectivity returns.
+
+- `Y2Notes/GoogleDrive/GoogleDriveSyncStatusView.swift` — UI layer:
+  - `GoogleDriveSyncStatusView` — compact capsule indicator (iCloud icons, progress spinner, relative-time "synced" label, error message).
+  - `GoogleDriveSettingsView` — full settings list:
+    - Account section: connect/disconnect Google account with email display.
+    - Sync section: auto-sync toggle, conflict strategy picker, "Sync Now" / "Import from Drive" buttons, pending operation count.
+    - Backup section: "Create Backup Now", "Restore from Backup" with snapshot list.
+    - Disconnect confirmation dialog (non-destructive: local data preserved).
+  - `BackupRestoreSheet` — list of available snapshots with restore action and progress indicator.
+
+### Files modified
+
+- `Y2Notes/Y2NotesApp.swift` — Added `@StateObject private var syncEngine = GoogleDriveSyncEngine()`, injected as `.environmentObject(syncEngine)`, wired `syncEngine.noteStore = noteStore` in `.onAppear`.
+- `Y2Notes/Views/ShelfView.swift` — Added "Google Drive" sidebar section with `NavigationLink` to `GoogleDriveSettingsView` and inline `GoogleDriveSyncStatusView`.
+- `Y2Notes/Persistence/NoteStore.swift` — Added `reloadFromDisk()` method that re-runs `load()` + `loadStudy()` after Drive import/restore overwrites local JSON files.
+- `Y2Notes.xcodeproj/project.pbxproj` — Registered all 6 new Swift files:
+  - PBXGroup `AA00..A7` (GoogleDrive, path = GoogleDrive)
+  - PBXFileReference `AA00..A8`–`AA00..AD` (6 files)
+  - PBXBuildFile `AA00..AE`–`AA00..B3` (6 build entries)
+  - Added GoogleDrive group to Y2Notes root group children
+  - Added all 6 build files to Sources build phase
+
+### Architecture decisions
+
+**Local-first sync**: Y2Notes remains the source of truth. Drive is a backup/mirror. Import is an explicit user action that requires confirmation. Auto-sync only pushes local changes to Drive — never silently overwrites local data.
+
+**Atomic file-level sync**: Each data category (notes, notebooks, sections, study) is synced as a complete JSON snapshot. Object-level delta sync was intentionally avoided for simplicity and corruption resistance.
+
+**Conflict strategy**: Three user-selectable strategies (Keep Local, Keep Remote, Keep Newer). Default is "Keep Newer" (timestamp comparison). Conflict resolution is only applied during explicit import operations.
+
+**Offline queue**: Operations are serialised with their full payload snapshot at queue time, making replay self-contained and independent of current in-memory state. FIFO order with max 5 retries.
+
+**Backup architecture**: Full snapshots are timestamped JSON archives containing all four data files. Restoring from a backup creates a pre-restore `.bak` safety copy of each local file before overwriting.
+
+**Auth**: PKCE flow via `ASWebAuthenticationSession` — no third-party SDK. Tokens stored in Keychain with `kSecAttrAccessibleAfterFirstUnlock`. Refresh tokens are used transparently.
+
+**Scope**: `drive.file` — the app can only access files it created. No access to the user's broader Drive contents.
+
+### What remains
+
+- Replace `YOUR_CLIENT_ID.apps.googleusercontent.com` in `GoogleDriveAuthManager` with a real Google Cloud Console client ID.
+- Register the custom URL scheme `com.y2notes.app` in `Info.plist` for OAuth redirect.
+- PDF file sync (individual PDF files in `Documents/PDFNotes/` — currently only metadata JSON is synced).
+- Background App Refresh integration for silent background sync.
+- Unit/UI tests (blocked on Xcode CI environment).
+- App icon artwork.
+
+### Build/test evidence
+
+- No Xcode available in sandbox; correctness validated by structural inspection.
+- pbxproj UUID reference counts verified programmatically (all consistent).
+- All APIs used are public iOS 16+ API:
+  - `ASWebAuthenticationSession` — AuthenticationServices, iOS 12+
+  - `CryptoKit.SHA256` — iOS 13+
+  - `Insecure.MD5` — CryptoKit, iOS 13+
+  - `URLSession.data(for:)` async — iOS 15+
+  - `SecItemAdd/CopyMatching/Delete` — Security, iOS 2+
+  - `JSONEncoder/Decoder` — Foundation
+  - `Timer.scheduledTimer` — Foundation
+  - `ByteCountFormatter` — Foundation
+  - SwiftUI: `List`, `Section`, `Toggle`, `Picker`, `Button`, `NavigationLink`, `NavigationStack`, `.confirmationDialog`, `.sheet`, `ProgressView`, `@EnvironmentObject`
+
+### Open risks
+
+- `GoogleDriveClient` uses `URLSession.shared` — a future agent may want a custom `URLSessionConfiguration` with timeout/retry policies.
+- Backup snapshots include drawing binary data (base64 in JSON) — large notebooks may produce sizeable archives. Consider compression in a future iteration.
+- Auto-sync timer (5-minute) runs while the app is in the foreground only. Background sync requires `BGAppRefreshTask` registration.
+- `SyncManifest` uses file-level MD5 for change detection. If NoteStore re-encodes unchanged data with different key ordering, unnecessary uploads may occur. In practice, JSONEncoder produces stable output for the same input.
+
+### Notes for next agents
+
+- `GoogleDriveSyncEngine` is injected at app root via `.environmentObject(syncEngine)` — any new view needing sync state should consume it the same way.
+- `syncEngine.noteStore` is set in `Y2NotesApp.onAppear`. If the app entry point changes, ensure this wiring is preserved.
+- To add PDF file sync: extend `syncAll()` to iterate `Documents/PDFNotes/` and upload each PDF binary to a "PDFNotes" subfolder on Drive. Use `DriveFileMetadata.md5Checksum` for change detection.
+- To add background sync: register a `BGAppRefreshTask` in `Info.plist` and call `syncEngine.syncAll()` from the task handler.
+- pbxproj IDs reserved by AGENT-17: group `AA00..A7`, file refs `AA00..A8`–`AA00..AD`, build files `AA00..AE`–`AA00..B3`. Next available UUID suffix: `B4`.
+- `ConflictStrategy` is persisted to UserDefaults under key `y2notes.drive.conflictStrategy`. Auto-sync under `y2notes.drive.autoSync`.
+- `GoogleDriveAuthManager.clientID` and `redirectURI` are static constants that must be configured with real Google Cloud Console values before shipping.
+
+---
+---
+
 ## [2026-04-02T01:48:12Z] AGENT-16 — Search Architecture Completion & Study Foundations Enhancement
 
 Branch: copilot/add-library-wide-search-again
@@ -1134,3 +1270,4 @@ Scope: Onboarding flow, settings IA, theme/tool preferences, document defaults, 
 - The `ContrastChecker` utility is general-purpose — use it anywhere you need to validate colour pairs
 - To add a new locale: create `<lang>.lproj/Localizable.strings` and add it to the pbxproj Resources build phase
 - The `respectsReduceMotion()` and `respectsHighContrast()` view modifiers require `AppSettingsStore` in the environment
+

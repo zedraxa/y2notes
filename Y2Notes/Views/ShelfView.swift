@@ -215,6 +215,18 @@ private struct ShelfSidebarView: View {
                     .accessibilityLabel("New Notebook")
                 }
             }
+
+            // ── Google Drive ─────────────────────────────────────────────
+            Section("Google Drive") {
+                NavigationLink(destination: GoogleDriveSettingsView()) {
+                    Label {
+                        Text("Drive Settings")
+                    } icon: {
+                        Image(systemName: "externaldrive.fill")
+                    }
+                }
+                GoogleDriveSyncStatusView()
+            }
         }
         .navigationTitle("Y2Notes")
         .toolbar {
