@@ -26,7 +26,7 @@
 		AA0001000000000000000083 /* ToolModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000080 /* ToolModels.swift */; };
 		AA0001000000000000000084 /* DrawingToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000081 /* DrawingToolStore.swift */; };
 		AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000082 /* DrawingToolbarView.swift */; };
-		AA0001000000000000000088 /* PageRulingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000087 /* PageRulingView.swift */; };
+		AA00010000000000000000C2 /* PageRulingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000087 /* PageRulingView.swift */; };
 		AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
 		AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
 		AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000055 /* ContextualPencilPaletteView.swift */; };
@@ -34,9 +34,9 @@
 		AA00010000000000000000A5 /* CustomToolAuthoringView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A6 /* CustomToolAuthoringView.swift */; };
 		AA000100000000000000008D /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000088 /* SearchService.swift */; };
 		AA000100000000000000008E /* StudySet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000089 /* StudySet.swift */; };
-		AA0001000000000000000098 /* LibrarySearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008A /* LibrarySearchView.swift */; };
-		AA0001000000000000000099 /* StudySetListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008B /* StudySetListView.swift */; };
-		AA000100000000000000009A /* StudySessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008C /* StudySessionView.swift */; };
+		AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008A /* LibrarySearchView.swift */; };
+		AA00010000000000000000C4 /* StudySetListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008B /* StudySetListView.swift */; };
+		AA00010000000000000000C5 /* StudySessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008C /* StudySessionView.swift */; };
 		AA0001000000000000000094 /* PDFNoteModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000090 /* PDFNoteModel.swift */; };
 		AA0001000000000000000095 /* PDFStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000091 /* PDFStore.swift */; };
 		AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000092 /* PDFPageAnnotationView.swift */; };
@@ -388,15 +388,15 @@
 				AA0001000000000000000083 /* ToolModels.swift in Sources */,
 				AA0001000000000000000084 /* DrawingToolStore.swift in Sources */,
 				AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */,
-				AA0001000000000000000088 /* PageRulingView.swift in Sources */,
+				AA00010000000000000000C2 /* PageRulingView.swift in Sources */,
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
-				AA0001000000000000000098 /* LibrarySearchView.swift in Sources */,
-				AA0001000000000000000099 /* StudySetListView.swift in Sources */,
-				AA000100000000000000009A /* StudySessionView.swift in Sources */,
+				AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */,
+				AA00010000000000000000C4 /* StudySetListView.swift in Sources */,
+				AA00010000000000000000C5 /* StudySessionView.swift in Sources */,
 				AA0001000000000000000094 /* PDFNoteModel.swift in Sources */,
 				AA0001000000000000000095 /* PDFStore.swift in Sources */,
 				AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */,
