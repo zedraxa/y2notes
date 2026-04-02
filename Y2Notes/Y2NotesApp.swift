@@ -2,12 +2,13 @@ import SwiftUI
 
 @main
 struct Y2NotesApp: App {
-    @StateObject private var noteStore   = NoteStore()
-    @StateObject private var themeStore  = ThemeStore()
-    @StateObject private var toolStore   = DrawingToolStore()
-    @StateObject private var pdfStore    = PDFStore()
-    @StateObject private var inkStore    = InkEffectStore()
-    @StateObject private var syncEngine  = GoogleDriveSyncEngine()
+    @StateObject private var noteStore     = NoteStore()
+    @StateObject private var themeStore    = ThemeStore()
+    @StateObject private var toolStore     = DrawingToolStore()
+    @StateObject private var pdfStore      = PDFStore()
+    @StateObject private var inkStore      = InkEffectStore()
+    @StateObject private var settingsStore = AppSettingsStore()
+    @StateObject private var syncEngine    = GoogleDriveSyncEngine()
 
     var body: some Scene {
         WindowGroup {
@@ -17,6 +18,7 @@ struct Y2NotesApp: App {
                 .environmentObject(toolStore)
                 .environmentObject(pdfStore)
                 .environmentObject(inkStore)
+                .environmentObject(settingsStore)
                 .environmentObject(syncEngine)
                 .onAppear {
                     syncEngine.noteStore = noteStore

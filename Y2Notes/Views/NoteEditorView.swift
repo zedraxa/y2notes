@@ -410,7 +410,7 @@ struct NoteEditorView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize()
             } else if !findQuery.isEmpty {
-                Text(note.typedText.isEmpty ? "Drawing only" : "0 results")
+                Text(note.typedText.isEmpty && note.ocrText.isEmpty ? "Drawing only" : "0 results")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize()

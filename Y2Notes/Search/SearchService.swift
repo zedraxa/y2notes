@@ -4,7 +4,7 @@ import Foundation
 
 /// Scope that constrains a library-wide search.
 enum SearchScope {
-    /// Search all notes.
+    /// Search all notes and PDF documents.
     case allNotes
     /// Search only notes belonging to the given notebook.
     case notebook(UUID)
@@ -13,7 +13,6 @@ enum SearchScope {
 // MARK: - Match type
 
 /// The kind of field that produced a search hit.
-/// New field types (PDF text, handwriting OCR) can be added here without changing callers.
 enum SearchMatchType: Hashable {
     /// Match came from the note title.
     case title
@@ -21,7 +20,10 @@ enum SearchMatchType: Hashable {
     case typedText
     /// Match came from the parent notebook name.
     case notebookName
-    // Future: case pdfText, case handwritingOCR
+    /// Match came from extracted text in an imported PDF document.
+    case pdfText
+    /// Match came from on-device handwriting OCR of ink strokes.
+    case handwritingOCR
 }
 
 // MARK: - Search result
@@ -49,6 +51,25 @@ struct SearchResult: Identifiable, Hashable {
     static func == (lhs: SearchResult, rhs: SearchResult) -> Bool { lhs.id == rhs.id }
 }
 
+// MARK: - PDF search result
+
+/// A search hit inside an imported PDF document (separate from note-based results).
+struct PDFSearchResult: Identifiable, Hashable {
+    let id = UUID()
+
+    /// The PDF record that matched.
+    let pdfRecordID: UUID
+    /// The PDF document title.
+    let pdfTitle: String
+    /// Short excerpt from the matched text.
+    let snippet: String
+    /// Number of pages where the query was found.
+    let matchingPageCount: Int
+
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: PDFSearchResult, rhs: PDFSearchResult) -> Bool { lhs.id == rhs.id }
+}
+
 // MARK: - In-document find result
 
 /// A single text match inside a note's typed text, identified by its range.
@@ -69,20 +90,19 @@ struct InDocumentMatch: Identifiable {
 /// **V1 covers:**
 /// - Note title
 /// - Note `typedText` (keyboard-entered text)
+/// - Note `ocrText` (handwriting OCR — populated when OCR agent ships)
 /// - Parent notebook name
+/// - PDF document full-text search (via `searchPDFs`)
 ///
-/// **Architecture is open for:**
-/// - PDF text extraction results (store extracted text in a future `Note.pdfText` field)
-/// - Handwriting OCR results (store recognised text in a future `Note.ocrText` field)
-/// All callers read `SearchResult.matchTypes` to learn which fields matched, so adding new
-/// field types requires only changes here (no call-site refactoring).
+/// All callers read `SearchResult.matchTypes` or `PDFSearchResult` to learn which fields
+/// matched, so adding new field types requires only changes here (no call-site refactoring).
 struct SearchService {
 
     // MARK: Library-wide search
 
     /// Returns results matching `query` across `notes`, scoped to `scope`.
     ///
-    /// Results are sorted by relevance (title match > typedText match > notebook match),
+    /// Results are sorted by relevance (title match > typedText/OCR match > notebook match),
     /// then alphabetically by note title as a tiebreaker.
     ///
     /// - Parameters:
@@ -136,6 +156,16 @@ struct SearchService {
                 }
             }
 
+            // ── Handwriting OCR text match ───────────────────────────────
+            if !note.ocrText.isEmpty,
+               note.ocrText.localizedCaseInsensitiveContains(trimmed) {
+                matchTypes.insert(.handwritingOCR)
+                score += 40
+                if snippet.isEmpty {
+                    snippet = makeSnippet(in: note.ocrText, around: trimmed)
+                }
+            }
+
             // ── Notebook name match ──────────────────────────────────────
             if let nbID = note.notebookID,
                let nb = notebookByID[nbID],
@@ -143,8 +173,6 @@ struct SearchService {
                 matchTypes.insert(.notebookName)
                 score += 20
             }
-
-            // Future field types (PDF text, OCR) would be added here.
 
             if !matchTypes.isEmpty {
                 results.append(SearchResult(
@@ -158,39 +186,87 @@ struct SearchService {
         }
 
         // Sort: highest score first; title A-Z within the same score band.
-        return results.sorted {
-            if $0.score != $1.score { return $0.score > $1.score }
-            let t0 = notes.first { $0.id == $0.id }?.title ?? ""
-            let t1 = notes.first { $0.id == $1.id }?.title ?? ""
+        return results.sorted { lhs, rhs in
+            if lhs.score != rhs.score { return lhs.score > rhs.score }
+            let t0 = notes.first { $0.id == lhs.noteID }?.title ?? ""
+            let t1 = notes.first { $0.id == rhs.noteID }?.title ?? ""
             return t0.localizedCompare(t1) == .orderedAscending
         }
     }
 
+    // MARK: PDF full-text search
+
+    /// Searches imported PDF documents by title. Full-text content search
+    /// is handled by `PDFStore.search(recordID:query:)` using PDFKit.
+    ///
+    /// This method performs a lightweight title-only search across all PDF records.
+    /// For full PDF text search, call `PDFStore.search(recordID:query:)` per record.
+    ///
+    /// - Parameters:
+    ///   - query:   The search string.
+    ///   - records: All PDF records to search.
+    /// - Returns: PDF records whose title matches the query.
+    func searchPDFTitles(
+        query: String,
+        in records: [PDFNoteRecord]
+    ) -> [PDFSearchResult] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var results: [PDFSearchResult] = []
+        for record in records {
+            if record.title.localizedCaseInsensitiveContains(trimmed) {
+                results.append(PDFSearchResult(
+                    pdfRecordID: record.id,
+                    pdfTitle: record.title,
+                    snippet: makeSnippet(in: record.title, around: trimmed),
+                    matchingPageCount: 0
+                ))
+            }
+        }
+        return results
+    }
+
     // MARK: In-document search
 
-    /// Finds all occurrences of `query` inside the note's `typedText`.
+    /// Finds all occurrences of `query` inside the note's `typedText` and `ocrText`.
     ///
     /// Returns matches in order of appearance. Each match includes a snippet and character range.
-    /// When `typedText` is empty (drawing-only note) the array is always empty — the
-    /// call-site can display "Search not available — this note contains only drawings."
-    ///
-    /// **Extension point:** A future version can call this same method on `note.ocrText`
-    /// or `note.pdfText` and merge the results.
+    /// When both `typedText` and `ocrText` are empty (drawing-only note with no OCR) the array
+    /// is always empty — the call-site can display a hint like "Drawing only".
     func findInDocument(query: String, note: Note) -> [InDocumentMatch] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !note.typedText.isEmpty else { return [] }
+        guard !trimmed.isEmpty else { return [] }
 
         var matches: [InDocumentMatch] = []
-        let text = note.typedText
+
+        // Search typedText
+        if !note.typedText.isEmpty {
+            matches.append(contentsOf: findOccurrences(of: trimmed, in: note.typedText))
+        }
+
+        // Search ocrText (handwriting recognition results)
+        if !note.ocrText.isEmpty {
+            matches.append(contentsOf: findOccurrences(of: trimmed, in: note.ocrText))
+        }
+
+        return matches
+    }
+
+    // MARK: Private helpers
+
+    /// Finds all occurrences of `query` in `text`, returning `InDocumentMatch` for each.
+    private func findOccurrences(of query: String, in text: String) -> [InDocumentMatch] {
+        var matches: [InDocumentMatch] = []
         var searchStart = text.startIndex
 
         while searchStart < text.endIndex,
               let range = text.range(
-                  of: trimmed,
+                  of: query,
                   options: .caseInsensitive,
                   range: searchStart ..< text.endIndex
               ) {
-            let snippet = makeSnippet(in: text, around: trimmed, centeredAt: range)
+            let snippet = makeSnippet(in: text, around: query, centeredAt: range)
             matches.append(InDocumentMatch(line: 0, range: range, snippet: snippet))
             // Advance past the current match to find the next one.
             searchStart = range.upperBound == text.endIndex
@@ -200,8 +276,6 @@ struct SearchService {
 
         return matches
     }
-
-    // MARK: Private helpers
 
     /// Returns a short excerpt (≤ 80 characters) from `text` that centres on `query`.
     private func makeSnippet(in text: String, around query: String) -> String {
