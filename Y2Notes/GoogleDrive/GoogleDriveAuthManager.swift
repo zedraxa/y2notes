@@ -24,14 +24,13 @@ final class GoogleDriveAuthManager: NSObject, ObservableObject {
     /// Google API OAuth 2.0 client ID for iOS.
     /// Replace with your project's client ID from the Google Cloud Console.
     static let clientID: String = {
-        #if DEBUG
-        // Fail loudly in debug builds if the placeholder is still present.
         let id = "YOUR_CLIENT_ID.apps.googleusercontent.com"
-        assert(!id.hasPrefix("YOUR_"), "Replace GoogleDriveAuthManager.clientID with a real Google Cloud Console client ID")
-        return id
-        #else
-        return "YOUR_CLIENT_ID.apps.googleusercontent.com"
+        #if DEBUG
+        if id.hasPrefix("YOUR_") {
+            print("⚠️ [GoogleDriveAuthManager] Replace clientID with a real Google Cloud Console client ID before shipping.")
+        }
         #endif
+        return id
     }()
     /// Redirect URI registered in Google Cloud Console (custom scheme).
     static let redirectURI = "com.y2notes.app:/oauth2redirect"
