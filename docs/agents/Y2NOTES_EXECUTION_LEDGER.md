@@ -765,6 +765,94 @@ Notes for next agents:
 
 ---
 
+## [2026-04-01T21:51:00Z] AGENT-16 — Search and Study Foundations
+
+Branch: copilot/add-library-wide-search
+Model used: claude-sonnet-4.6
+Scope: Library-wide search, in-document search, search architecture, study set / flashcard data model, SM-2 spaced-repetition schema.
+
+### Files created
+- `Y2Notes/Search/SearchService.swift` — pure search engine covering title, typedText, notebook name; `InDocumentMatch` for find-in-note; open extension points for future PDF text + handwriting OCR.
+- `Y2Notes/Models/StudySet.swift` — `StudyCard`, `StudySet`, `ReviewRating`, `StudyCardProgress` (SM-2 spaced repetition with `applying(rating:)` scheduler).
+- `Y2Notes/Views/LibrarySearchView.swift` — full-screen library search sheet grouped by notebook; relevance-sorted results with match-type badges; integrates with `NoteStore` and `SearchService`.
+- `Y2Notes/Views/StudySetListView.swift` — study set list, card list, add-card sheet, due-today review prompt.
+- `Y2Notes/Views/StudySessionView.swift` — active recall session: flip animation, Again/Hard/Good/Easy rating buttons driving SM-2 progress, session completion screen.
+
+### Files modified
+- `Y2Notes/Models/Note.swift` — Added `typedText: String` field (backward-compatible decoder default "").
+- `Y2Notes/Persistence/NoteStore.swift` — Added `@Published studySets`, `studyCards`, `cardProgress`; `updateTypedText(for:text:)`; full study-set/card CRUD; `recordReview(cardID:rating:)` SM-2 hook; `saveStudy()` / `loadStudy()` to `y2notes_study.json`; `loadStudy()` called in `init()`.
+- `Y2Notes/Views/ShelfView.swift` — Search button (magnifyingglass) in sidebar toolbar opens `LibrarySearchView` sheet; "Study" section in sidebar with `StudySetListView` navigation link.
+- `Y2Notes/Views/NoteEditorView.swift` — In-document find bar (collapsible, above canvas): query field, match count, prev/next navigation, "Drawing only" hint for drawing-only notes.
+- `Y2Notes.xcodeproj/project.pbxproj` — Registered all 5 new Swift files (file refs AA88–8C, build files AA8D–91, Search group AA87).
+
+### Search architecture
+- **V1 live:** title match (score 100), typedText match (score 50), notebook name match (score 20).
+- **Extension point:** Add `case pdfText` / `case handwritingOCR` to `SearchMatchType`; populate the corresponding `Note` field; wire into `SearchService.search()` — no call-site changes needed.
+- In-document find searches `note.typedText`; for drawing-only notes shows "Drawing only" hint.
+
+### Study / spaced repetition schema
+- SM-2 algorithm in `StudyCardProgress.applying(rating:)` — interval ramps 1 → 6 → interval×easeFactor.
+- `isDueToday` property drives due-card queue in session view.
+- Persisted in `y2notes_study.json` alongside existing notes/notebooks files, same atomic-write + `.bak` backup pattern.
+
+### What remains
+- Typed text entry UI in the editor (keyboard text layer over canvas) — future agent.
+- PDF import + text extraction — future agent.
+- Handwriting OCR — future agent (architecture ready: add `Note.ocrText`, wire `SearchMatchType.handwritingOCR`).
+- iCloud / CloudKit sync of study progress — future agent.
+
+---
+
+## [2026-04-01T23:09:00Z] AGENT-17 — Typed Text Layer
+
+Branch: copilot/add-library-wide-search
+Model used: claude-sonnet-4.6
+Scope: Implement the keyboard text-entry layer in the note editor: draw ↔ type mode toggle, styled `TextEditor` respecting the active theme, debounced persistence via `NoteStore.updateTypedText`.
+
+### Files modified
+- `Y2Notes/Views/NoteEditorView.swift` — all changes here:
+  - Added `@State private var isTextMode: Bool = false` — tracks whether the editor is in drawing or text-entry mode.
+  - Added `@State private var typedTextContent: String` — live copy of `note.typedText`, seeded from the note on `init`.
+  - Added `@State private var textSaveTimer: Timer?` — debounce timer reference for text persistence.
+  - Updated `init(note:)` to seed `_typedTextContent` from `note.typedText`.
+  - Updated `body`: `DrawingToolbarView` and the contrast banner are suppressed in text mode; `textLayer` replaces `CanvasView` when `isTextMode == true`; `.animation` added for smooth draw↔type transition.
+  - Added draw↔type mode toggle button (`keyboard` / `pencil` SF Symbol) to the navigation bar trailing group; calls `flushTextNow()` before toggling to prevent in-flight text loss.
+  - Drawing-specific toolbar buttons (pencil-only, zoom reset, undo, redo) are wrapped in `if !isTextMode` so they disappear in text mode — keeping the nav bar uncluttered.
+  - Updated `.onDisappear` to call `flushTextNow()` before `noteStore.save()`.
+  - Added `textLayer` computed property — `TextEditor` with theme-aware background (`effectiveDefinition.canvasBackground`) and foreground (`effectiveDefinition.primaryText`); `scrollContentBackground(.hidden)` lets the custom background show through; debounce wired via `.onChange`.
+  - Added `scheduleTextSave()` — invalidates any in-flight timer and schedules a new 0.8 s one, capturing `noteID`, current text, and `noteStore` reference by value (avoids struct self-capture issues).
+  - Added `flushTextNow()` — synchronous immediate persist; used on mode switch and view disappearance.
+
+### What was completed
+- **Draw ↔ Type mode toggle** in the navigation bar — `keyboard` icon when drawing, `pencil` icon when typing.
+- **Typed text layer**: full-height `TextEditor` matching the note's effective theme (background + text colour), with comfortable 16 pt horizontal padding.
+- **Debounced save** at 0.8 s after the last keystroke, matching the drawing layer's debounce.
+- **Flush on mode switch / disappear**: no text is lost when toggling back to draw mode or navigating away.
+- **Find bar integration**: in-document find bar works in text mode (searches `note.typedText`), so the search experience carries over naturally.
+- **Drawing toolbar hidden in text mode**: `DrawingToolbarView` is not rendered when typing, giving the text layer maximum vertical space.
+- **Drawing-specific buttons hidden in text mode**: pencil-only toggle, zoom reset, undo/redo disappear in text mode — reducing nav bar clutter.
+
+### What remains
+- Typed text formatting (bold/italic/heading) — future agent.
+- PDF import + text extraction — future agent.
+- Handwriting OCR (architecture ready: add `Note.ocrText`, wire `SearchMatchType.handwritingOCR`) — future agent.
+- iCloud / CloudKit sync of typed text + study progress — future agent.
+- Mixed draw+type layout (side-by-side or inline anchored text blocks) — future agent.
+
+### Build/test evidence
+- No Xcode available in Linux sandbox; correctness validated by structural inspection.
+- `TextEditor(text:)` — public SwiftUI API, iOS 14+.
+- `.scrollContentBackground(.hidden)` — public API, iOS 16+ (deployment target is iOS 16, so no guard needed).
+- `Timer.scheduledTimer(withTimeInterval:repeats:block:)` — Foundation public API; closure captures `NoteStore` reference by value, avoiding struct self-capture issues.
+- `noteStore.updateTypedText(for:text:)` — added by AGENT-16; idempotent, main-thread safe.
+
+### Notes for next agents
+- `isTextMode` is a per-session `@State` (not persisted). If per-note mode memory is desired, add a `Bool` to `Note` and seed `isTextMode` from it in `init`.
+- `typedTextContent` is seeded from `note.typedText` in `init`. If the note's typedText is updated from outside the editor while it is on-screen (e.g., OCR result arrives), the local `@State` will be stale. A future agent can add `.onReceive(noteStore.$notes)` to re-sync when an external update arrives.
+- The `textLayer` `TextEditor` has no explicit font size control. A future agent adding formatting should wrap `TextEditor` in a `UIViewRepresentable` using `UITextView` directly for full `NSAttributedString` support.
+
+---
+
 ## [2026-04-01T22:19:39Z] AGENT-15 — PDF Workflows
 
 Branch: copilot/implement-pdf-workflows
