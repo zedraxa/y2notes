@@ -18,6 +18,9 @@ workflows:
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles --project "$XCODE_PROJECT"
+      - name: Increment build number
+        script: |
+          agvtool new-version -all $(($BUILD_NUMBER))
       - name: Build ipa for App Store distribution
         script: |
           xcode-project build-ipa \
