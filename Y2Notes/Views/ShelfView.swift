@@ -38,6 +38,18 @@ extension NotebookCover {
                 colors: [Color(red: 0.88, green: 0.78, blue: 0.58), Color(red: 0.95, green: 0.88, blue: 0.74)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
+        case .ruby:
+            return LinearGradient(colors: [Color(red: 0.72, green: 0.11, blue: 0.11), Color(red: 0.90, green: 0.30, blue: 0.30)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .midnight:
+            return LinearGradient(colors: [Color(red: 0.05, green: 0.05, blue: 0.20), Color(red: 0.15, green: 0.15, blue: 0.40)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .jade:
+            return LinearGradient(colors: [Color(red: 0.00, green: 0.50, blue: 0.30), Color(red: 0.20, green: 0.70, blue: 0.50)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .coral:
+            return LinearGradient(colors: [Color(red: 1.00, green: 0.50, blue: 0.31), Color(red: 1.00, green: 0.70, blue: 0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .copper:
+            return LinearGradient(colors: [Color(red: 0.72, green: 0.45, blue: 0.20), Color(red: 0.85, green: 0.60, blue: 0.35)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .nebula:
+            return LinearGradient(colors: [Color(red: 0.30, green: 0.10, blue: 0.50), Color(red: 0.55, green: 0.20, blue: 0.75)], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
     }
 }
@@ -146,7 +158,7 @@ private struct ShelfSidebarView: View {
                 Label("Favorites", systemImage: "star.fill")
                     .tag(LibrarySection.favorites)
                     .badge(noteStore.favoritedNotes.count)
-                    .foregroundStyle(noteStore.favoritedNotes.isEmpty ? .secondary : .yellow)
+                    .foregroundStyle(noteStore.favoritedNotes.isEmpty ? Color.secondary : Color.yellow)
 
                 Label("PDF Documents", systemImage: "doc.richtext")
                     .tag(LibrarySection.pdfLibrary)
@@ -329,6 +341,8 @@ struct NoteGridView: View {
             return noteStore.favoritedNotes
         case .notebook(let id):
             return noteStore.notes(inNotebook: id).sorted { $0.modifiedAt > $1.modifiedAt }
+        case .pdfLibrary:
+            return []
         }
     }
 
@@ -339,6 +353,7 @@ struct NoteGridView: View {
         case .favorites:          return "Favorites"
         case .notebook(let id):
             return noteStore.notebooks.first { $0.id == id }?.name ?? "Notebook"
+        case .pdfLibrary:         return "PDF Documents"
         }
     }
 
@@ -485,6 +500,7 @@ struct NoteGridView: View {
         case .recents:   return "clock"
         case .favorites: return "star"
         case .notebook:  return "book.closed"
+        case .pdfLibrary: return "doc.richtext"
         }
     }
 
@@ -494,6 +510,7 @@ struct NoteGridView: View {
         case .recents:   return "No Recent Notes"
         case .favorites: return "No Favorites Yet"
         case .notebook:  return "Empty Notebook"
+        case .pdfLibrary: return "No PDFs Yet"
         }
     }
 
@@ -503,6 +520,7 @@ struct NoteGridView: View {
         case .recents:   return "Notes you open recently will appear here."
         case .favorites: return "Tap ★ in a note's menu to collect favorites here."
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
+        case .pdfLibrary: return "Import a PDF document to get started."
         }
     }
 }

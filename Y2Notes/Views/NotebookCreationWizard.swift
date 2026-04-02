@@ -467,7 +467,7 @@ private struct PageTypeCard: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
                             .strokeBorder(
-                                isSelected ? Color.accentColor : Color.separator,
+                                isSelected ? Color.accentColor : Color(uiColor: .separator),
                                 lineWidth: isSelected ? 2 : 0.5
                             )
                     )
@@ -581,7 +581,7 @@ private struct OrientationButton: View {
 
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
         }
         .padding(14)
@@ -613,7 +613,7 @@ private struct PaperMaterialRow: View {
                     .fill(material.pageTint)
                     .frame(width: 42, height: 42)
                     .overlay(
-                        Circle().strokeBorder(Color.separator.opacity(0.4), lineWidth: 0.5)
+                        Circle().strokeBorder(Color(uiColor: .separator).opacity(0.4), lineWidth: 0.5)
                     )
                 Image(systemName: material.systemImage)
                     .font(.body)
@@ -634,7 +634,7 @@ private struct PaperMaterialRow: View {
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
         }
         .padding(14)

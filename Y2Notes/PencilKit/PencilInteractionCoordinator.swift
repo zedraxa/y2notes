@@ -78,18 +78,18 @@ final class PencilInteractionCoordinator: NSObject {
         view.addInteraction(interaction)
     }
 
-    // MARK: - Hover (iOS 16.1+)
+    // MARK: - Hover (iOS 16.4+)
 
     private func attachHoverRecognizer(to view: UIView) {
-        guard #available(iOS 16.1, *) else { return }
-        // UIHoverGestureRecognizer gained altitudeAngle / azimuthAngle(in:) in iOS 16.1,
+        guard #available(iOS 16.4, *) else { return }
+        // UIHoverGestureRecognizer gained altitudeAngle / azimuthAngle(in:) in iOS 16.4,
         // enabling Apple Pencil hover detection on M2+ iPad Pro.
         let recognizer = UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:)))
         recognizer.cancelsTouchesInView = false
         view.addGestureRecognizer(recognizer)
     }
 
-    @available(iOS 16.1, *)
+    @available(iOS 16.4, *)
     @objc private func handleHover(_ gesture: UIHoverGestureRecognizer) {
         guard let canvas = canvas else { return }
         switch gesture.state {
@@ -178,8 +178,8 @@ private final class PencilBarrelRollObserver: UIGestureRecognizer {
     var onBarrelRoll: ((CGFloat, CGPoint) -> Void)?
 
     // Never prevent other recognizers from recognising.
-    override func canPreventGestureRecognizer(_ other: UIGestureRecognizer) -> Bool { false }
-    override func canBePreventedBy(_ other: UIGestureRecognizer) -> Bool { false }
+    override func canPrevent(_ other: UIGestureRecognizer) -> Bool { false }
+    override func canBePrevented(by other: UIGestureRecognizer) -> Bool { false }
     override func shouldRequireFailure(of other: UIGestureRecognizer) -> Bool { false }
     override func shouldBeRequiredToFail(by other: UIGestureRecognizer) -> Bool { false }
 
