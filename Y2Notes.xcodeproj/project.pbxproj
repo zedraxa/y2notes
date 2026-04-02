@@ -30,6 +30,15 @@
 		AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
 		AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
 		AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000055 /* ContextualPencilPaletteView.swift */; };
+		AA0001000000000000000094 /* PDFNoteModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000090 /* PDFNoteModel.swift */; };
+		AA0001000000000000000095 /* PDFStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000091 /* PDFStore.swift */; };
+		AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000092 /* PDFPageAnnotationView.swift */; };
+		AA0001000000000000000097 /* PDFViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000093 /* PDFViewerView.swift */; };
+		AA000100000000000000009E /* InkModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000098 /* InkModels.swift */; };
+		AA000100000000000000009F /* InkEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000099 /* InkEffectEngine.swift */; };
+		AA00010000000000000000A0 /* InkFamilyRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009A /* InkFamilyRegistry.swift */; };
+		AA00010000000000000000A1 /* InkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009B /* InkEffectStore.swift */; };
+		AA00010000000000000000A2 /* InkEffectPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009C /* InkEffectPickerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +67,15 @@
 		AA0001000000000000000053 /* PencilInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilInteractionCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000054 /* PencilHoverOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHoverOverlayView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000055 /* ContextualPencilPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualPencilPaletteView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000090 /* PDFNoteModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFNoteModel.swift; sourceTree = "<group>"; };
+		AA0001000000000000000091 /* PDFStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000092 /* PDFPageAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFPageAnnotationView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000093 /* PDFViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFViewerView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000098 /* InkModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkModels.swift; sourceTree = "<group>"; };
+		AA0001000000000000000099 /* InkEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectEngine.swift; sourceTree = "<group>"; };
+		AA000100000000000000009A /* InkFamilyRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkFamilyRegistry.swift; sourceTree = "<group>"; };
+		AA000100000000000000009B /* InkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectStore.swift; sourceTree = "<group>"; };
+		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +116,8 @@
 				AA0001000000000000000033 /* Theme */,
 				AA0001000000000000000056 /* PencilKit */,
 				AA0001000000000000000086 /* Tools */,
+				AA000100000000000000008F /* PDF */,
+				AA000100000000000000009D /* Ink */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 			);
@@ -126,6 +146,7 @@
 				AA0001000000000000000082 /* DrawingToolbarView.swift */,
 				AA0001000000000000000071 /* NotebookCreationWizard.swift */,
 				AA0001000000000000000087 /* PageRulingView.swift */,
+				AA000100000000000000009C /* InkEffectPickerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -164,6 +185,28 @@
 				AA0001000000000000000081 /* DrawingToolStore.swift */,
 			);
 			path = Tools;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000008F /* PDF */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000090 /* PDFNoteModel.swift */,
+				AA0001000000000000000091 /* PDFStore.swift */,
+				AA0001000000000000000092 /* PDFPageAnnotationView.swift */,
+				AA0001000000000000000093 /* PDFViewerView.swift */,
+			);
+			path = PDF;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000009D /* Ink */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000098 /* InkModels.swift */,
+				AA0001000000000000000099 /* InkEffectEngine.swift */,
+				AA000100000000000000009A /* InkFamilyRegistry.swift */,
+				AA000100000000000000009B /* InkEffectStore.swift */,
+			);
+			path = Ink;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -257,6 +300,15 @@
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
+				AA0001000000000000000094 /* PDFNoteModel.swift in Sources */,
+				AA0001000000000000000095 /* PDFStore.swift in Sources */,
+				AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */,
+				AA0001000000000000000097 /* PDFViewerView.swift in Sources */,
+				AA000100000000000000009E /* InkModels.swift in Sources */,
+				AA000100000000000000009F /* InkEffectEngine.swift in Sources */,
+				AA00010000000000000000A0 /* InkFamilyRegistry.swift in Sources */,
+				AA00010000000000000000A1 /* InkEffectStore.swift in Sources */,
+				AA00010000000000000000A2 /* InkEffectPickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

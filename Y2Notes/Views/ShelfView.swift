@@ -1,5 +1,6 @@
 import SwiftUI
 import PencilKit
+import PDFKit
 
 // MARK: - Library section
 
@@ -8,6 +9,7 @@ enum LibrarySection: Hashable {
     case recents
     case favorites
     case notebook(UUID)
+    case pdfLibrary
 }
 
 // MARK: - Cover gradients (SwiftUI extension on model type)
@@ -43,14 +45,16 @@ extension NotebookCover {
 // MARK: - Root shelf view
 
 /// Three-column NavigationSplitView:
-///   Sidebar  — library sections + notebooks list
-///   Content  — note grid for the selected section
-///   Detail   — note editor (or placeholder)
+///   Sidebar  — library sections + notebooks list + PDF Documents entry
+///   Content  — note grid or PDF library for the selected section
+///   Detail   — note editor, PDF viewer, or placeholder
 struct ShelfView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var pdfStore:  PDFStore
 
     @State private var selectedSection: LibrarySection? = .allNotes
     @State private var selectedNoteID: UUID?
+    @State private var selectedPDFID:  UUID?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     private var selectedNote: Note? {
@@ -58,26 +62,52 @@ struct ShelfView: View {
         return noteStore.notes.first { $0.id == id }
     }
 
+    private var selectedPDFRecord: PDFNoteRecord? {
+        guard let id = selectedPDFID else { return nil }
+        return pdfStore.records.first { $0.id == id }
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             ShelfSidebarView(selectedSection: $selectedSection)
         } content: {
-            NoteGridView(
-                section: selectedSection ?? .allNotes,
-                selectedNoteID: $selectedNoteID
-            )
+            if case .pdfLibrary = selectedSection {
+                PDFLibraryView(selectedPDFID: $selectedPDFID)
+            } else {
+                NoteGridView(
+                    section: selectedSection ?? .allNotes,
+                    selectedNoteID: $selectedNoteID
+                )
+            }
         } detail: {
-            if let note = selectedNote {
+            if let record = selectedPDFRecord {
+                PDFViewerView(record: record)
+                    .id(record.id)
+            } else if let note = selectedNote {
                 NoteEditorView(note: note)
                     .id(note.id)
             } else {
                 ShelfDetailPlaceholder()
             }
         }
+        // Clear note selection when switching to the PDF section and vice versa.
+        .onChange(of: selectedSection) { section in
+            if case .pdfLibrary = section {
+                selectedNoteID = nil
+            } else {
+                selectedPDFID = nil
+            }
+        }
         // If the selected note is deleted elsewhere, clear the selection.
         .onChange(of: noteStore.notes) { _ in
             if let id = selectedNoteID, !noteStore.notes.contains(where: { $0.id == id }) {
                 selectedNoteID = nil
+            }
+        }
+        // If the selected PDF record is deleted, clear the selection.
+        .onChange(of: pdfStore.records) { _ in
+            if let id = selectedPDFID, !pdfStore.records.contains(where: { $0.id == id }) {
+                selectedPDFID = nil
             }
         }
     }
@@ -87,6 +117,7 @@ struct ShelfView: View {
 
 private struct ShelfSidebarView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var pdfStore:  PDFStore
     @Binding var selectedSection: LibrarySection?
 
     @State private var showNewNotebookSheet = false
@@ -108,6 +139,10 @@ private struct ShelfSidebarView: View {
                     .tag(LibrarySection.favorites)
                     .badge(noteStore.favoritedNotes.count)
                     .foregroundStyle(noteStore.favoritedNotes.isEmpty ? .secondary : .yellow)
+
+                Label("PDF Documents", systemImage: "doc.richtext")
+                    .tag(LibrarySection.pdfLibrary)
+                    .badge(pdfStore.records.count)
             }
 
             // ── Notebooks ─────────────────────────────────────────────────
@@ -517,6 +552,193 @@ private struct NoteCardView: View {
             let renderRect = drawing.bounds.insetBy(dx: -20, dy: -20)
             let scale = max(200 / renderRect.width, 150 / renderRect.height) * 0.5
             return drawing.image(from: renderRect, scale: scale)
+        }.value
+    }
+}
+
+// MARK: - PDF library (middle column)
+
+private struct PDFLibraryView: View {
+    @EnvironmentObject var pdfStore: PDFStore
+    @Binding var selectedPDFID: UUID?
+
+    @State private var showImporter = false
+    @State private var recordToDelete: PDFNoteRecord?
+    @State private var showDeleteConfirm = false
+
+    private let columns = [GridItem(.adaptive(minimum: 168, maximum: 220), spacing: 16)]
+
+    var body: some View {
+        Group {
+            if pdfStore.records.isEmpty {
+                pdfEmptyState
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(pdfStore.records) { record in
+                            PDFCardView(record: record, isSelected: selectedPDFID == record.id)
+                                .onTapGesture { selectedPDFID = record.id }
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        recordToDelete  = record
+                                        showDeleteConfirm = true
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+        }
+        .navigationTitle("PDF Documents")
+        .background(Color(uiColor: .systemGroupedBackground))
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showImporter = true } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Import PDF")
+            }
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                if let record = pdfStore.importPDF(from: url) {
+                    selectedPDFID = record.id
+                }
+            }
+        }
+        .confirmationDialog(
+            "Delete \"\(recordToDelete?.title ?? "PDF")\"?",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let r = recordToDelete {
+                    if selectedPDFID == r.id { selectedPDFID = nil }
+                    pdfStore.deleteRecord(id: r.id)
+                }
+                recordToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { recordToDelete = nil }
+        } message: {
+            Text("The PDF file and all its annotations will be permanently deleted.")
+        }
+    }
+
+    // MARK: Empty state
+
+    private var pdfEmptyState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "doc.richtext")
+                .font(.system(size: 56, weight: .ultraLight))
+                .foregroundStyle(.tertiary)
+            Text("No PDF Documents")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text("Import a PDF to annotate it with your Apple Pencil.")
+                .font(.callout)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 260)
+            Button { showImporter = true } label: {
+                Label("Import PDF", systemImage: "plus")
+                    .font(.body.weight(.medium))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(.tint.opacity(0.12), in: Capsule())
+                    .foregroundStyle(.tint)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemGroupedBackground))
+    }
+}
+
+// MARK: - PDF card
+
+private struct PDFCardView: View {
+    let record: PDFNoteRecord
+    let isSelected: Bool
+
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Cover thumbnail
+            ZStack {
+                Color(uiColor: .systemBackground)
+                if let img = thumbnail {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(10)
+                } else {
+                    Image(systemName: "doc.richtext")
+                        .font(.system(size: 36, weight: .ultraLight))
+                        .foregroundStyle(.quaternary)
+                }
+            }
+            .frame(height: 130)
+            .frame(maxWidth: .infinity)
+
+            Divider()
+
+            // Footer
+            VStack(alignment: .leading, spacing: 3) {
+                Text(record.title.isEmpty ? "Untitled PDF" : record.title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(record.title.isEmpty ? .tertiary : .primary)
+                    .lineLimit(1)
+                HStack {
+                    Text("\(record.pageCount) page\(record.pageCount == 1 ? "" : "s")")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Spacer(minLength: 0)
+                    if !record.annotationData.isEmpty {
+                        Image(systemName: "pencil.tip")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color(uiColor: .secondarySystemBackground))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(
+                    isSelected ? Color.accentColor : Color.primary.opacity(0.07),
+                    lineWidth: isSelected ? 2 : 0.5
+                )
+        )
+        .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
+        .task(id: record.pdfFilename) {
+            thumbnail = await makePDFThumbnail(for: record)
+        }
+    }
+
+    private func makePDFThumbnail(for record: PDFNoteRecord) async -> UIImage? {
+        return await Task.detached(priority: .utility) {
+            // Access pdfStore via the record filename directly — avoids environment capture.
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let url = docs
+                .appendingPathComponent("PDFNotes")
+                .appendingPathComponent(record.pdfFilename)
+            guard let document = PDFDocument(url: url),
+                  let page = document.page(at: 0) else { return nil }
+            let mediaBox = page.bounds(for: .mediaBox)
+            let aspectRatio = mediaBox.height / max(mediaBox.width, 1)
+            let targetSize = CGSize(width: 200, height: 200 * aspectRatio)
+            return page.thumbnail(of: targetSize, for: .mediaBox)
         }.value
     }
 }
