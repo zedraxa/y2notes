@@ -683,7 +683,7 @@ private struct DetailsStepView: View {
                         .onSubmit { nameFieldFocused = false }
 
                     if draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Leave blank to use "Untitled"")
+                        Text("Leave blank to use \"Untitled\"")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

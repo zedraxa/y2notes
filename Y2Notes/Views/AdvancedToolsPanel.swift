@@ -82,7 +82,7 @@ struct AdvancedToolsPanel: View {
             Button("Cancel", role: .cancel) { presetToDelete = nil }
         } message: {
             if let p = presetToDelete {
-                Text(""\(p.name)" will be removed permanently.")
+                Text("\"\(p.name)\" will be removed permanently.")
             }
         }
         .sheet(isPresented: $showCustomToolAuthoring) {
