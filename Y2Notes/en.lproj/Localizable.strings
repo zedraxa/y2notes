@@ -1,0 +1,122 @@
+/* Y2Notes Localizable Strings — Base (English)
+   =============================================
+   This file provides the localization scaffolding for Y2Notes.
+   Add translations by creating locale-specific .lproj directories
+   (e.g., fr.lproj/, ja.lproj/) and duplicating this file with
+   translated values.
+
+   Key naming convention: <Screen>.<Element> or <Feature>.<Action>
+*/
+
+/* ── Onboarding ────────────────────────────────────────────────── */
+
+"Onboarding.Welcome.Title"       = "Welcome to Y2Notes";
+"Onboarding.Welcome.Subtitle"    = "A note-taking app built for iPad and Apple Pencil. Write, draw, and study — all in one place.";
+"Onboarding.Pencil.Title"        = "Apple Pencil Ready";
+"Onboarding.Pencil.Subtitle"     = "Pressure-sensitive drawing, hover preview, and double-tap to switch tools. Y2Notes is designed for the best Pencil experience.";
+"Onboarding.Pencil.Toggle"       = "Pencil-only drawing";
+"Onboarding.Theme.Title"         = "Choose Your Theme";
+"Onboarding.Theme.Subtitle"      = "Pick a look that suits you. You can always change this later in Settings.";
+"Onboarding.Ready.Title"         = "You're All Set";
+"Onboarding.Ready.Subtitle"      = "Create your first notebook and start writing. Your notes are saved automatically.";
+"Onboarding.Skip"                = "Skip";
+"Onboarding.Next"                = "Next";
+"Onboarding.GetStarted"          = "Get Started";
+
+/* ── Settings ──────────────────────────────────────────────────── */
+
+"Settings.Title"                  = "Settings";
+"Settings.Done"                   = "Done";
+
+"Settings.Appearance"             = "Appearance";
+"Settings.Appearance.Theme"       = "Theme";
+"Settings.Appearance.Contrast"    = "Contrast";
+"Settings.Appearance.ContrastPass" = "AA Pass";
+"Settings.Appearance.ContrastLow" = "Low Contrast";
+
+"Settings.DocumentDefaults"       = "Document Defaults";
+"Settings.DocumentDefaults.PageType"       = "Page Type";
+"Settings.DocumentDefaults.PageSize"       = "Page Size";
+"Settings.DocumentDefaults.Orientation"    = "Orientation";
+"Settings.DocumentDefaults.PaperMaterial"  = "Paper Material";
+"Settings.DocumentDefaults.Footer"         = "These defaults apply when creating new notebooks. Existing notebooks are not affected.";
+
+"Settings.ToolPreferences"        = "Tool Preferences";
+"Settings.ToolPreferences.DefaultTool"     = "Default Tool";
+"Settings.ToolPreferences.StrokeWidth"     = "Stroke Width";
+"Settings.ToolPreferences.PencilOnly"      = "Pencil-Only Drawing";
+
+"Settings.Accessibility"          = "Accessibility";
+"Settings.Accessibility.ReduceMotion"      = "Reduce Motion";
+"Settings.Accessibility.HighContrast"      = "Increase Contrast";
+"Settings.Accessibility.AutosaveInterval"  = "Autosave Interval";
+"Settings.Accessibility.Footer"            = "Reduce Motion suppresses transitions. Increase Contrast enhances borders and text weight.";
+
+"Settings.About"                  = "About";
+"Settings.About.Version"          = "Version";
+"Settings.About.Diagnostics"      = "Diagnostics & Support";
+"Settings.About.Reset"            = "Reset All Settings";
+"Settings.About.ResetConfirm"     = "This will reset document defaults, tool preferences, and accessibility settings to their original values. Your notes and notebooks will not be affected.";
+
+/* ── Diagnostics ───────────────────────────────────────────────── */
+
+"Diagnostics.Title"               = "Diagnostics";
+"Diagnostics.Storage"             = "Storage";
+"Diagnostics.Notes"               = "Notes";
+"Diagnostics.Notebooks"           = "Notebooks";
+"Diagnostics.Sections"            = "Sections";
+"Diagnostics.StudySets"           = "Study Sets";
+"Diagnostics.StudyCards"          = "Study Cards";
+"Diagnostics.PDFDocuments"        = "PDF Documents";
+"Diagnostics.ContrastValidation"  = "Theme Contrast Validation";
+"Diagnostics.DataIntegrity"       = "Data Integrity";
+"Diagnostics.SaveState"           = "Save State";
+"Diagnostics.OrphanedNotes"       = "Orphaned Notes";
+"Diagnostics.CopyReport"          = "Copy Diagnostic Report";
+"Diagnostics.ReShowOnboarding"    = "Re-show Onboarding";
+"Diagnostics.ForceSave"           = "Force Save Now";
+
+/* ── Shelf / Sidebar ───────────────────────────────────────────── */
+
+"Shelf.Title"                     = "Y2Notes";
+"Shelf.AllNotes"                  = "All Notes";
+"Shelf.Recents"                   = "Recents";
+"Shelf.Favorites"                 = "Favorites";
+"Shelf.PDFDocuments"              = "PDF Documents";
+"Shelf.StudySets"                 = "Study Sets";
+"Shelf.Notebooks"                 = "Notebooks";
+"Shelf.NewNotebook"               = "New Notebook";
+"Shelf.Settings"                  = "Settings";
+"Shelf.SearchLibrary"             = "Search library";
+
+/* ── Themes ────────────────────────────────────────────────────── */
+
+"Theme.System"                    = "System";
+"Theme.Light"                     = "Light";
+"Theme.Dark"                      = "Dark";
+"Theme.Sepia"                     = "Sepia";
+"Theme.Midnight"                  = "Midnight";
+"Theme.Ocean"                     = "Ocean";
+
+/* ── Editor ────────────────────────────────────────────────────── */
+
+"Editor.Undo"                     = "Undo";
+"Editor.Redo"                     = "Redo";
+"Editor.FindInNote"               = "Find in note";
+"Editor.ResetZoom"                = "Reset zoom to 100%";
+"Editor.SwitchToText"             = "Switch to text mode";
+"Editor.SwitchToDrawing"          = "Switch to drawing mode";
+"Editor.PencilOnly"               = "Enable Pencil-only drawing";
+"Editor.FingerDrawing"            = "Enable finger drawing";
+"Editor.NoteTheme"                = "Note theme";
+"Editor.Saving"                   = "Saving";
+"Editor.Saved"                    = "Saved";
+"Editor.SaveError"                = "Save error";
+
+/* ── Common ────────────────────────────────────────────────────── */
+
+"Common.Cancel"                   = "Cancel";
+"Common.Delete"                   = "Delete";
+"Common.Rename"                   = "Rename";
+"Common.Done"                     = "Done";
+"Common.OK"                       = "OK";
