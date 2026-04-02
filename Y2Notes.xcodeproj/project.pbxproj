@@ -187,14 +187,14 @@
 			path = Tools;
 			sourceTree = "<group>";
 		};
-<<<<<<< HEAD
 		AA0001000000000000000087 /* Search */ = {
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000088 /* SearchService.swift */,
 			);
 			path = Search;
-=======
+			sourceTree = "<group>";
+		};
 		AA000100000000000000008F /* PDF */ = {
 			isa = PBXGroup;
 			children = (
@@ -204,7 +204,6 @@
 				AA0001000000000000000093 /* PDFViewerView.swift */,
 			);
 			path = PDF;
->>>>>>> origin/main
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -297,18 +296,15 @@
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
-<<<<<<< HEAD
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
-				AA000100000000000000008F /* LibrarySearchView.swift in Sources */,
-				AA0001000000000000000090 /* StudySetListView.swift in Sources */,
-				AA0001000000000000000091 /* StudySessionView.swift in Sources */,
-=======
+				AA0001000000000000000098 /* LibrarySearchView.swift in Sources */,
+				AA0001000000000000000099 /* StudySetListView.swift in Sources */,
+				AA000100000000000000009A /* StudySessionView.swift in Sources */,
 				AA0001000000000000000094 /* PDFNoteModel.swift in Sources */,
 				AA0001000000000000000095 /* PDFStore.swift in Sources */,
 				AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */,
 				AA0001000000000000000097 /* PDFViewerView.swift in Sources */,
->>>>>>> origin/main
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -765,7 +765,6 @@ Notes for next agents:
 
 ---
 
-<<<<<<< HEAD
 ## [2026-04-01T21:51:00Z] AGENT-16 — Search and Study Foundations
 
 Branch: copilot/add-library-wide-search
@@ -851,7 +850,9 @@ Scope: Implement the keyboard text-entry layer in the note editor: draw ↔ type
 - `isTextMode` is a per-session `@State` (not persisted). If per-note mode memory is desired, add a `Bool` to `Note` and seed `isTextMode` from it in `init`.
 - `typedTextContent` is seeded from `note.typedText` in `init`. If the note's typedText is updated from outside the editor while it is on-screen (e.g., OCR result arrives), the local `@State` will be stale. A future agent can add `.onReceive(noteStore.$notes)` to re-sync when an external update arrives.
 - The `textLayer` `TextEditor` has no explicit font size control. A future agent adding formatting should wrap `TextEditor` in a `UIViewRepresentable` using `UITextView` directly for full `NSAttributedString` support.
-=======
+
+---
+
 ## [2026-04-01T22:19:39Z] AGENT-15 — PDF Workflows
 
 Branch: copilot/implement-pdf-workflows
@@ -933,4 +934,3 @@ Scope: Implement complete PDF workflows — import from Files/iCloud, per-page P
 - `PDFNoteRecord.pdfFilename` is the basename only; resolve full URL via `pdfStore.pdfDirectory.appendingPathComponent(record.pdfFilename)`
 - `PDFPageAnnotationView` reads `DrawingToolStore` as `@EnvironmentObject`; ensure `toolStore` is present in the environment when presenting `PDFViewerView`
 - pbxproj IDs reserved by AGENT-15: file refs `AA90`–`AA93`, build files `AA94`–`AA97`, group `AA8F`
->>>>>>> origin/main
