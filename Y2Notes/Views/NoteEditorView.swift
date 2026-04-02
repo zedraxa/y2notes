@@ -44,6 +44,24 @@ struct NoteEditorView: View {
         _titleText = State(initialValue: note.title)
     }
 
+    // MARK: - Notebook context
+
+    /// The notebook this note belongs to (nil for unfiled notes).
+    private var notebook: Notebook? {
+        guard let id = note.notebookID else { return nil }
+        return noteStore.notebooks.first { $0.id == id }
+    }
+
+    /// Page ruling style from the notebook, or `.blank` for unfiled notes.
+    private var effectivePageType: PageType {
+        notebook?.pageType ?? .blank
+    }
+
+    /// Paper material from the notebook, or `.standard` for unfiled notes.
+    private var effectivePaperMaterial: PaperMaterial {
+        notebook?.paperMaterial ?? .standard
+    }
+
     // MARK: - Effective theme
 
     private var effectiveTheme: AppTheme {
@@ -52,6 +70,14 @@ struct NoteEditorView: View {
 
     private var effectiveDefinition: ThemeDefinition {
         effectiveTheme.definition
+    }
+
+    /// Canvas background blended with the paper material's tint colour.
+    private var canvasBackgroundColor: UIColor {
+        blendedBackground(
+            base: effectiveDefinition.canvasBackground,
+            tint: effectivePaperMaterial.pageTint
+        )
     }
 
     var body: some View {
@@ -70,7 +96,7 @@ struct NoteEditorView: View {
                 CanvasView(
                     noteID: note.id,
                     drawingData: note.drawingData,
-                    backgroundColor: effectiveDefinition.canvasBackground,
+                    backgroundColor: canvasBackgroundColor,
                     defaultInkColor: effectiveDefinition.contrastingInkColor,
                     currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
                     isShapeToolActive: toolStore.activeTool == .shape,
@@ -79,6 +105,8 @@ struct NoteEditorView: View {
                     shapeWidth: toolStore.activeWidth,
                     drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
                     zoomResetTrigger: zoomResetTrigger,
+                    pageType: effectivePageType,
+                    paperMaterial: effectivePaperMaterial,
                     activeFX: inkStore.resolvedFX,
                     fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
                     onDrawingChanged: { data in
@@ -155,6 +183,10 @@ struct NoteEditorView: View {
         }
         .onAppear {
             refreshUndoRedoState()
+            toolStore.currentPaperMaterial = effectivePaperMaterial
+        }
+        .onDisappear {
+            toolStore.currentPaperMaterial = .standard
         }
         // Notification-based fallback to keep undo/redo state in sync even when the
         // canvas delegate fires before the onUndoStateChanged callback is invoked.
@@ -182,11 +214,32 @@ struct NoteEditorView: View {
             }
         }
         .onDisappear {
+            toolStore.currentPaperMaterial = .standard
             noteStore.save()
         }
     }
 
-    // MARK: - Per-note theme menu
+    // MARK: - Background blend helper
+
+    /// Blends the theme's canvas background colour with the paper material's
+    /// `pageTint` by applying the tint as a very light overlay (15 % opacity).
+    /// In dark themes the tint contribution is halved to avoid washing out the
+    /// dark canvas.
+    private func blendedBackground(base: UIColor, tint: Color) -> UIColor {
+        let isDark = effectiveDefinition.canvasIsDark
+        let fraction: CGFloat = isDark ? 0.07 : 0.15
+        let uiTint = UIColor(tint)
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        var tr: CGFloat = 0, tg: CGFloat = 0, tb: CGFloat = 0
+        base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        uiTint.getRed(&tr, green: &tg, blue: &tb, alpha: nil)
+        return UIColor(
+            red:   br + (tr - br) * fraction,
+            green: bg + (tg - bg) * fraction,
+            blue:  bb + (tb - bb) * fraction,
+            alpha: ba
+        )
+    }
 
     private var noteThemeMenu: some View {
         Menu {
@@ -316,7 +369,13 @@ private struct CanvasView: UIViewRepresentable {
     let drawingPolicy: PKCanvasViewDrawingPolicy
     /// Flip this value to trigger an animated reset to 1× zoom scale.
     let zoomResetTrigger: Bool
+    /// Page ruling style rendered behind the canvas.
+    let pageType: PageType
+    /// Paper material used for background tint and grain texture.
+    let paperMaterial: PaperMaterial
+    /// Active writing FX type from the ink-effects system (`.none` = no FX).
     let activeFX: WritingFXType
+    /// Ink colour resolved for the active FX preset.
     let fxColor: UIColor
     let onDrawingChanged: (Data) -> Void
     let onSaveRequested: () -> Void
@@ -335,12 +394,31 @@ private struct CanvasView: UIViewRepresentable {
         container.backgroundColor = backgroundColor
         container.clipsToBounds = true
 
+        // ── Page background (ruling + paper tint, sits behind the canvas) ──────
+        let pageBackground = PageBackgroundView(frame: .zero)
+        pageBackground.pageColor    = backgroundColor
+        pageBackground.pageType     = pageType
+        pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
+        pageBackground.showGrain    = paperMaterial.hasGrainTexture
+        pageBackground.isUserInteractionEnabled = false
+
+        container.addSubview(pageBackground)
+        pageBackground.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            pageBackground.topAnchor.constraint(equalTo: container.topAnchor),
+            pageBackground.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            pageBackground.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            pageBackground.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.pageBackground = pageBackground
+
         // ── PencilKit canvas ─────────────────────────────────────────────────
         let canvas = PKCanvasView()
         canvas.delegate = context.coordinator
         canvas.drawingPolicy = drawingPolicy
         canvas.alwaysBounceVertical = true
-        canvas.backgroundColor = backgroundColor
+        // Canvas is transparent so the page background shows through.
+        canvas.backgroundColor = .clear
         canvas.tool = currentTool
 
         // Zoom/pan: PKCanvasView inherits UIScrollView zoom support.
@@ -426,10 +504,24 @@ private struct CanvasView: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {
         guard let canvas = context.coordinator.canvas else { return }
 
-        // Sync background colour when the theme changes.
-        if canvas.backgroundColor != backgroundColor {
-            canvas.backgroundColor = backgroundColor
+        // Sync container background colour when the theme/material changes.
+        if uiView.backgroundColor != backgroundColor {
             uiView.backgroundColor = backgroundColor
+        }
+
+        // Sync page background (ruling view).
+        if let bg = context.coordinator.pageBackground {
+            if bg.pageColor != backgroundColor {
+                bg.pageColor  = backgroundColor
+                bg.lineColor  = Self.rulingLineColor(for: backgroundColor)
+            }
+            if bg.pageType != pageType {
+                bg.pageType = pageType
+            }
+            let grainWanted = paperMaterial.hasGrainTexture
+            if bg.showGrain != grainWanted {
+                bg.showGrain = grainWanted
+            }
         }
 
         // Sync drawing policy when the user toggles the finger/pencil preference.
@@ -463,6 +555,37 @@ private struct CanvasView: UIViewRepresentable {
         context.coordinator.onUndoStateChanged = onUndoStateChanged
     }
 
+    // MARK: - Ruling line color helper
+
+    /// Returns a ruling line color that is visible against the given background.
+    /// On dark backgrounds the lines are white at low opacity; on light backgrounds
+    /// they are black at low opacity.
+    private static func rulingLineColor(for background: UIColor) -> UIColor {
+        let isDarkBackground: Bool = {
+            var white: CGFloat = 0
+            if background.getWhite(&white, alpha: nil) {
+                return white < 0.5
+            }
+
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            if background.getRed(&red, green: &green, blue: &blue, alpha: nil) {
+                let relativeLuminance =
+                    (0.2126 * red) +
+                    (0.7152 * green) +
+                    (0.0722 * blue)
+                return relativeLuminance < 0.5
+            }
+
+            return false
+        }()
+
+        return isDarkBackground
+            ? UIColor.white.withAlphaComponent(0.12)
+            : UIColor.label.withAlphaComponent(0.10)
+    }
+
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, PKCanvasViewDelegate {
@@ -470,6 +593,8 @@ private struct CanvasView: UIViewRepresentable {
         let onSaveRequested: () -> Void
         weak var canvas: PKCanvasView?
         weak var shapeOverlay: ShapeOverlayView?
+        /// Page ruling / background view placed behind the canvas.
+        weak var pageBackground: PageBackgroundView?
         /// Updated by updateUIView to always hold the freshest closure.
         var onUndoStateChanged: ((Bool, Bool) -> Void)?
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
