@@ -50,6 +50,10 @@ final class GoogleDriveSyncEngine: ObservableObject {
     private static let studyFileName     = "y2notes_study.json"
     private static let manifestFileName  = "y2notes_sync_manifest.json"
 
+    /// Backup suffixes used when overwriting local files during import/restore.
+    private static let preImportBackupSuffix  = "pre-import.bak"
+    private static let preRestoreBackupSuffix = "pre-restore.bak"
+
     // MARK: - Init
 
     init(authManager: GoogleDriveAuthManager = GoogleDriveAuthManager()) {
@@ -256,7 +260,7 @@ final class GoogleDriveSyncEngine: ObservableObject {
 
                 if shouldOverwrite {
                     // Write remote data locally (with backup for safety).
-                    let backupURL = localURL.appendingPathExtension("pre-import.bak")
+                    let backupURL = localURL.appendingPathExtension(Self.preImportBackupSuffix)
                     if FileManager.default.fileExists(atPath: localURL.path) {
                         try? FileManager.default.removeItem(at: backupURL)
                         try? FileManager.default.copyItem(at: localURL, to: backupURL)
@@ -378,7 +382,7 @@ final class GoogleDriveSyncEngine: ObservableObject {
             // Write each file with pre-restore backup.
             for (fileName, data) in payload {
                 let targetURL = docsDir.appendingPathComponent(fileName)
-                let safetyBackup = targetURL.appendingPathExtension("pre-restore.bak")
+                let safetyBackup = targetURL.appendingPathExtension(Self.preRestoreBackupSuffix)
                 if FileManager.default.fileExists(atPath: targetURL.path) {
                     try? FileManager.default.removeItem(at: safetyBackup)
                     try? FileManager.default.copyItem(at: targetURL, to: safetyBackup)

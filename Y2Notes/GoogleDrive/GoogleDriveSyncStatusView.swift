@@ -50,7 +50,7 @@ struct GoogleDriveSyncStatusView: View {
             Text("Syncing \(Int(progress * 100))%")
                 .foregroundStyle(.primary)
         case .synced(let date):
-            Text("Synced \(date, style: .relative) ago")
+            Text("Synced \(date, style: .relative)")
                 .foregroundStyle(.secondary)
         case .error(let message):
             Text(message)
