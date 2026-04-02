@@ -3,13 +3,24 @@ import Foundation
 // MARK: - Cover theme
 
 /// Named color themes for notebook covers.
+/// The built-in library provides twelve gradient swatches that render entirely
+/// in code — no asset catalogue needed.  Custom photo covers are stored
+/// separately in `Notebook.customCoverData`.
 enum NotebookCover: String, CaseIterable, Codable {
+    // Original six
     case ocean
     case forest
     case sunset
     case lavender
     case slate
     case sand
+    // Expanded library (AGENT-13)
+    case ruby
+    case midnight
+    case jade
+    case coral
+    case copper
+    case nebula
 
     var displayName: String {
         switch self {
@@ -19,6 +30,12 @@ enum NotebookCover: String, CaseIterable, Codable {
         case .lavender: return "Lavender"
         case .slate:    return "Slate"
         case .sand:     return "Sand"
+        case .ruby:     return "Ruby"
+        case .midnight: return "Midnight"
+        case .jade:     return "Jade"
+        case .coral:    return "Coral"
+        case .copper:   return "Copper"
+        case .nebula:   return "Nebula"
         }
     }
 }
