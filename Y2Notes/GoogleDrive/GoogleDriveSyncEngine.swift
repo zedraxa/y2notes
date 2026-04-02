@@ -203,7 +203,7 @@ final class GoogleDriveSyncEngine: ObservableObject {
             syncState = .synced(lastSync: Date())
 
         } catch let error as GoogleDriveClientError {
-            syncState = .error(error.localizedDescription ?? "Sync failed.")
+            syncState = .error(error.errorDescription ?? "Sync failed.")
         } catch {
             syncState = .error(error.localizedDescription)
         }
@@ -217,9 +217,15 @@ final class GoogleDriveSyncEngine: ObservableObject {
     /// - Returns: `true` if data was imported, `false` if nothing was found on Drive.
     @discardableResult
     func importFromDrive() async -> Bool {
-        guard let token = await authManager.validAccessToken(),
-              let folderID = manifest.driveFolderID ?? (try? await GoogleDriveClient.ensureFolder(named: Self.driveFolderName, accessToken: token))
-        else { return false }
+        guard let token = await authManager.validAccessToken() else { return false }
+        let folderID: String
+        if let existing = manifest.driveFolderID {
+            folderID = existing
+        } else if let created = try? await GoogleDriveClient.ensureFolder(named: Self.driveFolderName, accessToken: token) {
+            folderID = created
+        } else {
+            return false
+        }
 
         syncState = .syncing(progress: 0.0)
 

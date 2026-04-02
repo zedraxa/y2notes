@@ -98,7 +98,7 @@ struct InkEffectPickerView: View {
                             Text(family.displayName)
                                 .font(.caption2)
                         }
-                        .foregroundStyle(selectedFamily == family ? .accentColor : .primary)
+                        .foregroundStyle(selectedFamily == family ? Color.accentColor : Color.primary)
                     }
                     .buttonStyle(.plain)
                 }

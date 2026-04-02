@@ -32,6 +32,12 @@ final class DrawingToolStore: ObservableObject {
         didSet { UserDefaults.standard.set(activeShapeType.rawValue, forKey: Keys.shapeType) }
     }
 
+    @Published var activeOpacity: Double = 1.0 {
+        didSet { UserDefaults.standard.set(activeOpacity, forKey: Keys.opacity) }
+    }
+
+    @Published var recentColors: [UIColor] = []
+
     @Published var presets: [ToolPreset] = [] {
         didSet { persistPresets() }
     }
@@ -88,6 +94,29 @@ final class DrawingToolStore: ObservableObject {
 
     /// Convenience: only presets the user has starred.
     var favoritePresets: [ToolPreset] { presets.filter(\.isFavorite) }
+
+    // MARK: - Recent Colors
+
+    /// Maximum number of recent colours to keep.
+    private static let maxRecentColors = 8
+
+    /// Adds a colour to the recent-colour strip, removing duplicates and trimming
+    /// the oldest entry when the limit is reached.
+    func addRecentColor(_ color: UIColor) {
+        recentColors.removeAll { isSameColor($0, color) }
+        recentColors.insert(color, at: 0)
+        if recentColors.count > Self.maxRecentColors {
+            recentColors = Array(recentColors.prefix(Self.maxRecentColors))
+        }
+    }
+
+    private func isSameColor(_ a: UIColor, _ b: UIColor) -> Bool {
+        var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0
+        a.getRed(&ar, green: &ag, blue: &ab, alpha: nil)
+        b.getRed(&br, green: &bg, blue: &bb, alpha: nil)
+        return abs(ar - br) < 0.02 && abs(ag - bg) < 0.02 && abs(ab - bb) < 0.02
+    }
 
     // MARK: - Init
 
@@ -158,6 +187,7 @@ final class DrawingToolStore: ObservableObject {
         static let eraserMode = "y2notes.tool.eraserMode"
         static let shapeType  = "y2notes.tool.shapeType"
         static let presets    = "y2notes.tool.presets"
+        static let opacity    = "y2notes.tool.opacity"
     }
 
     // MARK: - Persistence Helpers
@@ -194,6 +224,9 @@ final class DrawingToolStore: ObservableObject {
 
         let w = ud.double(forKey: Keys.width)
         if w > 0 { activeWidth = w }
+
+        let o = ud.double(forKey: Keys.opacity)
+        if o > 0 { activeOpacity = o }
 
         if let raw = ud.string(forKey: Keys.eraserMode), let mode = EraserMode(rawValue: raw) {
             eraserMode = mode

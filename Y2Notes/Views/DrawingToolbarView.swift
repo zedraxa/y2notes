@@ -367,10 +367,105 @@ struct DrawingToolbarView: View {
         .padding(.vertical, 5)
     }
 
+    // MARK: - Presets Strip
+
+    private var presetsStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(toolStore.presets) { preset in
+                    Button {
+                        toolStore.applyPreset(preset)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(Color(uiColor: preset.uiColor))
+                                .frame(width: 12, height: 12)
+                            Text(preset.name)
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color(.systemGray5))
+                        .clipShape(Capsule())
+                        .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+        .padding(.vertical, 5)
+    }
+
     // MARK: - Helpers
 
     private var rowDivider: some View {
         Divider()
             .padding(.horizontal, 12)
+    }
+}
+
+// MARK: - Preset Manager View
+
+/// Sheet for managing (reordering / deleting) saved tool presets.
+struct PresetManagerView: View {
+    @ObservedObject var toolStore: DrawingToolStore
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(toolStore.presets) { preset in
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(Color(uiColor: preset.uiColor))
+                            .frame(width: 18, height: 18)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(preset.name)
+                                .font(.body)
+                            Text("\(preset.tool.displayName) · \(Int(preset.width))pt")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if preset.isFavorite {
+                            Image(systemName: "star.fill")
+                                .font(.caption)
+                                .foregroundStyle(.yellow)
+                        }
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            toolStore.deletePreset(id: preset.id)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button {
+                            toolStore.toggleFavorite(presetID: preset.id)
+                        } label: {
+                            Label(
+                                preset.isFavorite ? "Unfavourite" : "Favourite",
+                                systemImage: preset.isFavorite ? "star.slash" : "star"
+                            )
+                        }
+                        .tint(.yellow)
+                    }
+                }
+                .onMove { toolStore.movePresets(from: $0, to: $1) }
+            }
+            .navigationTitle("Manage Presets")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    EditButton()
+                }
+            }
+        }
     }
 }

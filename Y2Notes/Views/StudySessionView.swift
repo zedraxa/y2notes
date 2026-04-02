@@ -235,7 +235,7 @@ struct StudySessionView: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
             if !againCards.isEmpty {
-                Text("\(againCards.count) card\(againCards.count == 1 ? "" : "s") marked "Again" — review them again tomorrow.")
+                Text("\(againCards.count) card\(againCards.count == 1 ? "" : "s") marked \"Again\" — review them again tomorrow.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

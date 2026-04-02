@@ -70,7 +70,8 @@ final class InkEffectEngine {
         overlayView.frame                = view.bounds
         overlayView.autoresizingMask     = [.flexibleWidth, .flexibleHeight]
         glitchLayer.frame                = view.bounds
-        glitchLayer.autoresizingMask     = [.layerWidthSizable, .layerHeightSizable]
+        // CALayer does not support UIView's autoresizingMask constants on iOS;
+        // rely on manual frame updates instead (attach caller should relayout).
         view.addSubview(overlayView)
         overlayView.isHidden = (activeFX == .none)
     }
