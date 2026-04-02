@@ -127,6 +127,7 @@ private struct ShelfSidebarView: View {
     @State private var notebookToRename: Notebook?
     @State private var renameText = ""
     @State private var showLibrarySearch = false
+    @State private var showSettings = false
 
     // Binding passed down from ShelfView so tapping a search result selects the note.
     var onSelectNote: (UUID) -> Void
@@ -218,7 +219,15 @@ private struct ShelfSidebarView: View {
         .navigationTitle("Y2Notes")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
+                HStack(spacing: 12) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                    EditButton()
+                }
             }
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
@@ -228,6 +237,9 @@ private struct ShelfSidebarView: View {
                 }
                 .accessibilityLabel("Search library")
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
         .sheet(isPresented: $showNewNotebookSheet) {
             NotebookCreationWizard()
