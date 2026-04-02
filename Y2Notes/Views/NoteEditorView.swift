@@ -36,6 +36,9 @@ struct NoteEditorView: View {
     /// Toggling this value signals the canvas to animate back to 1× zoom.
     @State private var zoomResetTrigger = false
 
+    /// Controls visibility of the right-side AdvancedToolsPanel inspector overlay.
+    @State private var showAdvancedPanel = false
+
     /// Whether the in-document find bar is visible.
     @State private var showFindBar = false
     /// Current query in the in-document find bar.
@@ -97,51 +100,70 @@ struct NoteEditorView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            titleField
-            if effectiveDefinition.canvasIsDark && !isTextMode {
-                contrastBanner
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 0) {
+                titleField
+                if effectiveDefinition.canvasIsDark && !isTextMode {
+                    contrastBanner
+                }
+                Divider()
+                if !isTextMode {
+                    DrawingToolbarView(toolStore: toolStore, inkStore: inkStore, onOpenInspector: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            showAdvancedPanel.toggle()
+                        }
+                    })
+                }
+                if showFindBar {
+                    findBar
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                if isTextMode {
+                    textLayer
+                } else {
+                    CanvasView(
+                        noteID: note.id,
+                        drawingData: note.drawingData,
+                        backgroundColor: canvasBackgroundColor,
+                        defaultInkColor: effectiveDefinition.contrastingInkColor,
+                        currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
+                        isShapeToolActive: toolStore.activeTool == .shape,
+                        activeShapeType: toolStore.activeShapeType,
+                        shapeColor: toolStore.activeColor,
+                        shapeWidth: toolStore.activeWidth,
+                        drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
+                        zoomResetTrigger: zoomResetTrigger,
+                        pageType: effectivePageType,
+                        paperMaterial: effectivePaperMaterial,
+                        activeFX: inkStore.resolvedFX,
+                        fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
+                        onDrawingChanged: { data in
+                            noteStore.updateDrawing(for: note.id, data: data)
+                        },
+                        onSaveRequested: {
+                            noteStore.save()
+                        },
+                        onUndoStateChanged: { canUndoVal, canRedoVal in
+                            canUndo = canUndoVal
+                            canRedo = canRedoVal
+                        }
+                    )
+                }
+            }  // end VStack
+
+            // Advanced tools inspector — slides in from the right
+            if showAdvancedPanel {
+                AdvancedToolsPanel(toolStore: toolStore, isPresented: $showAdvancedPanel)
+                    .padding(.top, 8)
+                    .padding(.trailing, 8)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal:   .move(edge: .trailing).combined(with: .opacity)
+                    ))
+                    .zIndex(1)
             }
-            Divider()
-            if !isTextMode {
-                DrawingToolbarView(toolStore: toolStore, inkStore: inkStore)
-            }
-            if showFindBar {
-                findBar
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-            if isTextMode {
-                textLayer
-            } else {
-                CanvasView(
-                    noteID: note.id,
-                    drawingData: note.drawingData,
-                    backgroundColor: canvasBackgroundColor,
-                    defaultInkColor: effectiveDefinition.contrastingInkColor,
-                    currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
-                    isShapeToolActive: toolStore.activeTool == .shape,
-                    activeShapeType: toolStore.activeShapeType,
-                    shapeColor: toolStore.activeColor,
-                    shapeWidth: toolStore.activeWidth,
-                    drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
-                    zoomResetTrigger: zoomResetTrigger,
-                    pageType: effectivePageType,
-                    paperMaterial: effectivePaperMaterial,
-                    activeFX: inkStore.resolvedFX,
-                    fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
-                    onDrawingChanged: { data in
-                        noteStore.updateDrawing(for: note.id, data: data)
-                    },
-                    onSaveRequested: {
-                        noteStore.save()
-                    },
-                    onUndoStateChanged: { canUndoVal, canRedoVal in
-                        canUndo = canUndoVal
-                        canRedo = canRedoVal
-                    }
-                )
-            }
-        }
+        }  // end ZStack
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showAdvancedPanel)
         .navigationBarTitleDisplayMode(.inline)
         .animation(.spring(duration: 0.25), value: showFindBar)
         .animation(.spring(duration: 0.25), value: isTextMode)

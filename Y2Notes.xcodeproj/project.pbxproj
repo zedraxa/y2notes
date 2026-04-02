@@ -30,6 +30,8 @@
 		AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
 		AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
 		AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000055 /* ContextualPencilPaletteView.swift */; };
+		AA00010000000000000000A3 /* AdvancedToolsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A4 /* AdvancedToolsPanel.swift */; };
+		AA00010000000000000000A5 /* CustomToolAuthoringView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A6 /* CustomToolAuthoringView.swift */; };
 		AA000100000000000000008D /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000088 /* SearchService.swift */; };
 		AA000100000000000000008E /* StudySet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000089 /* StudySet.swift */; };
 		AA0001000000000000000098 /* LibrarySearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000008A /* LibrarySearchView.swift */; };
@@ -72,6 +74,8 @@
 		AA0001000000000000000053 /* PencilInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilInteractionCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000054 /* PencilHoverOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHoverOverlayView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000055 /* ContextualPencilPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualPencilPaletteView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A4 /* AdvancedToolsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedToolsPanel.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A6 /* CustomToolAuthoringView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomToolAuthoringView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000088 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
 		AA0001000000000000000089 /* StudySet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySet.swift; sourceTree = "<group>"; };
 		AA000100000000000000008A /* LibrarySearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySearchView.swift; sourceTree = "<group>"; };
@@ -162,6 +166,8 @@
 				AA000100000000000000008C /* StudySessionView.swift */,
 				AA0001000000000000000087 /* PageRulingView.swift */,
 				AA000100000000000000009C /* InkEffectPickerView.swift */,
+				AA00010000000000000000A4 /* AdvancedToolsPanel.swift */,
+				AA00010000000000000000A6 /* CustomToolAuthoringView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -337,6 +343,8 @@
 				AA00010000000000000000A0 /* InkFamilyRegistry.swift in Sources */,
 				AA00010000000000000000A1 /* InkEffectStore.swift in Sources */,
 				AA00010000000000000000A2 /* InkEffectPickerView.swift in Sources */,
+				AA00010000000000000000A3 /* AdvancedToolsPanel.swift in Sources */,
+				AA00010000000000000000A5 /* CustomToolAuthoringView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
