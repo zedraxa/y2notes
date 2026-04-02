@@ -132,23 +132,23 @@ struct SettingsView: View {
 
     private var toolPreferencesSection: some View {
         Section {
-            Picker("Default Tool", selection: $toolStore.activeTool) {
+            Picker("Active Tool", selection: $toolStore.activeTool) {
                 ForEach(DrawingTool.allCases) { tool in
                     Label(tool.displayName, systemImage: tool.systemImage).tag(tool)
                 }
             }
-            .accessibilityLabel("Default drawing tool")
+            .accessibilityLabel("Active drawing tool")
 
             HStack {
-                Text("Stroke Width")
+                Text("Active Stroke Width")
                 Spacer()
                 Text(String(format: "%.1f pt", toolStore.activeWidth))
                     .foregroundStyle(.secondary)
             }
             Slider(value: $toolStore.activeWidth, in: 1...20, step: 0.5) {
-                Text("Stroke Width")
+                Text("Active Stroke Width")
             }
-            .accessibilityLabel("Default stroke width, \(String(format: "%.1f", toolStore.activeWidth)) points")
+            .accessibilityLabel("Active stroke width, \(String(format: "%.1f", toolStore.activeWidth)) points")
 
             Toggle(isOn: $settingsStore.pencilOnlyDrawing) {
                 Label("Pencil-Only Drawing", systemImage: "pencil.tip")

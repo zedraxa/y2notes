@@ -10,6 +10,7 @@ struct DiagnosticsView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore: PDFStore
     @EnvironmentObject var themeStore: ThemeStore
+    @EnvironmentObject var settingsStore: AppSettingsStore
 
     @Environment(\.dismiss) private var dismiss
 
@@ -37,7 +38,7 @@ struct DiagnosticsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Reset Onboarding") {
-                    UserDefaults.standard.set(false, forKey: "y2notes.hasCompletedOnboarding")
+                    settingsStore.hasCompletedOnboarding = false
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
