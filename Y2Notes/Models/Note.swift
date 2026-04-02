@@ -23,6 +23,11 @@ struct Note: Identifiable, Codable, Hashable {
     /// of the global app theme. App chrome (sidebar, navigation) always follows the global theme.
     var themeOverride: AppTheme?
 
+    /// Keyboard-typed text content for this note.
+    /// Empty string = drawing-only note. Used by `SearchService` and the in-document find bar.
+    /// Architecture extension point: future agents can populate this from PDF extraction or OCR.
+    var typedText: String
+
     init(
         id: UUID = UUID(),
         title: String = "New Note",
@@ -34,7 +39,8 @@ struct Note: Identifiable, Codable, Hashable {
         sectionID: UUID? = nil,
         sortOrder: Int = 0,
         templateID: String = "builtin.blank",
-        themeOverride: AppTheme? = nil
+        themeOverride: AppTheme? = nil,
+        typedText: String = ""
     ) {
         self.id = id
         self.title = title
@@ -47,13 +53,14 @@ struct Note: Identifiable, Codable, Hashable {
         self.sortOrder = sortOrder
         self.templateID = templateID
         self.themeOverride = themeOverride
+        self.typedText = typedText
     }
 
     // MARK: Codable — custom decoder for backward compatibility with old saves
     // that pre-date the isFavorited / notebookID / themeOverride / sectionID / sortOrder / templateID fields.
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData
-        case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
+        case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride, typedText
     }
 
     init(from decoder: Decoder) throws {
@@ -69,6 +76,7 @@ struct Note: Identifiable, Codable, Hashable {
         sortOrder     = try c.decodeIfPresent(Int.self,      forKey: .sortOrder)    ?? 0
         templateID    = try c.decodeIfPresent(String.self,   forKey: .templateID)   ?? "builtin.blank"
         themeOverride = try c.decodeIfPresent(AppTheme.self, forKey: .themeOverride)
+        typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
     }
 
     // MARK: Hashable — identity only, so list selection stays stable while content changes.

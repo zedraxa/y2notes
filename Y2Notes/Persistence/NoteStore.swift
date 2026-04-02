@@ -26,6 +26,9 @@ final class NoteStore: ObservableObject {
     @Published private(set) var notes: [Note] = []
     @Published private(set) var notebooks: [Notebook] = []
     @Published private(set) var sections: [NotebookSection] = []
+    @Published private(set) var studySets: [StudySet] = []
+    @Published private(set) var studyCards: [StudyCard] = []
+    @Published private(set) var cardProgress: [StudyCardProgress] = []
     /// Current disk-write state. Observe this to drive saving / saved / error UI.
     @Published private(set) var saveState: SaveState = .idle
 
@@ -51,6 +54,7 @@ final class NoteStore: ObservableObject {
 
     init() {
         load()
+        loadStudy()
         startAutosaveTimer()
         setupLifecycleObservers()
     }
@@ -536,7 +540,7 @@ final class NoteStore: ObservableObject {
 
     /// Writes `data` to `url` using an atomic swap (write-to-temp + rename), while keeping
     /// a one-generation backup at `url.bak` to allow recovery from interrupted writes.
-    private func writeAtomically(_ data: Data, to url: URL) throws {
+    fileprivate func writeAtomically(_ data: Data, to url: URL) throws {
         let backupURL = url.appendingPathExtension("bak")
         // Snapshot the current good file as a backup before overwriting it.
         if FileManager.default.fileExists(atPath: url.path) {
@@ -562,7 +566,7 @@ final class NoteStore: ObservableObject {
 
     /// Decodes `type` from `url`. On missing or corrupt primary file, falls back to
     /// the `.bak` sibling created by `writeAtomically` so interrupted writes are recoverable.
-    private func loadJSON<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
+    fileprivate func loadJSON<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
         if let value = attemptLoad(type, from: url) {
             return value
         }
@@ -617,4 +621,144 @@ final class NoteStore: ObservableObject {
             }
         }
     }
+
+    // MARK: - Typed text
+
+    /// Updates the keyboard-entered typed text for a note.
+    /// This is the plain-text field used by `SearchService` and the in-document find bar.
+    func updateTypedText(for noteID: UUID, text: String) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].typedText = text
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
 }
+
+// MARK: - Study set & flashcard persistence
+
+extension NoteStore {
+
+    // MARK: StudySet CRUD
+
+    @discardableResult
+    func addStudySet(title: String, notebookID: UUID? = nil) -> StudySet {
+        let set = StudySet(title: title, notebookID: notebookID)
+        studySets.insert(set, at: 0)
+        saveStudy()
+        return set
+    }
+
+    func renameStudySet(id: UUID, title: String) {
+        guard let idx = studySets.firstIndex(where: { $0.id == id }) else { return }
+        studySets[idx].title = title
+        studySets[idx].modifiedAt = Date()
+        saveStudy()
+    }
+
+    func deleteStudySet(id: UUID) {
+        let cardIDs = studyCards.filter { $0.setID == id }.map(\.id)
+        cardProgress.removeAll { cardIDs.contains($0.cardID) }
+        studyCards.removeAll { $0.setID == id }
+        studySets.removeAll { $0.id == id }
+        saveStudy()
+    }
+
+    // MARK: StudyCard CRUD
+
+    @discardableResult
+    func addCard(toSet setID: UUID, front: String, back: String, noteID: UUID? = nil, tags: [String] = []) -> StudyCard {
+        let card = StudyCard(setID: setID, noteID: noteID, front: front, back: back, tags: tags)
+        studyCards.insert(card, at: 0)
+        // Seed a fresh progress record for this card.
+        cardProgress.append(StudyCardProgress(cardID: card.id))
+        saveStudy()
+        return card
+    }
+
+    func updateCard(id: UUID, front: String, back: String) {
+        guard let idx = studyCards.firstIndex(where: { $0.id == id }) else { return }
+        studyCards[idx].front = front
+        studyCards[idx].back = back
+        studyCards[idx].modifiedAt = Date()
+        saveStudy()
+    }
+
+    func deleteCard(id: UUID) {
+        cardProgress.removeAll { $0.cardID == id }
+        studyCards.removeAll { $0.id == id }
+        saveStudy()
+    }
+
+    // MARK: Spaced repetition
+
+    /// Records a review result for `cardID` and advances its scheduling state.
+    func recordReview(cardID: UUID, rating: ReviewRating, reviewedAt: Date = Date()) {
+        if let idx = cardProgress.firstIndex(where: { $0.cardID == cardID }) {
+            cardProgress[idx] = cardProgress[idx].applying(rating: rating, reviewedAt: reviewedAt)
+        } else {
+            // Safety: create progress record if missing (shouldn't normally happen).
+            var progress = StudyCardProgress(cardID: cardID)
+            progress = progress.applying(rating: rating, reviewedAt: reviewedAt)
+            cardProgress.append(progress)
+        }
+        saveStudy()
+    }
+
+    // MARK: Study helpers
+
+    /// Cards in a study set, sorted by due date ascending (most overdue first).
+    func cards(inSet setID: UUID) -> [StudyCard] {
+        let cards = studyCards.filter { $0.setID == setID }
+        return cards.sorted { a, b in
+            let pa = progress(for: a.id)
+            let pb = progress(for: b.id)
+            return pa.dueDate < pb.dueDate
+        }
+    }
+
+    /// Cards due today or overdue in a study set.
+    func dueCards(inSet setID: UUID) -> [StudyCard] {
+        cards(inSet: setID).filter { progress(for: $0.id).isDueToday }
+    }
+
+    /// Progress record for a card, or a fresh default if not yet reviewed.
+    func progress(for cardID: UUID) -> StudyCardProgress {
+        cardProgress.first { $0.cardID == cardID } ?? StudyCardProgress(cardID: cardID)
+    }
+
+    // MARK: Study persistence internals
+
+    /// URL for the combined study data file.
+    private var studyURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("y2notes_study.json")
+    }
+
+    /// Persists study sets, cards, and progress to disk.
+    private func saveStudy() {
+        let payload = StudyPayload(
+            studySets: studySets,
+            studyCards: studyCards,
+            cardProgress: cardProgress
+        )
+        if let data = try? JSONEncoder().encode(payload) {
+            try? writeAtomically(data, to: studyURL)
+        }
+    }
+
+    /// Loads study data from disk into the published properties.
+    func loadStudy() {
+        guard let payload = loadJSON(StudyPayload.self, from: studyURL) else { return }
+        studySets     = payload.studySets
+        studyCards    = payload.studyCards
+        cardProgress  = payload.cardProgress
+    }
+
+    /// Private container used for encoding/decoding study data as a single JSON file.
+    private struct StudyPayload: Codable {
+        var studySets:    [StudySet]
+        var studyCards:   [StudyCard]
+        var cardProgress: [StudyCardProgress]
+    }
+}
+
