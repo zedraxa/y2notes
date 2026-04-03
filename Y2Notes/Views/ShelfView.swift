@@ -717,7 +717,7 @@ struct NoteGridView: View {
         }
 
         // Section-aware move menu (only within notebook context)
-        if let nbID = notebookIDForSection, hasSections {
+        if notebookIDForSection != nil, hasSections {
             Menu {
                 // Move to unsectioned
                 if note.sectionID != nil {
@@ -939,141 +939,178 @@ private struct ManageSectionsSheet: View {
         NavigationStack {
             List {
                 if sections.isEmpty {
-                    Section {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 8) {
-                                Image(systemName: "folder.badge.questionmark")
-                                    .font(.system(size: 32, weight: .ultraLight))
-                                    .foregroundStyle(.tertiary)
-                                Text("No Sections")
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                                Text("Add sections to organize notes within this notebook.")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            Spacer()
-                        }
-                        .padding(.vertical, 16)
-                    }
+                    emptySectionsPlaceholder
                 } else {
-                    Section {
-                        ForEach(sections) { nbSection in
-                            HStack(spacing: 12) {
-                                Image(systemName: nbSection.kind == .divider ? "minus" : "folder.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(nbSection.kind == .divider ? .secondary : .tint)
-                                    .frame(width: 24)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    if nbSection.kind == .divider {
-                                        Text(nbSection.name.isEmpty ? "Divider" : nbSection.name)
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                            .italic()
-                                    } else {
-                                        Text(nbSection.name)
-                                            .font(.subheadline.weight(.medium))
-                                        let count = noteStore.pages(inSection: nbSection.id).count
-                                        Text("\(count) note\(count == 1 ? "" : "s")")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                Spacer()
-                            }
-                            .contextMenu {
-                                if nbSection.kind == .section {
-                                    Button {
-                                        sectionToRename = nbSection
-                                        renameText = nbSection.name
-                                    } label: {
-                                        Label("Rename", systemImage: "pencil")
-                                    }
-                                }
-
-                                if nbSection.kind == .section {
-                                    Button(role: .destructive) {
-                                        noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: true)
-                                    } label: {
-                                        Label("Delete (Keep Notes)", systemImage: "trash")
-                                    }
-                                }
-
-                                Button(role: .destructive) {
-                                    noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: false)
-                                } label: {
-                                    Label(nbSection.kind == .divider ? "Remove Divider" : "Delete Section & Notes", systemImage: "trash.fill")
-                                }
-                            }
-                        }
-                        .onMove { from, to in
-                            noteStore.reorderSections(inNotebook: notebookID, fromOffsets: from, toOffset: to)
-                        }
-                    } header: {
-                        Text("Sections")
-                    } footer: {
-                        Text("Drag to reorder. Long-press for rename/delete options.")
-                    }
+                    populatedSectionsList
                 }
             }
             .navigationTitle("Manage Sections")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button {
-                            newSectionName = ""
-                            showNewSectionAlert = true
-                        } label: {
-                            Label("New Section", systemImage: "folder.badge.plus")
-                        }
-                        Button {
-                            noteStore.addSectionDivider(toNotebook: notebookID)
-                        } label: {
-                            Label("Add Divider", systemImage: "minus")
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-            }
+            .toolbar { manageSectionsToolbar }
             .alert("New Section", isPresented: $showNewSectionAlert) {
-                TextField("Section name", text: $newSectionName)
-                    .submitLabel(.done)
-                Button("Create") {
-                    let name = newSectionName.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !name.isEmpty {
-                        noteStore.addSection(toNotebook: notebookID, name: name)
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
+                newSectionAlertContent
             }
             .alert("Rename Section", isPresented: Binding(
                 get: { sectionToRename != nil },
                 set: { if !$0 { sectionToRename = nil } }
             )) {
-                TextField("Name", text: $renameText)
-                    .submitLabel(.done)
-                Button("Rename") {
-                    if let s = sectionToRename, !renameText.trimmingCharacters(in: .whitespaces).isEmpty {
-                        noteStore.renameSection(id: s.id, name: renameText.trimmingCharacters(in: .whitespaces))
-                    }
-                    sectionToRename = nil
-                }
-                Button("Cancel", role: .cancel) { sectionToRename = nil }
+                renameSectionAlertContent
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    // MARK: - Extracted subviews
+
+    private var emptySectionsPlaceholder: some View {
+        Section {
+            HStack {
+                Spacer()
+                VStack(spacing: 8) {
+                    Image(systemName: "folder.badge.questionmark")
+                        .font(.system(size: 32, weight: .ultraLight))
+                        .foregroundStyle(.tertiary)
+                    Text("No Sections")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Text("Add sections to organize notes within this notebook.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                }
+                Spacer()
+            }
+            .padding(.vertical, 16)
+        }
+    }
+
+    private var populatedSectionsList: some View {
+        Section {
+            ForEach(sections) { nbSection in
+                sectionRow(nbSection)
+            }
+            .onMove { from, to in
+                noteStore.reorderSections(inNotebook: notebookID, fromOffsets: from, toOffset: to)
+            }
+        } header: {
+            Text("Sections")
+        } footer: {
+            Text("Drag to reorder. Long-press for rename/delete options.")
+        }
+    }
+
+    private func sectionRow(_ nbSection: NotebookSection) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: nbSection.kind == .divider ? "minus" : "folder.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(nbSection.kind == .divider ? .secondary : .tint)
+                .frame(width: 24)
+
+            sectionRowLabel(nbSection)
+
+            Spacer()
+        }
+        .contextMenu {
+            sectionContextMenu(nbSection)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionRowLabel(_ nbSection: NotebookSection) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if nbSection.kind == .divider {
+                Text(nbSection.name.isEmpty ? "Divider" : nbSection.name)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .italic()
+            } else {
+                Text(nbSection.name)
+                    .font(.subheadline.weight(.medium))
+                let count = noteStore.pages(inSection: nbSection.id).count
+                Text("\(count) note\(count == 1 ? "" : "s")")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func sectionContextMenu(_ nbSection: NotebookSection) -> some View {
+        if nbSection.kind == .section {
+            Button {
+                sectionToRename = nbSection
+                renameText = nbSection.name
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+        }
+
+        if nbSection.kind == .section {
+            Button(role: .destructive) {
+                noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: true)
+            } label: {
+                Label("Delete (Keep Notes)", systemImage: "trash")
+            }
+        }
+
+        Button(role: .destructive) {
+            noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: false)
+        } label: {
+            Label(nbSection.kind == .divider ? "Remove Divider" : "Delete Section & Notes", systemImage: "trash.fill")
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var manageSectionsToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Done") { dismiss() }
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button {
+                    newSectionName = ""
+                    showNewSectionAlert = true
+                } label: {
+                    Label("New Section", systemImage: "folder.badge.plus")
+                }
+                Button {
+                    noteStore.addSectionDivider(toNotebook: notebookID)
+                } label: {
+                    Label("Add Divider", systemImage: "minus")
+                }
+            } label: {
+                Image(systemName: "plus")
+            }
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            EditButton()
+        }
+    }
+
+    @ViewBuilder
+    private var newSectionAlertContent: some View {
+        TextField("Section name", text: $newSectionName)
+            .submitLabel(.done)
+        Button("Create") {
+            let name = newSectionName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty {
+                noteStore.addSection(toNotebook: notebookID, name: name)
+            }
+        }
+        Button("Cancel", role: .cancel) {}
+    }
+
+    @ViewBuilder
+    private var renameSectionAlertContent: some View {
+        TextField("Name", text: $renameText)
+            .submitLabel(.done)
+        Button("Rename") {
+            if let s = sectionToRename, !renameText.trimmingCharacters(in: .whitespaces).isEmpty {
+                noteStore.renameSection(id: s.id, name: renameText.trimmingCharacters(in: .whitespaces))
+            }
+            sectionToRename = nil
+        }
+        Button("Cancel", role: .cancel) { sectionToRename = nil }
     }
 }
 

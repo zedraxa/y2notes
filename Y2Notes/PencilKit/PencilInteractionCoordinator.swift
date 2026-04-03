@@ -131,12 +131,15 @@ final class PencilInteractionCoordinator: NSObject {
             delegate?.pencilDidRequestSwitchToPreviousTool()
         case .showColorPalette:
             delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
+        case .showInkAttributes:
+            delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
+        case .showContextualPalette:
+            delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
+        case .runSystemShortcut:
+            break // System handles the shortcut automatically
         case .ignore:
             break
         @unknown default:
-            // Catches new system actions added in future OS versions, as well as
-            // .undo / .redo which were removed from UIPencilPreferredAction in iOS 26.
-            // Apple now recommends the contextual palette for undo/redo access.
             delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
         }
     }
