@@ -129,11 +129,7 @@ final class PencilInteractionCoordinator: NSObject {
             delegate?.pencilDidRequestSwitchToEraser()
         case .switchPrevious:
             delegate?.pencilDidRequestSwitchToPreviousTool()
-        case .showColorPalette:
-            delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
-        case .showInkAttributes:
-            delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
-        case .showContextualPalette:
+        case .showColorPalette, .showInkAttributes, .showContextualPalette:
             delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
         case .runSystemShortcut:
             break // System handles the shortcut automatically

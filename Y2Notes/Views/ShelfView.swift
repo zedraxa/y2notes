@@ -1043,9 +1043,7 @@ private struct ManageSectionsSheet: View {
             } label: {
                 Label("Rename", systemImage: "pencil")
             }
-        }
 
-        if nbSection.kind == .section {
             Button(role: .destructive) {
                 noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: true)
             } label: {
