@@ -185,7 +185,7 @@ struct DrawingToolbarView: View {
                         : Color.clear
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isActive ? "Ink effects: \(inkStore.activePreset?.name ?? "")" : "Ink effects")
@@ -208,7 +208,7 @@ struct DrawingToolbarView: View {
                         : Color.clear
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tool.displayName)
@@ -219,7 +219,7 @@ struct DrawingToolbarView: View {
     private var widthSwatch: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                .strokeBorder(Color(uiColor: .secondaryLabel).opacity(0.3), lineWidth: 1)
                 .frame(width: 36, height: 36)
             Circle()
                 .fill(Color(uiColor: toolStore.activeColor).opacity(toolStore.activeOpacity))
@@ -321,7 +321,7 @@ struct DrawingToolbarView: View {
                                 : Color(.systemGray5)
                         )
                         .clipShape(Capsule())
-                        .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
             }
@@ -357,7 +357,7 @@ struct DrawingToolbarView: View {
                             : Color(.systemGray5)
                     )
                     .clipShape(Capsule())
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
             }

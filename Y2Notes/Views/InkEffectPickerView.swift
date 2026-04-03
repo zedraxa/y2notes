@@ -98,7 +98,7 @@ struct InkEffectPickerView: View {
                             Text(family.displayName)
                                 .font(.caption2)
                         }
-                        .foregroundStyle(selectedFamily == family ? Color.accentColor : Color.primary)
+                        .foregroundStyle(selectedFamily == family ? Color.accentColor : Color(uiColor: .label))
                     }
                     .buttonStyle(.plain)
                 }
@@ -149,7 +149,7 @@ private struct InkPresetCard: View {
                     .frame(height: 32)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+                            .strokeBorder(Color(uiColor: .label).opacity(0.1), lineWidth: 0.5)
                     )
 
                 // Name + family tag

@@ -167,7 +167,7 @@ struct AdvancedToolsPanel: View {
             .padding(.vertical, 8)
             .background(isActive ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+            .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(
@@ -368,7 +368,7 @@ struct AdvancedToolsPanel: View {
                             .padding(.vertical, 8)
                             .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                            .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                     }
                     .buttonStyle(.plain)
                 }
@@ -403,7 +403,7 @@ struct AdvancedToolsPanel: View {
                         .padding(.vertical, 8)
                         .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
                     }
                     .buttonStyle(.plain)
                 }

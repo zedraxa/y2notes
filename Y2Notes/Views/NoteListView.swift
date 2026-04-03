@@ -188,7 +188,7 @@ private struct NoteRowView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(note.title.isEmpty ? "Untitled" : note.title)
                     .font(.headline)
-                    .foregroundStyle(note.title.isEmpty ? Color.secondary : Color.primary)
+                    .foregroundStyle(note.title.isEmpty ? Color(uiColor: .secondaryLabel) : Color(uiColor: .label))
                     .lineLimit(1)
                 Text(note.modifiedAt, style: .relative)
                     .font(.caption)
@@ -211,7 +211,7 @@ private struct NoteRowView: View {
                 .fill(Color(uiColor: .systemBackground))
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Color.secondary.opacity(0.25), lineWidth: 0.5)
+                        .strokeBorder(Color(uiColor: .secondaryLabel).opacity(0.25), lineWidth: 0.5)
                 )
 
             if let img = thumbnail {
@@ -222,7 +222,7 @@ private struct NoteRowView: View {
             } else {
                 Image(systemName: "pencil.and.scribble")
                     .font(.system(size: 20))
-                    .foregroundStyle(Color.secondary.opacity(0.4))
+                    .foregroundStyle(Color(uiColor: .secondaryLabel).opacity(0.4))
             }
         }
         .frame(width: 60, height: 44)

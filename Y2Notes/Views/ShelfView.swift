@@ -158,7 +158,7 @@ private struct ShelfSidebarView: View {
                 Label("Favorites", systemImage: "star.fill")
                     .tag(LibrarySection.favorites)
                     .badge(noteStore.favoritedNotes.count)
-                    .foregroundStyle(noteStore.favoritedNotes.isEmpty ? Color.secondary : Color.yellow)
+                    .foregroundStyle(noteStore.favoritedNotes.isEmpty ? Color(uiColor: .secondaryLabel) : Color.yellow)
 
                 Label("PDF Documents", systemImage: "doc.richtext")
                     .tag(LibrarySection.pdfLibrary)
@@ -541,7 +541,7 @@ struct NoteGridView: View {
                     .font(.body.weight(.medium))
                     .padding(.horizontal, 24)
                     .padding(.vertical, 10)
-                    .background(Color.secondary.opacity(0.08), in: Capsule())
+                    .background(Color(uiColor: .secondaryLabel).opacity(0.08), in: Capsule())
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -658,7 +658,7 @@ private struct NoteCardView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(
-                    isSelected ? Color.accentColor : Color.primary.opacity(0.07),
+                    isSelected ? Color.accentColor : Color(uiColor: .label).opacity(0.07),
                     lineWidth: isSelected ? 2 : 0.5
                 )
         )
@@ -840,7 +840,7 @@ private struct PDFCardView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(
-                    isSelected ? Color.accentColor : Color.primary.opacity(0.07),
+                    isSelected ? Color.accentColor : Color(uiColor: .label).opacity(0.07),
                     lineWidth: isSelected ? 2 : 0.5
                 )
         )

@@ -44,7 +44,7 @@ struct ThemePickerView: View {
                     .fill(theme.definition.canvasBackgroundColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(Color.secondary.opacity(0.25), lineWidth: 0.5)
+                            .strokeBorder(Color(uiColor: .secondaryLabel).opacity(0.25), lineWidth: 0.5)
                     )
                     .frame(width: 36, height: 28)
 
@@ -52,9 +52,9 @@ struct ThemePickerView: View {
                     HStack(spacing: 6) {
                         Image(systemName: theme.systemImage)
                             .font(.body)
-                            .foregroundStyle(themeStore.selectedTheme == theme ? Color.accentColor : .secondary)
+                            .foregroundStyle(themeStore.selectedTheme == theme ? Color.accentColor : Color(uiColor: .secondaryLabel))
                         Text(theme.displayName)
-                            .foregroundStyle(Color.primary)
+                            .foregroundStyle(Color(uiColor: .label))
                     }
                     if theme.isPremium {
                         Text("Premium")

@@ -189,7 +189,7 @@ struct StudySessionView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.secondary.opacity(0.15))
+                        .fill(Color(uiColor: .secondaryLabel).opacity(0.15))
                         .frame(height: 6)
                     Capsule()
                         .fill(Color.accentColor)
