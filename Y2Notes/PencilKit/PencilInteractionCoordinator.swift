@@ -133,10 +133,6 @@ final class PencilInteractionCoordinator: NSObject {
             delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
         case .ignore:
             break
-        case .undo:
-            delegate?.pencilDidRequestUndo()
-        case .redo:
-            delegate?.pencilDidRequestRedo()
         @unknown default:
             // A new system action added in a future OS; treat as "show contextual palette"
             // so the user gets a useful response regardless.  lastPencilPosition may be
