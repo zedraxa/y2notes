@@ -162,6 +162,34 @@ final class NoteStore: ObservableObject {
         isDirty = true
     }
 
+    /// Updates drawing data for a specific page within a multi-page note.
+    func updateDrawing(for noteID: UUID, pageIndex: Int, data: Data) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        guard pageIndex >= 0 && pageIndex < notes[idx].pages.count else { return }
+        notes[idx].pages[pageIndex] = data
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
+    /// Appends a blank page to the note and returns the new page index.
+    @discardableResult
+    func addPage(to noteID: UUID) -> Int? {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return nil }
+        notes[idx].pages.append(Data())
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        return notes[idx].pages.count - 1
+    }
+
+    /// Removes a page at the given index.  The note must always keep at least one page.
+    func removePage(from noteID: UUID, at pageIndex: Int) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        guard notes[idx].pages.count > 1, pageIndex >= 0, pageIndex < notes[idx].pages.count else { return }
+        notes[idx].pages.remove(at: pageIndex)
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
     /// Creates a copy of the note inserted directly after the original.
     @discardableResult
     func duplicateNote(id: UUID) -> Note? {
@@ -170,7 +198,7 @@ final class NoteStore: ObservableObject {
             title: original.title.isEmpty ? "Copy" : "\(original.title) (Copy)",
             createdAt: Date(),
             modifiedAt: Date(),
-            drawingData: original.drawingData,
+            pages: original.pages,
             isFavorited: false,
             notebookID: original.notebookID,
             sectionID: original.sectionID,

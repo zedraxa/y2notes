@@ -5,8 +5,27 @@ struct Note: Identifiable, Codable, Hashable {
     var title: String
     var createdAt: Date
     var modifiedAt: Date
-    /// Serialised PKDrawing data (empty Data = blank canvas).
-    var drawingData: Data
+
+    /// Multi-page drawing storage.  Each element is a serialised `PKDrawing`
+    /// (empty `Data` = blank page).  Index 0 is the first page.
+    ///
+    /// Old saves that pre-date multi-page support stored a single `drawingData`
+    /// field — the backward-compatible decoder migrates it into `pages[0]`.
+    var pages: [Data]
+
+    /// Convenience accessor for the first page's drawing data.
+    /// Thumbnails and search use this to represent the note at a glance.
+    var drawingData: Data {
+        get { pages.first ?? Data() }
+        set {
+            if pages.isEmpty {
+                pages = [newValue]
+            } else {
+                pages[0] = newValue
+            }
+        }
+    }
+
     /// Whether the user has starred this note.
     var isFavorited: Bool
     /// The notebook this note belongs to (nil = unfiled).
@@ -38,12 +57,16 @@ struct Note: Identifiable, Codable, Hashable {
     /// Searched by `SearchService` as `SearchMatchType.handwritingOCR`.
     var ocrText: String
 
+    /// Total number of pages in this note.
+    var pageCount: Int { pages.count }
+
     init(
         id: UUID = UUID(),
         title: String = "New Note",
         createdAt: Date = Date(),
         modifiedAt: Date = Date(),
         drawingData: Data = Data(),
+        pages: [Data]? = nil,
         isFavorited: Bool = false,
         notebookID: UUID? = nil,
         sectionID: UUID? = nil,
@@ -59,7 +82,7 @@ struct Note: Identifiable, Codable, Hashable {
         self.title = title
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
-        self.drawingData = drawingData
+        self.pages = pages ?? [drawingData]
         self.isFavorited = isFavorited
         self.notebookID = notebookID
         self.sectionID = sectionID
@@ -73,9 +96,10 @@ struct Note: Identifiable, Codable, Hashable {
     }
 
     // MARK: Codable — custom decoder for backward compatibility with old saves
-    // that pre-date the isFavorited / notebookID / themeOverride / sectionID / sortOrder / templateID fields.
+    // that pre-date the isFavorited / notebookID / themeOverride / sectionID / sortOrder /
+    // templateID / multi-page fields.
     enum CodingKeys: String, CodingKey {
-        case id, title, createdAt, modifiedAt, drawingData
+        case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
         case pageType, paperMaterial
         case typedText, ocrText
@@ -87,7 +111,16 @@ struct Note: Identifiable, Codable, Hashable {
         title         = try c.decode(String.self, forKey: .title)
         createdAt     = try c.decode(Date.self,   forKey: .createdAt)
         modifiedAt    = try c.decode(Date.self,   forKey: .modifiedAt)
-        drawingData   = try c.decode(Data.self,   forKey: .drawingData)
+
+        // Multi-page backward compatibility: prefer `pages` if present, otherwise
+        // migrate the legacy single-page `drawingData` into a one-element array.
+        if let pagesArray = try c.decodeIfPresent([Data].self, forKey: .pages), !pagesArray.isEmpty {
+            pages = pagesArray
+        } else {
+            let legacy = try c.decode(Data.self, forKey: .drawingData)
+            pages = [legacy]
+        }
+
         isFavorited   = try c.decodeIfPresent(Bool.self,     forKey: .isFavorited)  ?? false
         notebookID    = try c.decodeIfPresent(UUID.self,     forKey: .notebookID)
         sectionID     = try c.decodeIfPresent(UUID.self,     forKey: .sectionID)
@@ -98,6 +131,31 @@ struct Note: Identifiable, Codable, Hashable {
         paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,            forKey: .id)
+        try c.encode(title,         forKey: .title)
+        try c.encode(createdAt,     forKey: .createdAt)
+        try c.encode(modifiedAt,    forKey: .modifiedAt)
+
+        // Write both `drawingData` (first page) and `pages` for maximum backward
+        // compatibility — older app versions that only understand `drawingData`
+        // will still load the first page correctly.
+        try c.encode(pages.first ?? Data(), forKey: .drawingData)
+        try c.encode(pages,                 forKey: .pages)
+
+        try c.encode(isFavorited,   forKey: .isFavorited)
+        try c.encodeIfPresent(notebookID,    forKey: .notebookID)
+        try c.encodeIfPresent(sectionID,     forKey: .sectionID)
+        try c.encode(sortOrder,     forKey: .sortOrder)
+        try c.encode(templateID,    forKey: .templateID)
+        try c.encodeIfPresent(themeOverride, forKey: .themeOverride)
+        try c.encodeIfPresent(pageType,      forKey: .pageType)
+        try c.encodeIfPresent(paperMaterial, forKey: .paperMaterial)
+        try c.encode(typedText,     forKey: .typedText)
+        try c.encode(ocrText,       forKey: .ocrText)
     }
 
     // MARK: Hashable — identity only, so list selection stays stable while content changes.

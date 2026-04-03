@@ -58,6 +58,9 @@ struct NoteEditorView: View {
     /// Whether the "Create Flashcard" sheet is visible.
     @State private var showCreateFlashcard = false
 
+    /// Zero-based index of the currently displayed page.
+    @State private var currentPageIndex = 0
+
     private let searchService = SearchService()
 
     init(note: Note) {
@@ -124,9 +127,13 @@ struct NoteEditorView: View {
                 if isTextMode {
                     textLayer
                 } else {
+                    let safePageIndex = min(currentPageIndex, max(note.pageCount - 1, 0))
+                    let currentPageData = note.pages.indices.contains(safePageIndex)
+                        ? note.pages[safePageIndex] : Data()
+
                     CanvasView(
                         noteID: note.id,
-                        drawingData: note.drawingData,
+                        drawingData: currentPageData,
                         backgroundColor: canvasBackgroundColor,
                         defaultInkColor: effectiveDefinition.contrastingInkColor,
                         currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
@@ -140,8 +147,9 @@ struct NoteEditorView: View {
                         paperMaterial: effectivePaperMaterial,
                         activeFX: inkStore.resolvedFX,
                         fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
+                        pageIndex: safePageIndex,
                         onDrawingChanged: { data in
-                            noteStore.updateDrawing(for: note.id, data: data)
+                            noteStore.updateDrawing(for: note.id, pageIndex: safePageIndex, data: data)
                         },
                         onSaveRequested: {
                             noteStore.save()
@@ -151,9 +159,14 @@ struct NoteEditorView: View {
                             canRedo = canRedoVal
                         }
                     )
+                    // Force recreation on page change so makeUIView loads the new drawing.
+                    .id("\(note.id)-\(safePageIndex)")
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
                     .padding(.horizontal, 1)
+
+                    // Page navigation bar — book-like experience
+                    pageNavigationBar
                 }
             }  // end VStack
 
@@ -563,6 +576,65 @@ struct NoteEditorView: View {
         textSaveTimer = nil
         noteStore.updateTypedText(for: note.id, text: typedTextContent)
     }
+
+    // MARK: - Page navigation (book-like experience)
+
+    /// Horizontal bar with prev/next buttons, page indicator, and add-page action.
+    private var pageNavigationBar: some View {
+        HStack(spacing: 16) {
+            // Previous page
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    currentPageIndex = max(0, currentPageIndex - 1)
+                }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 32, height: 32)
+            }
+            .disabled(currentPageIndex <= 0)
+            .accessibilityLabel("Previous page")
+
+            Spacer()
+
+            // Page indicator
+            Text("Page \(currentPageIndex + 1) of \(note.pageCount)")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            // Add page
+            Button {
+                if let newIndex = noteStore.addPage(to: note.id) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        currentPageIndex = newIndex
+                    }
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 32, height: 32)
+            }
+            .accessibilityLabel("Add page")
+
+            // Next page
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 32, height: 32)
+            }
+            .disabled(currentPageIndex >= note.pageCount - 1)
+            .accessibilityLabel("Next page")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color(uiColor: .secondarySystemBackground).opacity(0.85))
+    }
 }
 
 // MARK: - PencilKit canvas bridge
@@ -610,6 +682,8 @@ private struct CanvasView: UIViewRepresentable {
     let activeFX: WritingFXType
     /// Ink colour resolved for the active FX preset.
     let fxColor: UIColor
+    /// Zero-based page index within the multi-page note.
+    let pageIndex: Int
     let onDrawingChanged: (Data) -> Void
     let onSaveRequested: () -> Void
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
@@ -922,6 +996,18 @@ private struct CanvasView: UIViewRepresentable {
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
 
+        /// Converts a PKDrawing content-space point to the viewport/overlay
+        /// coordinate space so that ink-effect particles render at the correct
+        /// on-screen position regardless of zoom/scroll state.
+        private func viewportPoint(from contentPoint: CGPoint, in canvasView: PKCanvasView) -> CGPoint {
+            let z = canvasView.zoomScale
+            let o = canvasView.contentOffset
+            return CGPoint(
+                x: contentPoint.x * z - o.x,
+                y: contentPoint.y * z - o.y
+            )
+        }
+
         func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = true
             // Capture base width for barrel-roll modulation at stroke start.
@@ -929,11 +1015,12 @@ private struct CanvasView: UIViewRepresentable {
                 barrelRollBaseWidth = inkTool.width
             }
             // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
+            // At stroke-begin the new stroke hasn't been committed to the drawing
+            // yet, so we use the viewport center as a reasonable start point.
+            // The next onStrokeUpdated call will snap the emitter to the real nib.
             if let engine = effectEngine {
-                let lastStroke = canvasView.drawing.strokes.last
-                let point = lastStroke?.path.last.map { CGPoint(x: $0.location.x, y: $0.location.y) }
-                    ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-                engine.onStrokeBegan(at: point)
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                engine.onStrokeBegan(at: center)
             }
         }
 
@@ -943,8 +1030,9 @@ private struct CanvasView: UIViewRepresentable {
             // Notify effect engine of stroke end for ripple / fire cooldown.
             if let engine = effectEngine {
                 let lastStroke = canvasView.drawing.strokes.last
-                let point = lastStroke?.path.last.map { CGPoint(x: $0.location.x, y: $0.location.y) }
-                    ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                let point = lastStroke?.path.last.map {
+                    viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
+                } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
         }
@@ -956,10 +1044,16 @@ private struct CanvasView: UIViewRepresentable {
             onDrawingChanged(data)
 
             // Feed latest stroke point to the effect engine for fire/sparkle tracking.
+            // Convert from PKDrawing content coordinates to the overlay's viewport
+            // coordinates so particles appear at the correct on-screen position.
             if let engine = effectEngine {
                 let lastStroke = canvasView.drawing.strokes.last
                 if let lastPoint = lastStroke?.path.last {
-                    engine.onStrokeUpdated(at: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y))
+                    let vp = viewportPoint(
+                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                        in: canvasView
+                    )
+                    engine.onStrokeUpdated(at: vp)
                 }
             }
 

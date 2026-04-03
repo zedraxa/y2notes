@@ -89,6 +89,12 @@ final class InkEffectEngine {
     func configure(fx: WritingFXType, color: UIColor) {
         strokeColor = color
 
+        // Keep glitch layer frame in sync with the overlay; the overlay auto-resizes
+        // via autoresizingMask but CALayer sublayers do not.
+        if glitchLayer.frame != overlayView.bounds {
+            glitchLayer.frame = overlayView.bounds
+        }
+
         // Gracefully downgrade FX that the device cannot support.
         let resolved = fx.isSupported(on: tier) ? fx : .none
         guard resolved != activeFX else {
