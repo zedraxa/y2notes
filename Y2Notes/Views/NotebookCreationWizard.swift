@@ -138,7 +138,7 @@ private struct WizardStepIndicator: View {
         HStack(spacing: 8) {
             ForEach(0..<total, id: \.self) { i in
                 Capsule()
-                    .fill(i <= current ? Color.accentColor : Color.secondary.opacity(0.25))
+                    .fill(i <= current ? Color.accentColor : Color(uiColor: .secondaryLabel).opacity(0.25))
                     .frame(width: i == current ? 28 : 8, height: 8)
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: current)
             }
@@ -476,7 +476,7 @@ private struct PageTypeCard: View {
 
             Text(type.displayName)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.accentColor : .primary)
+                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
 
             Text(type.subtitle)
                 .font(.caption2)
@@ -501,8 +501,8 @@ private struct PageTypeMiniCanvas: View {
 
     var body: some View {
         Canvas { context, size in
-            let lineColor = GraphicsContext.Shading.color(Color.secondary.opacity(0.38))
-            let dotColor  = GraphicsContext.Shading.color(Color.secondary.opacity(0.50))
+            let lineColor = GraphicsContext.Shading.color(Color(uiColor: .secondaryLabel).opacity(0.38))
+            let dotColor  = GraphicsContext.Shading.color(Color(uiColor: .secondaryLabel).opacity(0.50))
 
             switch type {
             case .blank:
@@ -569,11 +569,11 @@ private struct OrientationButton: View {
         HStack(spacing: 10) {
             Image(systemName: orientation.systemImage)
                 .font(.title3)
-                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
 
             Text(orientation.displayName)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.accentColor : .primary)
+                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
 
             Spacer()
 
@@ -615,13 +615,13 @@ private struct PaperMaterialRow: View {
                     )
                 Image(systemName: material.systemImage)
                     .font(.body)
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(material.displayName)
                     .font(.body.weight(isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.accentColor : .primary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 Text(material.description)
                     .font(.caption)
                     .foregroundStyle(.secondary)

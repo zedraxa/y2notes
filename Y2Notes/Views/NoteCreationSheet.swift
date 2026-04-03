@@ -78,7 +78,7 @@ struct NoteCreationSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                    .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
                     }
                 }
@@ -134,14 +134,14 @@ private struct PaperTypeCard: View {
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: isSelected ? 2.5 : 1)
+                    .stroke(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: isSelected ? 2.5 : 1)
             )
             .shadow(color: isSelected ? Color.accentColor.opacity(0.25) : .clear, radius: 4, y: 2)
 
             VStack(spacing: 2) {
                 Text(pageType.displayName)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 Text(pageType.subtitle)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -160,7 +160,7 @@ private struct PaperTypeCard: View {
     @ViewBuilder
     private var paperRuling: some View {
         Canvas { ctx, size in
-            let lineColor = Color.secondary.opacity(0.18)
+            let lineColor = Color(uiColor: .secondaryLabel).opacity(0.18)
             switch pageType {
             case .blank:
                 break
@@ -225,18 +225,18 @@ private struct MaterialChip: View {
                 .frame(width: 36, height: 36)
                 .overlay(
                     Circle()
-                        .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: isSelected ? 2.5 : 1)
+                        .stroke(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: isSelected ? 2.5 : 1)
                 )
                 .overlay(
                     Image(systemName: material.systemImage)
                         .font(.system(size: 14))
-                        .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
                 )
                 .shadow(color: isSelected ? Color.accentColor.opacity(0.25) : .clear, radius: 3, y: 1)
 
             Text(material.displayName)
                 .font(.caption2)
-                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 2)
@@ -258,7 +258,7 @@ private struct PaperPreview: View {
             // Background fill with material tint
             ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(material.pageTint))
 
-            let lineColor = Color.secondary.opacity(0.15)
+            let lineColor = Color(uiColor: .secondaryLabel).opacity(0.15)
 
             switch pageType {
             case .blank:

@@ -74,7 +74,7 @@ struct CustomToolAuthoringView: View {
             TextField("Preset name", text: $name)
             Toggle(isOn: $isFavorite) {
                 Label("Favourite", systemImage: isFavorite ? "star.fill" : "star")
-                    .foregroundStyle(isFavorite ? .yellow : .primary)
+                    .foregroundStyle(isFavorite ? Color.yellow : Color(uiColor: .label))
             }
             .tint(.yellow)
         } header: {

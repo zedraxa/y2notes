@@ -133,15 +133,10 @@ final class PencilInteractionCoordinator: NSObject {
             delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
         case .ignore:
             break
-        case .undo:
-            delegate?.pencilDidRequestUndo()
-        case .redo:
-            delegate?.pencilDidRequestRedo()
         @unknown default:
-            // A new system action added in a future OS; treat as "show contextual palette"
-            // so the user gets a useful response regardless.  lastPencilPosition may be
-            // .zero if the Pencil has not yet moved; the palette will still appear on-screen
-            // because ContextualPencilPaletteView clamps its frame inside the window bounds.
+            // Catches new system actions added in future OS versions, as well as
+            // .undo / .redo which were removed from UIPencilPreferredAction in iOS 26.
+            // Apple now recommends the contextual palette for undo/redo access.
             delegate?.pencilDidRequestContextualPalette(at: lastPencilPosition)
         }
     }
