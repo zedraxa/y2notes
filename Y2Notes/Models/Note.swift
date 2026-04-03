@@ -114,8 +114,8 @@ struct Note: Identifiable, Codable, Hashable {
 
         // Multi-page backward compatibility: prefer `pages` if present, otherwise
         // migrate the legacy single-page `drawingData` into a one-element array.
-        if let pagesArray = try c.decodeIfPresent([Data].self, forKey: .pages), !pagesArray.isEmpty {
-            pages = pagesArray
+        if let pagesArray = try c.decodeIfPresent([Data].self, forKey: .pages) {
+            pages = pagesArray.isEmpty ? [Data()] : pagesArray
         } else {
             let legacy = try c.decode(Data.self, forKey: .drawingData)
             pages = [legacy]

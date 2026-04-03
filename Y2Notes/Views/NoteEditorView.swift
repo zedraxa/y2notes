@@ -127,7 +127,10 @@ struct NoteEditorView: View {
                 if isTextMode {
                     textLayer
                 } else {
-                    let safePageIndex = min(currentPageIndex, max(note.pageCount - 1, 0))
+                    let safePageIndex: Int = {
+                        guard !note.pages.isEmpty else { return 0 }
+                        return min(currentPageIndex, note.pages.count - 1)
+                    }()
                     let currentPageData = note.pages.indices.contains(safePageIndex)
                         ? note.pages[safePageIndex] : Data()
 

@@ -181,10 +181,12 @@ final class NoteStore: ObservableObject {
         return notes[idx].pages.count - 1
     }
 
-    /// Removes a page at the given index.  The note must always keep at least one page.
+    /// Removes a page at the given index.  A note must always keep at least
+    /// one page — the call is a no-op when only one page remains.
     func removePage(from noteID: UUID, at pageIndex: Int) {
-        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
-        guard notes[idx].pages.count > 1, pageIndex >= 0, pageIndex < notes[idx].pages.count else { return }
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.count > 1,
+              notes[idx].pages.indices.contains(pageIndex) else { return }
         notes[idx].pages.remove(at: pageIndex)
         notes[idx].modifiedAt = Date()
         isDirty = true
