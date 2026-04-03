@@ -148,6 +148,9 @@ struct NoteEditorView: View {
                             canRedo = canRedoVal
                         }
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
+                    .padding(.horizontal, 1)
                 }
             }  // end VStack
 
@@ -603,12 +606,13 @@ private struct CanvasView: UIViewRepresentable {
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
     private static let a4AspectRatio: CGFloat = 1.414
 
-    /// Fixed page size for the canvas content area. Uses the portrait screen
-    /// width with an A4 aspect ratio so the page fills the screen in width
-    /// and provides vertical scrolling room like a real paper page.
+    /// Fixed page size for the canvas content area. Uses the *landscape* screen
+    /// width (the larger dimension) with an A4 aspect ratio so the page fills
+    /// the screen in width regardless of orientation and provides vertical
+    /// scrolling room like a real paper page.
     static let pageSize: CGSize = {
         let screen = UIScreen.main.bounds
-        let w = min(screen.width, screen.height)
+        let w = max(screen.width, screen.height)
         return CGSize(width: w, height: ceil(w * a4AspectRatio))
     }()
 
@@ -721,6 +725,18 @@ private struct CanvasView: UIViewRepresentable {
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
 
+        // ── Ink effect engine (fire / sparkle / glitch / ripple) ────────────
+        let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
+        engine.configure(fx: activeFX, color: fxColor)
+        engine.attach(to: container)
+        context.coordinator.effectEngine = engine
+
+        // ── Book feel: page shadow ──────────────────────────────────────────
+        container.layer.shadowColor   = UIColor.black.cgColor
+        container.layer.shadowOpacity = 0.12
+        container.layer.shadowRadius  = 8
+        container.layer.shadowOffset  = CGSize(width: 0, height: 2)
+
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
         context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -801,6 +817,11 @@ private struct CanvasView: UIViewRepresentable {
 
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
+
+        // Sync ink effect engine configuration when FX type or colour changes.
+        if let engine = context.coordinator.effectEngine {
+            engine.configure(fx: activeFX, color: fxColor)
+        }
     }
 
     // MARK: - Ruling line color helper
@@ -854,6 +875,9 @@ private struct CanvasView: UIViewRepresentable {
         var hoverOverlay: PencilHoverOverlayView?
         weak var canvasRef: PKCanvasView?
 
+        /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
+        var effectEngine: InkEffectEngine?
+
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
         /// would reset PencilKit's internal pressure/tilt pipeline.
@@ -890,11 +914,25 @@ private struct CanvasView: UIViewRepresentable {
             if let inkTool = canvasView.tool as? PKInkingTool {
                 barrelRollBaseWidth = inkTool.width
             }
+            // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
+            if let engine = effectEngine {
+                let lastStroke = canvasView.drawing.strokes.last
+                let point = lastStroke?.path.last.map { CGPoint(x: $0.location.x, y: $0.location.y) }
+                    ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                engine.onStrokeBegan(at: point)
+            }
         }
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
             barrelRollBaseWidth = nil
+            // Notify effect engine of stroke end for ripple / fire cooldown.
+            if let engine = effectEngine {
+                let lastStroke = canvasView.drawing.strokes.last
+                let point = lastStroke?.path.last.map { CGPoint(x: $0.location.x, y: $0.location.y) }
+                    ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                engine.onStrokeEnded(at: point)
+            }
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -902,6 +940,14 @@ private struct CanvasView: UIViewRepresentable {
 
             let data = canvasView.drawing.dataRepresentation()
             onDrawingChanged(data)
+
+            // Feed latest stroke point to the effect engine for fire/sparkle tracking.
+            if let engine = effectEngine {
+                let lastStroke = canvasView.drawing.strokes.last
+                if let lastPoint = lastStroke?.path.last {
+                    engine.onStrokeUpdated(at: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y))
+                }
+            }
 
             // Report undo/redo availability directly from the canvas's undo manager.
             // PKCanvasView inherits UIResponder.undoManager which traverses the responder
