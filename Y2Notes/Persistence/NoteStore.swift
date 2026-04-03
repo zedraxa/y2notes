@@ -29,6 +29,7 @@ final class NoteStore: ObservableObject {
     @Published private(set) var studySets: [StudySet] = []
     @Published private(set) var studyCards: [StudyCard] = []
     @Published private(set) var cardProgress: [StudyCardProgress] = []
+    @Published private(set) var reviewHistory: [StudyReviewEntry] = []
     /// Current disk-write state. Observe this to drive saving / saved / error UI.
     @Published private(set) var saveState: SaveState = .idle
 
@@ -706,6 +707,7 @@ extension NoteStore {
     func deleteStudySet(id: UUID) {
         let cardIDs = studyCards.filter { $0.setID == id }.map(\.id)
         cardProgress.removeAll { cardIDs.contains($0.cardID) }
+        reviewHistory.removeAll { cardIDs.contains($0.cardID) }
         studyCards.removeAll { $0.setID == id }
         studySets.removeAll { $0.id == id }
         saveStudy()
@@ -733,14 +735,47 @@ extension NoteStore {
 
     func deleteCard(id: UUID) {
         cardProgress.removeAll { $0.cardID == id }
+        reviewHistory.removeAll { $0.cardID == id }
         studyCards.removeAll { $0.id == id }
         saveStudy()
+    }
+
+    /// Updates tags on an existing card.
+    func updateCardTags(id: UUID, tags: [String]) {
+        guard let idx = studyCards.firstIndex(where: { $0.id == id }) else { return }
+        studyCards[idx].tags = tags
+        studyCards[idx].modifiedAt = Date()
+        saveStudy()
+    }
+
+    /// Bulk-imports multiple cards from a structured text block.
+    /// Each line should contain "front :: back". Lines without "::" are skipped.
+    @discardableResult
+    func bulkImportCards(toSet setID: UUID, text: String, noteID: UUID? = nil) -> Int {
+        let lines = text.components(separatedBy: .newlines)
+        var count = 0
+        for line in lines {
+            let parts = line.components(separatedBy: "::")
+            guard parts.count >= 2 else { continue }
+            let front = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+            let back = parts.dropFirst().joined(separator: "::").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !front.isEmpty, !back.isEmpty else { continue }
+            let card = StudyCard(setID: setID, noteID: noteID, front: front, back: back)
+            studyCards.insert(card, at: 0)
+            cardProgress.append(StudyCardProgress(cardID: card.id))
+            count += 1
+        }
+        if count > 0 { saveStudy() }
+        return count
     }
 
     // MARK: Spaced repetition
 
     /// Records a review result for `cardID` and advances its scheduling state.
     func recordReview(cardID: UUID, rating: ReviewRating, reviewedAt: Date = Date()) {
+        // Determine the set for the history entry.
+        let setID = studyCards.first { $0.id == cardID }?.setID ?? UUID()
+
         if let idx = cardProgress.firstIndex(where: { $0.cardID == cardID }) {
             cardProgress[idx] = cardProgress[idx].applying(rating: rating, reviewedAt: reviewedAt)
         } else {
@@ -749,6 +784,11 @@ extension NoteStore {
             progress = progress.applying(rating: rating, reviewedAt: reviewedAt)
             cardProgress.append(progress)
         }
+
+        // Append to review history for analytics.
+        let entry = StudyReviewEntry(cardID: cardID, setID: setID, rating: rating, reviewedAt: reviewedAt)
+        reviewHistory.append(entry)
+
         saveStudy()
     }
 
@@ -787,7 +827,8 @@ extension NoteStore {
         let payload = StudyPayload(
             studySets: studySets,
             studyCards: studyCards,
-            cardProgress: cardProgress
+            cardProgress: cardProgress,
+            reviewHistory: reviewHistory
         )
         if let data = try? JSONEncoder().encode(payload) {
             try? writeAtomically(data, to: studyURL)
@@ -797,16 +838,39 @@ extension NoteStore {
     /// Loads study data from disk into the published properties.
     func loadStudy() {
         guard let payload = loadJSON(StudyPayload.self, from: studyURL) else { return }
-        studySets     = payload.studySets
-        studyCards    = payload.studyCards
-        cardProgress  = payload.cardProgress
+        studySets      = payload.studySets
+        studyCards     = payload.studyCards
+        cardProgress   = payload.cardProgress
+        reviewHistory  = payload.reviewHistory
     }
 
     /// Private container used for encoding/decoding study data as a single JSON file.
     private struct StudyPayload: Codable {
-        var studySets:    [StudySet]
-        var studyCards:   [StudyCard]
-        var cardProgress: [StudyCardProgress]
+        var studySets:     [StudySet]
+        var studyCards:    [StudyCard]
+        var cardProgress:  [StudyCardProgress]
+        var reviewHistory: [StudyReviewEntry]
+
+        // Backward-compatible: old data may not have reviewHistory
+        enum CodingKeys: String, CodingKey {
+            case studySets, studyCards, cardProgress, reviewHistory
+        }
+
+        init(studySets: [StudySet], studyCards: [StudyCard], cardProgress: [StudyCardProgress], reviewHistory: [StudyReviewEntry]) {
+            self.studySets = studySets
+            self.studyCards = studyCards
+            self.cardProgress = cardProgress
+            self.reviewHistory = reviewHistory
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            studySets     = try c.decode([StudySet].self, forKey: .studySets)
+            studyCards    = try c.decode([StudyCard].self, forKey: .studyCards)
+            cardProgress  = try c.decode([StudyCardProgress].self, forKey: .cardProgress)
+            reviewHistory = try c.decodeIfPresent([StudyReviewEntry].self, forKey: .reviewHistory) ?? []
+        }
+    }
     }
 }
 

@@ -149,6 +149,62 @@ enum ReviewRating: Int, Codable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Study review entry
+
+/// A single review event, persisted for analytics and streak tracking.
+struct StudyReviewEntry: Identifiable, Codable {
+    let id: UUID
+    let cardID: UUID
+    let setID: UUID
+    let rating: ReviewRating
+    let reviewedAt: Date
+
+    init(id: UUID = UUID(), cardID: UUID, setID: UUID, rating: ReviewRating, reviewedAt: Date = Date()) {
+        self.id = id
+        self.cardID = cardID
+        self.setID = setID
+        self.rating = rating
+        self.reviewedAt = reviewedAt
+    }
+}
+
+// MARK: - Mastery level
+
+/// Categorises a card's learning stage based on its SM-2 scheduling state.
+enum MasteryLevel: String, Codable, CaseIterable {
+    case newCard    = "new"
+    case learning   = "learning"
+    case reviewing  = "reviewing"
+    case mastered   = "mastered"
+
+    var displayName: String {
+        switch self {
+        case .newCard:   return "New"
+        case .learning:  return "Learning"
+        case .reviewing: return "Reviewing"
+        case .mastered:  return "Mastered"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .newCard:   return "sparkle"
+        case .learning:  return "book"
+        case .reviewing: return "arrow.triangle.2.circlepath"
+        case .mastered:  return "checkmark.seal.fill"
+        }
+    }
+
+    var colorName: String {
+        switch self {
+        case .newCard:   return "blue"
+        case .learning:  return "orange"
+        case .reviewing: return "purple"
+        case .mastered:  return "green"
+        }
+    }
+}
+
 // MARK: - Card review progress (SM-2)
 
 /// Per-card scheduling state produced by the SM-2 spaced-repetition algorithm.
@@ -181,6 +237,12 @@ struct StudyCardProgress: Identifiable, Codable {
     /// Timestamp of the most recent review (nil if never reviewed).
     var lastReviewedAt: Date?
 
+    /// Consecutive days with at least one review (current streak).
+    var currentStreak: Int
+
+    /// Best streak ever achieved for this card's set.
+    var bestStreak: Int
+
     init(cardID: UUID) {
         self.cardID       = cardID
         self.reviewCount  = 0
@@ -188,6 +250,35 @@ struct StudyCardProgress: Identifiable, Codable {
         self.easeFactor   = 2.5
         self.dueDate      = Date()
         self.lastReviewedAt = nil
+        self.currentStreak  = 0
+        self.bestStreak     = 0
+    }
+
+    // MARK: Backward-compatible decoder
+
+    enum CodingKeys: String, CodingKey {
+        case cardID, reviewCount, interval, easeFactor, dueDate, lastReviewedAt
+        case currentStreak, bestStreak
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        cardID         = try c.decode(UUID.self, forKey: .cardID)
+        reviewCount    = try c.decode(Int.self, forKey: .reviewCount)
+        interval       = try c.decode(Int.self, forKey: .interval)
+        easeFactor     = try c.decode(Double.self, forKey: .easeFactor)
+        dueDate        = try c.decode(Date.self, forKey: .dueDate)
+        lastReviewedAt = try c.decodeIfPresent(Date.self, forKey: .lastReviewedAt)
+        currentStreak  = try c.decodeIfPresent(Int.self, forKey: .currentStreak) ?? 0
+        bestStreak     = try c.decodeIfPresent(Int.self, forKey: .bestStreak) ?? 0
+    }
+
+    /// The mastery level of this card based on its review history.
+    var masteryLevel: MasteryLevel {
+        if reviewCount == 0 { return .newCard }
+        if interval >= 21 { return .mastered }
+        if interval >= 6 { return .reviewing }
+        return .learning
     }
 
     // MARK: SM-2 scheduling

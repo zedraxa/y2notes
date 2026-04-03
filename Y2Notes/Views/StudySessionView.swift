@@ -26,6 +26,10 @@ struct StudySessionView: View {
     @State private var completedCount = 0
     // True when the session queue is exhausted.
     @State private var sessionFinished = false
+    // Per-rating counts for session summary.
+    @State private var ratingCounts: [ReviewRating: Int] = [:]
+    // Session start time for duration tracking.
+    @State private var sessionStartTime: Date = Date()
 
     var body: some View {
         NavigationStack {
@@ -47,6 +51,7 @@ struct StudySessionView: View {
             }
         }
         .onAppear {
+            sessionStartTime = Date()
             queue = noteStore.dueCards(inSet: studySet.id)
             if queue.isEmpty {
                 // Include new (never-reviewed) cards that happen to not be "due" yet.
@@ -225,28 +230,106 @@ struct StudySessionView: View {
     // MARK: Finished
 
     private var finishedView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "star.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.yellow)
-            Text("Session Complete!")
-                .font(.title.weight(.bold))
-            Text("You reviewed \(completedCount) card\(completedCount == 1 ? "" : "s").")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-            if !againCards.isEmpty {
-                Text("\(againCards.count) card\(againCards.count == 1 ? "" : "s") marked \"Again\" — review them again tomorrow.")
-                    .font(.callout)
+        let duration = Int(Date().timeIntervalSince(sessionStartTime))
+        let minutes = duration / 60
+        let seconds = duration % 60
+        let totalRatings = ratingCounts.values.reduce(0, +)
+        let goodOrBetter = (ratingCounts[.good, default: 0] + ratingCounts[.easy, default: 0])
+        let accuracy = totalRatings > 0 ? Double(goodOrBetter) / Double(totalRatings) * 100 : 0
+
+        return ScrollView {
+            VStack(spacing: 24) {
+                // Celebration
+                Image(systemName: "star.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.yellow)
+                Text("Session Complete!")
+                    .font(.title.weight(.bold))
+                Text("You reviewed \(completedCount) card\(completedCount == 1 ? "" : "s").")
+                    .font(.title3)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 280)
+
+                // Session stats
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                ], spacing: 12) {
+                    sessionStatCard(
+                        title: "Duration",
+                        value: minutes > 0 ? "\(minutes)m \(seconds)s" : "\(seconds)s",
+                        icon: "timer",
+                        color: .blue
+                    )
+                    sessionStatCard(
+                        title: "Accuracy",
+                        value: String(format: "%.0f%%", accuracy),
+                        icon: "target",
+                        color: accuracy >= 80 ? .green : .orange
+                    )
+                }
+                .padding(.horizontal)
+
+                // Rating breakdown
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Rating Breakdown")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    HStack(spacing: 8) {
+                        ForEach(ReviewRating.allCases) { rating in
+                            let count = ratingCounts[rating, default: 0]
+                            VStack(spacing: 4) {
+                                Image(systemName: rating.systemImage)
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(ratingColor(rating))
+                                Text("\(count)")
+                                    .font(.title3.weight(.bold).monospacedDigit())
+                                Text(rating.displayName)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(ratingColor(rating).opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
+                if !againCards.isEmpty {
+                    Text("\(againCards.count) card\(againCards.count == 1 ? "" : "s") marked \"Again\" — review them again tomorrow.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 280)
+                }
+
+                Button("Done") { dismiss() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.top, 8)
             }
-            Button("Done") { dismiss() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+            .padding(.top, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+    }
+
+    private func sessionStatCard(title: String, value: String, icon: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.title2.weight(.bold).monospacedDigit())
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: Actions
@@ -262,6 +345,7 @@ struct StudySessionView: View {
 
     private func rate(card: StudyCard, rating: ReviewRating) {
         noteStore.recordReview(cardID: card.id, rating: rating)
+        ratingCounts[rating, default: 0] += 1
 
         if rating == .again {
             againCards.append(card)
