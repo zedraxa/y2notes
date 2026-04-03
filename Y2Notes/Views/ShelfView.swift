@@ -346,6 +346,9 @@ struct NoteGridView: View {
     let section: LibrarySection
     @Binding var selectedNoteID: UUID?
 
+    /// Sentinel UUID used to track collapse state of the "Unsectioned" group.
+    private static let unsectionedSentinel = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+
     @State private var showMoveSheet: Note?
     @State private var noteToRename: Note?
     @State private var renameText = ""
@@ -570,21 +573,20 @@ struct NoteGridView: View {
                     SectionHeaderView(
                         title: "Unsectioned",
                         noteCount: unsectionedNotes.count,
-                        isCollapsed: collapsedSections.contains(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!),
+                        isCollapsed: collapsedSections.contains(Self.unsectionedSentinel),
                         systemImage: "tray",
                         onToggle: {
-                            let sentinel = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
-                            if collapsedSections.contains(sentinel) {
-                                collapsedSections.remove(sentinel)
+                            if collapsedSections.contains(Self.unsectionedSentinel) {
+                                collapsedSections.remove(Self.unsectionedSentinel)
                             } else {
-                                collapsedSections.insert(sentinel)
+                                collapsedSections.insert(Self.unsectionedSentinel)
                             }
                         }
                     )
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
 
-                    if !collapsedSections.contains(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!) {
+                    if !collapsedSections.contains(Self.unsectionedSentinel) {
                         LazyVGrid(columns: columns, spacing: 16) {
                             ForEach(unsectionedNotes) { note in
                                 NoteCardView(note: note, isSelected: selectedNoteID == note.id)
