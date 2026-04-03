@@ -273,7 +273,14 @@ struct StudyCardProgress: Identifiable, Codable {
         bestStreak     = try c.decodeIfPresent(Int.self, forKey: .bestStreak) ?? 0
     }
 
-    /// The mastery level of this card based on its review history.
+    /// The mastery level of this card based on its SM-2 scheduling interval.
+    ///
+    /// Thresholds follow standard Anki/SuperMemo conventions:
+    /// - **21+ days**: the card has graduated through multiple successful reviews
+    ///   with growing intervals — it is considered "mastered" (long-term memory).
+    /// - **6–20 days**: the card is in active review with moderate intervals.
+    /// - **1–5 days**: the card is still being learned (short intervals).
+    /// - **0 reviews**: brand new card, never seen.
     var masteryLevel: MasteryLevel {
         if reviewCount == 0 { return .newCard }
         if interval >= 21 { return .mastered }
