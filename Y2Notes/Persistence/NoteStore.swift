@@ -871,6 +871,5 @@ extension NoteStore {
             reviewHistory = try c.decodeIfPresent([StudyReviewEntry].self, forKey: .reviewHistory) ?? []
         }
     }
-    }
 }
 
