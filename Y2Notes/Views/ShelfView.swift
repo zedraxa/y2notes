@@ -1003,7 +1003,7 @@ private struct ManageSectionsSheet: View {
         HStack(spacing: 12) {
             Image(systemName: nbSection.kind == .divider ? "minus" : "folder.fill")
                 .font(.system(size: 14))
-                .foregroundStyle(nbSection.kind == .divider ? .secondary : .tint)
+                .foregroundStyle(nbSection.kind == .divider ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
                 .frame(width: 24)
 
             sectionRowLabel(nbSection)
