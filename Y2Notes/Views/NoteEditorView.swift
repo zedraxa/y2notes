@@ -55,6 +55,9 @@ struct NoteEditorView: View {
     /// Debounce timer for persisting text changes — mirrors the 0.8 s drawing debounce.
     @State private var textSaveTimer: Timer?
 
+    /// Whether the "Create Flashcard" sheet is visible.
+    @State private var showCreateFlashcard = false
+
     private let searchService = SearchService()
 
     init(note: Note) {
@@ -148,6 +151,9 @@ struct NoteEditorView: View {
                             canRedo = canRedoVal
                         }
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
+                    .padding(.horizontal, 1)
                 }
             }  // end VStack
 
@@ -176,6 +182,14 @@ struct NoteEditorView: View {
 
                 // Page setup menu — GoodNotes-style per-page paper type & material picker.
                 pageSetupMenu
+
+                // Create flashcard from this note.
+                Button {
+                    showCreateFlashcard = true
+                } label: {
+                    Image(systemName: "rectangle.on.rectangle.angled")
+                }
+                .accessibilityLabel("Create Flashcard")
 
                 // Draw ↔ Type mode toggle.
                 // "keyboard" switches to text mode; "pencil" returns to drawing mode.
@@ -272,6 +286,9 @@ struct NoteEditorView: View {
             flushTextNow()
             toolStore.currentPaperMaterial = .standard
             noteStore.save()
+        }
+        .sheet(isPresented: $showCreateFlashcard) {
+            NoteFlashcardSheet(note: note)
         }
     }
 
@@ -603,12 +620,13 @@ private struct CanvasView: UIViewRepresentable {
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
     private static let a4AspectRatio: CGFloat = 1.414
 
-    /// Fixed page size for the canvas content area. Uses the portrait screen
-    /// width with an A4 aspect ratio so the page fills the screen in width
-    /// and provides vertical scrolling room like a real paper page.
+    /// Fixed page size for the canvas content area. Uses the *landscape* screen
+    /// width (the larger dimension) with an A4 aspect ratio so the page fills
+    /// the screen in width regardless of orientation and provides vertical
+    /// scrolling room like a real paper page.
     static let pageSize: CGSize = {
         let screen = UIScreen.main.bounds
-        let w = min(screen.width, screen.height)
+        let w = max(screen.width, screen.height)
         return CGSize(width: w, height: ceil(w * a4AspectRatio))
     }()
 
@@ -721,6 +739,18 @@ private struct CanvasView: UIViewRepresentable {
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
 
+        // ── Ink effect engine (fire / sparkle / glitch / ripple) ────────────
+        let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
+        engine.configure(fx: activeFX, color: fxColor)
+        engine.attach(to: container)
+        context.coordinator.effectEngine = engine
+
+        // ── Book feel: page shadow ──────────────────────────────────────────
+        container.layer.shadowColor   = UIColor.black.cgColor
+        container.layer.shadowOpacity = 0.12
+        container.layer.shadowRadius  = 8
+        container.layer.shadowOffset  = CGSize(width: 0, height: 2)
+
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
         context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -801,6 +831,11 @@ private struct CanvasView: UIViewRepresentable {
 
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
+
+        // Sync ink effect engine configuration when FX type or colour changes.
+        if let engine = context.coordinator.effectEngine {
+            engine.configure(fx: activeFX, color: fxColor)
+        }
     }
 
     // MARK: - Ruling line color helper
@@ -854,6 +889,9 @@ private struct CanvasView: UIViewRepresentable {
         var hoverOverlay: PencilHoverOverlayView?
         weak var canvasRef: PKCanvasView?
 
+        /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
+        var effectEngine: InkEffectEngine?
+
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
         /// would reset PencilKit's internal pressure/tilt pipeline.
@@ -890,11 +928,25 @@ private struct CanvasView: UIViewRepresentable {
             if let inkTool = canvasView.tool as? PKInkingTool {
                 barrelRollBaseWidth = inkTool.width
             }
+            // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
+            if let engine = effectEngine {
+                let lastStroke = canvasView.drawing.strokes.last
+                let point = lastStroke?.path.last.map { CGPoint(x: $0.location.x, y: $0.location.y) }
+                    ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                engine.onStrokeBegan(at: point)
+            }
         }
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
             barrelRollBaseWidth = nil
+            // Notify effect engine of stroke end for ripple / fire cooldown.
+            if let engine = effectEngine {
+                let lastStroke = canvasView.drawing.strokes.last
+                let point = lastStroke?.path.last.map { CGPoint(x: $0.location.x, y: $0.location.y) }
+                    ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                engine.onStrokeEnded(at: point)
+            }
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -902,6 +954,14 @@ private struct CanvasView: UIViewRepresentable {
 
             let data = canvasView.drawing.dataRepresentation()
             onDrawingChanged(data)
+
+            // Feed latest stroke point to the effect engine for fire/sparkle tracking.
+            if let engine = effectEngine {
+                let lastStroke = canvasView.drawing.strokes.last
+                if let lastPoint = lastStroke?.path.last {
+                    engine.onStrokeUpdated(at: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y))
+                }
+            }
 
             // Report undo/redo availability directly from the canvas's undo manager.
             // PKCanvasView inherits UIResponder.undoManager which traverses the responder
@@ -1264,6 +1324,164 @@ final class ShapeOverlayView: UIView {
                 x: from.x + t * (to.x - from.x),
                 y: from.y + t * (to.y - from.y)
             ))
+        }
+    }
+}
+
+// MARK: - Note flashcard creation sheet
+
+/// Sheet presented from the note editor to create flashcards linked to the current note.
+/// Users can pick an existing study set or create a new one, then add one or more cards.
+struct NoteFlashcardSheet: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @Environment(\.dismiss) private var dismiss
+
+    let note: Note
+
+    @State private var selectedSetID: UUID?
+    @State private var showNewSetAlert = false
+    @State private var newSetTitle = ""
+    @State private var front = ""
+    @State private var back = ""
+    @State private var tagsText = ""
+    @State private var cardsCreated = 0
+    @FocusState private var frontFocused: Bool
+
+    private var canSave: Bool {
+        selectedSetID != nil &&
+        !front.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !back.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Pre-fill the back with the note's typed text if it's short enough to be useful.
+    private var suggestedBack: String {
+        let text = note.typedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.count <= 200 ? text : ""
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                // Study set picker
+                Section {
+                    if noteStore.studySets.isEmpty {
+                        Button {
+                            showNewSetAlert = true
+                        } label: {
+                            Label("Create a Study Set First", systemImage: "plus.circle")
+                        }
+                    } else {
+                        Picker("Study Set", selection: $selectedSetID) {
+                            Text("Select a set…").tag(nil as UUID?)
+                            ForEach(noteStore.studySets) { set in
+                                Text(set.title).tag(set.id as UUID?)
+                            }
+                        }
+
+                        Button {
+                            showNewSetAlert = true
+                        } label: {
+                            Label("New Set", systemImage: "plus")
+                                .font(.caption)
+                        }
+                    }
+                } header: {
+                    Text("Study Set")
+                }
+
+                // Card content
+                Section("Front (Question)") {
+                    TextEditor(text: $front)
+                        .frame(minHeight: 70)
+                        .focused($frontFocused)
+                }
+
+                Section("Back (Answer)") {
+                    TextEditor(text: $back)
+                        .frame(minHeight: 70)
+                }
+
+                Section {
+                    TextField("Tags (comma separated)", text: $tagsText)
+                } header: {
+                    Text("Tags")
+                } footer: {
+                    Text("e.g. chapter 1, key term")
+                }
+
+                // Summary
+                if cardsCreated > 0 {
+                    Section {
+                        Label(
+                            "\(cardsCreated) card\(cardsCreated == 1 ? "" : "s") created from this note",
+                            systemImage: "checkmark.circle.fill"
+                        )
+                        .foregroundStyle(.green)
+                    }
+                }
+            }
+            .navigationTitle("Create Flashcard")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add Card") {
+                        guard let setID = selectedSetID else { return }
+                        let tags = tagsText.components(separatedBy: ",")
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                        noteStore.addCard(
+                            toSet: setID,
+                            front: front.trimmingCharacters(in: .whitespacesAndNewlines),
+                            back: back.trimmingCharacters(in: .whitespacesAndNewlines),
+                            noteID: note.id,
+                            tags: tags
+                        )
+                        cardsCreated += 1
+                        // Clear for next card
+                        front = ""
+                        back = ""
+                        frontFocused = true
+                    }
+                    .disabled(!canSave)
+                }
+            }
+            .alert("New Study Set", isPresented: $showNewSetAlert) {
+                TextField("Set name", text: $newSetTitle)
+                    .submitLabel(.done)
+                Button("Create") {
+                    let t = newSetTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !t.isEmpty {
+                        let newSet = noteStore.addStudySet(
+                            title: t,
+                            notebookID: note.notebookID
+                        )
+                        selectedSetID = newSet.id
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .onAppear {
+                // Auto-select the most recent study set linked to this notebook.
+                if let notebookID = note.notebookID {
+                    selectedSetID = noteStore.studySets
+                        .first { $0.notebookID == notebookID }?.id
+                }
+                if selectedSetID == nil {
+                    selectedSetID = noteStore.studySets.first?.id
+                }
+                // Pre-fill front with note title if non-empty
+                if front.isEmpty, !note.title.isEmpty {
+                    front = note.title
+                }
+                // Pre-fill back with typed text if short
+                if back.isEmpty, !suggestedBack.isEmpty {
+                    back = suggestedBack
+                }
+                frontFocused = true
+            }
         }
     }
 }

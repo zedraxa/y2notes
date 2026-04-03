@@ -1406,3 +1406,71 @@ Y2NotesApp.swift (7 @StateObject → 7 .environmentObject)
 └── Localization: en.lproj/Localizable.strings (87+ keys)
 ```
 
+---
+
+## Ledger Audit — Corrections & Missing Entries
+
+**Audited:** 2026-04-03
+
+The following issues were found during a comprehensive audit of this ledger against the actual codebase:
+
+### Missing Agent Entries
+
+**AGENT-12 — Editor Toolbar System (AdvancedToolsPanel & Ink Effect UI)**
+
+- Referenced in AGENT-19 merge log (PR #19) but has **no dedicated ledger section**.
+- AGENT-12 created:
+  - `Y2Notes/Views/AdvancedToolsPanel.swift` — full right-side inspector panel with tool authoring, preset management, and ink effect controls
+  - `Y2Notes/Views/InkEffectPickerView.swift` — SwiftUI sheet for selecting ink presets by family with FX badges and device compatibility banner
+  - `Y2Notes/Ink/InkEffectEngine.swift` — performance-budgeted CAEmitterLayer/CAShapeLayer overlay engine for fire/sparkle/glitch/ripple effects
+  - `Y2Notes/Ink/InkEffectStore.swift` — ObservableObject managing active InkPreset, FX master toggle, device tier detection, and UserDefaults persistence
+  - `Y2Notes/Ink/InkModels.swift` — DeviceCapabilityTier, InkFamily, InkMaterialTraits, WritingFXType, InkPreset model types
+  - `Y2Notes/Ink/InkFamilyRegistry.swift` — singleton with 19 built-in ink presets across 7 families (standard/metallic/neon/watercolor/fire/glitch/phantom)
+- Modified `Y2Notes/Y2NotesApp.swift` to add `inkStore` as 5th `@StateObject` + `.environmentObject`
+- Modified `Y2Notes/Views/DrawingToolbarView.swift` to add ink effects wand button + opacity/recent colours
+
+**AGENT-13 — Expanded Covers & Materials**
+
+- Referenced only in a code comment in `Notebook.swift` line 17 (`// Expanded library (AGENT-13)`) — has **no dedicated ledger section**.
+- AGENT-13 added:
+  - 6 additional `NotebookCover` enum cases: `ruby`, `midnight`, `jade`, `coral`, `copper`, `nebula` (expanding from 6 to 12 total)
+  - 3 additional `PaperMaterial` enum cases: `matte`, `glossy`, `textured` (expanding from 4 to 7 total)
+  - Added `hasGrainTexture` and `inkAlphaMultiplier` computed properties to `PaperMaterial`
+  - Updated `ShelfView.swift` gradient extension to cover all 12 covers
+  - Updated `NotebookCreationWizard.swift` to display all 12 covers and 7 materials
+
+**AGENT-14 — (Unknown scope)**
+
+- Not referenced anywhere in the ledger or codebase. Possible that this agent number was skipped or its work was merged under another agent's PR.
+
+### Factual Corrections
+
+| # | Ledger Claim | Actual Value | Location |
+|---|-------------|-------------|----------|
+| 1 | "49 Swift files" (AGENT-19) | **50 Swift files** | Verified by `find Y2Notes -name '*.swift' \| wc -l` |
+| 2 | "iOS 16.0 deployment target" (AGENT-01, AGENT-19) | **iOS 17.0** | `project.pbxproj` IPHONEOS_DEPLOYMENT_TARGET = 17.0 |
+| 3 | "6 notebook covers" (AGENT-05) | **12 covers** (6 original + 6 from AGENT-13) | `Y2Notes/Models/Notebook.swift` NotebookCover enum |
+| 4 | "4 paper materials" (AGENT-06) | **7 materials** (4 original + 3 from AGENT-13) | `Y2Notes/Models/NotebookConfig.swift` PaperMaterial enum |
+
+### Critical Functional Gap Not Documented
+
+**InkEffectEngine was completely disconnected from the drawing pipeline.**
+
+Despite being fully implemented (355 lines of CAEmitterLayer/CAShapeLayer code), the engine was never:
+- Instantiated (`InkEffectEngine()` constructor never called)
+- Attached to the canvas view hierarchy (`.attach(to:)` never called)
+- Triggered during drawing (`onStrokeBegan/Updated/Ended` never called)
+- Configured from ink store (`configure(fx:color:)` never called in `updateUIView`)
+
+The `CanvasView` struct received `activeFX` and `fxColor` parameters from `InkEffectStore` but these values were unused. Fire, sparkle, glitch, and ripple effects were therefore completely non-functional despite the UI allowing users to select them.
+
+AGENT-19 marked "Toolbar & advanced tools" as "✅ PASS" in the end-to-end flow validation without noting this gap.
+
+**This has been fixed** in the current PR — the engine is now created in `makeUIView`, attached to the container, configured in `updateUIView`, and stroke events are forwarded from the PKCanvasViewDelegate callbacks.
+
+### Page Sizing Bug Not Documented
+
+`CanvasView.pageSize` used `min(screen.width, screen.height)` (portrait width) which caused the page to cover only ~half the screen width in landscape orientation on iPad. This was visible in the app as a page that stopped midway across the screen.
+
+**This has been fixed** — `pageSize` now uses `max(screen.width, screen.height)` so the page fills the screen width in landscape.
+
