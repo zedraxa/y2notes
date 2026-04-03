@@ -140,6 +140,7 @@ private struct ShelfSidebarView: View {
     @State private var renameText = ""
     @State private var showLibrarySearch = false
     @State private var showSettings = false
+    @State private var sidebarManageSectionsNotebook: Notebook?
 
     // Binding passed down from ShelfView so tapping a search result selects the note.
     var onSelectNote: (UUID) -> Void
@@ -178,7 +179,8 @@ private struct ShelfSidebarView: View {
                 ForEach(noteStore.notebooks) { notebook in
                     NotebookSidebarRow(
                         notebook: notebook,
-                        noteCount: noteStore.notes(inNotebook: notebook.id).count
+                        noteCount: noteStore.notes(inNotebook: notebook.id).count,
+                        sectionCount: noteStore.sections(inNotebook: notebook.id).filter { $0.kind == .section }.count
                     )
                     .tag(LibrarySection.notebook(notebook.id))
                     .contextMenu {
@@ -197,6 +199,12 @@ private struct ShelfSidebarView: View {
                             }
                         } label: {
                             Label("Change Cover", systemImage: "paintpalette")
+                        }
+
+                        Button {
+                            sidebarManageSectionsNotebook = notebook
+                        } label: {
+                            Label("Manage Sections…", systemImage: "list.bullet.indent")
                         }
 
                         Divider()
@@ -285,6 +293,9 @@ private struct ShelfSidebarView: View {
             }
             Button("Cancel", role: .cancel) { notebookToRename = nil }
         }
+        .sheet(item: $sidebarManageSectionsNotebook) { notebook in
+            ManageSectionsSheet(notebookID: notebook.id)
+        }
     }
 }
 
@@ -293,6 +304,7 @@ private struct ShelfSidebarView: View {
 private struct NotebookSidebarRow: View {
     let notebook: Notebook
     let noteCount: Int
+    let sectionCount: Int
 
     var body: some View {
         HStack(spacing: 10) {
@@ -311,9 +323,16 @@ private struct NotebookSidebarRow: View {
                 Text(notebook.name)
                     .font(.body)
                     .lineLimit(1)
-                Text("\(noteCount) note\(noteCount == 1 ? "" : "s")")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text("\(noteCount) note\(noteCount == 1 ? "" : "s")")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if sectionCount > 0 {
+                        Text("· \(sectionCount) section\(sectionCount == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .padding(.vertical, 2)
@@ -332,7 +351,14 @@ struct NoteGridView: View {
     @State private var renameText = ""
     @State private var showNoteCreationSheet = false
     @State private var showNotebookWizard = false
+    @State private var showNewSectionAlert = false
+    @State private var newSectionName = ""
+    @State private var sectionToRename: NotebookSection?
+    @State private var sectionRenameText = ""
+    @State private var collapsedSections: Set<UUID> = []
+    @State private var showManageSections = false
 
+    /// All notes for non-notebook views (flat).
     private var notes: [Note] {
         switch section {
         case .allNotes:
@@ -346,6 +372,23 @@ struct NoteGridView: View {
         case .pdfLibrary:
             return []
         }
+    }
+
+    /// Sections for this notebook (empty for non-notebook views).
+    private var notebookSections: [NotebookSection] {
+        guard let nbID = notebookIDForSection else { return [] }
+        return noteStore.sections(inNotebook: nbID)
+    }
+
+    /// Notes not assigned to any section within this notebook.
+    private var unsectionedNotes: [Note] {
+        guard let nbID = notebookIDForSection else { return [] }
+        return noteStore.unsectionedPages(inNotebook: nbID)
+    }
+
+    /// Whether this notebook has any sections defined.
+    private var hasSections: Bool {
+        !notebookSections.isEmpty
     }
 
     private var sectionTitle: String {
@@ -370,48 +413,17 @@ struct NoteGridView: View {
         Group {
             if notes.isEmpty {
                 emptyState
+            } else if case .notebook = section, hasSections {
+                sectionGroupedContent
             } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
-                        ForEach(notes) { note in
-                            NoteCardView(note: note, isSelected: selectedNoteID == note.id)
-                                .onTapGesture { selectedNoteID = note.id }
-                                .contextMenu { noteContextMenu(for: note) }
-                        }
-                    }
-                    .padding(20)
-                }
+                flatGridContent
             }
         }
         .navigationTitle(sectionTitle)
         .background(Color(uiColor: .systemGroupedBackground))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                // GoodNotes-style "+" New menu with multiple creation options.
-                Menu {
-                    Button {
-                        quickNote()
-                    } label: {
-                        Label("Quick Note", systemImage: "square.and.pencil")
-                    }
-
-                    Button {
-                        showNoteCreationSheet = true
-                    } label: {
-                        Label("New Note…", systemImage: "doc.badge.plus")
-                    }
-
-                    Divider()
-
-                    Button {
-                        showNotebookWizard = true
-                    } label: {
-                        Label("New Notebook…", systemImage: "book.closed.fill")
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("New")
+                notebookToolbarMenu
             }
             if let nb = notebookForSection {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -431,6 +443,11 @@ struct NoteGridView: View {
         .sheet(item: $showMoveSheet) { note in
             MoveNoteSheet(note: note)
         }
+        .sheet(isPresented: $showManageSections) {
+            if let nbID = notebookIDForSection {
+                ManageSectionsSheet(notebookID: nbID)
+            }
+        }
         .alert("Rename Note", isPresented: Binding(
             get: { noteToRename != nil },
             set: { if !$0 { noteToRename = nil } }
@@ -445,7 +462,225 @@ struct NoteGridView: View {
             }
             Button("Cancel", role: .cancel) { noteToRename = nil }
         }
+        .alert("New Section", isPresented: $showNewSectionAlert) {
+            TextField("Section name", text: $newSectionName)
+                .submitLabel(.done)
+            Button("Create") {
+                let name = newSectionName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty, let nbID = notebookIDForSection {
+                    noteStore.addSection(toNotebook: nbID, name: name)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Rename Section", isPresented: Binding(
+            get: { sectionToRename != nil },
+            set: { if !$0 { sectionToRename = nil } }
+        )) {
+            TextField("Name", text: $sectionRenameText)
+                .submitLabel(.done)
+            Button("Rename") {
+                if let s = sectionToRename, !sectionRenameText.trimmingCharacters(in: .whitespaces).isEmpty {
+                    noteStore.renameSection(id: s.id, name: sectionRenameText.trimmingCharacters(in: .whitespaces))
+                }
+                sectionToRename = nil
+            }
+            Button("Cancel", role: .cancel) { sectionToRename = nil }
+        }
     }
+
+    // MARK: Toolbar menu
+
+    @ViewBuilder
+    private var notebookToolbarMenu: some View {
+        Menu {
+            Button {
+                quickNote()
+            } label: {
+                Label("Quick Note", systemImage: "square.and.pencil")
+            }
+
+            Button {
+                showNoteCreationSheet = true
+            } label: {
+                Label("New Note…", systemImage: "doc.badge.plus")
+            }
+
+            Divider()
+
+            if notebookIDForSection != nil {
+                Button {
+                    newSectionName = ""
+                    showNewSectionAlert = true
+                } label: {
+                    Label("New Section", systemImage: "folder.badge.plus")
+                }
+
+                Button {
+                    guard let nbID = notebookIDForSection else { return }
+                    noteStore.addSectionDivider(toNotebook: nbID)
+                } label: {
+                    Label("Add Divider", systemImage: "minus")
+                }
+
+                if hasSections {
+                    Button {
+                        showManageSections = true
+                    } label: {
+                        Label("Manage Sections…", systemImage: "list.bullet.indent")
+                    }
+                }
+
+                Divider()
+            }
+
+            Button {
+                showNotebookWizard = true
+            } label: {
+                Label("New Notebook…", systemImage: "book.closed.fill")
+            }
+        } label: {
+            Image(systemName: "plus")
+        }
+        .accessibilityLabel("New")
+    }
+
+    // MARK: Flat grid (non-notebook views)
+
+    private var flatGridContent: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(notes) { note in
+                    NoteCardView(note: note, isSelected: selectedNoteID == note.id)
+                        .onTapGesture { selectedNoteID = note.id }
+                        .contextMenu { noteContextMenu(for: note) }
+                }
+            }
+            .padding(20)
+        }
+    }
+
+    // MARK: Section-grouped content (notebook views with sections)
+
+    private var sectionGroupedContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                // ── Unsectioned notes ──────────────────────────────────
+                if !unsectionedNotes.isEmpty {
+                    SectionHeaderView(
+                        title: "Unsectioned",
+                        noteCount: unsectionedNotes.count,
+                        isCollapsed: collapsedSections.contains(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!),
+                        systemImage: "tray",
+                        onToggle: {
+                            let sentinel = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+                            if collapsedSections.contains(sentinel) {
+                                collapsedSections.remove(sentinel)
+                            } else {
+                                collapsedSections.insert(sentinel)
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+
+                    if !collapsedSections.contains(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!) {
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(unsectionedNotes) { note in
+                                NoteCardView(note: note, isSelected: selectedNoteID == note.id)
+                                    .onTapGesture { selectedNoteID = note.id }
+                                    .contextMenu { noteContextMenu(for: note) }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                    }
+                }
+
+                // ── Each section ───────────────────────────────────────
+                ForEach(notebookSections) { nbSection in
+                    if nbSection.kind == .divider {
+                        // Visual divider
+                        SectionDividerView(label: nbSection.name)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    noteStore.deleteSection(id: nbSection.id)
+                                } label: {
+                                    Label("Remove Divider", systemImage: "trash")
+                                }
+                            }
+                    } else {
+                        let sectionNotes = noteStore.pages(inSection: nbSection.id)
+
+                        SectionHeaderView(
+                            title: nbSection.name,
+                            noteCount: sectionNotes.count,
+                            isCollapsed: collapsedSections.contains(nbSection.id),
+                            systemImage: "folder.fill",
+                            onToggle: {
+                                if collapsedSections.contains(nbSection.id) {
+                                    collapsedSections.remove(nbSection.id)
+                                } else {
+                                    collapsedSections.insert(nbSection.id)
+                                }
+                            }
+                        )
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+                        .contextMenu {
+                            Button {
+                                sectionToRename = nbSection
+                                sectionRenameText = nbSection.name
+                            } label: {
+                                Label("Rename Section", systemImage: "pencil")
+                            }
+
+                            Button(role: .destructive) {
+                                noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: true)
+                            } label: {
+                                Label("Delete Section (Keep Notes)", systemImage: "trash")
+                            }
+
+                            Button(role: .destructive) {
+                                noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: false)
+                            } label: {
+                                Label("Delete Section & Notes", systemImage: "trash.fill")
+                            }
+                        }
+
+                        if !collapsedSections.contains(nbSection.id) {
+                            if sectionNotes.isEmpty {
+                                HStack {
+                                    Spacer()
+                                    Text("No notes in this section")
+                                        .font(.callout)
+                                        .foregroundStyle(.tertiary)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 16)
+                                .padding(.horizontal, 20)
+                            } else {
+                                LazyVGrid(columns: columns, spacing: 16) {
+                                    ForEach(sectionNotes) { note in
+                                        NoteCardView(note: note, isSelected: selectedNoteID == note.id)
+                                            .onTapGesture { selectedNoteID = note.id }
+                                            .contextMenu { noteContextMenu(for: note) }
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.top, 12)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.bottom, 20)
+        }
+    }
+
+    // MARK: Note context menu
 
     @ViewBuilder
     private func noteContextMenu(for note: Note) -> some View {
@@ -477,6 +712,41 @@ struct NoteGridView: View {
             showMoveSheet = note
         } label: {
             Label("Move to Notebook…", systemImage: "folder")
+        }
+
+        // Section-aware move menu (only within notebook context)
+        if let nbID = notebookIDForSection, hasSections {
+            Menu {
+                // Move to unsectioned
+                if note.sectionID != nil {
+                    Button {
+                        noteStore.movePage(
+                            id: note.id,
+                            toSection: nil,
+                            atIndex: unsectionedNotes.count
+                        )
+                    } label: {
+                        Label("Unsectioned", systemImage: "tray")
+                    }
+                }
+
+                // Move to each section
+                ForEach(notebookSections.filter { $0.kind == .section }) { nbSection in
+                    if note.sectionID != nbSection.id {
+                        Button {
+                            noteStore.movePage(
+                                id: note.id,
+                                toSection: nbSection.id,
+                                atIndex: noteStore.pages(inSection: nbSection.id).count
+                            )
+                        } label: {
+                            Label(nbSection.name, systemImage: "folder")
+                        }
+                    }
+                }
+            } label: {
+                Label("Move to Section…", systemImage: "arrow.right.doc.on.clipboard")
+            }
         }
 
         Divider()
@@ -578,6 +848,230 @@ struct NoteGridView: View {
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
         case .pdfLibrary: return "Import a PDF document to get started."
         }
+    }
+}
+
+// MARK: - Section header view
+
+private struct SectionHeaderView: View {
+    let title: String
+    let noteCount: Int
+    let isCollapsed: Bool
+    let systemImage: String
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.tint)
+                    .frame(width: 20)
+
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(uiColor: .label))
+
+                Text("\(noteCount)")
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(uiColor: .secondaryLabel).opacity(0.12), in: Capsule())
+
+                Spacer()
+
+                Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title), \(noteCount) notes, \(isCollapsed ? "collapsed" : "expanded")")
+    }
+}
+
+// MARK: - Section divider view
+
+private struct SectionDividerView: View {
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .fill(Color(uiColor: .separator))
+                .frame(height: 1)
+            if !label.isEmpty {
+                Text(label)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.tertiary)
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+                Rectangle()
+                    .fill(Color(uiColor: .separator))
+                    .frame(height: 1)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Manage sections sheet
+
+private struct ManageSectionsSheet: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @Environment(\.dismiss) private var dismiss
+    let notebookID: UUID
+
+    @State private var sectionToRename: NotebookSection?
+    @State private var renameText = ""
+    @State private var showNewSectionAlert = false
+    @State private var newSectionName = ""
+
+    private var sections: [NotebookSection] {
+        noteStore.sections(inNotebook: notebookID)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if sections.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Image(systemName: "folder.badge.questionmark")
+                                    .font(.system(size: 32, weight: .ultraLight))
+                                    .foregroundStyle(.tertiary)
+                                Text("No Sections")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                Text("Add sections to organize notes within this notebook.")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 16)
+                    }
+                } else {
+                    Section {
+                        ForEach(sections) { nbSection in
+                            HStack(spacing: 12) {
+                                Image(systemName: nbSection.kind == .divider ? "minus" : "folder.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(nbSection.kind == .divider ? .secondary : .tint)
+                                    .frame(width: 24)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if nbSection.kind == .divider {
+                                        Text(nbSection.name.isEmpty ? "Divider" : nbSection.name)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                            .italic()
+                                    } else {
+                                        Text(nbSection.name)
+                                            .font(.subheadline.weight(.medium))
+                                        let count = noteStore.pages(inSection: nbSection.id).count
+                                        Text("\(count) note\(count == 1 ? "" : "s")")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                Spacer()
+                            }
+                            .contextMenu {
+                                if nbSection.kind == .section {
+                                    Button {
+                                        sectionToRename = nbSection
+                                        renameText = nbSection.name
+                                    } label: {
+                                        Label("Rename", systemImage: "pencil")
+                                    }
+                                }
+
+                                if nbSection.kind == .section {
+                                    Button(role: .destructive) {
+                                        noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: true)
+                                    } label: {
+                                        Label("Delete (Keep Notes)", systemImage: "trash")
+                                    }
+                                }
+
+                                Button(role: .destructive) {
+                                    noteStore.deleteSection(id: nbSection.id, movePagesToNotebook: false)
+                                } label: {
+                                    Label(nbSection.kind == .divider ? "Remove Divider" : "Delete Section & Notes", systemImage: "trash.fill")
+                                }
+                            }
+                        }
+                        .onMove { from, to in
+                            noteStore.reorderSections(inNotebook: notebookID, fromOffsets: from, toOffset: to)
+                        }
+                    } header: {
+                        Text("Sections")
+                    } footer: {
+                        Text("Drag to reorder. Long-press for rename/delete options.")
+                    }
+                }
+            }
+            .navigationTitle("Manage Sections")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button {
+                            newSectionName = ""
+                            showNewSectionAlert = true
+                        } label: {
+                            Label("New Section", systemImage: "folder.badge.plus")
+                        }
+                        Button {
+                            noteStore.addSectionDivider(toNotebook: notebookID)
+                        } label: {
+                            Label("Add Divider", systemImage: "minus")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    EditButton()
+                }
+            }
+            .alert("New Section", isPresented: $showNewSectionAlert) {
+                TextField("Section name", text: $newSectionName)
+                    .submitLabel(.done)
+                Button("Create") {
+                    let name = newSectionName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !name.isEmpty {
+                        noteStore.addSection(toNotebook: notebookID, name: name)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Rename Section", isPresented: Binding(
+                get: { sectionToRename != nil },
+                set: { if !$0 { sectionToRename = nil } }
+            )) {
+                TextField("Name", text: $renameText)
+                    .submitLabel(.done)
+                Button("Rename") {
+                    if let s = sectionToRename, !renameText.trimmingCharacters(in: .whitespaces).isEmpty {
+                        noteStore.renameSection(id: s.id, name: renameText.trimmingCharacters(in: .whitespaces))
+                    }
+                    sectionToRename = nil
+                }
+                Button("Cancel", role: .cancel) { sectionToRename = nil }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -911,33 +1405,13 @@ private struct MoveNoteSheet: View {
                             }
                         }
                     }
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color(uiColor: .label))
                 }
 
                 if !noteStore.notebooks.isEmpty {
                     Section("Notebooks") {
                         ForEach(noteStore.notebooks) { notebook in
-                            Button {
-                                noteStore.moveNote(id: note.id, toNotebook: notebook.id)
-                                dismiss()
-                            } label: {
-                                HStack(spacing: 12) {
-                                    RoundedRectangle(cornerRadius: 5)
-                                        .fill(notebook.cover.gradient)
-                                        .frame(width: 28, height: 36)
-                                        .overlay(
-                                            Image(systemName: "book.closed.fill")
-                                                .font(.system(size: 12))
-                                                .foregroundStyle(.white.opacity(0.85))
-                                        )
-                                    Text(notebook.name)
-                                        .foregroundStyle(.primary)
-                                    Spacer()
-                                    if note.notebookID == notebook.id {
-                                        Image(systemName: "checkmark").foregroundStyle(.tint)
-                                    }
-                                }
-                            }
+                            notebookRow(notebook)
                         }
                     }
                 }
@@ -951,5 +1425,109 @@ private struct MoveNoteSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    private func notebookRow(_ notebook: Notebook) -> some View {
+        let nbSections = noteStore.sections(inNotebook: notebook.id).filter { $0.kind == .section }
+        let isCurrentNotebook = note.notebookID == notebook.id
+
+        if nbSections.isEmpty {
+            // Simple notebook row (no sections)
+            Button {
+                noteStore.moveNote(id: note.id, toNotebook: notebook.id)
+                dismiss()
+            } label: {
+                HStack(spacing: 12) {
+                    notebookSwatch(notebook)
+                    Text(notebook.name)
+                        .foregroundStyle(Color(uiColor: .label))
+                    Spacer()
+                    if isCurrentNotebook && note.sectionID == nil {
+                        Image(systemName: "checkmark").foregroundStyle(.tint)
+                    }
+                }
+            }
+        } else {
+            // Expandable notebook with sections
+            DisclosureGroup {
+                // Unsectioned option
+                Button {
+                    noteStore.moveNote(id: note.id, toNotebook: notebook.id)
+                    // Also clear section if moving within same notebook
+                    if note.notebookID == notebook.id {
+                        noteStore.movePage(
+                            id: note.id,
+                            toSection: nil,
+                            atIndex: noteStore.unsectionedPages(inNotebook: notebook.id).count
+                        )
+                    }
+                    dismiss()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "tray")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20)
+                        Text("Unsectioned")
+                            .foregroundStyle(Color(uiColor: .label))
+                        Spacer()
+                        if isCurrentNotebook && note.sectionID == nil {
+                            Image(systemName: "checkmark").foregroundStyle(.tint)
+                        }
+                    }
+                }
+
+                ForEach(nbSections) { nbSection in
+                    Button {
+                        // Move to notebook first (if different), then to section
+                        if note.notebookID != notebook.id {
+                            noteStore.moveNote(id: note.id, toNotebook: notebook.id)
+                        }
+                        noteStore.movePage(
+                            id: note.id,
+                            toSection: nbSection.id,
+                            atIndex: noteStore.pages(inSection: nbSection.id).count
+                        )
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "folder.fill")
+                                .font(.caption)
+                                .foregroundStyle(.tint)
+                                .frame(width: 20)
+                            Text(nbSection.name)
+                                .foregroundStyle(Color(uiColor: .label))
+                            Spacer()
+                            if note.sectionID == nbSection.id {
+                                Image(systemName: "checkmark").foregroundStyle(.tint)
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    notebookSwatch(notebook)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(notebook.name)
+                            .foregroundStyle(Color(uiColor: .label))
+                        Text("\(nbSections.count) section\(nbSections.count == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func notebookSwatch(_ notebook: Notebook) -> some View {
+        RoundedRectangle(cornerRadius: 5)
+            .fill(notebook.cover.gradient)
+            .frame(width: 28, height: 36)
+            .overlay(
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.85))
+            )
     }
 }
