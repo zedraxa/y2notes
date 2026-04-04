@@ -318,7 +318,7 @@ private struct ShelfSidebarView: View {
             SettingsView()
         }
         .sheet(isPresented: $showNewNotebookSheet) {
-            NotebookCreationWizard()
+            NotebookQuickCreator()
         }
         .sheet(isPresented: $showLibrarySearch) {
             LibrarySearchView(onSelectNote: onSelectNote)
@@ -494,7 +494,7 @@ struct NoteGridView: View {
             )
         }
         .sheet(isPresented: $showNotebookWizard) {
-            NotebookCreationWizard()
+            NotebookQuickCreator()
         }
         .sheet(item: $showMoveSheet) { note in
             MoveNoteSheet(note: note)

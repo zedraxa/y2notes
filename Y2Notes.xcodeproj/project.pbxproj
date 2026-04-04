@@ -23,6 +23,7 @@
 		AA0001000000000000000061 /* PageTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000051 /* PageTemplate.swift */; };
 		AA0001000000000000000052 /* NotebookConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000070 /* NotebookConfig.swift */; };
 		AA0001000000000000000057 /* NotebookCreationWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000071 /* NotebookCreationWizard.swift */; };
+		AA00010000000000000000DB /* NotebookQuickCreator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000DA /* NotebookQuickCreator.swift */; };
 		AA00010000000000000000D8 /* NotebookReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D9 /* NotebookReaderView.swift */; };
 		AA0001000000000000000083 /* ToolModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000080 /* ToolModels.swift */; };
 		AA0001000000000000000084 /* DrawingToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000081 /* DrawingToolStore.swift */; };
@@ -88,6 +89,7 @@
 		AA0001000000000000000051 /* PageTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTemplate.swift; sourceTree = "<group>"; };
 		AA0001000000000000000070 /* NotebookConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookConfig.swift; sourceTree = "<group>"; };
 		AA0001000000000000000071 /* NotebookCreationWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCreationWizard.swift; sourceTree = "<group>"; };
+		AA00010000000000000000DA /* NotebookQuickCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookQuickCreator.swift; sourceTree = "<group>"; };
 		AA00010000000000000000D9 /* NotebookReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookReaderView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000080 /* ToolModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolModels.swift; sourceTree = "<group>"; };
 		AA0001000000000000000081 /* DrawingToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolStore.swift; sourceTree = "<group>"; };
@@ -208,6 +210,7 @@
 				AA0001000000000000000032 /* ThemePickerView.swift */,
 				AA0001000000000000000082 /* DrawingToolbarView.swift */,
 				AA0001000000000000000071 /* NotebookCreationWizard.swift */,
+				AA00010000000000000000DA /* NotebookQuickCreator.swift */,
 				AA00010000000000000000D9 /* NotebookReaderView.swift */,
 				AA000100000000000000008A /* LibrarySearchView.swift */,
 				AA000100000000000000008B /* StudySetListView.swift */,
@@ -420,6 +423,7 @@
 				AA0001000000000000000061 /* PageTemplate.swift in Sources */,
 				AA0001000000000000000052 /* NotebookConfig.swift in Sources */,
 				AA0001000000000000000057 /* NotebookCreationWizard.swift in Sources */,
+				AA00010000000000000000DB /* NotebookQuickCreator.swift in Sources */,
 				AA00010000000000000000D8 /* NotebookReaderView.swift in Sources */,
 				AA0001000000000000000083 /* ToolModels.swift in Sources */,
 				AA0001000000000000000084 /* DrawingToolStore.swift in Sources */,

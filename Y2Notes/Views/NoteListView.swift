@@ -117,7 +117,7 @@ struct NoteListView: View {
             )
         }
         .sheet(isPresented: $showNotebookWizard) {
-            NotebookCreationWizard()
+            NotebookQuickCreator()
         }
     }
 
