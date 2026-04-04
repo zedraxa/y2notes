@@ -151,10 +151,13 @@ final class AudioStorageManager {
             storageLogger.error("Failed to encode manifest")
             return
         }
-        do {
-            try data.write(to: Self.manifestURL, options: .atomic)
-        } catch {
-            storageLogger.error("Failed to write manifest: \(error.localizedDescription)")
+        let url = Self.manifestURL
+        PerformanceConstraints.storageQueue.async {
+            do {
+                try data.write(to: url, options: .atomic)
+            } catch {
+                storageLogger.error("Failed to write manifest: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -286,38 +289,47 @@ final class AudioStorageManager {
     }
 
     /// Flushes pending events to the events file on disk.
+    /// All file I/O is dispatched to `PerformanceConstraints.storageQueue`
+    /// to keep the main thread free during recording (§1, §6 Rule 1).
     private func flushPendingEvents() {
         guard let checkpoint = activeRecoveryCheckpoint,
               !pendingEvents.isEmpty else { return }
 
+        // Snapshot pending events and clear immediately so new events
+        // can accumulate while the write is in flight.
+        let eventsToFlush = pendingEvents
+        pendingEvents.removeAll()
+
         let url = eventsFileURL(for: checkpoint.sessionID)
 
-        // Load existing events, append pending, write back
-        var allEvents: [TimelineEvent] = []
-        if let data = try? Data(contentsOf: url),
-           let existing = try? JSONDecoder().decode([TimelineEvent].self, from: data) {
-            allEvents = existing
+        PerformanceConstraints.storageQueue.async { [weak self] in
+            // Load existing events, append pending, write back
+            var allEvents: [TimelineEvent] = []
+            if let data = try? Data(contentsOf: url),
+               let existing = try? JSONDecoder().decode([TimelineEvent].self, from: data) {
+                allEvents = existing
+            }
+            allEvents.append(contentsOf: eventsToFlush)
+
+            // Prune if over limit
+            if allEvents.count > AudioTimelineConstants.maxEventsPerSession {
+                allEvents.removeFirst(allEvents.count - AudioTimelineConstants.maxEventsPerSession)
+            }
+
+            if let data = try? JSONEncoder().encode(allEvents) {
+                try? data.write(to: url, options: .atomic)
+            }
+
+            // Update recovery checkpoint on the storage queue as well
+            DispatchQueue.main.async {
+                self?.activeRecoveryCheckpoint?.eventCount = allEvents.count
+                self?.activeRecoveryCheckpoint?.lastEventOffset = eventsToFlush.last?.offset ?? 0
+                self?.activeRecoveryCheckpoint?.checkpointedAt = Date()
+                self?.writeRecoveryCheckpoint()
+            }
+
+            storageLogger.debug("Flushed \(eventsToFlush.count) events to disk (total: \(allEvents.count))")
         }
-        allEvents.append(contentsOf: pendingEvents)
-
-        // Prune if over limit
-        if allEvents.count > AudioTimelineConstants.maxEventsPerSession {
-            allEvents.removeFirst(allEvents.count - AudioTimelineConstants.maxEventsPerSession)
-        }
-
-        if let data = try? JSONEncoder().encode(allEvents) {
-            try? data.write(to: url, options: .atomic)
-        }
-
-        // Update recovery checkpoint
-        activeRecoveryCheckpoint?.eventCount = allEvents.count
-        activeRecoveryCheckpoint?.lastEventOffset = pendingEvents.last?.offset ?? 0
-        activeRecoveryCheckpoint?.checkpointedAt = Date()
-        writeRecoveryCheckpoint()
-
-        let flushed = pendingEvents.count
-        pendingEvents.removeAll()
-        storageLogger.debug("Flushed \(flushed) events to disk (total: \(allEvents.count))")
     }
 
     /// Stops the autosave timer and flushes remaining events.
@@ -345,12 +357,15 @@ final class AudioStorageManager {
 
     // MARK: - Recovery
 
-    /// Writes the current recovery checkpoint to disk.
+    /// Writes the current recovery checkpoint to disk on the storage queue
+    /// (§1 constraint: recovery checkpoint writes are background-only).
     private func writeRecoveryCheckpoint() {
         guard let checkpoint = activeRecoveryCheckpoint else { return }
         let url = recoveryFileURL(for: checkpoint.sessionID)
         guard let data = try? JSONEncoder().encode(checkpoint) else { return }
-        try? data.write(to: url, options: .atomic)
+        PerformanceConstraints.storageQueue.async {
+            try? data.write(to: url, options: .atomic)
+        }
     }
 
     /// Removes the recovery checkpoint for a completed session.
@@ -537,7 +552,7 @@ final class AudioStorageManager {
                             ) {
                                 self.manifest.sessions[idx].isCompressed = true
                                 self.manifest.sessions[idx].fileSizeBytes = compressedSize
-                                self.saveManifest()
+                                self.saveManifest()  // saveManifest() dispatches to storageQueue
                             }
                         }
 
@@ -601,7 +616,14 @@ final class AudioStorageManager {
     // MARK: - Orphan Cleanup
 
     /// Removes recovery files and orphaned audio files older than the max age.
+    /// Dispatched to `.utility` QoS (§3 constraint: < 100 ms, never during recording).
     private func cleanupOrphans() {
+        PerformanceConstraints.storageQueue.async { [weak self] in
+            self?.performOrphanCleanup()
+        }
+    }
+
+    private func performOrphanCleanup() {
         let fm = FileManager.default
         let dir = Self.recordingsDirectory
         let cutoff = Calendar.current.date(
@@ -674,17 +696,20 @@ final class AudioStorageManager {
 
     // MARK: - Timeline Event Storage
 
-    /// Saves timeline events for a session to disk.
+    /// Saves timeline events for a session to disk on the storage queue
+    /// (§6 Rule 1: never block main during recording).
     func saveEvents(_ events: [TimelineEvent], for sessionID: UUID) {
         let url = eventsFileURL(for: sessionID)
         guard let data = try? JSONEncoder().encode(events) else {
             storageLogger.error("Failed to encode events for session \(sessionID)")
             return
         }
-        do {
-            try data.write(to: url, options: .atomic)
-        } catch {
-            storageLogger.error("Failed to write events: \(error.localizedDescription)")
+        PerformanceConstraints.storageQueue.async {
+            do {
+                try data.write(to: url, options: .atomic)
+            } catch {
+                storageLogger.error("Failed to write events: \(error.localizedDescription)")
+            }
         }
     }
 

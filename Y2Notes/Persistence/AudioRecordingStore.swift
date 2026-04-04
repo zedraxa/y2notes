@@ -496,18 +496,24 @@ final class AudioRecordingStore: ObservableObject {
 
     private func saveSessions() {
         guard let data = try? JSONEncoder().encode(sessions) else { return }
-        try? data.write(to: Self.sessionsFileURL, options: .atomic)
+        let url = Self.sessionsFileURL
+        PerformanceConstraints.storageQueue.async {
+            try? data.write(to: url, options: .atomic)
+        }
     }
 
     private func saveEvents(_ events: [TimelineEvent], for sessionID: UUID) {
         let url = Self.recordingsDirectory
             .appendingPathComponent("\(sessionID.uuidString)_events.json")
         guard let data = try? JSONEncoder().encode(events) else { return }
-        try? data.write(to: url, options: .atomic)
+        PerformanceConstraints.storageQueue.async {
+            try? data.write(to: url, options: .atomic)
+        }
     }
 
     /// Checkpoint: saves current events to disk without stopping.
-    /// Called on app backgrounding.
+    /// Called on app backgrounding.  Encoding happens on main (fast),
+    /// file write dispatched to storage queue (§6 Rule 1).
     func checkpoint() {
         guard isRecording, let session = activeSession else { return }
         saveEvents(activeEvents, for: session.id)

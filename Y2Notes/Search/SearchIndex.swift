@@ -88,13 +88,20 @@ final class SearchIndex {
     // MARK: - Building the index
 
     /// Full rebuild: clears the index and re-indexes everything.
+    ///
+    /// **Performance (§3, §6 Rule 2):** When `audioStorageManager` is
+    /// supplied, audio indexing runs synchronously in-line.  Callers must
+    /// ensure this is **not** invoked while a recording is active — defer
+    /// the audio portion until after `stopRecording()`.  Pass
+    /// `isRecordingActive: true` to skip audio indexing entirely.
     func rebuild(
         notes: [Note],
         notebooks: [Notebook],
         sections: [NotebookSection],
         bookmarks: [PageBookmark],
         pdfRecords: [PDFNoteRecord],
-        audioStorageManager: AudioStorageManager? = nil
+        audioStorageManager: AudioStorageManager? = nil,
+        isRecordingActive: Bool = false
     ) {
         entries.removeAll(keepingCapacity: true)
 
@@ -160,8 +167,11 @@ final class SearchIndex {
             )
         }
 
-        // Index audio sessions and timeline events
-        if let storageManager = audioStorageManager {
+        // Index audio sessions and timeline events.
+        // Skipped when a recording is active (§6 Rule 2: no search re-index
+        // during recording).  The active session is indexed incrementally
+        // after stopRecording() via `updateAudioSession()`.
+        if let storageManager = audioStorageManager, !isRecordingActive {
             AudioSearchIndexer.indexAllSessions(into: &entries, from: storageManager)
         }
 
