@@ -141,46 +141,154 @@ struct InkMaterialTraits: Codable, Equatable {
 /// the active FX is `.none`.  This means the base note-taking path is completely
 /// unaffected by the FX system.
 enum WritingFXType: String, CaseIterable, Codable, Identifiable {
-    case none     // no effect; always available on all devices
-    case sparkle  // brief bright sparks on stroke (standard+ tier)
-    case fire     // flame particles trailing the nib (pro+ tier)
-    case glitch   // digital scan-line / colour-shift artefacts (pro+ tier)
-    case ripple   // expanding ring at stroke end (standard+ tier)
+    case none      // no effect; always available on all devices
+    case sparkle   // brief bright sparks on stroke (standard+ tier)
+    case fire      // flame particles trailing the nib (pro+ tier)
+    case glitch    // digital scan-line / colour-shift artefacts (pro+ tier)
+    case ripple    // expanding ring at stroke end (standard+ tier)
+    case rainbow   // multi-hue trail following the nib (standard+ tier)
+    case snow      // falling snowflake particles (standard+ tier)
+    case lightning // electric bolt branching from stroke end (pro+ tier)
+    case dissolve  // particles crumbling away from the stroke (pro+ tier)
+    case glow      // soft luminous aura around the nib (standard+ tier)
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .none:    return "None"
-        case .sparkle: return "Sparkle"
-        case .fire:    return "Fire"
-        case .glitch:  return "Glitch"
-        case .ripple:  return "Ripple"
+        case .none:      return "None"
+        case .sparkle:   return "Sparkle"
+        case .fire:      return "Fire"
+        case .glitch:    return "Glitch"
+        case .ripple:    return "Ripple"
+        case .rainbow:   return "Rainbow"
+        case .snow:      return "Snow"
+        case .lightning: return "Lightning"
+        case .dissolve:  return "Dissolve"
+        case .glow:      return "Glow"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .none:    return "slash.circle"
-        case .sparkle: return "sparkles"
-        case .fire:    return "flame.fill"
-        case .glitch:  return "waveform.path.ecg"
-        case .ripple:  return "circle.dashed"
+        case .none:      return "slash.circle"
+        case .sparkle:   return "sparkles"
+        case .fire:      return "flame.fill"
+        case .glitch:    return "waveform.path.ecg"
+        case .ripple:    return "circle.dashed"
+        case .rainbow:   return "rainbow"
+        case .snow:      return "snowflake"
+        case .lightning: return "bolt.fill"
+        case .dissolve:  return "aqi.medium"
+        case .glow:      return "light.max"
         }
     }
 
     /// Minimum device tier required for this effect.
     var minimumTier: DeviceCapabilityTier {
         switch self {
-        case .none:              return .basic
-        case .sparkle, .ripple:  return .standard
-        case .fire, .glitch:     return .pro
+        case .none:                            return .basic
+        case .sparkle, .ripple, .rainbow,
+             .snow, .glow:                     return .standard
+        case .fire, .glitch, .lightning,
+             .dissolve:                        return .pro
         }
     }
 
     func isSupported(on tier: DeviceCapabilityTier) -> Bool {
         tier >= minimumTier
     }
+}
+
+// MARK: - Particle Physics
+
+/// Lightweight 2D physics parameters for particle behaviour.
+/// The `InkEffectEngine` reads these to drive physically-realistic motion.
+struct ParticlePhysics: Equatable {
+    /// Downward acceleration (points/s²).  Positive = pull toward bottom.
+    var gravity: CGFloat = 0
+    /// Horizontal drift acceleration (points/s²).
+    var wind: CGFloat = 0
+    /// Random per-frame velocity perturbation range (points/s).
+    var turbulence: CGFloat = 0
+    /// Velocity multiplier per second (1.0 = no drag, 0.9 = light drag).
+    var drag: CGFloat = 1.0
+    /// When true, particles bounce off the overlay bounds instead of disappearing.
+    var bounceOffBounds: Bool = false
+    /// Coefficient of restitution for boundary bounces (0 = sticky, 1 = perfectly elastic).
+    var bounciness: CGFloat = 0.5
+    /// Angular velocity range (radians/s) applied at birth.
+    var spinRange: CGFloat = 0
+    /// Whether particles fade out linearly over their lifetime.
+    var fadeOut: Bool = true
+
+    // MARK: Named presets
+
+    static let firePhysics = ParticlePhysics(
+        gravity: -120,        // flames rise
+        wind: 0,
+        turbulence: 35,       // flickering
+        drag: 0.92,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 2.0,
+        fadeOut: true
+    )
+
+    static let sparklePhysics = ParticlePhysics(
+        gravity: 40,          // sparks fall lightly
+        wind: 0,
+        turbulence: 60,       // chaotic sparkle spread
+        drag: 0.85,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 4.0,
+        fadeOut: true
+    )
+
+    static let snowPhysics = ParticlePhysics(
+        gravity: 25,          // gentle descent
+        wind: 8,              // slight sideways drift
+        turbulence: 15,       // natural swaying
+        drag: 0.97,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.5,
+        fadeOut: true
+    )
+
+    static let dissolvePhysics = ParticlePhysics(
+        gravity: 50,          // crumble downward
+        wind: 0,
+        turbulence: 45,       // chaotic disintegration
+        drag: 0.88,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 3.0,
+        fadeOut: true
+    )
+
+    static let rainbowPhysics = ParticlePhysics(
+        gravity: 0,
+        wind: 0,
+        turbulence: 10,
+        drag: 0.95,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 0.5,
+        fadeOut: true
+    )
+
+    static let glowPhysics = ParticlePhysics(
+        gravity: 0,
+        wind: 0,
+        turbulence: 5,
+        drag: 0.98,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 0,
+        fadeOut: true
+    )
 }
 
 // MARK: - Ink Preset
