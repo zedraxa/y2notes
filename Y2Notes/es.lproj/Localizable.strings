@@ -246,3 +246,18 @@
 "Export.PDFExportFailed"          = "Error al exportar PDF";
 "Export.ImageExportFailed"        = "Error al exportar imagen";
 "Export.HandwritingOCR"           = "Reconociendo escritura…";
+
+/* ── Version History ──────────────────────────────────────────── */
+
+"VersionHistory.Title"            = "Historial de versiones";
+"VersionHistory.Empty"            = "Sin historial de versiones";
+"VersionHistory.EmptyDetail"      = "Las versiones se guardan automáticamente mientras editas. Vuelve después de hacer cambios.";
+"VersionHistory.Restore"          = "Restaurar versión";
+"VersionHistory.RestoreNote"      = "Restaurar nota completa";
+"VersionHistory.RestorePage"      = "Restaurar solo página %d";
+"VersionHistory.CopyToNew"        = "Copiar a nueva nota";
+"VersionHistory.RestoredTo"       = "Restaurado a %@";
+"VersionHistory.PreRestoreMsg"    = "Se creará una copia de seguridad de tu versión actual antes de restaurar.";
+"VersionHistory.Manual"           = "Manual";
+"VersionHistory.PreRestore"       = "Pre-restauración";
+"VersionHistory.Backup"           = "Copia de seguridad";

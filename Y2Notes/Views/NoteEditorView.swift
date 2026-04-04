@@ -76,6 +76,9 @@ struct NoteEditorView: View {
     /// Whether the document import picker is visible.
     @State private var showDocumentImporter = false
 
+    /// Whether the version history sheet is visible.
+    @State private var showVersionHistory = false
+
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
@@ -346,6 +349,14 @@ struct NoteEditorView: View {
                 // Export menu — PDF (single page), PDF (all pages), PNG image.
                 exportMenu
 
+                // Version history browser.
+                Button {
+                    showVersionHistory = true
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
+                .accessibilityLabel("Version History")
+
                 // Import document into the library.
                 Button {
                     showDocumentImporter = true
@@ -452,6 +463,11 @@ struct NoteEditorView: View {
         }
         .sheet(isPresented: $showCreateFlashcard) {
             NoteFlashcardSheet(note: note)
+        }
+        .sheet(isPresented: $showVersionHistory) {
+            VersionHistoryView(noteID: note.id)
+                .environmentObject(noteStore)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showPageOverview) {
             PageOverviewGrid(

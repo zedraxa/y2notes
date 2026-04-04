@@ -445,6 +445,7 @@ struct NoteGridView: View {
     @State private var showManageSections = false
     @State private var showDocImporter = false
     @State private var showPDFImporter = false
+    @State private var versionHistoryNote: Note?
 
     /// All notes for non-notebook views (flat).
     private var notes: [Note] {
@@ -533,6 +534,11 @@ struct NoteGridView: View {
         }
         .sheet(item: $showMoveSheet) { note in
             MoveNoteSheet(note: note)
+        }
+        .sheet(item: $versionHistoryNote) { note in
+            VersionHistoryView(noteID: note.id)
+                .environmentObject(noteStore)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showManageSections) {
             if let nbID = notebookIDForSection {
@@ -919,6 +925,14 @@ struct NoteGridView: View {
             } label: {
                 Label("Move to Section…", systemImage: "arrow.right.doc.on.clipboard")
             }
+        }
+
+        Divider()
+
+        Button {
+            versionHistoryNote = note
+        } label: {
+            Label("Version History", systemImage: "clock.arrow.circlepath")
         }
 
         Divider()

@@ -207,6 +207,7 @@ final class NoteStore: ObservableObject {
 
     func deleteNotes(at offsets: IndexSet) {
         for i in offsets {
+            createPreDestructiveSnapshot(for: notes[i].id)
             if let filename = notes[i].pdfFilename {
                 NotePDFGenerator.deletePDF(filename: filename)
             }
@@ -218,6 +219,7 @@ final class NoteStore: ObservableObject {
     /// Deletes notes whose IDs are in `ids`. Safe when caller holds a filtered/sorted view.
     func deleteNotes(ids: [UUID]) {
         for note in notes where ids.contains(note.id) {
+            createPreDestructiveSnapshot(for: note.id)
             if let filename = note.pdfFilename {
                 NotePDFGenerator.deletePDF(filename: filename)
             }
