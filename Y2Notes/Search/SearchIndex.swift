@@ -33,6 +33,7 @@ enum SearchEntryKind: String, Hashable {
     case attachmentLabel
     case audioSession
     case audioTimestamp
+    case widgetContent
 }
 
 // MARK: - Grouped search result
@@ -420,6 +421,34 @@ final class SearchIndex {
                 )
             }
         }
+
+        // Widget content — each widget indexed individually with page-level anchor.
+        // Searchable by title, body text, and checklist items.
+        for (pageIdx, layer) in note.widgetLayers.enumerated() {
+            guard let widgets = layer else { continue }
+            for widget in widgets {
+                let key = "\(baseID)-wgt-\(widget.id.uuidString)"
+                let textContent = searchableText(for: widget)
+                guard !textContent.isEmpty else { continue }
+                let kindLabel = widget.kind.rawValue.capitalized
+                entries[key] = SearchableEntry(
+                    id: key,
+                    kind: .widgetContent,
+                    primaryText: textContent,
+                    secondaryText: "\(kindLabel) · \(note.title)",
+                    notebookID: note.notebookID,
+                    anchor: note.notebookID.map { nbID in
+                        NavigationAnchor(
+                            notebookID: nbID,
+                            noteID: note.id,
+                            pageIndex: pageIdx,
+                            objectID: widget.id
+                        )
+                    },
+                    modifiedAt: widget.placedAt
+                )
+            }
+        }
     }
 
     private func baseScore(for kind: SearchEntryKind) -> Int {
@@ -435,6 +464,26 @@ final class SearchIndex {
         case .attachmentLabel: return 35
         case .audioSession:    return 55
         case .audioTimestamp:  return 30
+        case .widgetContent:   return 35
+        }
+    }
+
+    /// Extracts searchable text from a widget's payload (title, body, items).
+    private func searchableText(for widget: NoteWidget) -> String {
+        switch widget.payload {
+        case .checklist(let title, let items):
+            let itemTexts = items.map(\.text).filter { !$0.isEmpty }
+            return ([title] + itemTexts).joined(separator: " ")
+
+        case .quickTable(let title, _, _, let cells):
+            let cellTexts = cells.map(\.text).filter { !$0.isEmpty }
+            return ([title] + cellTexts).joined(separator: " ")
+
+        case .calloutBox(let title, let body, _):
+            return [title, body].filter { !$0.isEmpty }.joined(separator: " ")
+
+        case .referenceCard(let title, let body):
+            return [title, body].filter { !$0.isEmpty }.joined(separator: " ")
         }
     }
 

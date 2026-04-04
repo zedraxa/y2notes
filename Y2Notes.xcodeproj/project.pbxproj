@@ -107,6 +107,7 @@
 		AA0001000000000000000127 /* WidgetModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000126 /* WidgetModel.swift */; };
 		AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000128 /* WidgetCanvasView.swift */; };
 		AA000100000000000000012B /* WidgetHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012A /* WidgetHandlesView.swift */; };
+		AA000100000000000000012D /* WidgetPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012C /* WidgetPickerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -212,6 +213,7 @@
 		AA0001000000000000000126 /* WidgetModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetModel.swift; sourceTree = "<group>"; };
 		AA0001000000000000000128 /* WidgetCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetCanvasView.swift; sourceTree = "<group>"; };
 		AA000100000000000000012A /* WidgetHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetHandlesView.swift; sourceTree = "<group>"; };
+		AA000100000000000000012C /* WidgetPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPickerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -330,6 +332,7 @@
 				AA0001000000000000000124 /* VersionHistoryView.swift */,
 				AA0001000000000000000128 /* WidgetCanvasView.swift */,
 				AA000100000000000000012A /* WidgetHandlesView.swift */,
+				AA000100000000000000012C /* WidgetPickerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -623,6 +626,7 @@
 				AA0001000000000000000127 /* WidgetModel.swift in Sources */,
 				AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */,
 				AA000100000000000000012B /* WidgetHandlesView.swift in Sources */,
+				AA000100000000000000012D /* WidgetPickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

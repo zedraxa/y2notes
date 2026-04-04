@@ -176,6 +176,9 @@ struct FloatingToolbarCapsule: View {
                 stickerButton
             }
 
+            // Widget
+            widgetButton
+
             tier1Separator
 
             // Undo
@@ -326,6 +329,28 @@ struct FloatingToolbarCapsule: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Sticker")
+    }
+
+    // MARK: - Widget Button
+
+    @ViewBuilder
+    private var widgetButton: some View {
+        Button {
+            toolStore.isWidgetPickerPresented = true
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "square.grid.2x2")
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Widget")
     }
 
     // MARK: - Recording Mic Button

@@ -521,6 +521,12 @@ struct NoteEditorView: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
+            WidgetPickerView { kind in
+                placeWidget(kind)
+            }
+            .presentationDetents([.medium])
+        }
         .fileImporter(
             isPresented: $showDocumentImporter,
             allowedContentTypes: ImportedDocumentType.allUTTypes,
@@ -570,6 +576,48 @@ struct NoteEditorView: View {
         updatedNote.modifiedAt = Date()
 
         noteStore.updateStickers(for: note.id, pageIndex: pageIdx, stickers: existing)
+    }
+
+    // MARK: - Widget Placement
+
+    /// Places a new widget of the given kind at the centre of the current page.
+    private func placeWidget(_ kind: WidgetKind) {
+        let pageIdx = currentPageIndex
+        var widgets = note.widgets(forPage: pageIdx)
+
+        // Enforce per-page limit
+        guard widgets.count < WidgetConstants.maxWidgetsPerPage else { return }
+
+        let maxZ = widgets.map(\.zIndex).max() ?? 0
+
+        // Place at approximate centre of page
+        let pageSize = CanvasView.pageSize
+        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
+
+        var widget: NoteWidget
+        switch kind {
+        case .checklist:
+            widget = NoteWidget.makeChecklist(at: center)
+        case .quickTable:
+            widget = NoteWidget.makeQuickTable(at: center)
+        case .calloutBox:
+            widget = NoteWidget.makeCalloutBox(at: center)
+        case .referenceCard:
+            widget = NoteWidget.makeReferenceCard(at: center)
+        }
+        widget.zIndex = maxZ + 1
+
+        widgets.append(widget)
+        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+
+        // Auto-select the newly placed widget
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            toolStore.activeWidgetSelection = widget.id
+            toolStore.activeShapeSelection = nil
+            toolStore.activeStickerSelection = nil
+            toolStore.activeAttachmentSelection = nil
+            toolStore.hasActiveSelection = false
+        }
     }
 
     // MARK: - Shape Actions
