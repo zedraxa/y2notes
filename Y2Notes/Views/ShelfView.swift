@@ -631,15 +631,65 @@ struct NoteGridView: View {
 
     private var flatGridContent: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(notes) { note in
-                    NoteCardView(note: note, isSelected: selectedNoteID == note.id)
-                        .onTapGesture { selectedNoteID = note.id }
-                        .contextMenu { noteContextMenu(for: note) }
+            VStack(alignment: .leading, spacing: 0) {
+                // Notebook shelf — show notebook covers at the top in "All Notes" view
+                if case .allNotes = section, !noteStore.notebooks.isEmpty {
+                    notebookShelfRow
                 }
+
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(notes) { note in
+                        NoteCardView(note: note, isSelected: selectedNoteID == note.id)
+                            .onTapGesture { selectedNoteID = note.id }
+                            .contextMenu { noteContextMenu(for: note) }
+                    }
+                }
+                .padding(20)
             }
-            .padding(20)
         }
+    }
+
+    // MARK: Notebook shelf row (cover cards)
+
+    /// Horizontal scrollable row of notebook covers displayed at the top
+    /// of the "All Notes" grid, simulating a shelf of real notebooks.
+    @ViewBuilder
+    private var notebookShelfRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Notebooks")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    showNotebookWizard = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.tint)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(noteStore.notebooks) { nb in
+                        NotebookCoverCard(
+                            notebook: nb,
+                            noteCount: noteStore.notes(inNotebook: nb.id).count
+                        )
+                        .onTapGesture {
+                            // Navigate directly into notebook reader by switching sidebar section
+                            selectedNoteID = nil
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+            }
+        }
+        .padding(.bottom, 8)
     }
 
     // MARK: Section-grouped content (notebook views with sections)
@@ -1290,6 +1340,79 @@ private struct NoteCardView: View {
             let scale = max(200 / renderRect.width, 150 / renderRect.height) * 0.5
             return drawing.image(from: renderRect, scale: scale)
         }.value
+    }
+}
+
+// MARK: - Notebook cover card (shelf display)
+
+/// Rich notebook cover card that looks like a physical notebook on a shelf.
+/// Shows the gradient cover, notebook name, page count, and a subtle 3D effect.
+private struct NotebookCoverCard: View {
+    let notebook: Notebook
+    let noteCount: Int
+
+    @State private var isPressed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Book cover
+            ZStack(alignment: .bottomLeading) {
+                // Main cover with gradient
+                notebook.cover.gradient
+                    .frame(width: 120, height: 160)
+                    .clipShape(
+                        .rect(
+                            topLeadingRadius: 4,
+                            bottomLeadingRadius: 4,
+                            bottomTrailingRadius: 10,
+                            topTrailingRadius: 10
+                        )
+                    )
+
+                // Spine highlight (left edge)
+                Rectangle()
+                    .fill(.white.opacity(0.15))
+                    .frame(width: 6)
+                    .clipShape(
+                        .rect(topLeadingRadius: 4, bottomLeadingRadius: 4)
+                    )
+
+                // Book icon + page count
+                VStack(alignment: .leading, spacing: 4) {
+                    Spacer()
+                    Image(systemName: "book.fill")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.7))
+                    Text("\(noteCount) page\(noteCount == 1 ? "" : "s")")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                .padding(10)
+            }
+            // 3D book shadow
+            .shadow(color: .black.opacity(0.18), radius: 6, x: 2, y: 4)
+            .shadow(color: .black.opacity(0.06), radius: 1, x: 1, y: 1)
+            // Subtle 3D perspective tilt
+            .rotation3DEffect(
+                .degrees(isPressed ? 0 : 2),
+                axis: (x: 0, y: 1, z: 0),
+                anchor: .leading,
+                perspective: 0.5
+            )
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
+
+            // Notebook name
+            Text(notebook.name)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+                .frame(width: 120, alignment: .leading)
+                .padding(.top, 6)
+                .foregroundStyle(.primary)
+        }
+        .onLongPressGesture(minimumDuration: 0.5, pressing: { pressing in
+            isPressed = pressing
+        }, perform: {})
     }
 }
 

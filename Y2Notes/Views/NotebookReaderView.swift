@@ -3,18 +3,17 @@ import PencilKit
 
 // MARK: - NotebookReaderView
 
-/// Presents a ``Notebook`` as a continuous book: every page across every
-/// section is linearised into a single flat index so the user can flip
-/// through the entire notebook like a real physical book.
+/// Presents a ``Notebook`` as a physical book you flip through.
 ///
 /// **Architecture**
-/// Each note in the notebook contributes its `pages` array to the flat list.
-/// The view tracks a single `flatPageIndex` that maps back to the originating
-/// `(noteID, pageIndex)` so drawing changes are saved to the correct note.
+/// Every note → page in the notebook is linearised into a flat index.
+/// The user swipes left/right to turn pages.  Swiping past the last
+/// page auto-creates a new blank page so writing never stops.
 ///
-/// **Section tabs** appear at the top of the view; tapping one jumps to
-/// the first page of that section.  The bottom navigation bar shows the
-/// current section name and absolute page number.
+/// **Section tabs** at the top let you jump between sections.
+/// A bottom navigation bar shows the section name and page number.
+/// Stacked page shadows behind the current canvas give a book-like
+/// depth feeling.
 struct NotebookReaderView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var themeStore: ThemeStore
@@ -24,6 +23,10 @@ struct NotebookReaderView: View {
 
     @State private var flatPageIndex = 0
     @State private var showPageOverview = false
+    /// Horizontal drag offset for the page-turn gesture.
+    @State private var dragOffset: CGFloat = 0
+    /// Direction of the last completed page turn for the slide transition.
+    @State private var slideDirection: Edge = .trailing
 
     // MARK: - Linearised page model
 
@@ -140,9 +143,8 @@ struct NotebookReaderView: View {
     }
 
     /// Canvas background: per-page colour → theme + material blend.
-    private var canvasBackgroundColor: UIColor {
-        if let ref = currentPage,
-           let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
+    private func canvasBackground(for ref: PageRef) -> UIColor {
+        if let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
            let explicit = note.pageColor(forPage: ref.pageIndex) {
             return explicit
         }
@@ -154,6 +156,7 @@ struct NotebookReaderView: View {
 
     // MARK: - Body
 
+    // swiftlint:disable:next function_body_length
     var body: some View {
         let pages = allPages
         VStack(spacing: 0) {
@@ -162,8 +165,11 @@ struct NotebookReaderView: View {
                 sectionTabsBar
             }
 
-            if let ref = currentPage,
-               let note = noteStore.notes.first(where: { $0.id == ref.noteID }) {
+            if pages.isEmpty {
+                emptyNotebookView
+            } else {
+                let safeIndex = min(flatPageIndex, pages.count - 1)
+                let ref = pages[safeIndex]
 
                 // Section divider label when crossing into a new section
                 if ref.isFirstInSection, let name = ref.sectionName {
@@ -173,58 +179,158 @@ struct NotebookReaderView: View {
                 // Drawing toolbar
                 DrawingToolbarView(toolStore: toolStore, inkStore: inkStore)
 
-                // Canvas
-                let pageData = note.pages.indices.contains(ref.pageIndex)
-                    ? note.pages[ref.pageIndex] : Data()
-                CanvasView(
-                    noteID: note.id,
-                    drawingData: pageData,
-                    backgroundColor: canvasBackgroundColor,
-                    defaultInkColor: effectiveDefinition.contrastingInkColor,
-                    currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
-                    isShapeToolActive: toolStore.activeTool == .shape,
-                    activeShapeType: toolStore.activeShapeType,
-                    shapeColor: toolStore.activeColor,
-                    shapeWidth: toolStore.activeWidth,
-                    drawingPolicy: .anyInput,
-                    zoomResetTrigger: false,
-                    pageType: effectivePageType(for: ref),
-                    paperMaterial: effectivePaperMaterial,
-                    activeFX: inkStore.resolvedFX,
-                    fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
-                    pageIndex: ref.pageIndex,
-                    onDrawingChanged: { data in
-                        noteStore.updateDrawing(for: ref.noteID, pageIndex: ref.pageIndex, data: data)
-                    },
-                    onSaveRequested: { noteStore.save() },
-                    onUndoStateChanged: nil,
-                    onPageSwipe: { direction in
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            if direction > 0 {
-                                flatPageIndex = min(pages.count - 1, flatPageIndex + 1)
-                            } else {
-                                flatPageIndex = max(0, flatPageIndex - 1)
-                            }
-                        }
-                    },
-                    onPinchToOverview: { showPageOverview = true },
-                    pdfURL: noteStore.notePDFURL(for: note)
-                )
-                .id("\(ref.noteID)-\(ref.pageIndex)")
-                .transition(.opacity)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
-                .padding(.horizontal, 1)
-                .animation(.easeInOut(duration: 0.22), value: flatPageIndex)
+                // Page stack: stacked shadows behind current page for book depth
+                ZStack {
+                    // Background page shadows — fake "stacked pages" effect
+                    pageStackShadows(pageCount: pages.count, currentIndex: safeIndex)
+
+                    // Current page canvas
+                    canvasForPage(ref, in: pages)
+                        .offset(x: dragOffset)
+                }
+                .gesture(pageSwipeGesture(totalPages: pages.count))
+                .clipped()
 
                 // Page navigation bar
                 notebookPageBar(totalPages: pages.count)
-            } else {
-                emptyNotebookView
             }
         }
         .navigationTitle(notebook.name)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Canvas for a page
+
+    @ViewBuilder
+    private func canvasForPage(_ ref: PageRef, in pages: [PageRef]) -> some View {
+        if let note = noteStore.notes.first(where: { $0.id == ref.noteID }) {
+            let pageData = note.pages.indices.contains(ref.pageIndex)
+                ? note.pages[ref.pageIndex] : Data()
+            CanvasView(
+                noteID: note.id,
+                drawingData: pageData,
+                backgroundColor: canvasBackground(for: ref),
+                defaultInkColor: effectiveDefinition.contrastingInkColor,
+                currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
+                isShapeToolActive: toolStore.activeTool == .shape,
+                activeShapeType: toolStore.activeShapeType,
+                shapeColor: toolStore.activeColor,
+                shapeWidth: toolStore.activeWidth,
+                drawingPolicy: .anyInput,
+                zoomResetTrigger: false,
+                pageType: effectivePageType(for: ref),
+                paperMaterial: effectivePaperMaterial,
+                activeFX: inkStore.resolvedFX,
+                fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
+                pageIndex: ref.pageIndex,
+                onDrawingChanged: { data in
+                    noteStore.updateDrawing(for: ref.noteID, pageIndex: ref.pageIndex, data: data)
+                },
+                onSaveRequested: { noteStore.save() },
+                onUndoStateChanged: nil,
+                onPageSwipe: { direction in
+                    turnPage(direction: direction, totalPages: pages.count)
+                },
+                onPinchToOverview: { showPageOverview = true },
+                pdfURL: noteStore.notePDFURL(for: note)
+            )
+            .id("\(ref.noteID)-\(ref.pageIndex)")
+            .transition(.asymmetric(
+                insertion: .move(edge: slideDirection),
+                removal: .move(edge: slideDirection == .trailing ? .leading : .trailing)
+            ))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
+            .padding(.horizontal, 4)
+            .animation(.spring(response: 0.3, dampingFraction: 0.88), value: flatPageIndex)
+        }
+    }
+
+    // MARK: - Page stack shadows (book depth)
+
+    /// Draws faint page edges behind the current canvas to simulate a paper stack.
+    private func pageStackShadows(pageCount: Int, currentIndex: Int) -> some View {
+        let pagesAfter = min(pageCount - 1 - currentIndex, 3)
+        let pagesBefore = min(currentIndex, 3)
+        return ZStack {
+            // Pages "below" (stacked after current page — right edge)
+            ForEach(0..<pagesAfter, id: \.self) { layer in
+                let offset = CGFloat(layer + 1) * 2.0
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(uiColor: .systemBackground))
+                    .shadow(color: .black.opacity(0.04), radius: 2, x: offset, y: 1)
+                    .padding(.horizontal, 4 + offset)
+                    .padding(.vertical, offset)
+                    .opacity(1.0 - Double(layer) * 0.25)
+            }
+            // Pages "above" (stacked before current page — left edge)
+            ForEach(0..<pagesBefore, id: \.self) { layer in
+                let offset = CGFloat(layer + 1) * 2.0
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(uiColor: .systemBackground))
+                    .shadow(color: .black.opacity(0.04), radius: 2, x: -offset, y: 1)
+                    .padding(.horizontal, 4 + offset)
+                    .padding(.vertical, offset)
+                    .opacity(1.0 - Double(layer) * 0.25)
+            }
+        }
+    }
+
+    // MARK: - Swipe gesture for page turns
+
+    /// Horizontal drag that turns pages; swiping past the last page auto-creates a new one.
+    private func pageSwipeGesture(totalPages: Int) -> some Gesture {
+        DragGesture(minimumDistance: 40)
+            .onChanged { value in
+                // Only track horizontal drags that are clearly horizontal
+                let horizontal = abs(value.translation.width)
+                let vertical = abs(value.translation.height)
+                if horizontal > vertical * 1.2 {
+                    dragOffset = value.translation.width * 0.3
+                }
+            }
+            .onEnded { value in
+                let threshold: CGFloat = 60
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                    dragOffset = 0
+                    if value.translation.width < -threshold {
+                        // Swipe left → next page (or create new)
+                        turnPage(direction: 1, totalPages: totalPages)
+                    } else if value.translation.width > threshold {
+                        // Swipe right → previous page
+                        turnPage(direction: -1, totalPages: totalPages)
+                    }
+                }
+            }
+    }
+
+    /// Turns to the next or previous page. When swiping past the last page,
+    /// auto-creates a new blank page so writing never stops.
+    private func turnPage(direction: Int, totalPages: Int) {
+        if direction > 0 {
+            if flatPageIndex >= totalPages - 1 {
+                // Swipe past last page → auto-create new page
+                if let ref = currentPage,
+                   let newIdx = noteStore.addPage(to: ref.noteID) {
+                    let updatedPages = allPages
+                    if let newFlat = updatedPages.firstIndex(where: {
+                        $0.noteID == ref.noteID && $0.pageIndex == newIdx
+                    }) {
+                        slideDirection = .trailing
+                        flatPageIndex = newFlat
+                    } else {
+                        slideDirection = .trailing
+                        flatPageIndex = allPages.count - 1
+                    }
+                }
+            } else {
+                slideDirection = .trailing
+                flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
+            }
+        } else {
+            slideDirection = .leading
+            flatPageIndex = max(0, flatPageIndex - 1)
+        }
     }
 
     // MARK: - Section tabs bar
@@ -237,7 +343,7 @@ struct NotebookReaderView: View {
                         let isActive = currentPage?.sectionID == tab.id
                             || (tab.id == nil && currentPage?.sectionID == nil)
                         Button {
-                            withAnimation(.easeInOut(duration: 0.25)) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                                 flatPageIndex = tab.firstFlatIndex
                             }
                         } label: {
@@ -292,7 +398,8 @@ struct NotebookReaderView: View {
         HStack(spacing: 16) {
             // Previous page
             Button {
-                withAnimation(.easeInOut(duration: 0.25)) {
+                slideDirection = .leading
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
                     flatPageIndex = max(0, flatPageIndex - 1)
                 }
             } label: {
@@ -323,16 +430,16 @@ struct NotebookReaderView: View {
             Button {
                 if let ref = currentPage,
                    let newIdx = noteStore.addPage(to: ref.noteID) {
-                    // Jump to the newly added page
-                    let pages = allPages
-                    if let newFlat = pages.firstIndex(where: {
+                    let updatedPages = allPages
+                    if let newFlat = updatedPages.firstIndex(where: {
                         $0.noteID == ref.noteID && $0.pageIndex == newIdx
                     }) {
-                        withAnimation(.easeInOut(duration: 0.25)) {
+                        slideDirection = .trailing
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
                             flatPageIndex = newFlat
                         }
                     } else {
-                        // Fallback: jump forward by one
+                        slideDirection = .trailing
                         flatPageIndex = min(flatPageIndex + 1, allPages.count - 1)
                     }
                 }
@@ -345,7 +452,8 @@ struct NotebookReaderView: View {
 
             // Next page
             Button {
-                withAnimation(.easeInOut(duration: 0.25)) {
+                slideDirection = .trailing
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
                     flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
                 }
             } label: {

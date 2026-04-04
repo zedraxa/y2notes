@@ -193,9 +193,16 @@ struct NoteEditorView: View {
                             canRedo = canRedoVal
                         },
                         onPageSwipe: { direction in
-                            withAnimation(.easeInOut(duration: 0.25)) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
                                 if direction > 0 {
-                                    currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                                    if currentPageIndex >= note.pageCount - 1 {
+                                        // Swipe past last page → auto-create new page
+                                        if let newIndex = noteStore.addPage(to: note.id) {
+                                            currentPageIndex = newIndex
+                                        }
+                                    } else {
+                                        currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                                    }
                                 } else {
                                     currentPageIndex = max(0, currentPageIndex - 1)
                                 }
