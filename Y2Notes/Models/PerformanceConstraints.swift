@@ -158,6 +158,11 @@ enum PerformanceConstraints {
     /// two `CAGradientLayer` + position animation.  Total setup < 0.4 ms.
     static let pageTransitionBudgetMs: Double = 0.4
 
+    /// Focus mode ambient effect budget per frame.
+    /// Vignette overlay + paper glow sublayer — GPU-composited.  Total
+    /// setup overhead < 0.3 ms.
+    static let focusModeBudgetMs: Double = 0.3
+
     // MARK: 8. Future — Transcript Search
 
     /// Speech-to-text processing: post-recording only, `.background` QoS.

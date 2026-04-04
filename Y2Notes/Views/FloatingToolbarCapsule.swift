@@ -179,6 +179,9 @@ struct FloatingToolbarCapsule: View {
             // Widget
             widgetButton
 
+            // Focus mode
+            focusModeButton
+
             tier1Separator
 
             // Undo
@@ -351,6 +354,34 @@ struct FloatingToolbarCapsule: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Widget")
+    }
+
+    // MARK: - Focus Mode Button
+
+    @ViewBuilder
+    private var focusModeButton: some View {
+        Button {
+            toolStore.isFocusModeActive.toggle()
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: toolStore.isFocusModeActive
+                      ? "moon.fill" : "moon")
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(toolStore.isFocusModeActive
+                                     ? Color.accentColor
+                                     : Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(toolStore.isFocusModeActive
+                          ? Color.accentColor : Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Focus Mode")
+        .accessibilityAddTraits(toolStore.isFocusModeActive
+                                ? .isSelected : [])
     }
 
     // MARK: - Recording Mic Button

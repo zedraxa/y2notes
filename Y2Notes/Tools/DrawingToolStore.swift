@@ -140,6 +140,11 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts nil (no drag in progress).
     @Published var expansionDragEdge: ExpansionEdge?
 
+    /// Whether focus mode is active — dims surroundings, adds vignette,
+    /// reduces toolbar opacity, and shows a soft page glow to boost immersion.
+    /// **Not persisted** — always starts false (normal UI).
+    @Published var isFocusModeActive: Bool = false
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

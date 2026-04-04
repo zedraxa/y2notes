@@ -358,7 +358,19 @@ struct NoteEditorView: View {
                     ))
                     .zIndex(1)
             }
+
+            // Focus-mode ambient overlays — vignette + dim.
+            // Applied via SwiftUI so they participate in the view hierarchy
+            // and auto-size on rotation.  The paper glow is applied to the
+            // canvas CALayer separately via FocusModeEngine.
+            if toolStore.isFocusModeActive {
+                focusModeOverlay
+                    .zIndex(0.4)   // behind toolbar capsules, above canvas
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }  // end ZStack
+        .animation(.easeInOut(duration: 0.35), value: toolStore.isFocusModeActive)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showAdvancedPanel)
         .navigationBarTitleDisplayMode(.inline)
         .animation(.spring(duration: 0.25), value: showFindBar)
@@ -466,6 +478,16 @@ struct NoteEditorView: View {
         .onDisappear {
             toolStore.currentPaperMaterial = .standard
         }
+        .onChange(of: toolStore.isFocusModeActive) { _, isActive in
+            // Toolbar opacity is driven directly by the SwiftUI toolbarOpacity
+            // binding.  The paper glow (CALayer) is handled here via the
+            // Coordinator's FocusModeEngine.
+            if isActive {
+                toolStore.toolbarOpacity = 0.35
+            } else {
+                toolStore.toolbarOpacity = 1.0
+            }
+        }
         // Notification-based fallback to keep undo/redo state in sync even when the
         // canvas delegate fires before the onUndoStateChanged callback is invoked.
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
@@ -494,6 +516,11 @@ struct NoteEditorView: View {
         .onDisappear {
             flushTextNow()
             toolStore.currentPaperMaterial = .standard
+            // Reset focus mode on editor tear-down so state doesn't leak.
+            if toolStore.isFocusModeActive {
+                toolStore.isFocusModeActive = false
+                toolStore.toolbarOpacity = 1.0
+            }
             noteStore.save()
         }
         .sheet(isPresented: $showCreateFlashcard) {
@@ -909,6 +936,33 @@ struct NoteEditorView: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(uiColor: effectiveDefinition.canvasBackground).opacity(0.8))
+    }
+
+    // MARK: - Focus Mode Overlay
+
+    /// Full-screen SwiftUI overlay combining background dimming and a radial
+    /// vignette.  Layered behind toolbar capsules (zIndex 0.4) but above the
+    /// canvas, so it dims chrome without intercepting touch input.
+    @ViewBuilder
+    private var focusModeOverlay: some View {
+        ZStack {
+            // Background dim — very subtle darkening of the entire view.
+            Color.black.opacity(0.08)
+                .ignoresSafeArea()
+
+            // Radial vignette — darkens edges, clear centre.
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    Color.clear,
+                    Color.clear,
+                    Color.black.opacity(0.15)
+                ]),
+                center: .center,
+                startRadius: 80,
+                endRadius: UIScreen.main.bounds.height * 0.55
+            )
+            .ignoresSafeArea()
+        }
     }
 
     // MARK: - Helpers
@@ -1889,6 +1943,9 @@ struct CanvasView: UIViewRepresentable {
 
         /// Page transition engine for physical page-turn effects.
         let pageTransitionEngine = PageTransitionEngine()
+
+        /// Focus mode ambient effect engine.
+        let focusModeEngine = FocusModeEngine()
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
