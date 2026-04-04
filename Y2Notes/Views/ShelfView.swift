@@ -408,6 +408,8 @@ struct NoteGridView: View {
             return noteStore.notes(inNotebook: id).sorted { $0.modifiedAt > $1.modifiedAt }
         case .pdfLibrary:
             return []
+        case .documentLibrary:
+            return []
         }
     }
 
@@ -436,6 +438,7 @@ struct NoteGridView: View {
         case .notebook(let id):
             return noteStore.notebooks.first { $0.id == id }?.name ?? "Notebook"
         case .pdfLibrary:         return "PDF Documents"
+        case .documentLibrary:    return "Documents"
         }
     }
 
@@ -863,6 +866,7 @@ struct NoteGridView: View {
         case .favorites: return "star"
         case .notebook:  return "book.closed"
         case .pdfLibrary: return "doc.richtext"
+        case .documentLibrary: return "doc.fill"
         }
     }
 
@@ -873,6 +877,7 @@ struct NoteGridView: View {
         case .favorites: return "No Favorites Yet"
         case .notebook:  return "Empty Notebook"
         case .pdfLibrary: return "No PDFs Yet"
+        case .documentLibrary: return "No Documents Yet"
         }
     }
 
@@ -883,6 +888,7 @@ struct NoteGridView: View {
         case .favorites: return "Tap ★ in a note's menu to collect favorites here."
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
         case .pdfLibrary: return "Import a PDF document to get started."
+        case .documentLibrary: return "Import a document to get started."
         }
     }
 }
