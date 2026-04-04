@@ -124,6 +124,7 @@ struct NoteEditorView: View {
         )
     }
 
+    // swiftlint:disable:next function_body_length
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 0) {
@@ -907,6 +908,7 @@ private struct CanvasView: UIViewRepresentable {
         )
     }
 
+    // swiftlint:disable:next function_body_length
     func makeUIView(context: Context) -> UIView {
         let setupState = editorSignposter.beginInterval("CanvasSetup")
         editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - begin")
