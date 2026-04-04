@@ -26,6 +26,11 @@ struct FloatingToolbarCapsule: View {
     var onUndo: (() -> Void)? = nil
     var onRedo: (() -> Void)? = nil
     var onOpenInspector: (() -> Void)? = nil
+    /// Called when the user taps the mic button to start recording.
+    /// The parent view handles the actual recording start (needs notebook context).
+    var onStartRecording: (() -> Void)? = nil
+    /// Called when the user taps the stop button to end recording.
+    var onStopRecording: (() -> Void)? = nil
     /// Callback for selection actions (cut / copy / delete / recolor).
     /// Only relevant when `toolStore.hasActiveSelection` is true.
     var onSelectionAction: ((SelectionAction) -> Void)? = nil
@@ -334,9 +339,7 @@ struct FloatingToolbarCapsule: View {
         if toolStore.isRecording {
             // Stop button — pulsing red dot
             Button {
-                recordingStore?.stopRecording()
-                toolStore.isRecording = false
-                toolStore.activeRecordingSession = nil
+                onStopRecording?()
             } label: {
                 Circle()
                     .fill(Color.red)
@@ -358,10 +361,7 @@ struct FloatingToolbarCapsule: View {
         } else {
             // Mic button — idle state
             Button {
-                // Start recording handled by the parent view
-                // (needs notebookID context that the toolbar doesn't have).
-                // Toggle the flag; parent observes and calls recordingStore.startRecording().
-                toolStore.isRecording = true
+                onStartRecording?()
             } label: {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 14, weight: .medium))
