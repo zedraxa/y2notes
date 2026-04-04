@@ -25,6 +25,8 @@ final class WidgetCanvasView: UIView {
     private var panStart: CGPoint = .zero
     private var initialFrame: WidgetFrame?
     private let snapAlignEngine = SnapAlignEffectEngine()
+    private let microEngine = MicroInteractionEngine()
+    private let interactionLayer = CALayer()
 
     private enum HandleCorner: CaseIterable { case topLeft, topRight, bottomLeft, bottomRight }
 
@@ -43,6 +45,10 @@ final class WidgetCanvasView: UIView {
         pan.minimumNumberOfTouches = 1
         pan.maximumNumberOfTouches = 1
         addGestureRecognizer(pan)
+
+        // Interaction overlay for physics effects (shadow / scale)
+        microEngine.configureInteractionLayer(interactionLayer)
+        layer.addSublayer(interactionLayer)
     }
 
     // MARK: - Drawing
@@ -314,9 +320,24 @@ final class WidgetCanvasView: UIView {
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         let point = gesture.location(in: self)
         if let tapped = widgetAt(point: point) {
+            if selectedWidgetID != nil && selectedWidgetID != tapped.id {
+                microEngine.hideInteractionLayer(interactionLayer)
+            }
             selectedWidgetID = tapped.id
             onSelectionChanged?(tapped.id)
+
+            // Physics: scale up + glow on select
+            let rect = tapped.frame.boundingRect
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+            microEngine.playSelectScale(on: interactionLayer)
+            microEngine.playSelectionGlow(on: interactionLayer)
         } else {
+            if selectedWidgetID != nil {
+                microEngine.playDeselectScale(on: interactionLayer)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                    self?.microEngine.hideInteractionLayer(self?.interactionLayer ?? CALayer())
+                }
+            }
             selectedWidgetID = nil
             onSelectionChanged?(nil)
         }
@@ -333,6 +354,9 @@ final class WidgetCanvasView: UIView {
             initialFrame = widgets[idx].frame
             activeHandle = handleAt(point: panStart, for: widgets[idx])
             snapAlignEngine.prepareHaptics()
+
+            // Physics: soft shadow on drag start
+            microEngine.playSoftShadow(on: interactionLayer, dragDirection: .zero)
 
         case .changed:
             guard let initial = initialFrame else { return }
@@ -385,10 +409,38 @@ final class WidgetCanvasView: UIView {
                     on: layer, snappedX: snappedX, snappedY: snappedY
                 )
                 widgets[idx].frame.position = newPos
+
+                // Physics: update shadow direction
+                let vel = gesture.velocity(in: self)
+                let mag = max(hypot(vel.x, vel.y), 1.0)
+                let dir = CGPoint(x: vel.x / mag, y: vel.y / mag)
+                microEngine.playSoftShadow(on: interactionLayer, dragDirection: dir)
             }
             setNeedsDisplay()
 
+            // Track overlay position
+            let rect = widgets[idx].frame.boundingRect
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+
         case .ended, .cancelled:
+            // Physics: inertia + release bounce
+            if activeHandle == nil {
+                let vel = gesture.velocity(in: self)
+                let decayFactor: CGFloat = 0.12
+                let inertiaX = vel.x * decayFactor
+                let inertiaY = vel.y * decayFactor
+                if abs(inertiaX) > 1 || abs(inertiaY) > 1 {
+                    widgets[idx].frame.position.x += inertiaX
+                    widgets[idx].frame.position.y += inertiaY
+                }
+            }
+            microEngine.resetSoftShadow(on: interactionLayer)
+            microEngine.playReleaseBounce(on: interactionLayer)
+            setNeedsDisplay()
+
+            let rect = widgets[idx].frame.boundingRect
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+
             activeHandle = nil
             initialFrame = nil
             onWidgetTransformed?(widgets[idx])

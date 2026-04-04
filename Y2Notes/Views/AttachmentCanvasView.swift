@@ -56,6 +56,8 @@ final class AttachmentCanvasView: UIView {
     private var panStart: CGPoint = .zero
     private var initialFrame: AttachmentFrame?
     private let snapAlignEngine = SnapAlignEffectEngine()
+    private let microEngine = MicroInteractionEngine()
+    private let interactionLayer = CALayer()
 
     /// Pending thumbnail loads to avoid duplicate dispatches.
     private var pendingLoads: Set<UUID> = []
@@ -90,6 +92,10 @@ final class AttachmentCanvasView: UIView {
         pan.minimumNumberOfTouches = 1
         pan.maximumNumberOfTouches = 1
         addGestureRecognizer(pan)
+
+        // Interaction overlay for physics effects (shadow / scale)
+        microEngine.configureInteractionLayer(interactionLayer)
+        layer.addSublayer(interactionLayer)
     }
 
     // MARK: - Drawing
@@ -283,9 +289,24 @@ final class AttachmentCanvasView: UIView {
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         let point = gesture.location(in: self)
         if let tapped = attachmentAt(point: point) {
+            if selectedAttachmentID != nil && selectedAttachmentID != tapped.id {
+                microEngine.hideInteractionLayer(interactionLayer)
+            }
             selectedAttachmentID = tapped.id
             onSelectionChanged?(tapped.id)
+
+            // Physics: scale up + glow on select
+            let rect = tapped.frame.boundingRect
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+            microEngine.playSelectScale(on: interactionLayer)
+            microEngine.playSelectionGlow(on: interactionLayer)
         } else {
+            if selectedAttachmentID != nil {
+                microEngine.playDeselectScale(on: interactionLayer)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                    self?.microEngine.hideInteractionLayer(self?.interactionLayer ?? CALayer())
+                }
+            }
             selectedAttachmentID = nil
             onSelectionChanged?(nil)
         }
@@ -302,6 +323,9 @@ final class AttachmentCanvasView: UIView {
             initialFrame = attachments[idx].frame
             activeHandle = handleAt(point: panStart, for: attachments[idx])
             snapAlignEngine.prepareHaptics()
+
+            // Physics: soft shadow on drag start
+            microEngine.playSoftShadow(on: interactionLayer, dragDirection: .zero)
 
         case .changed:
             guard let initial = initialFrame else { return }
@@ -370,10 +394,38 @@ final class AttachmentCanvasView: UIView {
                 )
 
                 attachments[idx].frame.position = newPos
+
+                // Physics: update shadow direction + track overlay
+                let vel = gesture.velocity(in: self)
+                let mag = max(hypot(vel.x, vel.y), 1.0)
+                let dir = CGPoint(x: vel.x / mag, y: vel.y / mag)
+                microEngine.playSoftShadow(on: interactionLayer, dragDirection: dir)
             }
             setNeedsDisplay()
 
+            // Track overlay position
+            let rect = attachments[idx].frame.boundingRect
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+
         case .ended, .cancelled:
+            // Physics: inertia + release bounce
+            if activeHandle == nil {
+                let vel = gesture.velocity(in: self)
+                let decayFactor: CGFloat = 0.12
+                let inertiaX = vel.x * decayFactor
+                let inertiaY = vel.y * decayFactor
+                if abs(inertiaX) > 1 || abs(inertiaY) > 1 {
+                    attachments[idx].frame.position.x += inertiaX
+                    attachments[idx].frame.position.y += inertiaY
+                }
+            }
+            microEngine.resetSoftShadow(on: interactionLayer)
+            microEngine.playReleaseBounce(on: interactionLayer)
+            setNeedsDisplay()
+
+            let rect = attachments[idx].frame.boundingRect
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+
             activeHandle = nil
             initialFrame = nil
             onAttachmentTransformed?(attachments[idx])

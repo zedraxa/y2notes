@@ -301,6 +301,109 @@ final class MicroInteractionEngine {
         CATransaction.commit()
     }
 
+    // MARK: - Select Scale
+
+    /// Scales a layer up slightly (1.0 → 1.05) with a spring animation when selected.
+    ///
+    /// Gives objects a tactile "lift" feeling.  Pairs well with `playSelectionGlow`.
+    /// Duration: ~0.3 s (spring settling).
+    func playSelectScale(on layer: CALayer) {
+        guard !reduceMotion else { return }
+
+        let anim             = CASpringAnimation(keyPath: "transform.scale")
+        anim.fromValue       = 1.0
+        anim.toValue         = 1.05
+        anim.initialVelocity = 4.0
+        anim.damping         = 12.0
+        anim.stiffness       = 280.0
+        anim.mass            = 1.0
+        anim.duration        = anim.settlingDuration
+        anim.fillMode        = .forwards
+        anim.isRemovedOnCompletion = false
+
+        layer.add(anim, forKey: "selectScale")
+    }
+
+    /// Scales a layer back to 1.0 with an ease-out curve when deselected.
+    func playDeselectScale(on layer: CALayer) {
+        guard !reduceMotion else {
+            layer.removeAnimation(forKey: "selectScale")
+            layer.transform = CATransform3DIdentity
+            return
+        }
+
+        let anim                    = CABasicAnimation(keyPath: "transform.scale")
+        anim.toValue                = 1.0
+        anim.duration               = 0.2
+        anim.timingFunction         = CAMediaTimingFunction(controlPoints: 0.0, 0.0, 0.2, 1.0)
+        anim.fillMode               = .forwards
+        anim.isRemovedOnCompletion  = false
+
+        layer.add(anim, forKey: "selectScale")
+    }
+
+    /// Plays a bounce + settle animation on release (1.05 → 1.0 with spring overshoot).
+    func playReleaseBounce(on layer: CALayer) {
+        guard !reduceMotion else {
+            layer.removeAnimation(forKey: "selectScale")
+            layer.transform = CATransform3DIdentity
+            return
+        }
+
+        let anim             = CASpringAnimation(keyPath: "transform.scale")
+        anim.fromValue       = 1.05
+        anim.toValue         = 1.0
+        anim.initialVelocity = 6.0
+        anim.damping         = 10.0
+        anim.stiffness       = 300.0
+        anim.mass            = 1.0
+        anim.duration        = anim.settlingDuration
+        anim.fillMode        = .forwards
+        anim.isRemovedOnCompletion = false
+
+        layer.add(anim, forKey: "selectScale")
+    }
+
+    // MARK: - Interaction Layer Setup
+
+    /// Configures a layer as a transparent interaction overlay with resting shadow.
+    ///
+    /// Call once during setup. The layer should be sized/positioned to match the
+    /// active object before playing effects.
+    func configureInteractionLayer(_ layer: CALayer) {
+        layer.backgroundColor = UIColor.clear.cgColor
+        layer.shadowColor     = UIColor.black.cgColor
+        layer.shadowOpacity   = 0.10
+        layer.shadowRadius    = 4.0
+        layer.shadowOffset    = CGSize(width: 0, height: 2)
+        layer.isHidden        = true
+    }
+
+    /// Positions the interaction overlay to match an object's bounding rect and shows it.
+    func showInteractionLayer(_ layer: CALayer, for rect: CGRect) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.frame    = rect.insetBy(dx: -2, dy: -2)  // slight outset for shadow room
+        layer.isHidden = false
+        CATransaction.commit()
+    }
+
+    /// Hides the interaction overlay, resetting shadow and transform.
+    func hideInteractionLayer(_ layer: CALayer) {
+        layer.removeAnimation(forKey: "selectScale")
+        layer.removeAnimation(forKey: "softShadow")
+        layer.removeAnimation(forKey: "softShadowReset")
+        layer.removeAnimation(forKey: "selectionGlow")
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.isHidden  = true
+        layer.transform = CATransform3DIdentity
+        layer.shadowOffset = CGSize(width: 0, height: 2)
+        layer.shadowRadius = 4.0
+        layer.shadowOpacity = 0.10
+        CATransaction.commit()
+    }
+
     // MARK: - Drag Inertia
 
     /// Applies momentum carry to a layer's position after a drag release.

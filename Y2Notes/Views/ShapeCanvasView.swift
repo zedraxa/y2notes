@@ -50,6 +50,7 @@ final class ShapeCanvasView: UIView {
     private var activeHandle: HandlePosition?
     private var isDragging = false
     private let snapAlignEngine = SnapAlignEffectEngine()
+    private let microEngine = MicroInteractionEngine()
 
     // MARK: - Init
 
@@ -305,9 +306,24 @@ final class ShapeCanvasView: UIView {
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         let point = gesture.location(in: self)
         if let shape = shapeAt(point) {
+            // Deselect previous shape's layer effects
+            if let prevID = selectedShapeID, prevID != shape.id,
+               let prevLayer = shapeLayers[prevID] {
+                microEngine.playDeselectScale(on: prevLayer)
+            }
             selectedShapeID = shape.id
             onSelectionChanged?(shape.id)
+
+            // Physics: scale up + glow on select
+            if let shapeLayer = shapeLayers[shape.id] {
+                microEngine.playSelectScale(on: shapeLayer)
+                microEngine.playSelectionGlow(on: shapeLayer)
+            }
         } else {
+            // Physics: scale down previous selection
+            if let prevID = selectedShapeID, let prevLayer = shapeLayers[prevID] {
+                microEngine.playDeselectScale(on: prevLayer)
+            }
             selectedShapeID = nil
             onSelectionChanged?(nil)
         }
@@ -340,6 +356,12 @@ final class ShapeCanvasView: UIView {
                 dragStartFrame = shape.frame
                 isDragging = true
                 activeHandle = nil
+
+                // Physics: scale up + shadow on drag start
+                if let shapeLayer = shapeLayers[shape.id] {
+                    microEngine.playSelectScale(on: shapeLayer)
+                    microEngine.playSoftShadow(on: shapeLayer, dragDirection: .zero)
+                }
             }
 
         case .changed:
@@ -396,11 +418,36 @@ final class ShapeCanvasView: UIView {
 
                 // Haptic feedback for perfect dual-axis alignment
                 snapAlignEngine.updatePerfectAlignment(isAligned: snappedX && snappedY)
+
+                // Physics: update shadow direction
+                if let shapeLayer = shapeLayers[selectedID] {
+                    let vel = gesture.velocity(in: self)
+                    let mag = max(hypot(vel.x, vel.y), 1.0)
+                    let dir = CGPoint(x: vel.x / mag, y: vel.y / mag)
+                    microEngine.playSoftShadow(on: shapeLayer, dragDirection: dir)
+                }
             }
             renderShapes()
 
         case .ended, .cancelled:
             if isDragging {
+                // Physics: inertia + release bounce on the shape layer
+                if activeHandle == nil, let selectedID = selectedShapeID,
+                   let idx = shapes.firstIndex(where: { $0.id == selectedID }) {
+                    let vel = gesture.velocity(in: self)
+                    let decayFactor: CGFloat = 0.12
+                    let inertiaX = vel.x * decayFactor
+                    let inertiaY = vel.y * decayFactor
+                    if abs(inertiaX) > 1 || abs(inertiaY) > 1 {
+                        shapes[idx].frame.origin.x += inertiaX
+                        shapes[idx].frame.origin.y += inertiaY
+                    }
+                    if let shapeLayer = shapeLayers[selectedID] {
+                        microEngine.resetSoftShadow(on: shapeLayer)
+                        microEngine.playReleaseBounce(on: shapeLayer)
+                    }
+                    renderShapes()
+                }
                 isDragging = false
                 activeHandle = nil
                 onShapesChanged?(shapes)

@@ -39,6 +39,8 @@ final class StickerCanvasView: UIView {
     private var initialScale: CGFloat = 1.0
     private var initialRotation: CGFloat = 0
     private let snapAlignEngine = SnapAlignEffectEngine()
+    private let microEngine = MicroInteractionEngine()
+    private let interactionLayer = CALayer()
 
     // MARK: - Init
 
@@ -74,6 +76,10 @@ final class StickerCanvasView: UIView {
         // Allow simultaneous pinch + rotate
         pinch.delegate = self
         rotate.delegate = self
+
+        // Interaction overlay for physics effects (shadow / scale)
+        microEngine.configureInteractionLayer(interactionLayer)
+        layer.addSublayer(interactionLayer)
     }
 
     // MARK: - Drawing
@@ -233,12 +239,44 @@ final class StickerCanvasView: UIView {
 
     // MARK: - Gesture Handlers
 
+    /// Computes a sticker's visual bounding rect (using image size or default).
+    private func stickerBoundingRect(_ sticker: StickerInstance) -> CGRect {
+        let baseSize: CGSize
+        if let image = imageProvider?(sticker.stickerID) {
+            baseSize = CGSize(width: image.size.width * sticker.scale,
+                              height: image.size.height * sticker.scale)
+        } else {
+            let s: CGFloat = 48 * sticker.scale
+            baseSize = CGSize(width: s, height: s)
+        }
+        return CGRect(x: sticker.position.x - baseSize.width / 2,
+                      y: sticker.position.y - baseSize.height / 2,
+                      width: baseSize.width, height: baseSize.height)
+    }
+
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         let point = gesture.location(in: self)
         if let tapped = stickerAt(point: point) {
+            // Deselect previous if switching
+            if selectedStickerID != nil && selectedStickerID != tapped.id {
+                microEngine.hideInteractionLayer(interactionLayer)
+            }
             selectedStickerID = tapped.id
             onStickerSelected?(tapped.id)
+
+            // Physics: scale up + glow on select
+            let rect = stickerBoundingRect(tapped)
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+            microEngine.playSelectScale(on: interactionLayer)
+            microEngine.playSelectionGlow(on: interactionLayer)
         } else {
+            // Physics: scale down on deselect
+            if selectedStickerID != nil {
+                microEngine.playDeselectScale(on: interactionLayer)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                    self?.microEngine.hideInteractionLayer(self?.interactionLayer ?? CALayer())
+                }
+            }
             selectedStickerID = nil
             onStickerSelected?(nil)
         }
@@ -254,6 +292,9 @@ final class StickerCanvasView: UIView {
             panStart = gesture.location(in: self)
             initialPosition = stickers[idx].position
             snapAlignEngine.prepareHaptics()
+
+            // Physics: soft shadow + keep overlay tracking
+            microEngine.playSoftShadow(on: interactionLayer, dragDirection: .zero)
         case .changed:
             let current = gesture.location(in: self)
             let dx = current.x - panStart.x
@@ -280,7 +321,33 @@ final class StickerCanvasView: UIView {
 
             stickers[idx].position = newPos
             setNeedsDisplay()
+
+            // Physics: update shadow direction + track overlay
+            let vel = gesture.velocity(in: self)
+            let mag = max(hypot(vel.x, vel.y), 1.0)
+            let dir = CGPoint(x: vel.x / mag, y: vel.y / mag)
+            microEngine.playSoftShadow(on: interactionLayer, dragDirection: dir)
+            let rect = stickerBoundingRect(stickers[idx])
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+
         case .ended, .cancelled:
+            // Physics: inertia nudge + release bounce
+            let vel = gesture.velocity(in: self)
+            let decayFactor: CGFloat = 0.12
+            let inertiaX = vel.x * decayFactor
+            let inertiaY = vel.y * decayFactor
+            if abs(inertiaX) > 1 || abs(inertiaY) > 1 {
+                stickers[idx].position.x += inertiaX
+                stickers[idx].position.y += inertiaY
+            }
+            microEngine.resetSoftShadow(on: interactionLayer)
+            microEngine.playReleaseBounce(on: interactionLayer)
+            setNeedsDisplay()
+
+            // Re-position overlay after inertia
+            let rect = stickerBoundingRect(stickers[idx])
+            microEngine.showInteractionLayer(interactionLayer, for: rect)
+
             onStickerTransformed?(stickers[idx])
         default: break
         }
