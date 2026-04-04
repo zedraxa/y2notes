@@ -144,6 +144,20 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    /// Sets the ruling override for a single page within a note.
+    /// Pass nil to clear the per-page override and inherit from the note-level setting.
+    func updatePageType(for noteID: UUID, pageIndex: Int, pageType: PageType?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.indices.contains(pageIndex) else { return }
+        // Grow pageTypes to match pages count if needed (backward compat with old notes)
+        while notes[idx].pageTypes.count < notes[idx].pages.count {
+            notes[idx].pageTypes.append(nil)
+        }
+        notes[idx].pageTypes[pageIndex] = pageType
+        notes[idx].modifiedAt = Date()
+        save()
+    }
+
     /// Sets or clears the per-note paper material override.
     /// Pass nil to inherit from the notebook (or fall back to `.standard` for unfiled notes).
     func updatePaperMaterial(for noteID: UUID, paperMaterial: PaperMaterial?) {
@@ -162,6 +176,81 @@ final class NoteStore: ObservableObject {
         isDirty = true
     }
 
+    /// Updates drawing data for a specific page within a multi-page note.
+    func updateDrawing(for noteID: UUID, pageIndex: Int, data: Data) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        guard pageIndex >= 0 && pageIndex < notes[idx].pages.count else { return }
+        notes[idx].pages[pageIndex] = data
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
+    /// Appends a blank page to the note and returns the new page index.
+    @discardableResult
+    func addPage(to noteID: UUID) -> Int? {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return nil }
+        notes[idx].pages.append(Data())
+        // Keep pageTypes in sync with pages so per-page ruling can be set on the new page.
+        notes[idx].pageTypes.append(nil)  // nil = inherit from note-level pageType
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        return notes[idx].pages.count - 1
+    }
+
+    /// Removes a page at the given index.  A note must always keep at least
+    /// one page — the call is a no-op when only one page remains.
+    func removePage(from noteID: UUID, at pageIndex: Int) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.count > 1,
+              notes[idx].pages.indices.contains(pageIndex) else { return }
+        notes[idx].pages.remove(at: pageIndex)
+        if notes[idx].pageTypes.indices.contains(pageIndex) {
+            notes[idx].pageTypes.remove(at: pageIndex)
+        }
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
+    /// Reorders pages within a note by moving a page from one index to another.
+    func reorderPageInNote(noteID: UUID, from source: Int, to destination: Int) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.indices.contains(source),
+              destination >= 0, destination <= notes[idx].pages.count else { return }
+        let page = notes[idx].pages.remove(at: source)
+        let insertAt = destination > source ? destination - 1 : destination
+        notes[idx].pages.insert(page, at: min(insertAt, notes[idx].pages.count))
+        // Keep per-page types in sync during reorder
+        if notes[idx].pageTypes.indices.contains(source) {
+            let pt = notes[idx].pageTypes.remove(at: source)
+            let ptInsert = min(insertAt, notes[idx].pageTypes.count)
+            notes[idx].pageTypes.insert(pt, at: ptInsert)
+        }
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
+    /// Duplicates a page within a note, inserting the copy immediately after the original.
+    @discardableResult
+    func duplicatePageInNote(noteID: UUID, pageIndex: Int) -> Int? {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.indices.contains(pageIndex) else { return nil }
+        let copy = notes[idx].pages[pageIndex]
+        let insertIndex = pageIndex + 1
+        notes[idx].pages.insert(copy, at: insertIndex)
+        // Duplicate the per-page type as well so the copy inherits the same ruling.
+        let ptCopy: PageType? = notes[idx].pageTypes.indices.contains(pageIndex)
+            ? notes[idx].pageTypes[pageIndex] : nil
+        // Grow pageTypes to match pages length (minus 1 — the new page hasn't been counted yet).
+        // This handles old notes that were saved before per-page pageTypes existed.
+        while notes[idx].pageTypes.count < notes[idx].pages.count - 1 {
+            notes[idx].pageTypes.append(nil)
+        }
+        notes[idx].pageTypes.insert(ptCopy, at: min(insertIndex, notes[idx].pageTypes.count))
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        return insertIndex
+    }
+
     /// Creates a copy of the note inserted directly after the original.
     @discardableResult
     func duplicateNote(id: UUID) -> Note? {
@@ -170,7 +259,7 @@ final class NoteStore: ObservableObject {
             title: original.title.isEmpty ? "Copy" : "\(original.title) (Copy)",
             createdAt: Date(),
             modifiedAt: Date(),
-            drawingData: original.drawingData,
+            pages: original.pages,
             isFavorited: false,
             notebookID: original.notebookID,
             sectionID: original.sectionID,

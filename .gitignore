@@ -1,19 +1,79 @@
-# Xcode
+# ── Xcode ──────────────────────────────────────────────────────────
 build/
+DerivedData/
 *.xcuserstate
 xcuserdata/
 *.xccheckout
+*.xcscmblueprint
 *.moved-aside
-DerivedData/
 *.hmap
 *.ipa
-*.dSYM.zip
 *.dSYM
+*.dSYM.zip
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 
-# Swift Package Manager
+# ── Swift Package Manager ─────────────────────────────────────────
 .build/
 .swiftpm/
+Package.resolved
 
-# macOS
+# ── CocoaPods ─────────────────────────────────────────────────────
+Pods/
+*.xcworkspace
+!Y2Notes.xcodeproj/project.xcworkspace
+
+# ── Carthage ──────────────────────────────────────────────────────
+Carthage/Build/
+Carthage/Checkouts/
+
+# ── Fastlane ──────────────────────────────────────────────────────
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# ── Code signing ──────────────────────────────────────────────────
+*.mobileprovision
+*.p12
+*.cer
+*.pem
+
+# ── Archives & exports ────────────────────────────────────────────
+*.xcarchive
+*.app
+
+# ── macOS / System ────────────────────────────────────────────────
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
 *.swp
+*.swo
+*~
+.Spotlight-V100
+.Trashes
+
+# ── Editors ───────────────────────────────────────────────────────
+.idea/
+*.sublime-workspace
+*.sublime-project
+.vscode/
+*.code-workspace
+
+# ── Testing / Coverage ────────────────────────────────────────────
+*.gcno
+*.gcda
+*.profdata
+*.profraw
+coverage/
+test_output/
+.scan/
+
+# ── Codemagic / CI ────────────────────────────────────────────────
+/tmp/xcodebuild_logs/
+
+# ── Misc ──────────────────────────────────────────────────────────
+*.orig
+*.bak
+*.log
+Thumbs.db

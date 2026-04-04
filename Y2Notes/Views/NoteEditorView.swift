@@ -58,6 +58,12 @@ struct NoteEditorView: View {
     /// Whether the "Create Flashcard" sheet is visible.
     @State private var showCreateFlashcard = false
 
+    /// Whether the page overview grid is visible (triggered by pinch-to-overview gesture).
+    @State private var showPageOverview = false
+
+    /// Zero-based index of the currently displayed page.
+    @State private var currentPageIndex = 0
+
     private let searchService = SearchService()
 
     init(note: Note) {
@@ -74,9 +80,17 @@ struct NoteEditorView: View {
         return noteStore.notebooks.first { $0.id == id }
     }
 
-    /// Page ruling style: note-level override → notebook setting → `.blank` fallback.
+    /// Note-level page ruling fallback: note.pageType → notebook.pageType → .blank.
+    /// This is the default when no per-page override exists.
+    /// Use `effectivePageType(forPage:)` for per-page resolution.
     private var effectivePageType: PageType {
         note.pageType ?? notebook?.pageType ?? .blank
+    }
+
+    /// Per-page ruling style for a given page index.
+    /// Cascade: pageTypes[index] → note.pageType → notebook.pageType → .blank
+    private func effectivePageType(forPage index: Int) -> PageType {
+        note.pageType(forPage: index) ?? notebook?.pageType ?? .blank
     }
 
     /// Paper material: note-level override → notebook setting → `.standard` fallback.
@@ -124,9 +138,16 @@ struct NoteEditorView: View {
                 if isTextMode {
                     textLayer
                 } else {
+                    let safePageIndex: Int = {
+                        guard !note.pages.isEmpty else { return 0 }
+                        return min(currentPageIndex, note.pages.count - 1)
+                    }()
+                    let currentPageData = note.pages.indices.contains(safePageIndex)
+                        ? note.pages[safePageIndex] : Data()
+
                     CanvasView(
                         noteID: note.id,
-                        drawingData: note.drawingData,
+                        drawingData: currentPageData,
                         backgroundColor: canvasBackgroundColor,
                         defaultInkColor: effectiveDefinition.contrastingInkColor,
                         currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
@@ -136,12 +157,13 @@ struct NoteEditorView: View {
                         shapeWidth: toolStore.activeWidth,
                         drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
                         zoomResetTrigger: zoomResetTrigger,
-                        pageType: effectivePageType,
+                        pageType: effectivePageType(forPage: safePageIndex),
                         paperMaterial: effectivePaperMaterial,
                         activeFX: inkStore.resolvedFX,
                         fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
+                        pageIndex: safePageIndex,
                         onDrawingChanged: { data in
-                            noteStore.updateDrawing(for: note.id, data: data)
+                            noteStore.updateDrawing(for: note.id, pageIndex: safePageIndex, data: data)
                         },
                         onSaveRequested: {
                             noteStore.save()
@@ -149,11 +171,32 @@ struct NoteEditorView: View {
                         onUndoStateChanged: { canUndoVal, canRedoVal in
                             canUndo = canUndoVal
                             canRedo = canRedoVal
+                        },
+                        onPageSwipe: { direction in
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                if direction > 0 {
+                                    currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                                } else {
+                                    currentPageIndex = max(0, currentPageIndex - 1)
+                                }
+                            }
+                        },
+                        onPinchToOverview: {
+                            showPageOverview = true
                         }
                     )
+                    // Force recreation on page change so makeUIView loads the new drawing.
+                    .id("\(note.id)-\(safePageIndex)")
+                    // Cross-fade transition between pages: SwiftUI animates the opacity
+                    // removal of the old canvas and insertion of the new one via .id().
+                    .transition(.opacity)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
                     .padding(.horizontal, 1)
+                    .animation(.easeInOut(duration: 0.22), value: safePageIndex)
+
+                    // Page navigation bar — book-like experience
+                    pageNavigationBar
                 }
             }  // end VStack
 
@@ -290,6 +333,14 @@ struct NoteEditorView: View {
         .sheet(isPresented: $showCreateFlashcard) {
             NoteFlashcardSheet(note: note)
         }
+        .sheet(isPresented: $showPageOverview) {
+            PageOverviewGrid(
+                note: note,
+                currentPageIndex: $currentPageIndex,
+                canvasBackground: canvasBackgroundColor,
+                onDismiss: { showPageOverview = false }
+            )
+        }
     }
 
     // MARK: - Background blend helper
@@ -347,9 +398,28 @@ struct NoteEditorView: View {
     /// GoodNotes-style page setup menu — lets users change the page ruling and paper material
     /// for the current note without leaving the editor.
     private var pageSetupMenu: some View {
-        Menu {
-            // Paper type section
-            Section("Paper Type") {
+        let safePageIndex: Int = min(currentPageIndex, max(0, note.pageCount - 1))
+        let currentPagePT = effectivePageType(forPage: safePageIndex)
+        return Menu {
+            // Per-page ruling section — only changes the current page
+            Section("This Page") {
+                ForEach(PageType.allCases) { pt in
+                    Button {
+                        noteStore.updatePageType(for: note.id, pageIndex: safePageIndex, pageType: pt)
+                    } label: {
+                        if currentPagePT == pt {
+                            Label(pt.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pt.displayName, systemImage: pt.systemImage)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            // Note-level ruling — applies to all pages that have no per-page override
+            Section("All Pages") {
                 ForEach(PageType.allCases) { pt in
                     Button {
                         noteStore.updatePageType(for: note.id, pageType: pt)
@@ -563,6 +633,74 @@ struct NoteEditorView: View {
         textSaveTimer = nil
         noteStore.updateTypedText(for: note.id, text: typedTextContent)
     }
+
+    // MARK: - Page navigation (book-like experience)
+
+    /// Horizontal bar with prev/next buttons, page indicator, overview, and add-page action.
+    private var pageNavigationBar: some View {
+        HStack(spacing: 16) {
+            // Previous page
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    currentPageIndex = max(0, currentPageIndex - 1)
+                }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 32, height: 32)
+            }
+            .disabled(currentPageIndex <= 0)
+            .accessibilityLabel("Previous page")
+
+            Spacer()
+
+            // Page overview button — opens the grid view
+            Button {
+                showPageOverview = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "square.grid.2x2")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Page \(currentPageIndex + 1) of \(note.pageCount)")
+                        .font(.subheadline.monospacedDigit())
+                }
+                .foregroundStyle(.secondary)
+            }
+            .accessibilityLabel("Page \(currentPageIndex + 1) of \(note.pageCount). Tap to open page overview.")
+
+            Spacer()
+
+            // Add page
+            Button {
+                if let newIndex = noteStore.addPage(to: note.id) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        currentPageIndex = newIndex
+                    }
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 32, height: 32)
+            }
+            .accessibilityLabel("Add page")
+
+            // Next page
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 32, height: 32)
+            }
+            .disabled(currentPageIndex >= note.pageCount - 1)
+            .accessibilityLabel("Next page")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color(uiColor: .secondarySystemBackground).opacity(0.85))
+    }
 }
 
 // MARK: - PencilKit canvas bridge
@@ -610,10 +748,17 @@ private struct CanvasView: UIViewRepresentable {
     let activeFX: WritingFXType
     /// Ink colour resolved for the active FX preset.
     let fxColor: UIColor
+    /// Zero-based page index within the multi-page note.
+    let pageIndex: Int
     let onDrawingChanged: (Data) -> Void
     let onSaveRequested: () -> Void
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
     let onUndoStateChanged: ((Bool, Bool) -> Void)?
+    /// Called when a two-finger swipe gesture requests a page change.
+    /// Positive = next page, negative = previous page.
+    let onPageSwipe: ((Int) -> Void)?
+    /// Called when a pinch-in gesture requests the page overview.
+    let onPinchToOverview: (() -> Void)?
 
     // MARK: - Page dimensions
 
@@ -631,7 +776,12 @@ private struct CanvasView: UIViewRepresentable {
     }()
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onDrawingChanged: onDrawingChanged, onSaveRequested: onSaveRequested)
+        Coordinator(
+            onDrawingChanged: onDrawingChanged,
+            onSaveRequested: onSaveRequested,
+            onPageSwipe: onPageSwipe,
+            onPinchToOverview: onPinchToOverview
+        )
     }
 
     func makeUIView(context: Context) -> UIView {
@@ -744,6 +894,33 @@ private struct CanvasView: UIViewRepresentable {
         engine.configure(fx: activeFX, color: fxColor)
         engine.attach(to: container)
         context.coordinator.effectEngine = engine
+
+        // ── Page gestures (two-finger swipe + three-finger pinch) ─────────
+        // Two-finger swipe left/right to navigate pages — avoids conflict
+        // with Apple Pencil drawing (single touch) and canvas zoom (pinch).
+        let swipeLeft = UISwipeGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handlePageSwipe(_:))
+        )
+        swipeLeft.direction = .left
+        swipeLeft.numberOfTouchesRequired = 2
+        container.addGestureRecognizer(swipeLeft)
+
+        let swipeRight = UISwipeGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handlePageSwipe(_:))
+        )
+        swipeRight.direction = .right
+        swipeRight.numberOfTouchesRequired = 2
+        container.addGestureRecognizer(swipeRight)
+
+        // Pinch-in opens page overview grid.
+        let pinchOverview = UIPinchGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handlePinchToOverview(_:))
+        )
+        container.addGestureRecognizer(pinchOverview)
+        context.coordinator.pinchOverviewGesture = pinchOverview
 
         // ── Book feel: page shadow ──────────────────────────────────────────
         container.layer.shadowColor   = UIColor.black.cgColor
@@ -871,9 +1048,13 @@ private struct CanvasView: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, PKCanvasViewDelegate {
+    final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate {
         let onDrawingChanged: (Data) -> Void
         let onSaveRequested: () -> Void
+        /// Page swipe callback: +1 next, −1 previous.
+        let onPageSwipe: ((Int) -> Void)?
+        /// Pinch-to-overview callback.
+        let onPinchToOverview: (() -> Void)?
         weak var canvas: PKCanvasView?
         weak var shapeOverlay: ShapeOverlayView?
         /// Page ruling / background view placed behind the canvas.
@@ -891,6 +1072,9 @@ private struct CanvasView: UIViewRepresentable {
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
+
+        /// Pinch gesture recognizer for page overview.
+        var pinchOverviewGesture: UIPinchGestureRecognizer?
 
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
@@ -915,12 +1099,55 @@ private struct CanvasView: UIViewRepresentable {
         private var contentOffsetObservation: NSKeyValueObservation?
         private var zoomScaleObservation: NSKeyValueObservation?
 
-        init(onDrawingChanged: @escaping (Data) -> Void, onSaveRequested: @escaping () -> Void) {
+        init(
+            onDrawingChanged: @escaping (Data) -> Void,
+            onSaveRequested: @escaping () -> Void,
+            onPageSwipe: ((Int) -> Void)? = nil,
+            onPinchToOverview: (() -> Void)? = nil
+        ) {
             self.onDrawingChanged = onDrawingChanged
             self.onSaveRequested  = onSaveRequested
+            self.onPageSwipe      = onPageSwipe
+            self.onPinchToOverview = onPinchToOverview
+        }
+
+        // MARK: - Page gesture handlers
+
+        /// Two-finger swipe handler for page navigation.
+        @objc func handlePageSwipe(_ gesture: UISwipeGestureRecognizer) {
+            guard !isDrawing else { return }
+            switch gesture.direction {
+            case .left:
+                onPageSwipe?(1)   // Next page
+            case .right:
+                onPageSwipe?(-1)  // Previous page
+            default:
+                break
+            }
+        }
+
+        /// Pinch-in handler for page overview.
+        @objc func handlePinchToOverview(_ gesture: UIPinchGestureRecognizer) {
+            guard gesture.state == .ended else { return }
+            // Only trigger on pinch-in (scale < 0.7) with 2+ fingers.
+            if gesture.scale < 0.7 && gesture.numberOfTouches >= 2 {
+                onPinchToOverview?()
+            }
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
+
+        /// Converts a PKDrawing content-space point to the viewport/overlay
+        /// coordinate space so that ink-effect particles render at the correct
+        /// on-screen position regardless of zoom/scroll state.
+        private func viewportPoint(from contentPoint: CGPoint, in canvasView: PKCanvasView) -> CGPoint {
+            let z = canvasView.zoomScale
+            let o = canvasView.contentOffset
+            return CGPoint(
+                x: contentPoint.x * z - o.x,
+                y: contentPoint.y * z - o.y
+            )
+        }
 
         func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = true
@@ -929,11 +1156,12 @@ private struct CanvasView: UIViewRepresentable {
                 barrelRollBaseWidth = inkTool.width
             }
             // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
+            // At stroke-begin the new stroke hasn't been committed to the drawing
+            // yet, so we use the viewport center as a reasonable start point.
+            // The next onStrokeUpdated call will snap the emitter to the real nib.
             if let engine = effectEngine {
-                let lastStroke = canvasView.drawing.strokes.last
-                let point = lastStroke?.path.last.map { CGPoint(x: $0.location.x, y: $0.location.y) }
-                    ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-                engine.onStrokeBegan(at: point)
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                engine.onStrokeBegan(at: center)
             }
         }
 
@@ -943,8 +1171,9 @@ private struct CanvasView: UIViewRepresentable {
             // Notify effect engine of stroke end for ripple / fire cooldown.
             if let engine = effectEngine {
                 let lastStroke = canvasView.drawing.strokes.last
-                let point = lastStroke?.path.last.map { CGPoint(x: $0.location.x, y: $0.location.y) }
-                    ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                let point = lastStroke?.path.last.map {
+                    viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
+                } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
         }
@@ -956,10 +1185,16 @@ private struct CanvasView: UIViewRepresentable {
             onDrawingChanged(data)
 
             // Feed latest stroke point to the effect engine for fire/sparkle tracking.
+            // Convert from PKDrawing content coordinates to the overlay's viewport
+            // coordinates so particles appear at the correct on-screen position.
             if let engine = effectEngine {
                 let lastStroke = canvasView.drawing.strokes.last
                 if let lastPoint = lastStroke?.path.last {
-                    engine.onStrokeUpdated(at: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y))
+                    let vp = viewportPoint(
+                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                        in: canvasView
+                    )
+                    engine.onStrokeUpdated(at: vp)
                 }
             }
 
@@ -1017,6 +1252,28 @@ private struct CanvasView: UIViewRepresentable {
             bg.transform = CGAffineTransform(scaleX: z, y: z)
                 .concatenating(CGAffineTransform(translationX: tx, y: ty))
             CATransaction.commit()
+        }
+
+        // MARK: - UIScrollViewDelegate (zoom centering)
+
+        /// Centers the canvas content when zoomed out below 1× so the page
+        /// stays centered on screen rather than pinning to the top-left corner.
+        /// This fixes the "can only zoom into the left corner" issue.
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            let boundsSize  = scrollView.bounds.size
+            let contentSize = scrollView.contentSize
+
+            // Horizontal centering: when scaled content is narrower than viewport
+            let xInset = max(0, (boundsSize.width  - contentSize.width)  / 2)
+            // Vertical centering: when scaled content is shorter than viewport
+            let yInset = max(0, (boundsSize.height - contentSize.height) / 2)
+
+            scrollView.contentInset = UIEdgeInsets(
+                top: yInset, left: xInset,
+                bottom: yInset, right: xInset
+            )
+
+            syncBackgroundWithCanvas(scrollView)
         }
     }
 }
@@ -1482,6 +1739,222 @@ struct NoteFlashcardSheet: View {
                 }
                 frontFocused = true
             }
+        }
+    }
+}
+
+// MARK: - Page Overview Grid
+
+/// Full-screen grid of page thumbnails shown via pinch-to-overview gesture or
+/// the page indicator button. Tap a thumbnail to jump to that page.
+///
+/// Each page is rendered as a miniature `PKDrawing` snapshot on a background
+/// that matches the note's canvas colour.
+private struct PageOverviewGrid: View {
+    let note: Note
+    @Binding var currentPageIndex: Int
+    let canvasBackground: UIColor
+    let onDismiss: () -> Void
+
+    @EnvironmentObject var noteStore: NoteStore
+
+    /// Thumbnails are generated asynchronously — keyed by page index.
+    @State private var thumbnails: [Int: UIImage] = [:]
+    /// Page index pending deletion confirmation.
+    @State private var pageToDelete: Int?
+    /// Whether the delete confirmation alert is shown.
+    @State private var showDeleteConfirmation = false
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 160, maximum: 240), spacing: 16)
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(0..<note.pageCount, id: \.self) { index in
+                            pageCell(index: index)
+                                .id(index)
+                                .draggable(index) {
+                                    // Drag preview — page number badge
+                                    Text("Page \(index + 1)")
+                                        .font(.caption.bold())
+                                        .padding(8)
+                                        .background(.ultraThinMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                }
+                                .dropDestination(for: Int.self) { items, _ in
+                                    guard let source = items.first, source != index else { return false }
+                                    noteStore.reorderPageInNote(noteID: note.id, from: source, to: index)
+                                    // Adjust current page index after reorder
+                                    if currentPageIndex == source {
+                                        currentPageIndex = index
+                                    } else if source < currentPageIndex && index >= currentPageIndex {
+                                        currentPageIndex -= 1
+                                    } else if source > currentPageIndex && index <= currentPageIndex {
+                                        currentPageIndex += 1
+                                    }
+                                    thumbnails.removeAll()  // Regenerate all thumbnails
+                                    return true
+                                }
+                        }
+                    }
+                    .padding(16)
+                }
+                .onAppear {
+                    proxy.scrollTo(currentPageIndex, anchor: .center)
+                }
+            }
+            .navigationTitle("Pages")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { onDismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        if let newIndex = noteStore.addPage(to: note.id) {
+                            currentPageIndex = newIndex
+                            onDismiss()
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add page")
+                }
+            }
+            .alert("Delete Page?", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { pageToDelete = nil }
+                Button("Delete", role: .destructive) {
+                    if let page = pageToDelete {
+                        let wasOnDeletedPage = currentPageIndex == page
+                        noteStore.removePage(from: note.id, at: page)
+                        thumbnails.removeAll()
+                        if wasOnDeletedPage {
+                            currentPageIndex = max(0, min(currentPageIndex, note.pageCount - 2))
+                        } else if page < currentPageIndex {
+                            currentPageIndex -= 1
+                        }
+                        pageToDelete = nil
+                    }
+                }
+            } message: {
+                if let page = pageToDelete {
+                    Text("Page \(page + 1) will be permanently deleted. This cannot be undone.")
+                }
+            }
+        }
+    }
+
+    // MARK: - Page cell
+
+    @ViewBuilder
+    private func pageCell(index: Int) -> some View {
+        let isSelected = index == currentPageIndex
+
+        Button {
+            currentPageIndex = index
+            onDismiss()
+        } label: {
+            VStack(spacing: 6) {
+                ZStack {
+                    // Background matching canvas colour
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(uiColor: canvasBackground))
+
+                    if let thumb = thumbnails[index] {
+                        Image(uiImage: thumb)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(4)
+                    } else {
+                        // Placeholder while thumbnail renders
+                        ProgressView()
+                    }
+                }
+                .frame(height: 200)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(
+                            isSelected ? Color.accentColor : Color(uiColor: .separator),
+                            lineWidth: isSelected ? 3 : 1
+                        )
+                )
+                .shadow(color: .black.opacity(isSelected ? 0.15 : 0.05), radius: isSelected ? 4 : 2)
+
+                Text("Page \(index + 1)")
+                    .font(.caption.weight(isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Page \(index + 1)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .contextMenu {
+            Button {
+                currentPageIndex = index
+                onDismiss()
+            } label: {
+                Label("Go to Page", systemImage: "arrow.right")
+            }
+
+            Button {
+                if let newIdx = noteStore.duplicatePageInNote(noteID: note.id, pageIndex: index) {
+                    thumbnails.removeAll()
+                    currentPageIndex = newIdx
+                }
+            } label: {
+                Label("Duplicate Page", systemImage: "doc.on.doc")
+            }
+
+            if note.pageCount > 1 {
+                Divider()
+                Button(role: .destructive) {
+                    pageToDelete = index
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete Page", systemImage: "trash")
+                }
+            }
+        }
+        .task(id: "\(note.id)-\(index)-\(note.pages.indices.contains(index) ? note.pages[index].count : 0)") {
+            await generateThumbnail(for: index)
+        }
+    }
+
+    // MARK: - Thumbnail generation
+
+    /// Renders a miniature image of the page's PKDrawing off the main thread.
+    private func generateThumbnail(for index: Int) async {
+        guard note.pages.indices.contains(index) else { return }
+        let data = note.pages[index]
+        guard !data.isEmpty else {
+            // Blank page — no thumbnail needed
+            thumbnails[index] = nil
+            return
+        }
+
+        let image = await Task.detached(priority: .utility) {
+            guard let drawing = try? PKDrawing(data: data) else { return nil as UIImage? }
+            let bounds = drawing.bounds
+            guard !bounds.isEmpty else { return nil as UIImage? }
+
+            // Expand bounds slightly to avoid clipping edge strokes.
+            let padding: CGFloat = 20
+            let renderRect = bounds.insetBy(dx: -padding, dy: -padding)
+
+            // Scale to thumbnail size (max 240pt wide).
+            let maxDimension: CGFloat = 240
+            let scale = min(maxDimension / renderRect.width, maxDimension / renderRect.height, 1.0)
+
+            return drawing.image(from: renderRect, scale: scale * UIScreen.main.scale)
+        }.value
+
+        if let image {
+            thumbnails[index] = image
         }
     }
 }

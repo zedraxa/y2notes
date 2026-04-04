@@ -120,3 +120,118 @@
 "Common.Rename"                   = "Rename";
 "Common.Done"                     = "Done";
 "Common.OK"                       = "OK";
+"Common.Save"                     = "Save";
+"Common.Edit"                     = "Edit";
+"Common.Close"                    = "Close";
+"Common.Confirm"                  = "Confirm";
+"Common.Error"                    = "Error";
+"Common.Success"                  = "Success";
+"Common.Loading"                  = "Loading…";
+
+/* ── Pages ─────────────────────────────────────────────────────── */
+
+"Pages.PageOf"                    = "Page %d of %d";
+"Pages.AddPage"                   = "Add Page";
+"Pages.RemovePage"                = "Remove Page";
+"Pages.PreviousPage"              = "Previous Page";
+"Pages.NextPage"                  = "Next Page";
+"Pages.Overview"                  = "Pages";
+"Pages.OverviewHint"              = "Tap to open page overview";
+"Pages.SwipeHint"                 = "Swipe left or right with two fingers to change pages";
+
+/* ── Notebooks ─────────────────────────────────────────────────── */
+
+"Notebook.Create"                 = "Create Notebook";
+"Notebook.Name"                   = "Notebook Name";
+"Notebook.Cover"                  = "Cover";
+"Notebook.PageType"               = "Page Type";
+"Notebook.PaperMaterial"          = "Paper Material";
+"Notebook.Sections"               = "Sections";
+"Notebook.ManageSections"         = "Manage Sections";
+"Notebook.NewSection"             = "New Section";
+"Notebook.RenameSection"          = "Rename Section";
+"Notebook.DeleteSection"          = "Delete Section";
+"Notebook.Unsectioned"            = "Unsectioned";
+"Notebook.MoveNote"               = "Move Note";
+
+/* ── Study ─────────────────────────────────────────────────────── */
+
+"Study.NewSet"                    = "New Study Set";
+"Study.SetName"                   = "Set Name";
+"Study.AddCard"                   = "Add Card";
+"Study.EditCard"                  = "Edit Card";
+"Study.Front"                     = "Front";
+"Study.Back"                      = "Back";
+"Study.Tags"                      = "Tags";
+"Study.StartSession"              = "Start Session";
+"Study.EndSession"                = "End Session";
+"Study.ShowAnswer"                = "Show Answer";
+"Study.Again"                     = "Again";
+"Study.Hard"                      = "Hard";
+"Study.Good"                      = "Good";
+"Study.Easy"                      = "Easy";
+"Study.CardsRemaining"            = "Cards Remaining";
+"Study.SessionComplete"           = "Session Complete";
+"Study.BulkImport"                = "Bulk Import";
+"Study.BulkImportHint"            = "One card per line, separated by ::";
+"Study.MasteryNew"                = "New";
+"Study.MasteryLearning"           = "Learning";
+"Study.MasteryReviewing"          = "Reviewing";
+"Study.MasteryMastered"           = "Mastered";
+"Study.Stats"                     = "Statistics";
+"Study.TotalReviews"              = "Total Reviews";
+"Study.AverageQuality"            = "Average Quality";
+"Study.CurrentStreak"             = "Current Streak";
+
+/* ── PDF ───────────────────────────────────────────────────────── */
+
+"PDF.Import"                      = "Import PDF";
+"PDF.PageOf"                      = "Page %d of %d";
+"PDF.Annotate"                    = "Annotate";
+"PDF.ClearAnnotation"             = "Clear Annotation";
+
+/* ── Ink Effects ───────────────────────────────────────────────── */
+
+"InkEffects.Title"                = "Ink Effects";
+"InkEffects.None"                 = "None";
+"InkEffects.Sparkle"              = "Sparkle";
+"InkEffects.Fire"                 = "Fire";
+"InkEffects.Glitch"               = "Glitch";
+"InkEffects.Ripple"               = "Ripple";
+"InkEffects.DeviceUnsupported"    = "Effects not available on this device";
+"InkEffects.CustomPreset"         = "Custom Preset";
+
+/* ── Tools ─────────────────────────────────────────────────────── */
+
+"Tools.Pen"                       = "Pen";
+"Tools.Pencil"                    = "Pencil";
+"Tools.Marker"                    = "Marker";
+"Tools.Eraser"                    = "Eraser";
+"Tools.Lasso"                     = "Lasso";
+"Tools.Ruler"                     = "Ruler";
+"Tools.ColorPicker"               = "Colour Picker";
+"Tools.StrokeWidth"               = "Stroke Width";
+
+/* ── Creation ──────────────────────────────────────────────────── */
+
+"Creation.NewNote"                = "New Note";
+"Creation.NoteTitle"              = "Note Title";
+"Creation.Template"               = "Template";
+"Creation.Create"                 = "Create";
+
+/* ── Search ────────────────────────────────────────────────────── */
+
+"Search.Placeholder"              = "Search notes…";
+"Search.NoResults"                = "No Results";
+"Search.Results"                  = "%d results";
+
+/* ── Sync ──────────────────────────────────────────────────────── */
+
+"Sync.GoogleDrive"                = "Google Drive";
+"Sync.SignIn"                     = "Sign In";
+"Sync.SignOut"                    = "Sign Out";
+"Sync.SyncNow"                   = "Sync Now";
+"Sync.LastSync"                   = "Last Sync";
+"Sync.Syncing"                    = "Syncing…";
+"Sync.Error"                      = "Sync Error";
+"Sync.OfflineQueued"              = "Queued (Offline)";

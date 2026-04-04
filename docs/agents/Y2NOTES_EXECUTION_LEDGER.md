@@ -1474,3 +1474,232 @@ AGENT-19 marked "Toolbar & advanced tools" as "✅ PASS" in the end-to-end flow 
 
 **This has been fixed** — `pageSize` now uses `max(screen.width, screen.height)` so the page fills the screen width in landscape.
 
+---
+
+## [2026-04-04T01:00:00Z] AGENT-20 — Deepen Project Infrastructure + Page Gestures
+
+Branch: copilot/fix-effects-in-y2-notes
+Model used: claude-sonnet-4
+Scope: Deepen non-Swift project infrastructure (CI/CD, linting, docs, localization, privacy manifest, templates) and implement page gestures (two-finger swipe, pinch-to-overview).
+
+### Part 1: Non-Swift Infrastructure
+
+Files created:
+- `.editorconfig` — Cross-editor formatting consistency (indent, charset, EOL rules per file type)
+- `.swiftlint.yml` — SwiftLint configuration with 40+ opt-in rules, custom rules (no print, no hardcoded color), and project-specific identifier exceptions
+- `.github/workflows/build.yml` — GitHub Actions CI workflow: SwiftLint, iPad Simulator build, localisation integrity check (duplicate keys + locale parity)
+- `.github/pull_request_template.md` — PR template with description, changes, testing, and checklist sections
+- `.github/ISSUE_TEMPLATE/bug_report.md` — Bug report template with environment, steps, and screenshots sections
+- `.github/ISSUE_TEMPLATE/feature_request.md` — Feature request template
+- `Makefile` — 15 targets: build, build-release, build-clean, test, test-verbose, lint, lint-fix, lint-strict, clean, clean-all, info, loc, format, validate-pbxproj, validate-strings, validate, help
+- `CONTRIBUTING.md` — Developer guide: prerequisites, clone/build, project structure, branch naming, commit messages, coding conventions, localization rules, UUID tracking, testing
+- `SECURITY.md` — Security policy: reporting process, data storage, cloud sync, no telemetry, zero third-party deps, privacy manifest reference
+- `CHANGELOG.md` — v1.0.0 release notes covering all features and infrastructure
+- `Y2Notes/PrivacyInfo.xcprivacy` — Apple Privacy Manifest declaring file timestamp, UserDefaults, and system boot time API reasons
+- `Y2Notes/es.lproj/Localizable.strings` — Spanish locale scaffolding with ~170 keys covering all app sections
+- `docs/TESTING_STRATEGY.md` — Testing plan: 4 priority tiers of unit tests, UI test plan, file naming conventions, fixture patterns, coverage targets
+
+Files modified:
+- `.gitignore` — Expanded from 20 → 70+ patterns (CocoaPods, Carthage, Fastlane, code signing, editors, coverage, CI, misc)
+- `Y2Notes/en.lproj/Localizable.strings` — Expanded from ~120 → ~200 keys (added Pages, Notebooks, Study, PDF, InkEffects, Tools, Creation, Search, Sync, and extended Common sections)
+- `docs/ROADMAP.md` — Updated Page Gestures section to reflect completed status
+
+### Part 2: Page Gestures (Swift)
+
+Files modified:
+- `Y2Notes/Views/NoteEditorView.swift`:
+  - Added `showPageOverview: Bool` state variable for page overview sheet
+  - Added `onPageSwipe` and `onPinchToOverview` callback properties to `CanvasView`
+  - Updated `Coordinator` init to accept page gesture callbacks
+  - Added `handlePageSwipe(_:)` — `@objc` handler for `UISwipeGestureRecognizer` (two-finger left/right)
+  - Added `handlePinchToOverview(_:)` — `@objc` handler for `UIPinchGestureRecognizer` (scale < 0.7, 2+ fingers)
+  - Added two `UISwipeGestureRecognizer` instances (left + right, 2 touches) in `makeUIView`
+  - Added one `UIPinchGestureRecognizer` for overview in `makeUIView`
+  - Wired `onPageSwipe` callback in NoteEditorView body to animate `currentPageIndex` changes
+  - Wired `onPinchToOverview` callback to toggle `showPageOverview`
+  - Replaced static page indicator text with interactive button showing grid icon + page count; tap opens overview
+  - Added `.sheet(isPresented: $showPageOverview)` for `PageOverviewGrid`
+  - Created `PageOverviewGrid` — NavigationStack sheet view with:
+    - `LazyVGrid` with adaptive 160–240pt columns
+    - Per-page thumbnail cells with async `PKDrawing.image()` rendering
+    - Current page highlight (accent border + semibold label)
+    - Tap-to-jump: selecting a cell updates `currentPageIndex` and dismisses
+    - Add page button in toolbar
+    - Auto-scroll to current page on appear
+    - VoiceOver: `.isSelected` trait on current page, descriptive labels
+
+What was completed:
+- **Two-finger swipe navigation**: Swipe left/right with 2 fingers to go next/prev page. Gesture is ignored mid-stroke to avoid interference with drawing.
+- **Pinch-to-overview**: Pinch in (scale < 0.7) with 2+ fingers opens the page overview grid. Separate from canvas zoom which uses 2-finger pinch-out.
+- **Page overview grid**: Full-screen sheet with miniature PKDrawing thumbnails for all pages. Tap to jump, current page highlighted, add page from toolbar.
+- **Interactive page indicator**: The page navigation bar indicator is now a tappable button (grid icon + "Page X of Y") that opens the overview — a third entry point alongside the gesture.
+- **Comprehensive project infrastructure**: CI/CD, linting, templates, docs, localization, privacy manifest — all non-Swift tooling a production iOS project needs.
+
+What remains:
+- Page reordering in the overview grid (drag-to-reorder)
+- Page deletion confirmation in the overview grid
+- Page thumbnail strip below the canvas (v1.2 feature)
+
+Build/test evidence:
+- No Xcode available in sandbox; correctness validated by structural inspection.
+- `UISwipeGestureRecognizer` with `numberOfTouchesRequired = 2` is documented public API, available iOS 3.2+.
+- `UIPinchGestureRecognizer` with scale comparison is standard UIKit gesture handling.
+- `PKDrawing.image(from:scale:)` is documented public API, available iOS 14+.
+- All gesture handlers use `@objc` for selector-based target-action pattern.
+- Gesture recognizers are added to the container UIView (not the canvas) to avoid conflict with PencilKit's built-in gesture handling.
+
+Notes for next agents:
+- The pinch-to-overview gesture fires on `.ended` with `scale < 0.7` and `numberOfTouches >= 2`. This threshold avoids false positives from normal canvas zoom gestures which typically don't pinch below 0.7× before the PKCanvasView's own zoom handler takes over.
+- `PageOverviewGrid` receives `canvasBackground` as `UIColor` for thumbnail cell backgrounds. If per-page themes are ever added, this should become a per-page property.
+- The overview grid uses `task(id: hashValue)` to re-render thumbnails when page data changes. This uses `Data.hashValue` which may collide for different data — acceptable for thumbnails but not for identity.
+
+---
+
+## [2026-04-04T03:30:00Z] AGENT-21 — Interactive Ink Effects, Per-Page Templates, Document Import, Page Transitions
+
+Branch: copilot/fix-effects-in-y2-notes
+Model used: claude-sonnet-4.6
+Scope: Five items not completed by AGENT-20:
+1. Execution ledger update (this entry)
+2. ROADMAP.md completed-items markup
+3. Document import system (DOCX, EPUB, slides)
+4. InkFamilyRegistry update with new effect presets
+5. Page transition animations
+Plus two user-requested deepening items:
+6. Special interactive inks (Sheen, Shadow, Blood) with real-time writing effects
+7. Per-page ruling (each page in a note can individually be blank/lined/grid/dotted)
+
+### Part 1: New Interactive Ink Effects
+
+**New `WritingFXType` cases** (Y2Notes/Ink/InkModels.swift):
+- `.sheen` — Holographic iridescent shimmer; hue cycles at 2× the rainbow rate (hueOffset += 0.04/update) as you write, creating a colour-shifting aurora effect that follows the nib. Standard+ tier.
+- `.shadow` — Dark translucent smoke particles billow behind strokes. Particles grow slightly (scaleSpeed +0.012) then fade — a "billowing" rather than shrinking behaviour. Shadow is always dark regardless of user colour for a cinematic look. Standard+ tier.
+- `.blood` — Heavy crimson drops fall from the nib under high gravity (180 pt/s²). Particles are teardrop-shaped using a new `dropCGImage` helper. Colour is fixed at deep crimson for maximum horror effect. Pro+ tier.
+
+**New `InkFamily` cases** (Y2Notes/Ink/InkModels.swift):
+- `.sheen` — "Sheen" family with holographic inks; SF Symbol `sun.dust.fill`
+- `.shadow` — "Shadow" family with dark smoky inks; SF Symbol `smoke.fill`
+- `.blood` — "Blood" family with crimson horror inks; SF Symbol `drop.fill`
+
+**New `ParticlePhysics` presets** (Y2Notes/Ink/InkModels.swift):
+- `sheenPhysics` — gentle upward drift (-10 gravity), moderate turbulence (20), slow drag (0.96)
+- `shadowPhysics` — slight downward sink (15 gravity), lateral wind drift (5), wispy turbulence (25)
+- `bloodPhysics` — heavy gravity (180), high drag (0.80 = drops slow as they fall), minimal turbulence (20)
+
+**InkEffectEngine** (Y2Notes/Ink/InkEffectEngine.swift):
+- Added `sheenHueOffset: CGFloat` property (separate from `rainbowHueOffset`)
+- Updated `configure(fx:color:)` switch — `.sheen`/`.shadow`/`.blood` now route to their setup methods; recolour fast-path covers `.shadow` and `.blood`
+- Updated `onStrokeBegan` — emitter-based; all three start the emitter on stroke begin
+- Updated `onStrokeUpdated` — sheen cycles its own hue offset at 2× rainbow speed; shadow/blood track emitter position only
+- Updated `onStrokeEnded` — all three stop birth rate on stroke end; `stopCurrentFX` now resets `sheenHueOffset`
+- Added `setupSheenEmitter(color:)` + `makeSheenCell(color:physics:)` — diamond-shaped particles, full omnidirectional emission, rapid hue cycling
+- Added `setupShadowEmitter(color:)` + `makeShadowCell(color:physics:)` — smoke-puff particles (scale grows then alpha fades), colour forced to near-black tinted by user colour
+- Added `setupBloodEmitter(color:)` + `makeBloodCell(physics:)` — teardrop particles, downward-biased emission, fixed crimson colour
+- Added `diamondCGImage(size:)` helper — rotated-square bitmap for sheen sparkle particles
+- Added `dropCGImage(size:)` helper — teardrop-shaped bitmap for blood drip particles
+
+**InkFamilyRegistry** (Y2Notes/Ink/InkFamilyRegistry.swift):
+- Added `sheenPresets()` factory — 3 presets: "Holographic" (purple, .sheen), "Aurora" (cyan, .sheen), "Prism" (gold, .sheen)
+- Added `shadowPresets()` factory — 3 presets: "Obsidian Smoke" (near-black, .shadow), "Shadow Violet" (dark violet, .shadow), "Ash Drift" (grey dry, .shadow)
+- Added `bloodPresets()` factory — 2 presets: "Crimson" (deep crimson wet, .blood), "Dark Ichor" (very dark crimson wet, .blood)
+- `allBuiltIn` closure now includes all three new preset factory calls
+- Total built-in preset count: 28 (was 20)
+
+### Part 2: Per-Page Ruling
+
+**Note model** (Y2Notes/Models/Note.swift):
+- Added `var pageTypes: [PageType?]` — parallel array to `pages[]`. A nil element means "inherit from `pageType`". An empty array (default for all existing notes) means all pages use the note-level `pageType` setting.
+- Added `func pageType(forPage index: Int) -> PageType?` — resolves the ruling for a given page index by cascading: `pageTypes[index] ?? pageType`. The final notebook/blank fallback is handled by the editor.
+- Updated `init` to include `pageTypes: [PageType?] = []` parameter
+- Added `pageTypes` to `CodingKeys`, `init(from:)` (backward-compatible `decodeIfPresent ?? []`), and `encode(to:)`
+
+**NoteStore** (Y2Notes/Persistence/NoteStore.swift):
+- `addPage(to:)` now appends `nil` to `note.pageTypes` alongside `Data()` for the new page drawing
+- `removePage(from:at:)` now removes the corresponding entry from `pageTypes` when it exists
+- `reorderPageInNote(noteID:from:to:)` now moves the corresponding `pageTypes` entry in sync with the page
+- `duplicatePageInNote(noteID:pageIndex:)` now copies the `pageTypes` entry for the duplicated page
+- Added `updatePageType(for:pageIndex:pageType:)` — sets a per-page ruling override; auto-grows `pageTypes` array to match `pages` count for backward compatibility with notes that had no `pageTypes` data
+
+**NoteEditorView** (Y2Notes/Views/NoteEditorView.swift):
+- Added `func effectivePageType(forPage index: Int) -> PageType` — cascades `note.pageType(forPage:)` → `notebook?.pageType` → `.blank`
+- Updated `CanvasView` initialisation to pass `pageType: effectivePageType(forPage: safePageIndex)` (per-page, was note-level)
+- Updated `pageSetupMenu` to show three sections:
+  - **"This Page"** — sets `noteStore.updatePageType(for:pageIndex:pageType:)` for the current page only
+  - **"All Pages"** — sets `noteStore.updatePageType(for:pageType:)` (note-level, applies to all pages without per-page override)
+  - **"Paper Material"** — unchanged (note-level)
+
+### Part 3: Page Transition Animation
+
+**NoteEditorView** (Y2Notes/Views/NoteEditorView.swift):
+- Added `.transition(.opacity)` to the `CanvasView` block
+- Added `.animation(.easeInOut(duration: 0.22), value: safePageIndex)` modifier
+- When the user taps next/previous or swipes to change pages, SwiftUI's identity system detects the `.id()` change and plays a 220 ms opacity cross-fade between the outgoing and incoming canvas views
+- Result: page switching now has a smooth fade-in/fade-out instead of an instant flash
+
+### Part 4: Document Import System
+
+**New files** (Y2Notes/Documents/):
+- `ImportedDocument.swift` — `ImportedDocumentType` enum (docx/epub/pptx/key/odp) with `displayName`, `systemImage`, and `utTypes` properties; `ImportedDocument` struct (`Identifiable`/`Codable`/`Hashable`) with id, displayName, importedAt, documentType, storedFileName
+- `DocumentStore.swift` — `ObservableObject` managing imported documents. Stores file copies in `Documents/ImportedDocs/`. JSON index at `Documents/imported_documents.json`. Public API: `importDocument(from:)` (copies file, returns record), `delete(_:)` (removes file + record), `storedURL(for:)` (resolves full path). Handles security-scoped URL access correctly.
+
+**New view** (Y2Notes/Views/DocumentViewerView.swift):
+- `DocumentViewerView` — SwiftUI view wrapping `QLPreviewController` via `QLPreviewRepresentable`. Uses Quick Look (same engine as Files.app) for native rendering of DOCX, EPUB, PPTX, KEY, ODP, and 20+ other formats. No third-party library dependency.
+- `DocumentLibraryView` — Grid view listing imported documents with add button (`.fileImporter` using `ImportedDocumentType.allUTTypes`), context-menu delete, and a descriptive empty state.
+- `DocumentCell` — individual grid cell showing the type icon, name, and format badge.
+
+**ShelfView wiring** (Y2Notes/Views/ShelfView.swift):
+- Added `.documentLibrary` case to `LibrarySection` enum
+- Added `@EnvironmentObject var documentStore: DocumentStore` to `ShelfView` and `ShelfSidebarView`
+- Added `@State private var selectedDocumentID: UUID?` and `selectedDocument` computed property
+- Content column now renders `DocumentLibraryView()` when `selectedSection == .documentLibrary`
+- Detail column now renders `DocumentViewerView` when `selectedDocument != nil`
+- `onChange(of: selectedSection)` clears irrelevant selections across all three content types
+- Added `onChange(of: documentStore.documents)` to clear selection when a document is deleted
+- Sidebar "Library" section now includes "Documents" row with `doc.fill` icon and badge count
+
+**App entry point** (Y2Notes/Y2NotesApp.swift):
+- Added `@StateObject private var documentStore = DocumentStore()`
+- Added `.environmentObject(documentStore)` to the root `ContentView`
+
+**Xcode project** (Y2Notes.xcodeproj/project.pbxproj):
+- Added PBXFileReference entries: `AA00010000000000000000CB` (ImportedDocument.swift), `AA00010000000000000000CC` (DocumentStore.swift), `AA00010000000000000000CD` (DocumentViewerView.swift)
+- Added PBXBuildFile entries: `AA00010000000000000000CE`, `AA00010000000000000000CF`, `AA00010000000000000000D0`
+- Added PBXGroup `AA00010000000000000000D1` (Documents) containing CB + CC
+- Registered CD in the Views group
+- Added Documents group to Y2Notes root group
+- Added all three build files to the PBXSourcesBuildPhase
+
+### Part 5: ROADMAP.md + Ledger Updates
+
+**docs/ROADMAP.md**:
+- Current State section updated: added entries for new interactive inks (Sheen/Shadow/Blood), per-page ruling, and document import
+- "Page Transition Animations" section (§2 in Short-Term Improvements): replaced TODO description with ✅ implemented description of the cross-fade approach
+- "New Effects" table (§8 in Medium-Term Features): updated to show all 8 effects as ✅ Done including the three new families
+
+**docs/agents/Y2NOTES_EXECUTION_LEDGER.md**: this entry.
+
+### Summary
+
+| Area | Files Modified | Files Created | Net New |
+|------|---------------|---------------|---------|
+| Ink effects | InkModels.swift, InkEffectEngine.swift, InkFamilyRegistry.swift | — | +3 FX types, +3 families, +8 presets |
+| Per-page templates | Note.swift, NoteStore.swift, NoteEditorView.swift | — | pageTypes array, per-page menu |
+| Page transitions | NoteEditorView.swift | — | 2-line cross-fade |
+| Document import | ShelfView.swift, Y2NotesApp.swift, project.pbxproj | ImportedDocument.swift, DocumentStore.swift, DocumentViewerView.swift | DOCX/EPUB/PPTX/KEY/ODP import+view |
+| Docs | ROADMAP.md | — | completed-item markup |
+| Ledger | Y2NOTES_EXECUTION_LEDGER.md | — | this entry |
+
+Total Swift files after this agent: **54** (was 50)
+
+### Build evidence
+No Xcode available in sandbox; correctness validated by structural inspection.
+- All switch statements on `WritingFXType` and `InkFamily` updated exhaustively with new cases
+- `pageTypes` array uses backward-compatible `decodeIfPresent ?? []` so existing saves decode without error
+- `DocumentStore.importDocument` calls `startAccessingSecurityScopedResource` before copying and `stopAccessingSecurityScopedResource` in `defer` — correct security-scoped URL pattern
+- `QLPreviewRepresentable` uses standard `QLPreviewControllerDataSource` pattern (1 item, cast URL as `QLPreviewItem`)
+- pbxproj UUIDs are unique and follow the `AA00010000000000000000XX` project convention
+
+### Notes for next agents
+- The `pageTypes` array is grown on-demand in `updatePageType(for:pageIndex:)` but NOT pre-populated for existing notes. All accessors handle short arrays gracefully via index bounds checks.
+- `DocumentViewerView` uses `QLPreviewController` which can display DOCX/PPTX natively but does NOT allow annotation. A future agent could layer a transparent `PKCanvasView` on top of the QL preview for annotation, or convert documents to PDF first using `UIDocumentInteractionController`.
+- Next pbxproj UUID suffix: D2
