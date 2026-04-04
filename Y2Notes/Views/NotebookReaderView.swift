@@ -205,6 +205,7 @@ struct NotebookReaderView: View {
                     // Current page canvas
                     canvasForPage(ref, in: pages)
                         .offset(x: dragOffset)
+                        // Subtle 3D page-flip hint: ~7.5° max at full 500pt drag
                         .rotation3DEffect(
                             .degrees(Double(dragOffset) * 0.015),
                             axis: (x: 0, y: 1, z: 0),
@@ -312,7 +313,7 @@ struct NotebookReaderView: View {
                 pageNumberWatermark(flatIndex: flatPageIndex, totalPages: pages.count)
             }
             .overlay(alignment: .leading) {
-                // Left margin line on ruled pages
+                // Left margin line on ruled pages — mimics traditional red margin on ruled paper
                 if effectivePageType(for: ref) == .ruled {
                     Rectangle()
                         .fill(Color.red.opacity(0.08))
@@ -420,6 +421,7 @@ struct NotebookReaderView: View {
                 let horizontal = abs(value.translation.width)
                 let vertical = abs(value.translation.height)
                 if horizontal > vertical * 1.2 {
+                    // 50% drag ratio: responsive enough to feel physical without overshooting
                     dragOffset = value.translation.width * 0.5
                 }
             }

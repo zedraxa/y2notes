@@ -66,18 +66,19 @@ final class NoteStore: ObservableObject {
 
     /// Remembers the last viewed flat-page index per notebook so reopening
     /// a notebook returns the user to where they left off.
-    /// Stored in UserDefaults under "notebookLastPage".
+    /// Cached in memory; persisted to UserDefaults on write.
     private static let lastPageKey = "notebookLastPage"
+    private lazy var lastPageCache: [String: Int] = {
+        UserDefaults.standard.dictionary(forKey: Self.lastPageKey) as? [String: Int] ?? [:]
+    }()
 
     func lastPageIndex(for notebookID: UUID) -> Int {
-        let dict = UserDefaults.standard.dictionary(forKey: Self.lastPageKey) as? [String: Int] ?? [:]
-        return dict[notebookID.uuidString] ?? 0
+        lastPageCache[notebookID.uuidString] ?? 0
     }
 
     func setLastPageIndex(_ index: Int, for notebookID: UUID) {
-        var dict = UserDefaults.standard.dictionary(forKey: Self.lastPageKey) as? [String: Int] ?? [:]
-        dict[notebookID.uuidString] = index
-        UserDefaults.standard.set(dict, forKey: Self.lastPageKey)
+        lastPageCache[notebookID.uuidString] = index
+        UserDefaults.standard.set(lastPageCache, forKey: Self.lastPageKey)
     }
 
     init() {
