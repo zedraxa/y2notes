@@ -109,6 +109,8 @@
 		AA000100000000000000012B /* WidgetHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012A /* WidgetHandlesView.swift */; };
 		AA000100000000000000012D /* WidgetPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012C /* WidgetPickerView.swift */; };
 		AA000100000000000000012F /* PageRegion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012E /* PageRegion.swift */; };
+		AA0001000000000000000131 /* WritingEffectModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000130 /* WritingEffectModel.swift */; };
+		AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000132 /* MicroInteractionEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -160,6 +162,8 @@
 		AA0001000000000000000099 /* InkEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009A /* InkFamilyRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkFamilyRegistry.swift; sourceTree = "<group>"; };
 		AA000100000000000000009B /* InkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000130 /* WritingEffectModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectModel.swift; sourceTree = "<group>"; };
+		AA0001000000000000000132 /* MicroInteractionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicroInteractionEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -415,6 +419,8 @@
 				AA0001000000000000000099 /* InkEffectEngine.swift */,
 				AA000100000000000000009A /* InkFamilyRegistry.swift */,
 				AA000100000000000000009B /* InkEffectStore.swift */,
+				AA0001000000000000000130 /* WritingEffectModel.swift */,
+				AA0001000000000000000132 /* MicroInteractionEngine.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -631,6 +637,8 @@
 				AA000100000000000000012B /* WidgetHandlesView.swift in Sources */,
 				AA000100000000000000012D /* WidgetPickerView.swift in Sources */,
 				AA000100000000000000012F /* PageRegion.swift in Sources */,
+				AA0001000000000000000131 /* WritingEffectModel.swift in Sources */,
+				AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -131,7 +131,29 @@ enum PerformanceConstraints {
     //          allocations.  Avoid string formatting or anchor construction
     //          in the hot path.
 
-    // MARK: 7. Future — Transcript Search
+    // MARK: 7. Writing Effects & Micro-Interactions
+
+    /// Total per-frame budget for writing effects (all five pipeline stages).
+    /// Must leave ≥ 6 ms headroom within the 8.3 ms frame for PencilKit rendering.
+    static let writingEffectTotalBudgetMs: Double = 1.9
+
+    /// Core writing effects (pressure/velocity/edge/texture/opacity) budget.
+    /// These modify PKStrokePoint data in-place — no extra layers.
+    static let coreEffectBudgetMs: Double = 0.7
+
+    /// Advanced writing effects (glow/neon/gradient/trail) overlay budget.
+    /// Single CAGradientLayer + single CAShapeLayer — GPU-composited.
+    static let advancedEffectOverlayBudgetMs: Double = 0.8
+
+    /// Micro-interaction animation budget per frame.
+    /// All animations are GPU-only (CASpringAnimation / CABasicAnimation).
+    static let microInteractionBudgetMs: Double = 0.5
+
+    /// Maximum simultaneous micro-interaction animations.
+    /// Prevents layer tree bloat on rapid repeated taps.
+    static let maxSimultaneousMicroAnimations: Int = 2
+
+    // MARK: 8. Future — Transcript Search
 
     /// Speech-to-text processing: post-recording only, `.background` QoS.
     static let transcriptionQoS: DispatchQoS = .background
