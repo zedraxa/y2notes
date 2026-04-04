@@ -37,16 +37,7 @@ final class OCREngine {
             let image = drawing.image(from: renderRect, scale: 1.0)
             guard let cgImage = image.cgImage else { return "" }
 
-            var recognizedText = ""
-            let semaphore = DispatchSemaphore(value: 0)
-
-            let request = VNRecognizeTextRequest { request, _ in
-                defer { semaphore.signal() }
-                guard let observations = request.results as? [VNRecognizedTextObservation] else { return }
-                recognizedText = observations
-                    .compactMap { $0.topCandidates(1).first?.string }
-                    .joined(separator: " ")
-            }
+            let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
             // 0.01 captures very small handwriting; lower values increase false-positives.
@@ -54,8 +45,11 @@ final class OCREngine {
 
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             try? handler.perform([request])
-            semaphore.wait()
-            return recognizedText
+
+            guard let observations = request.results else { return "" }
+            return observations
+                .compactMap { $0.topCandidates(1).first?.string }
+                .joined(separator: " ")
         }.value
     }
 

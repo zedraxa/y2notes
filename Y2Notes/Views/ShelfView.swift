@@ -175,6 +175,7 @@ private struct ShelfSidebarView: View {
     // Binding passed down from ShelfView so tapping a search result selects the note.
     var onSelectNote: (UUID) -> Void
 
+    // swiftlint:disable:next function_body_length
     var body: some View {
         List(selection: $selectedSection) {
             // ── Library ──────────────────────────────────────────────────
