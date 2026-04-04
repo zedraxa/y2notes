@@ -348,7 +348,14 @@ private struct ShelfSidebarView: View {
             NotebookQuickCreator()
         }
         .sheet(isPresented: $showLibrarySearch) {
-            LibrarySearchView(onSelectNote: onSelectNote)
+            UniversalSearchView(
+                currentNotebookID: nil,
+                onSelectNote: onSelectNote,
+                onJumpToAnchor: { anchor in
+                    // When jumping to an anchor from the shelf, select the note
+                    onSelectNote(anchor.noteID)
+                }
+            )
         }
         .alert("Rename Notebook", isPresented: Binding(
             get: { notebookToRename != nil },

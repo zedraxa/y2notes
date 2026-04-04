@@ -85,6 +85,8 @@
 		AA00010000000000000000FB /* NavigationAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FA /* NavigationAnchor.swift */; };
 		AA00010000000000000000FD /* NavigationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FC /* NavigationStore.swift */; };
 		AA00010000000000000000FF /* BookmarkListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FE /* BookmarkListView.swift */; };
+		AA0001000000000000000101 /* SearchIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000100 /* SearchIndex.swift */; };
+		AA0001000000000000000103 /* UniversalSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000102 /* UniversalSearchView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -168,6 +170,8 @@
 		AA00010000000000000000FA /* NavigationAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationAnchor.swift; sourceTree = "<group>"; };
 		AA00010000000000000000FC /* NavigationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000FE /* BookmarkListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkListView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000100 /* SearchIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchIndex.swift; sourceTree = "<group>"; };
+		AA0001000000000000000102 /* UniversalSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalSearchView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -252,6 +256,7 @@
 				AA00010000000000000000DA /* NotebookQuickCreator.swift */,
 				AA00010000000000000000D9 /* NotebookReaderView.swift */,
 				AA000100000000000000008A /* LibrarySearchView.swift */,
+				AA0001000000000000000102 /* UniversalSearchView.swift */,
 				AA000100000000000000008B /* StudySetListView.swift */,
 				AA000100000000000000008C /* StudySessionView.swift */,
 				AA0001000000000000000087 /* PageRulingView.swift */,
@@ -319,6 +324,7 @@
 			children = (
 				AA0001000000000000000088 /* SearchService.swift */,
 				AA00010000000000000000D2 /* OCREngine.swift */,
+				AA0001000000000000000100 /* SearchIndex.swift */,
 			);
 			path = Search;
 			sourceTree = "<group>";
@@ -535,6 +541,8 @@
 				AA00010000000000000000FB /* NavigationAnchor.swift in Sources */,
 				AA00010000000000000000FD /* NavigationStore.swift in Sources */,
 				AA00010000000000000000FF /* BookmarkListView.swift in Sources */,
+				AA0001000000000000000101 /* SearchIndex.swift in Sources */,
+				AA0001000000000000000103 /* UniversalSearchView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

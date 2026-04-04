@@ -39,6 +39,8 @@ struct NotebookReaderView: View {
     @State private var showBookmarks = false
     /// Whether the recent-locations popover is shown.
     @State private var showRecentLocations = false
+    /// Whether the universal search sheet is shown.
+    @State private var showUniversalSearch = false
 
     // MARK: - Linearised page model
 
@@ -258,6 +260,15 @@ struct NotebookReaderView: View {
                 .accessibilityLabel("Go forward")
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
+                // Universal search
+                Button {
+                    showUniversalSearch = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .accessibilityLabel("Search notebook")
+
                 // Recent locations
                 Button {
                     showRecentLocations = true
@@ -303,6 +314,26 @@ struct NotebookReaderView: View {
                 )
             }
             .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showUniversalSearch) {
+            UniversalSearchView(
+                currentNotebookID: notebook.id,
+                onSelectNote: { noteID in
+                    // Navigate to the first page of the selected note within this notebook
+                    if let note = noteStore.notes.first(where: { $0.id == noteID }),
+                       note.notebookID == notebook.id {
+                        let anchor = NavigationAnchor(
+                            notebookID: notebook.id,
+                            noteID: noteID,
+                            pageIndex: 0
+                        )
+                        navigateToAnchor(anchor)
+                    }
+                },
+                onJumpToAnchor: { anchor in
+                    navigateToAnchor(anchor)
+                }
+            )
         }
         .overlay(alignment: .topTrailing) {
             if showSavedBadge {
