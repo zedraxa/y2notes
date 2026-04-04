@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Restrict GITHUB_TOKEN to read-only by default.
+permissions:
+  contents: read
+
 jobs:
   # ── SwiftLint ─────────────────────────────────────────────────────
   lint:

@@ -883,7 +883,7 @@ private struct CanvasView: UIViewRepresentable {
         swipeRight.numberOfTouchesRequired = 2
         container.addGestureRecognizer(swipeRight)
 
-        // Three-finger pinch-in opens page overview grid.
+        // Pinch-in opens page overview grid.
         let pinchOverview = UIPinchGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handlePinchToOverview(_:))
@@ -1095,10 +1095,10 @@ private struct CanvasView: UIViewRepresentable {
             }
         }
 
-        /// Three-finger pinch-in handler for page overview.
+        /// Pinch-in handler for page overview.
         @objc func handlePinchToOverview(_ gesture: UIPinchGestureRecognizer) {
             guard gesture.state == .ended else { return }
-            // Only trigger on pinch-in (scale < 1) with 3+ fingers.
+            // Only trigger on pinch-in (scale < 0.7) with 2+ fingers.
             if gesture.scale < 0.7 && gesture.numberOfTouches >= 2 {
                 onPinchToOverview?()
             }
