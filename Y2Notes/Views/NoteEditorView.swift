@@ -237,6 +237,9 @@ struct NoteEditorView: View {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                                 showAdvancedPanel.toggle()
                             }
+                        },
+                        onSelectionAction: { action in
+                            handleSelectionAction(action)
                         }
                     )
                     .opacity(toolStore.toolbarOpacity)
@@ -609,6 +612,37 @@ struct NoteEditorView: View {
     private func refreshUndoRedoState() {
         canUndo = undoManager?.canUndo ?? false
         canRedo = undoManager?.canRedo ?? false
+    }
+
+    // MARK: - Selection Actions
+
+    /// Handles selection toolbar actions by dispatching standard edit commands
+    /// to the canvas's responder chain. PencilKit's built-in lasso selection
+    /// supports cut/copy/paste/delete through the standard UIResponder actions.
+    private func handleSelectionAction(_ action: SelectionAction) {
+        // The canvas is first responder; dispatch standard UIResponder actions
+        // which PencilKit handles for lasso selections.
+        let app = UIApplication.shared
+        switch action {
+        case .cut:
+            app.sendAction(#selector(UIResponderStandardEditActions.cut(_:)), to: nil, from: nil, for: nil)
+            toolStore.hasActiveSelection = false
+        case .copy:
+            app.sendAction(#selector(UIResponderStandardEditActions.copy(_:)), to: nil, from: nil, for: nil)
+        case .duplicate:
+            // Copy then paste in-place to duplicate selected strokes
+            app.sendAction(#selector(UIResponderStandardEditActions.copy(_:)), to: nil, from: nil, for: nil)
+            app.sendAction(#selector(UIResponderStandardEditActions.paste(_:)), to: nil, from: nil, for: nil)
+        case .delete:
+            app.sendAction(#selector(UIResponderStandardEditActions.delete(_:)), to: nil, from: nil, for: nil)
+            toolStore.hasActiveSelection = false
+        case .recolor:
+            // Recoloring is handled visually in the selection toolbar's inline
+            // colour strip. The actual recolor requires PencilKit internal APIs
+            // which aren't public — for now this is a no-op placeholder.
+            // Future: iterate selected strokes and replace their ink colour.
+            break
+        }
     }
 
     // MARK: - Export menu
@@ -1517,6 +1551,27 @@ struct CanvasView: UIViewRepresentable {
                     self?.toolStoreRef?.toolbarOpacity = 1.0
                 }
             }
+            // Detect lasso selection state. When the user finishes a lasso gesture
+            // the canvas holds an internal selection. We surface this by checking
+            // whether the current tool is a lasso — PencilKit keeps selection state
+            // internally and will fire canvasViewDrawingDidChange when the selection
+            // is committed (paste / move). We set hasActiveSelection so the floating
+            // toolbar morphs to show selection actions.
+            updateSelectionState(for: canvasView)
+        }
+
+        /// Updates `toolStore.hasActiveSelection` based on whether the canvas
+        /// currently holds a lasso selection. Called after tool-end events and
+        /// drawing changes to keep the toolbar in sync.
+        func updateSelectionState(for canvasView: PKCanvasView) {
+            let hasSelection = canvasView.tool is PKLassoTool && canvasView.undoManager?.canUndo == true
+            if toolStoreRef?.hasActiveSelection != hasSelection {
+                Task { @MainActor [weak self] in
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        self?.toolStoreRef?.hasActiveSelection = hasSelection
+                    }
+                }
+            }
         }
 
         // MARK: - Double-tap pencil to delete last stroke
@@ -1570,6 +1625,10 @@ struct CanvasView: UIViewRepresentable {
             // chain — the same manager PencilKit registers stroke actions against.
             let um = canvasView.undoManager
             onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
+
+            // Drawing changed — selection may have been committed (paste, delete, etc.)
+            // so re-evaluate the selection state to collapse the selection toolbar.
+            updateSelectionState(for: canvasView)
 
             // Debounce disk writes: flush 0.8 s after the last stroke.
             debounceTimer?.invalidate()

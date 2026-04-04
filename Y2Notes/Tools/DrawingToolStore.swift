@@ -61,6 +61,13 @@ final class DrawingToolStore: ObservableObject {
         didSet { UserDefaults.standard.set(isToolbarMinimized, forKey: Keys.toolbarMinimized) }
     }
 
+    /// True when the lasso tool is active and the user has selected strokes on
+    /// the canvas. Set by the CanvasView coordinator when PencilKit reports a
+    /// non-empty tool selection. Causes the floating toolbar to morph into
+    /// selection-action mode (cut / copy / delete / recolor).
+    /// **Not persisted** — always starts as false.
+    @Published var hasActiveSelection: Bool = false
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

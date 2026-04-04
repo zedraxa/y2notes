@@ -24,6 +24,9 @@ struct FloatingToolbarCapsule: View {
     var onUndo: (() -> Void)? = nil
     var onRedo: (() -> Void)? = nil
     var onOpenInspector: (() -> Void)? = nil
+    /// Callback for selection actions (cut / copy / delete / recolor).
+    /// Only relevant when `toolStore.hasActiveSelection` is true.
+    var onSelectionAction: ((SelectionAction) -> Void)? = nil
 
     // MARK: - State
 
@@ -45,28 +48,53 @@ struct FloatingToolbarCapsule: View {
     // MARK: - Body
 
     var body: some View {
+        tier1Content
+            .animation(.spring(response: 0.25, dampingFraction: 0.85), value: toolStore.hasActiveSelection)
+            .onChange(of: toolStore.activeTool) { oldTool, newTool in
+                if oldTool.isInking {
+                    previousInkTool = oldTool
+                }
+                // Dismiss expansion when tool changes externally
+                if expandedTool != nil && newTool != expandedTool {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        expandedTool = nil
+                    }
+                }
+            }
+            .sheet(isPresented: $showInkPicker) {
+                if let inkStore {
+                    InkEffectPickerView(inkStore: inkStore)
+                }
+            }
+    }
+
+    // MARK: - Tier 1 Content (Standard vs Selection)
+
+    /// Switches between the standard drawing toolbar and the selection-action
+    /// toolbar depending on whether the user has an active lasso selection.
+    @ViewBuilder
+    private var tier1Content: some View {
+        if toolStore.hasActiveSelection, let onSelectionAction {
+            SelectionToolbar(toolStore: toolStore, onAction: onSelectionAction)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.9).combined(with: .opacity),
+                    removal: .opacity
+                ))
+        } else {
+            standardToolbar
+                .transition(.opacity)
+        }
+    }
+
+    /// The normal drawing toolbar: Tier 2 expansion + Tier 1 capsule.
+    @ViewBuilder
+    private var standardToolbar: some View {
         VStack(spacing: 4) {
             // Tier 2 — contextual expansion above the capsule
             tier2Expansion
 
             // Tier 1 — always-present capsule
             tier1Capsule
-        }
-        .onChange(of: toolStore.activeTool) { oldTool, newTool in
-            if oldTool.isInking {
-                previousInkTool = oldTool
-            }
-            // Dismiss expansion when tool changes externally
-            if expandedTool != nil && newTool != expandedTool {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                    expandedTool = nil
-                }
-            }
-        }
-        .sheet(isPresented: $showInkPicker) {
-            if let inkStore {
-                InkEffectPickerView(inkStore: inkStore)
-            }
         }
     }
 

@@ -29,6 +29,10 @@
 		AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000082 /* DrawingToolbarView.swift */; };
 		AA00010000000000000000DD /* FloatingToolbarCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000DC /* FloatingToolbarCapsule.swift */; };
 		AA00010000000000000000DF /* ToolExpansionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000DE /* ToolExpansionView.swift */; };
+		AA00010000000000000000E1 /* SelectionToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E0 /* SelectionToolbar.swift */; };
+		AA00010000000000000000E3 /* NotebookTabSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E2 /* NotebookTabSession.swift */; };
+		AA00010000000000000000E5 /* NotebookTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E4 /* NotebookTabBar.swift */; };
+		AA00010000000000000000E7 /* NotebookWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E6 /* NotebookWorkspaceView.swift */; };
 		AA00010000000000000000C2 /* PageRulingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000087 /* PageRulingView.swift */; };
 		AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
 		AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
@@ -96,6 +100,10 @@
 		AA0001000000000000000082 /* DrawingToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolbarView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000DC /* FloatingToolbarCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingToolbarCapsule.swift; sourceTree = "<group>"; };
 		AA00010000000000000000DE /* ToolExpansionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolExpansionView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E0 /* SelectionToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionToolbar.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E2 /* NotebookTabSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookTabSession.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E4 /* NotebookTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookTabBar.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E6 /* NotebookWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookWorkspaceView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000087 /* PageRulingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRulingView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000053 /* PencilInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilInteractionCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000054 /* PencilHoverOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHoverOverlayView.swift; sourceTree = "<group>"; };
@@ -199,6 +207,7 @@
 				AA0001000000000000000051 /* PageTemplate.swift */,
 				AA0001000000000000000070 /* NotebookConfig.swift */,
 				AA0001000000000000000089 /* StudySet.swift */,
+				AA00010000000000000000E2 /* NotebookTabSession.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -226,6 +235,9 @@
 				AA00010000000000000000C7 /* NoteCreationSheet.swift */,
 				AA00010000000000000000C9 /* StudyStatsView.swift */,
 				AA00010000000000000000CD /* DocumentViewerView.swift */,
+				AA00010000000000000000E0 /* SelectionToolbar.swift */,
+				AA00010000000000000000E4 /* NotebookTabBar.swift */,
+				AA00010000000000000000E6 /* NotebookWorkspaceView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -432,6 +444,10 @@
 				AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */,
 				AA00010000000000000000DD /* FloatingToolbarCapsule.swift in Sources */,
 				AA00010000000000000000DF /* ToolExpansionView.swift in Sources */,
+				AA00010000000000000000E1 /* SelectionToolbar.swift in Sources */,
+				AA00010000000000000000E3 /* NotebookTabSession.swift in Sources */,
+				AA00010000000000000000E5 /* NotebookTabBar.swift in Sources */,
+				AA00010000000000000000E7 /* NotebookWorkspaceView.swift in Sources */,
 				AA00010000000000000000C2 /* PageRulingView.swift in Sources */,
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
