@@ -48,6 +48,12 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .eraser, .lasso: return false
         }
     }
+
+    /// The personality definition for this tool, if it is an inking tool.
+    /// Returns `nil` for eraser, lasso, and shape (which delegates to an overlay).
+    var personality: ToolPersonality? {
+        ToolPersonality.personality(for: self)
+    }
 }
 
 // MARK: - Eraser Mode

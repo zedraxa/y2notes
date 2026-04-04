@@ -115,6 +115,28 @@ final class DrawingToolStore: ObservableObject {
     /// Convenience: only presets the user has starred.
     var favoritePresets: [ToolPreset] { presets.filter(\.isFavorite) }
 
+    // MARK: - Tool Personality Helpers
+
+    /// The personality of the currently active tool (nil for eraser/lasso).
+    var activePersonality: ToolPersonality? {
+        ToolPersonality.personality(for: activeTool)
+    }
+
+    /// Width range for the current tool, derived from its personality.
+    /// Returns a sensible default range for non-inking tools.
+    var widthRange: ClosedRange<CGFloat> {
+        guard let p = activePersonality else { return 1...20 }
+        return p.minWidth...p.maxWidth
+    }
+
+    /// Clamps `activeWidth` to the personality range when switching tools.
+    /// Call this after changing `activeTool` to ensure the width is valid.
+    func clampWidthToPersonality() {
+        guard let p = activePersonality else { return }
+        let clamped = min(max(activeWidth, Double(p.minWidth)), Double(p.maxWidth))
+        if clamped != activeWidth { activeWidth = clamped }
+    }
+
     // MARK: - Recent Colors
 
     /// Maximum number of recent colours to keep.

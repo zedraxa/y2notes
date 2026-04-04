@@ -1118,12 +1118,28 @@ struct CanvasView: UIViewRepresentable {
         canvas.backgroundColor = .clear
         canvas.tool = currentTool
 
+        // Touch type filtering for latency reduction: when pencilOnly mode is
+        // active, restrict the drawing gesture recognizer to pencil touches only.
+        // This eliminates the ~16ms first-touch discrimination delay that
+        // PKCanvasView normally incurs waiting to decide if a touch is pencil
+        // or finger.
+        if WritingConfig.useTouchTypeFiltering && drawingPolicy == .pencilOnly {
+            canvas.drawingGestureRecognizer.allowedTouchTypes = [
+                NSNumber(value: UITouch.TouchType.pencil.rawValue)
+            ]
+        }
+
         // Zoom/pan: PKCanvasView inherits UIScrollView zoom support.
         // 0.25× minimum lets users step back for a full-page view.
         // 5×   maximum provides fine-detail writing precision.
         canvas.minimumZoomScale = 0.25
         canvas.maximumZoomScale = 5.0
         canvas.bouncesZoom = true
+
+        // Deceleration rate: fast deceleration feels more "anchored" and prevents
+        // the canvas from sliding away after a quick pan. This matches the feel
+        // of physical paper on a desk.
+        canvas.decelerationRate = .fast
 
         // Set the canvas content area to the fixed page dimensions so the user
         // can draw across the full page and scroll vertically.
@@ -1280,6 +1296,22 @@ struct CanvasView: UIViewRepresentable {
         // Sync drawing policy when the user toggles the finger/pencil preference.
         if canvas.drawingPolicy != drawingPolicy {
             canvas.drawingPolicy = drawingPolicy
+            // Update touch type filtering to match: pencilOnly → restrict to pencil
+            // touches for faster first-touch discrimination, anyInput → allow all.
+            if WritingConfig.useTouchTypeFiltering {
+                if drawingPolicy == .pencilOnly {
+                    canvas.drawingGestureRecognizer.allowedTouchTypes = [
+                        NSNumber(value: UITouch.TouchType.pencil.rawValue)
+                    ]
+                } else {
+                    canvas.drawingGestureRecognizer.allowedTouchTypes = [
+                        NSNumber(value: UITouch.TouchType.direct.rawValue),
+                        NSNumber(value: UITouch.TouchType.pencil.rawValue),
+                    ]
+                }
+            }
+            // Reset palm guard when switching modes.
+            context.coordinator.palmGuard.reset()
         }
 
         // Update the active tool from DrawingToolStore — but ONLY when:
@@ -1416,6 +1448,22 @@ struct CanvasView: UIViewRepresentable {
         /// Used to restore the tool when the user double-taps "switch to previous".
         private var previousInkingTool: PKTool?
 
+        /// Zoom scale captured when a stroke begins. When `WritingConfig.lockZoomDuringWriting`
+        /// is enabled, the canvas zoom is pinned to this value during active writing to
+        /// prevent accidental zoom drift from multi-touch interference.
+        private var strokeStartZoomScale: CGFloat?
+
+        /// Timer that re-enables zoom/scroll gestures after a short delay following
+        /// the end of a stroke. Prevents accidental zoom when lifting the hand
+        /// between quick successive strokes.
+        private var postStrokeZoomUnlockTimer: Timer?
+
+        /// Tracks Apple Pencil contact timing for palm rejection in `.anyInput` mode.
+        let palmGuard = PalmGuardState()
+
+        /// Tracks stroke count and data size for performance warnings.
+        let strokeMonitor = StrokePerformanceMonitor()
+
         // KVO observers that keep the page background in sync with canvas
         // scroll offset and zoom scale. Invalidated automatically on dealloc.
         private var contentOffsetObservation: NSKeyValueObservation?
@@ -1503,6 +1551,18 @@ struct CanvasView: UIViewRepresentable {
 
         func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = true
+            // Cancel any pending zoom-unlock timer from a previous stroke so
+            // rapid successive strokes keep zoom locked continuously.
+            postStrokeZoomUnlockTimer?.invalidate()
+            postStrokeZoomUnlockTimer = nil
+
+            // Lock zoom during writing to prevent accidental zoom drift from
+            // multi-touch interference (e.g. palm resting on screen).
+            if WritingConfig.lockZoomDuringWriting {
+                strokeStartZoomScale = canvasView.zoomScale
+                canvasView.pinchGestureRecognizer?.isEnabled = false
+            }
+
             // Capture base width for barrel-roll modulation at stroke start.
             if let inkTool = canvasView.tool as? PKInkingTool {
                 barrelRollBaseWidth = inkTool.width
@@ -1515,13 +1575,13 @@ struct CanvasView: UIViewRepresentable {
                 let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeBegan(at: center)
             }
-            // Auto-fade toolbar after 1.5s of continuous drawing
+            // Auto-fade toolbar using config constants
             fadeTask?.cancel()
             fadeTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(1.5))
+                try? await Task.sleep(for: .seconds(WritingConfig.toolbarFadeDelay))
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    self?.toolStoreRef?.toolbarOpacity = 0.3
+                    self?.toolStoreRef?.toolbarOpacity = WritingConfig.toolbarFadedOpacity
                 }
             }
         }
@@ -1529,6 +1589,23 @@ struct CanvasView: UIViewRepresentable {
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
             barrelRollBaseWidth = nil
+
+            // Re-enable zoom after a short delay to prevent accidental zoom when
+            // lifting the hand between rapid successive strokes.
+            if WritingConfig.lockZoomDuringWriting {
+                postStrokeZoomUnlockTimer?.invalidate()
+                postStrokeZoomUnlockTimer = Timer.scheduledTimer(
+                    withTimeInterval: WritingConfig.postStrokeZoomLockDelay,
+                    repeats: false
+                ) { [weak canvasView] _ in
+                    canvasView?.pinchGestureRecognizer?.isEnabled = true
+                }
+                strokeStartZoomScale = nil
+            }
+
+            // Record pencil end time for palm guard (finger rejection window).
+            palmGuard.pencilStrokeEnded()
+
             // Notify effect engine of stroke end for ripple / fire cooldown.
             if let engine = effectEngine {
                 let lastStroke = canvasView.drawing.strokes.last
@@ -1537,12 +1614,12 @@ struct CanvasView: UIViewRepresentable {
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
-            // Restore toolbar opacity after drawing ends
+            // Restore toolbar opacity after drawing ends using config constants
             fadeTask?.cancel()
             Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(0.5))
+                try? await Task.sleep(for: .seconds(WritingConfig.toolbarRestoreDelay))
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    self?.toolStoreRef?.toolbarOpacity = 1.0
+                    self?.toolStoreRef?.toolbarOpacity = WritingConfig.toolbarFullOpacity
                 }
             }
             // Detect lasso selection state. When the user finishes a lasso gesture
@@ -1655,9 +1732,15 @@ struct CanvasView: UIViewRepresentable {
             // so clear the selection state to collapse the selection toolbar.
             clearSelectionState()
 
-            // Debounce disk writes: flush 0.8 s after the last stroke.
+            // Update stroke performance monitor for warning thresholds.
+            let strokeCount = canvasView.drawing.strokes.count
+            Task { @MainActor [weak self] in
+                self?.strokeMonitor.update(strokeCount: strokeCount, dataSize: data.count)
+            }
+
+            // Debounce disk writes using config constant.
             debounceTimer?.invalidate()
-            debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
+            debounceTimer = Timer.scheduledTimer(withTimeInterval: WritingConfig.saveDebounceInterval, repeats: false) { [weak self] _ in
                 editorSignposter.emitEvent("DrawingSaved")
                 self?.onSaveRequested()
             }
