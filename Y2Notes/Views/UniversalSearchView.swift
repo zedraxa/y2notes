@@ -259,11 +259,11 @@ struct UniversalSearchView: View {
 
     private func extractNoteID(from entryID: String) -> UUID? {
         // Format: "note-<UUID>-title" or "note-<UUID>-text" etc.
-        let parts = entryID.components(separatedBy: "-")
-        // UUID string has 5 segments separated by hyphens, so note-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX-suffix
-        // Total: 1 (prefix) + 5 (UUID) + 1 (suffix) = 7 parts
-        guard parts.count >= 7 else { return nil }
-        let uuidString = parts[1...5].joined(separator: "-")
+        // UUID is 36 chars: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+        guard entryID.hasPrefix("note-") else { return nil }
+        let afterPrefix = entryID.dropFirst(5) // drop "note-"
+        guard afterPrefix.count >= 36 else { return nil }
+        let uuidString = String(afterPrefix.prefix(36))
         return UUID(uuidString: uuidString)
     }
 

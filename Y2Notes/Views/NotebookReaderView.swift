@@ -319,16 +319,13 @@ struct NotebookReaderView: View {
             UniversalSearchView(
                 currentNotebookID: notebook.id,
                 onSelectNote: { noteID in
-                    // Navigate to the first page of the selected note within this notebook
-                    if let note = noteStore.notes.first(where: { $0.id == noteID }),
-                       note.notebookID == notebook.id {
-                        let anchor = NavigationAnchor(
-                            notebookID: notebook.id,
-                            noteID: noteID,
-                            pageIndex: 0
-                        )
-                        navigateToAnchor(anchor)
-                    }
+                    // Navigate to the first page of the selected note
+                    let anchor = NavigationAnchor(
+                        notebookID: notebook.id,
+                        noteID: noteID,
+                        pageIndex: 0
+                    )
+                    navigateToAnchor(anchor)
                 },
                 onJumpToAnchor: { anchor in
                     navigateToAnchor(anchor)

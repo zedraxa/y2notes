@@ -352,7 +352,8 @@ private struct ShelfSidebarView: View {
                 currentNotebookID: nil,
                 onSelectNote: onSelectNote,
                 onJumpToAnchor: { anchor in
-                    // When jumping to an anchor from the shelf, select the note
+                    // From the shelf, select the note. Page-level navigation happens
+                    // once the notebook reader opens and resolves the anchor.
                     onSelectNote(anchor.noteID)
                 }
             )

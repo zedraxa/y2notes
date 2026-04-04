@@ -343,7 +343,7 @@ final class SearchIndex {
         // Sticker labels (aggregate unique categories per note)
         let allStickers = note.stickerLayers.compactMap { $0 }.flatMap { $0 }
         if !allStickers.isEmpty {
-            let labels = Set(allStickers.map(\.stickerID)).joined(separator: " ")
+            let labels = Array(Set(allStickers.map(\.stickerID))).joined(separator: " ")
             entries["\(baseID)-stickers"] = SearchableEntry(
                 id: "\(baseID)-stickers",
                 kind: .stickerLabel,
