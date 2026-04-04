@@ -1231,16 +1231,11 @@ private struct CanvasView: UIViewRepresentable {
         private var contentOffsetObservation: NSKeyValueObservation?
         private var zoomScaleObservation: NSKeyValueObservation?
 
-        // Pre-prepared haptic generators for scratch-to-delete feedback.
-        // Preparing them eagerly avoids the latency spike that would occur if
-        // the generator were created and prepared on the first deletion event.
+        // Pre-prepared haptic generator for double-tap pencil delete feedback.
+        // Preparing eagerly avoids the latency spike that would occur if the
+        // generator were created and prepared on the first deletion event.
         private let deletionImpactGenerator: UIImpactFeedbackGenerator = {
             let g = UIImpactFeedbackGenerator(style: .medium)
-            g.prepare()
-            return g
-        }()
-        private let selectionFeedbackGenerator: UISelectionFeedbackGenerator = {
-            let g = UISelectionFeedbackGenerator()
             g.prepare()
             return g
         }()
@@ -1343,98 +1338,32 @@ private struct CanvasView: UIViewRepresentable {
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
-            // Scratch-to-delete: check whether the finished stroke is a scratch gesture
-            // and, if so, erase the strokes it covers.
-            performScratchDeleteIfNeeded(canvasView)
         }
 
-        // MARK: - Scratch-to-delete
+        // MARK: - Double-tap pencil to delete last stroke
 
-        /// Returns `true` when `stroke` looks like a scratch/scribble deletion gesture.
-        ///
-        /// A scratch gesture is characterized by:
-        /// - At least 3 X-axis direction reversals (back-and-forth zigzag).
-        /// - A total path length more than twice the bounding-box width, proving the
-        ///   Pencil covered the same horizontal span multiple times.
-        /// - A minimum horizontal span of 20 pt so micro-tremors are not misread.
-        private func isScratchStroke(_ stroke: PKStroke) -> Bool {
-            let points = Array(stroke.path)
-            guard points.count >= 8 else { return false }
+        /// Removes the most recently drawn stroke from the canvas.
+        /// Called when the user double-taps Apple Pencil.  Registered with the
+        /// canvas's own `UndoManager` so it can be reversed with undo.
+        func deleteLastStroke() {
+            guard let canvas = canvasRef else { return }
+            let strokes = Array(canvas.drawing.strokes)
+            guard !strokes.isEmpty else { return }
 
-            let bounds = stroke.renderBounds
-            guard bounds.width >= 20 else { return false }
+            let oldDrawing = canvas.drawing
+            let newDrawing = PKDrawing(strokes: Array(strokes.dropLast()))
 
-            // Count direction reversals along the X axis, ignoring sub-pixel movement.
-            var reversals = 0
-            var lastDX: CGFloat = 0
-            for i in 1 ..< points.count {
-                let dx = points[i].location.x - points[i - 1].location.x
-                guard abs(dx) > 0.5 else { continue }
-                if lastDX != 0 && (dx > 0) != (lastDX > 0) {
-                    reversals += 1
-                }
-                lastDX = dx
-            }
-            guard reversals >= 3 else { return false }
-
-            // Verify path redundancy: total travel distance > 2× bbox width.
-            let totalLength = zip(points, points.dropFirst()).reduce(CGFloat(0)) { sum, pair in
-                let dx = pair.1.location.x - pair.0.location.x
-                let dy = pair.1.location.y - pair.0.location.y
-                return sum + sqrt(dx * dx + dy * dy)
-            }
-            return totalLength > bounds.width * 2.0
-        }
-
-        /// If the most-recently-added stroke is a scratch gesture, removes it together with
-        /// all strokes whose render bounds intersect the scratch zone.  The operation is
-        /// registered with the canvas's own `UndoManager` so it can be reversed normally.
-        ///
-        /// Only activates for inking tools — the regular eraser tool is unaffected.
-        private func performScratchDeleteIfNeeded(_ canvasView: PKCanvasView) {
-            // Only trigger for inking tools (pen / marker / pencil / fountain pen).
-            guard canvasView.tool is PKInkingTool else { return }
-
-            let strokes = Array(canvasView.drawing.strokes)
-            guard let scratchStroke = strokes.last,
-                  isScratchStroke(scratchStroke) else { return }
-
-            // Expand the scratch bounds slightly so strokes just touching the edge
-            // of the scribble are reliably included.
-            let scratchBounds = scratchStroke.renderBounds.insetBy(dx: -4, dy: -4)
-            let scratchIndex  = strokes.count - 1
-
-            // Build the filtered stroke list: drop the scratch stroke itself and any
-            // stroke whose render bounds overlap the scratch zone.
-            let remaining = strokes.enumerated().compactMap { (i, stroke) -> PKStroke? in
-                guard i != scratchIndex else { return nil }
-                return stroke.renderBounds.intersects(scratchBounds) ? nil : stroke
-            }
-
-            let deletedCount = strokes.count - 1 - remaining.count  // strokes removed (excluding scratch)
-            let oldDrawing   = canvasView.drawing
-            let newDrawing   = PKDrawing(strokes: remaining)
-
-            // Register undo so the user can restore erased strokes with the standard
-            // undo gesture or toolbar button.
-            canvasView.undoManager?.registerUndo(withTarget: canvasView) { cv in
+            canvas.undoManager?.registerUndo(withTarget: canvas) { cv in
                 cv.drawing = oldDrawing
             }
-            canvasView.undoManager?.setActionName(
-                NSLocalizedString("Scratch to Delete", comment: "Undo action name for scratch-to-delete")
+            canvas.undoManager?.setActionName(
+                NSLocalizedString("Delete Stroke", comment: "Undo action name for pencil double-tap delete")
             )
 
-            canvasView.drawing = newDrawing
+            canvas.drawing = newDrawing
 
-            // Haptic confirmation — medium impact when strokes were actually erased,
-            // selection click when only the scratch itself was cleaned up.
-            if deletedCount > 0 {
-                deletionImpactGenerator.impactOccurred()
-                deletionImpactGenerator.prepare()   // re-arm for the next deletion
-            } else {
-                selectionFeedbackGenerator.selectionChanged()
-                selectionFeedbackGenerator.prepare()
-            }
+            deletionImpactGenerator.impactOccurred()
+            deletionImpactGenerator.prepare()
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -1594,6 +1523,12 @@ extension CanvasView.Coordinator: PencilActionDelegate {
 
     func pencilDidRequestRedo() {
         canvasRef?.undoManager?.redo()
+    }
+
+    // MARK: Double-tap delete
+
+    func pencilDidRequestDeleteLastStroke() {
+        deleteLastStroke()
     }
 
     // MARK: Hover preview
