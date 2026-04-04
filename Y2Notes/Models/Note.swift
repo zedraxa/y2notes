@@ -83,6 +83,11 @@ struct Note: Identifiable, Codable, Hashable {
     /// An empty outer array means no pages have attachments yet.
     var attachmentLayers: [[AttachmentObject]?]
 
+    /// Per-page widget instances — parallel array to `pages`.
+    /// Each element is an array of widgets placed on that page, or `nil` (no widgets).
+    /// An empty outer array means no pages have widgets yet.
+    var widgetLayers: [[NoteWidget]?]
+
     /// Returns the stickers for the given page index, or an empty array.
     func stickers(forPage index: Int) -> [StickerInstance] {
         guard index >= 0 && index < stickerLayers.count else { return [] }
@@ -99,6 +104,12 @@ struct Note: Identifiable, Codable, Hashable {
     func attachments(forPage index: Int) -> [AttachmentObject] {
         guard index >= 0 && index < attachmentLayers.count else { return [] }
         return attachmentLayers[index] ?? []
+    }
+
+    /// Returns the widget instances for the given page index, or an empty array.
+    func widgets(forPage index: Int) -> [NoteWidget] {
+        guard index >= 0 && index < widgetLayers.count else { return [] }
+        return widgetLayers[index] ?? []
     }
 
     /// Returns the per-page colour for the given index, or `nil` to inherit theme.
@@ -150,6 +161,7 @@ struct Note: Identifiable, Codable, Hashable {
         stickerLayers: [[StickerInstance]?] = [],
         shapeLayers: [[ShapeInstance]?] = [],
         attachmentLayers: [[AttachmentObject]?] = [],
+        widgetLayers: [[NoteWidget]?] = [],
         pdfFilename: String? = nil,
         typedText: String = "",
         ocrText: String = ""
@@ -172,6 +184,7 @@ struct Note: Identifiable, Codable, Hashable {
         self.stickerLayers = stickerLayers
         self.shapeLayers = shapeLayers
         self.attachmentLayers = attachmentLayers
+        self.widgetLayers = widgetLayers
         self.pdfFilename = pdfFilename
         self.typedText = typedText
         self.ocrText = ocrText
@@ -183,7 +196,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, pdfFilename
+        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, pdfFilename
         case typedText, ocrText
     }
 
@@ -216,6 +229,7 @@ struct Note: Identifiable, Codable, Hashable {
         stickerLayers = try c.decodeIfPresent([[StickerInstance]?].self, forKey: .stickerLayers) ?? []
         shapeLayers   = try c.decodeIfPresent([[ShapeInstance]?].self,   forKey: .shapeLayers)   ?? []
         attachmentLayers = try c.decodeIfPresent([[AttachmentObject]?].self, forKey: .attachmentLayers) ?? []
+        widgetLayers  = try c.decodeIfPresent([[NoteWidget]?].self, forKey: .widgetLayers) ?? []
         pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
@@ -247,6 +261,7 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encode(stickerLayers,            forKey: .stickerLayers)
         try c.encode(shapeLayers,              forKey: .shapeLayers)
         try c.encode(attachmentLayers,         forKey: .attachmentLayers)
+        try c.encode(widgetLayers,             forKey: .widgetLayers)
         try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
         try c.encode(typedText,     forKey: .typedText)
         try c.encode(ocrText,       forKey: .ocrText)

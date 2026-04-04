@@ -362,6 +362,21 @@ final class NoteStore: ObservableObject {
         scheduleNoteAutosave()
     }
 
+    /// Updates the widget instances for a specific page.
+    func updateWidgets(for noteID: UUID, pageIndex: Int, widgets: [NoteWidget]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure widgetLayers array is sized to match pages
+        while notes[idx].widgetLayers.count < notes[idx].pages.count {
+            notes[idx].widgetLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].widgetLayers.count else { return }
+        notes[idx].widgetLayers[pageIndex] = widgets.isEmpty ? nil : widgets
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
+    }
+
     /// Appends a blank page to the note and returns the new page index.
     @discardableResult
     func addPage(to noteID: UUID) -> Int? {
@@ -373,6 +388,7 @@ final class NoteStore: ObservableObject {
         notes[idx].stickerLayers.append(nil)  // nil = no stickers
         notes[idx].shapeLayers.append(nil)    // nil = no shapes
         notes[idx].attachmentLayers.append(nil) // nil = no attachments
+        notes[idx].widgetLayers.append(nil) // nil = no widgets
         notes[idx].modifiedAt = Date()
         isDirty = true
         schedulePDFRegeneration(for: noteID)

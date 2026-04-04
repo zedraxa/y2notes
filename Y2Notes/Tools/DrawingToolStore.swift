@@ -99,6 +99,19 @@ final class DrawingToolStore: ObservableObject {
     /// Whether the attachment source picker sheet is presented.
     @Published var isAttachmentPickerPresented: Bool = false
 
+    // MARK: - Widget State
+
+    /// The ID of the currently selected widget on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeWidgetSelection: UUID?
+
+    /// Convenience: true when any widget is selected.
+    var hasActiveWidgetSelection: Bool { activeWidgetSelection != nil }
+
+    /// Whether the widget picker menu is presented.
+    /// **Not persisted** — always starts false.
+    @Published var isWidgetPickerPresented: Bool = false
+
     // MARK: - Recording State
 
     /// Whether an audio recording is currently in progress.
