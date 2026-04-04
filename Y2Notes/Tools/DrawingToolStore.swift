@@ -87,6 +87,18 @@ final class DrawingToolStore: ObservableObject {
     /// Convenience: true when any shape is selected (used by toolbar morphing).
     var hasActiveShapeSelection: Bool { activeShapeSelection != nil }
 
+    // MARK: - Attachment State
+
+    /// The ID of the currently selected attachment on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeAttachmentSelection: UUID?
+
+    /// Convenience: true when any attachment is selected.
+    var hasActiveAttachmentSelection: Bool { activeAttachmentSelection != nil }
+
+    /// Whether the attachment source picker sheet is presented.
+    @Published var isAttachmentPickerPresented: Bool = false
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

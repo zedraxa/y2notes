@@ -285,6 +285,18 @@ final class NoteStore: ObservableObject {
         isDirty = true
     }
 
+    func updateAttachments(for noteID: UUID, pageIndex: Int, attachments: [AttachmentObject]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure attachmentLayers array is sized to match pages
+        while notes[idx].attachmentLayers.count < notes[idx].pages.count {
+            notes[idx].attachmentLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].attachmentLayers.count else { return }
+        notes[idx].attachmentLayers[pageIndex] = attachments.isEmpty ? nil : attachments
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
     /// Appends a blank page to the note and returns the new page index.
     @discardableResult
     func addPage(to noteID: UUID) -> Int? {
@@ -295,6 +307,7 @@ final class NoteStore: ObservableObject {
         notes[idx].pageColors.append(nil)  // nil = inherit from theme
         notes[idx].stickerLayers.append(nil)  // nil = no stickers
         notes[idx].shapeLayers.append(nil)    // nil = no shapes
+        notes[idx].attachmentLayers.append(nil) // nil = no attachments
         notes[idx].modifiedAt = Date()
         isDirty = true
         schedulePDFRegeneration(for: noteID)
@@ -320,6 +333,9 @@ final class NoteStore: ObservableObject {
         if notes[idx].shapeLayers.indices.contains(pageIndex) {
             notes[idx].shapeLayers.remove(at: pageIndex)
         }
+        if notes[idx].attachmentLayers.indices.contains(pageIndex) {
+            notes[idx].attachmentLayers.remove(at: pageIndex)
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
         schedulePDFRegeneration(for: noteID)
@@ -338,6 +354,11 @@ final class NoteStore: ObservableObject {
             let pt = notes[idx].pageTypes.remove(at: source)
             let ptInsert = min(insertAt, notes[idx].pageTypes.count)
             notes[idx].pageTypes.insert(pt, at: ptInsert)
+        }
+        if notes[idx].attachmentLayers.indices.contains(source) {
+            let al = notes[idx].attachmentLayers.remove(at: source)
+            let alInsert = min(insertAt, notes[idx].attachmentLayers.count)
+            notes[idx].attachmentLayers.insert(al, at: alInsert)
         }
         notes[idx].modifiedAt = Date()
         isDirty = true

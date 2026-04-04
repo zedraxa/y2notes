@@ -87,6 +87,12 @@
 		AA00010000000000000000FF /* BookmarkListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FE /* BookmarkListView.swift */; };
 		AA0001000000000000000101 /* SearchIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000100 /* SearchIndex.swift */; };
 		AA0001000000000000000103 /* UniversalSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000102 /* UniversalSearchView.swift */; };
+		AA0001000000000000000105 /* Attachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000104 /* Attachment.swift */; };
+		AA0001000000000000000107 /* AttachmentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000106 /* AttachmentStore.swift */; };
+		AA0001000000000000000109 /* AttachmentCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000108 /* AttachmentCanvasView.swift */; };
+		AA000100000000000000010B /* AttachmentHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010A /* AttachmentHandlesView.swift */; };
+		AA000100000000000000010D /* AttachmentSourcePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010C /* AttachmentSourcePicker.swift */; };
+		AA000100000000000000010F /* AttachmentViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010E /* AttachmentViewerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -172,6 +178,12 @@
 		AA00010000000000000000FE /* BookmarkListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkListView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000100 /* SearchIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchIndex.swift; sourceTree = "<group>"; };
 		AA0001000000000000000102 /* UniversalSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalSearchView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000104 /* Attachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachment.swift; sourceTree = "<group>"; };
+		AA0001000000000000000106 /* AttachmentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000108 /* AttachmentCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentCanvasView.swift; sourceTree = "<group>"; };
+		AA000100000000000000010A /* AttachmentHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentHandlesView.swift; sourceTree = "<group>"; };
+		AA000100000000000000010C /* AttachmentSourcePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentSourcePicker.swift; sourceTree = "<group>"; };
+		AA000100000000000000010E /* AttachmentViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -239,6 +251,7 @@
 				AA00010000000000000000EA /* Sticker.swift */,
 				AA00010000000000000000F4 /* ShapeObject.swift */,
 				AA00010000000000000000FA /* NavigationAnchor.swift */,
+				AA0001000000000000000104 /* Attachment.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -276,6 +289,10 @@
 				AA00010000000000000000F6 /* ShapeCanvasView.swift */,
 				AA00010000000000000000F8 /* ShapeHandlesView.swift */,
 				AA00010000000000000000FE /* BookmarkListView.swift */,
+				AA0001000000000000000108 /* AttachmentCanvasView.swift */,
+				AA000100000000000000010A /* AttachmentHandlesView.swift */,
+				AA000100000000000000010C /* AttachmentSourcePicker.swift */,
+				AA000100000000000000010E /* AttachmentViewerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -286,6 +303,7 @@
 				AA0001000000000000000016 /* NoteStore.swift */,
 				AA00010000000000000000EC /* StickerStore.swift */,
 				AA00010000000000000000FC /* NavigationStore.swift */,
+				AA0001000000000000000106 /* AttachmentStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -543,6 +561,12 @@
 				AA00010000000000000000FF /* BookmarkListView.swift in Sources */,
 				AA0001000000000000000101 /* SearchIndex.swift in Sources */,
 				AA0001000000000000000103 /* UniversalSearchView.swift in Sources */,
+				AA0001000000000000000105 /* Attachment.swift in Sources */,
+				AA0001000000000000000107 /* AttachmentStore.swift in Sources */,
+				AA0001000000000000000109 /* AttachmentCanvasView.swift in Sources */,
+				AA000100000000000000010B /* AttachmentHandlesView.swift in Sources */,
+				AA000100000000000000010D /* AttachmentSourcePicker.swift in Sources */,
+				AA000100000000000000010F /* AttachmentViewerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

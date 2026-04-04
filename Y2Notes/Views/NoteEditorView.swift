@@ -210,6 +210,22 @@ struct NoteEditorView: View {
                         currentPageShapes: note.shapes(forPage: safePageIndex),
                         onShapesChanged: { shapes in
                             noteStore.updateShapes(for: note.id, pageIndex: safePageIndex, shapes: shapes)
+                        },
+                        currentPageAttachments: note.attachments(forPage: safePageIndex),
+                        attachmentNoteID: note.id,
+                        onAttachmentsChanged: { attachments in
+                            noteStore.updateAttachments(for: note.id, pageIndex: safePageIndex, attachments: attachments)
+                        },
+                        onAttachmentSelectionChanged: { attachmentID in
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                toolStore.activeAttachmentSelection = attachmentID
+                                // Clear other selections when attachment is selected
+                                if attachmentID != nil {
+                                    toolStore.activeShapeSelection = nil
+                                    toolStore.activeStickerSelection = nil
+                                    toolStore.hasActiveSelection = false
+                                }
+                            }
                         }
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
@@ -273,6 +289,24 @@ struct NoteEditorView: View {
                 }
                 .padding(.top, 60)
                 .zIndex(0.6)
+            }
+
+            // Attachment action bar — appears when an attachment is selected
+            if toolStore.hasActiveAttachmentSelection,
+               let selectedID = toolStore.activeAttachmentSelection,
+               let selectedAttachment = note.attachments(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+                VStack {
+                    AttachmentHandlesView(
+                        attachment: selectedAttachment,
+                        onAction: { action in
+                            handleAttachmentAction(action, for: selectedID)
+                        }
+                    )
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    Spacer()
+                }
+                .padding(.top, 60)
+                .zIndex(0.7)
             }
 
             // Advanced tools inspector — slides in from the right
@@ -529,6 +563,53 @@ struct NoteEditorView: View {
         }
 
         noteStore.updateShapes(for: note.id, pageIndex: pageIdx, shapes: shapes)
+    }
+
+    private func handleAttachmentAction(_ action: AttachmentAction, for attachmentID: UUID) {
+        let pageIdx = currentPageIndex
+        var attachments = note.attachments(forPage: pageIdx)
+        guard let idx = attachments.firstIndex(where: { $0.id == attachmentID }) else { return }
+
+        switch action {
+        case .expand:
+            // Handled by presenting AttachmentViewerView — signal via state
+            break
+
+        case .duplicate:
+            var copy = attachments[idx]
+            copy = AttachmentObject(
+                type: copy.type,
+                frame: AttachmentFrame(
+                    position: CGPoint(
+                        x: copy.frame.position.x + AttachmentConstants.duplicateOffset,
+                        y: copy.frame.position.y + AttachmentConstants.duplicateOffset
+                    ),
+                    size: copy.frame.size
+                ),
+                label: copy.label,
+                zIndex: (attachments.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false,
+                aspectRatio: copy.aspectRatio,
+                fileExtension: copy.fileExtension,
+                linkURL: copy.linkURL
+            )
+            attachments.append(copy)
+            toolStore.activeAttachmentSelection = copy.id
+
+        case .toggleLock:
+            attachments[idx].isLocked.toggle()
+
+        case .delete:
+            let removed = attachments.remove(at: idx)
+            toolStore.activeAttachmentSelection = nil
+            AttachmentStore.shared.deleteAttachmentFiles(
+                noteID: note.id,
+                attachmentID: removed.id,
+                ext: removed.fileExtension
+            )
+        }
+
+        noteStore.updateAttachments(for: note.id, pageIndex: pageIdx, attachments: attachments)
     }
 
     // MARK: - Background blend helper
@@ -1148,6 +1229,15 @@ struct CanvasView: UIViewRepresentable {
     /// Callback to persist shape changes.
     var onShapesChanged: (([ShapeInstance]) -> Void)?
 
+    /// Attachment objects for the current page.
+    var currentPageAttachments: [AttachmentObject] = []
+    /// Note ID used for attachment file lookups.
+    var attachmentNoteID: UUID = UUID()
+    /// Callback to persist attachment changes.
+    var onAttachmentsChanged: (([AttachmentObject]) -> Void)?
+    /// Callback when attachment selection changes.
+    var onAttachmentSelectionChanged: ((UUID?) -> Void)?
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
@@ -1307,6 +1397,31 @@ struct CanvasView: UIViewRepresentable {
             overlay.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         context.coordinator.shapeOverlay = overlay
+
+        // ── Attachment canvas (attachment cards layer) ────────────────────────
+        let attachCanvas = AttachmentCanvasView(frame: .zero)
+        attachCanvas.translatesAutoresizingMaskIntoConstraints = false
+        attachCanvas.noteID = attachmentNoteID
+        attachCanvas.attachments = currentPageAttachments
+        attachCanvas.onSelectionChanged = { attachmentID in
+            context.coordinator.onAttachmentSelectionChanged?(attachmentID)
+        }
+        attachCanvas.onAttachmentTransformed = { attachment in
+            context.coordinator.handleAttachmentTransformed(attachment)
+        }
+        attachCanvas.onAttachmentsChanged = { attachments in
+            context.coordinator.handleAttachmentsChanged(attachments)
+        }
+        context.coordinator.onAttachmentsChanged = onAttachmentsChanged
+        context.coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
+        container.addSubview(attachCanvas)
+        NSLayoutConstraint.activate([
+            attachCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            attachCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            attachCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            attachCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.attachmentCanvas = attachCanvas
 
         // ── Shape object canvas (editable shapes layer) ──────────────────────
         let shapeCanvas = ShapeCanvasView(frame: .zero)
@@ -1487,6 +1602,16 @@ struct CanvasView: UIViewRepresentable {
             shapeCanvas.selectedShapeID = toolStoreForFade?.activeShapeSelection
         }
 
+        // Sync attachment canvas.
+        if let attachCanvas = context.coordinator.attachmentCanvas {
+            attachCanvas.attachments = currentPageAttachments
+            attachCanvas.noteID = attachmentNoteID
+            attachCanvas.selectedAttachmentID = toolStoreForFade?.activeAttachmentSelection
+            attachCanvas.zoomScale = canvas.zoomScale
+        }
+        context.coordinator.onAttachmentsChanged = onAttachmentsChanged
+        context.coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
+
         // Zoom reset: animate to 1× when the trigger value flips.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -1575,6 +1700,18 @@ struct CanvasView: UIViewRepresentable {
 
         /// Callback to persist shape changes.
         var onShapesChanged: (([ShapeInstance]) -> Void)?
+
+        /// Attachment canvas overlay for the current page.
+        weak var attachmentCanvas: AttachmentCanvasView?
+
+        /// Debounce timer for persisting attachment changes.
+        private var attachmentDebounceTimer: Timer?
+
+        /// Callback to persist attachment changes.
+        var onAttachmentsChanged: (([AttachmentObject]) -> Void)?
+
+        /// Callback when attachment selection changes.
+        var onAttachmentSelectionChanged: ((UUID?) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
@@ -1743,6 +1880,8 @@ struct CanvasView: UIViewRepresentable {
                     self?.toolStoreRef?.toolbarOpacity = WritingConfig.toolbarFadedOpacity
                 }
             }
+            // Pause attachment rendering during active strokes for zero lag.
+            attachmentCanvas?.renderingPaused = true
         }
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
@@ -1788,6 +1927,12 @@ struct CanvasView: UIViewRepresentable {
                 markLassoSelectionActive()
             } else {
                 updateSelectionState(for: canvasView)
+            }
+            // Resume attachment rendering after a short delay (matches toolbar restore timing).
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(0.3))
+                self?.attachmentCanvas?.renderingPaused = false
+                self?.attachmentCanvas?.setNeedsDisplay()
             }
         }
 
@@ -1852,6 +1997,28 @@ struct CanvasView: UIViewRepresentable {
         func handleShapeSelectionChanged(_ shapeID: UUID?) {
             Task { @MainActor [weak self] in
                 self?.toolStoreRef?.activeShapeSelection = shapeID
+            }
+        }
+
+        // MARK: - Attachment Coordination
+
+        /// Called when an attachment is moved or resized.
+        func handleAttachmentTransformed(_ attachment: AttachmentObject) {
+            guard var attachments = attachmentCanvas?.attachments else { return }
+            if let idx = attachments.firstIndex(where: { $0.id == attachment.id }) {
+                attachments[idx] = attachment
+            }
+            handleAttachmentsChanged(attachments)
+        }
+
+        /// Debounced persistence for attachment changes.
+        func handleAttachmentsChanged(_ attachments: [AttachmentObject]) {
+            attachmentDebounceTimer?.invalidate()
+            attachmentDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: AttachmentConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onAttachmentsChanged?(attachments)
             }
         }
 
