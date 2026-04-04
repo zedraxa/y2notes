@@ -156,8 +156,9 @@ struct VersionHistoryView: View {
     private func performRestore(snapshot: NoteSnapshot, mode: RestoreMode) {
         guard let note = noteStore.notes.first(where: { $0.id == noteID }) else { return }
 
-        // Create a pre-restore safety snapshot on background queue.
-        PerformanceConstraints.storageQueue.async {
+        // Create a pre-restore safety snapshot synchronously so it completes
+        // before the restore overwrites the current state.
+        PerformanceConstraints.storageQueue.sync {
             SnapshotStore.shared.createSnapshot(
                 for: note,
                 dirtyPages: Set(0 ..< note.pages.count),
@@ -189,8 +190,7 @@ struct VersionHistoryView: View {
             guard let restored = SnapshotStore.shared.reconstructNote(
                 from: snapshot.id, noteID: noteID, currentNote: note
             ) else { return }
-            var copy = restored
-            copy = Note(
+            let copy = Note(
                 title: "\(restored.title) (Restored)",
                 createdAt: Date(),
                 modifiedAt: Date(),
