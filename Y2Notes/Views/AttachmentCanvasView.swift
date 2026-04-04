@@ -55,6 +55,7 @@ final class AttachmentCanvasView: UIView {
     /// State for pan gesture.
     private var panStart: CGPoint = .zero
     private var initialFrame: AttachmentFrame?
+    private let snapAlignEngine = SnapAlignEffectEngine()
 
     /// Pending thumbnail loads to avoid duplicate dispatches.
     private var pendingLoads: Set<UUID> = []
@@ -300,6 +301,7 @@ final class AttachmentCanvasView: UIView {
             panStart = gesture.location(in: self)
             initialFrame = attachments[idx].frame
             activeHandle = handleAt(point: panStart, for: attachments[idx])
+            snapAlignEngine.prepareHaptics()
 
         case .changed:
             guard let initial = initialFrame else { return }
@@ -351,12 +353,21 @@ final class AttachmentCanvasView: UIView {
 
                 // Snap to center guides
                 let pageCenter = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
+                var snappedX = false
+                var snappedY = false
                 if abs(newPos.x - pageCenter.x) < AttachmentConstants.snapDistance {
                     newPos.x = pageCenter.x
+                    snappedX = true
                 }
                 if abs(newPos.y - pageCenter.y) < AttachmentConstants.snapDistance {
                     newPos.y = pageCenter.y
+                    snappedY = true
                 }
+
+                // Snap & align visual/haptic feedback
+                snapAlignEngine.playSnapFeedback(
+                    on: layer, snappedX: snappedX, snappedY: snappedY
+                )
 
                 attachments[idx].frame.position = newPos
             }

@@ -38,6 +38,7 @@ final class StickerCanvasView: UIView {
     private var initialPosition: CGPoint = .zero
     private var initialScale: CGFloat = 1.0
     private var initialRotation: CGFloat = 0
+    private let snapAlignEngine = SnapAlignEffectEngine()
 
     // MARK: - Init
 
@@ -252,6 +253,7 @@ final class StickerCanvasView: UIView {
         case .began:
             panStart = gesture.location(in: self)
             initialPosition = stickers[idx].position
+            snapAlignEngine.prepareHaptics()
         case .changed:
             let current = gesture.location(in: self)
             let dx = current.x - panStart.x
@@ -260,12 +262,21 @@ final class StickerCanvasView: UIView {
 
             // Center snap guides
             let pageCenter = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
+            var snappedX = false
+            var snappedY = false
             if abs(newPos.x - pageCenter.x) < StickerConstants.snapDistance {
                 newPos.x = pageCenter.x
+                snappedX = true
             }
             if abs(newPos.y - pageCenter.y) < StickerConstants.snapDistance {
                 newPos.y = pageCenter.y
+                snappedY = true
             }
+
+            // Snap & align visual/haptic feedback
+            snapAlignEngine.playSnapFeedback(
+                on: layer, snappedX: snappedX, snappedY: snappedY
+            )
 
             stickers[idx].position = newPos
             setNeedsDisplay()

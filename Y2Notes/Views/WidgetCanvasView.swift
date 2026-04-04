@@ -24,6 +24,7 @@ final class WidgetCanvasView: UIView {
     private var activeHandle: HandleCorner?
     private var panStart: CGPoint = .zero
     private var initialFrame: WidgetFrame?
+    private let snapAlignEngine = SnapAlignEffectEngine()
 
     private enum HandleCorner: CaseIterable { case topLeft, topRight, bottomLeft, bottomRight }
 
@@ -331,6 +332,7 @@ final class WidgetCanvasView: UIView {
             panStart = gesture.location(in: self)
             initialFrame = widgets[idx].frame
             activeHandle = handleAt(point: panStart, for: widgets[idx])
+            snapAlignEngine.prepareHaptics()
 
         case .changed:
             guard let initial = initialFrame else { return }
@@ -368,8 +370,20 @@ final class WidgetCanvasView: UIView {
             } else {
                 var newPos = CGPoint(x: initial.position.x + dx, y: initial.position.y + dy)
                 let pageCenter = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
-                if abs(newPos.x - pageCenter.x) < WidgetConstants.snapDistance { newPos.x = pageCenter.x }
-                if abs(newPos.y - pageCenter.y) < WidgetConstants.snapDistance { newPos.y = pageCenter.y }
+                var snappedX = false
+                var snappedY = false
+                if abs(newPos.x - pageCenter.x) < WidgetConstants.snapDistance {
+                    newPos.x = pageCenter.x
+                    snappedX = true
+                }
+                if abs(newPos.y - pageCenter.y) < WidgetConstants.snapDistance {
+                    newPos.y = pageCenter.y
+                    snappedY = true
+                }
+                // Snap & align visual/haptic feedback
+                snapAlignEngine.playSnapFeedback(
+                    on: layer, snappedX: snappedX, snappedY: snappedY
+                )
                 widgets[idx].frame.position = newPos
             }
             setNeedsDisplay()

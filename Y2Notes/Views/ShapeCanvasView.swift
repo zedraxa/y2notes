@@ -49,6 +49,7 @@ final class ShapeCanvasView: UIView {
     private var dragStartFrame: CGRect = .zero
     private var activeHandle: HandlePosition?
     private var isDragging = false
+    private let snapAlignEngine = SnapAlignEffectEngine()
 
     // MARK: - Init
 
@@ -317,6 +318,8 @@ final class ShapeCanvasView: UIView {
 
         switch gesture.state {
         case .began:
+            snapAlignEngine.prepareHaptics()
+
             // Check if dragging a handle
             if let handle = handleAt(point) {
                 activeHandle = handle
@@ -354,7 +357,45 @@ final class ShapeCanvasView: UIView {
                 // Move shape
                 let dx = point.x - dragStartPoint.x
                 let dy = point.y - dragStartPoint.y
-                shapes[idx].frame = dragStartFrame.offsetBy(dx: dx, dy: dy)
+                var newFrame = dragStartFrame.offsetBy(dx: dx, dy: dy)
+
+                // Check alignment with other shapes
+                let movedCenter = CGPoint(x: newFrame.midX, y: newFrame.midY)
+                var snappedX = false
+                var snappedY = false
+
+                for (i, other) in shapes.enumerated() where i != idx {
+                    let otherCenter = CGPoint(x: other.frame.midX, y: other.frame.midY)
+
+                    // Horizontal centre alignment
+                    if !snappedX && abs(movedCenter.x - otherCenter.x) < ShapeConstants.snapDistance {
+                        newFrame.origin.x = otherCenter.x - newFrame.width / 2
+                        snappedX = true
+                        // Flash vertical guide line through aligned centres
+                        snapAlignEngine.playLineGuideFlash(
+                            from: CGPoint(x: otherCenter.x, y: 0),
+                            to: CGPoint(x: otherCenter.x, y: bounds.height),
+                            in: layer
+                        )
+                    }
+
+                    // Vertical centre alignment
+                    if !snappedY && abs(movedCenter.y - otherCenter.y) < ShapeConstants.snapDistance {
+                        newFrame.origin.y = otherCenter.y - newFrame.height / 2
+                        snappedY = true
+                        // Flash horizontal guide line through aligned centres
+                        snapAlignEngine.playLineGuideFlash(
+                            from: CGPoint(x: 0, y: otherCenter.y),
+                            to: CGPoint(x: bounds.width, y: otherCenter.y),
+                            in: layer
+                        )
+                    }
+                }
+
+                shapes[idx].frame = newFrame
+
+                // Haptic feedback for perfect dual-axis alignment
+                snapAlignEngine.updatePerfectAlignment(isAligned: snappedX && snappedY)
             }
             renderShapes()
 
