@@ -18,19 +18,29 @@ struct NavigationAnchor: Identifiable, Codable, Hashable {
     /// Optional object ID on the target page (e.g. attachment UUID).
     /// When set, the navigation handler highlights this object after jumping.
     var objectID: UUID?
+    /// Optional audio session ID for audio-linked search results.
+    /// When set, the navigation handler starts playback of this session.
+    var audioSessionID: UUID?
+    /// Optional audio offset (seconds from session start) for keyword→audio jump.
+    /// Used together with `audioSessionID` to seek to a specific playback position.
+    var audioOffset: TimeInterval?
 
     init(
         id: UUID = UUID(),
         notebookID: UUID,
         noteID: UUID,
         pageIndex: Int,
-        objectID: UUID? = nil
+        objectID: UUID? = nil,
+        audioSessionID: UUID? = nil,
+        audioOffset: TimeInterval? = nil
     ) {
         self.id = id
         self.notebookID = notebookID
         self.noteID = noteID
         self.pageIndex = pageIndex
         self.objectID = objectID
+        self.audioSessionID = audioSessionID
+        self.audioOffset = audioOffset
     }
 }
 

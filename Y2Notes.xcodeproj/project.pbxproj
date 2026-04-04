@@ -99,6 +99,7 @@
 		AA0001000000000000000117 /* RecordingIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000116 /* RecordingIndicatorView.swift */; };
 		AA0001000000000000000119 /* RecordingSessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000118 /* RecordingSessionListView.swift */; };
 		AA000100000000000000011B /* AudioStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000011A /* AudioStorageManager.swift */; };
+		AA000100000000000000011D /* AudioSearchIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000011C /* AudioSearchIndexer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -196,6 +197,7 @@
 		AA0001000000000000000116 /* RecordingIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingIndicatorView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000118 /* RecordingSessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSessionListView.swift; sourceTree = "<group>"; };
 		AA000100000000000000011A /* AudioStorageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStorageManager.swift; sourceTree = "<group>"; };
+		AA000100000000000000011C /* AudioSearchIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSearchIndexer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -361,6 +363,7 @@
 				AA0001000000000000000088 /* SearchService.swift */,
 				AA00010000000000000000D2 /* OCREngine.swift */,
 				AA0001000000000000000100 /* SearchIndex.swift */,
+				AA000100000000000000011C /* AudioSearchIndexer.swift */,
 			);
 			path = Search;
 			sourceTree = "<group>";
@@ -578,6 +581,7 @@
 				AA00010000000000000000FD /* NavigationStore.swift in Sources */,
 				AA00010000000000000000FF /* BookmarkListView.swift in Sources */,
 				AA0001000000000000000101 /* SearchIndex.swift in Sources */,
+				AA000100000000000000011D /* AudioSearchIndexer.swift in Sources */,
 				AA0001000000000000000103 /* UniversalSearchView.swift in Sources */,
 				AA0001000000000000000105 /* Attachment.swift in Sources */,
 				AA0001000000000000000107 /* AttachmentStore.swift in Sources */,

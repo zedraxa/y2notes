@@ -31,6 +31,8 @@ enum SearchEntryKind: String, Hashable {
     case stickerLabel
     case pdfTitle
     case attachmentLabel
+    case audioSession
+    case audioTimestamp
 }
 
 // MARK: - Grouped search result
@@ -52,6 +54,7 @@ struct UniversalSearchResult: Identifiable {
 enum SearchResultGroup: String, CaseIterable {
     case currentNotebook = "This Notebook"
     case bookmarks       = "Bookmarks"
+    case recordings      = "Recordings"
     case otherNotebooks  = "Other Notebooks"
     case pdfs            = "PDFs"
     case unfiled         = "Unfiled"
@@ -90,7 +93,8 @@ final class SearchIndex {
         notebooks: [Notebook],
         sections: [NotebookSection],
         bookmarks: [PageBookmark],
-        pdfRecords: [PDFNoteRecord]
+        pdfRecords: [PDFNoteRecord],
+        audioStorageManager: AudioStorageManager? = nil
     ) {
         entries.removeAll(keepingCapacity: true)
 
@@ -156,6 +160,11 @@ final class SearchIndex {
             )
         }
 
+        // Index audio sessions and timeline events
+        if let storageManager = audioStorageManager {
+            AudioSearchIndexer.indexAllSessions(into: &entries, from: storageManager)
+        }
+
         lastFullRebuild = Date()
     }
 
@@ -190,6 +199,21 @@ final class SearchIndex {
                 modifiedAt: bm.createdAt
             )
         }
+    }
+
+    /// Incrementally update the index for a single audio session (called after
+    /// recording stops or a session is recovered).
+    func updateAudioSession(
+        _ session: AudioStorageManager.StorageManifest.SessionEntry,
+        from storageManager: AudioStorageManager
+    ) {
+        AudioSearchIndexer.removeSession(session.id, from: &entries)
+        AudioSearchIndexer.indexSession(session, into: &entries, from: storageManager)
+    }
+
+    /// Remove all entries for a deleted audio session.
+    func removeAudioSession(_ sessionID: UUID) {
+        AudioSearchIndexer.removeSession(sessionID, from: &entries)
     }
 
     // MARK: - Querying
@@ -276,6 +300,8 @@ final class SearchIndex {
                 group = .pdfs
             } else if result.entry.kind == .bookmarkLabel {
                 group = .bookmarks
+            } else if result.entry.kind == .audioSession || result.entry.kind == .audioTimestamp {
+                group = .recordings
             } else if let nbID = result.entry.notebookID, nbID == currentNotebookID {
                 group = .currentNotebook
             } else if result.entry.notebookID != nil {
@@ -397,6 +423,8 @@ final class SearchIndex {
         case .stickerLabel:    return 20
         case .pdfTitle:        return 60
         case .attachmentLabel: return 35
+        case .audioSession:    return 55
+        case .audioTimestamp:  return 30
         }
     }
 
