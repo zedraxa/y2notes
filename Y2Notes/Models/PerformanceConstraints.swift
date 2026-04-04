@@ -169,6 +169,12 @@ enum PerformanceConstraints {
     /// zero CPU (repeating `CABasicAnimation`s).
     static let ambientEnvironmentBudgetMs: Double = 0.5
 
+    /// Adaptive effects evaluation budget.
+    /// Three float comparisons + one enum write — trivially < 0.1 ms.
+    /// Runs reactively (not per-frame); triggered by zoom, stroke, or
+    /// power-state changes.
+    static let adaptiveEffectsEvaluationBudgetMs: Double = 0.1
+
     // MARK: 8. Future — Transcript Search
 
     /// Speech-to-text processing: post-recording only, `.background` QoS.

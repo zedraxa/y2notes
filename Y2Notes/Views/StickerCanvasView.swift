@@ -42,6 +42,15 @@ final class StickerCanvasView: UIView {
     private let microEngine = MicroInteractionEngine()
     private let interactionLayer = CALayer()
 
+    /// Current adaptive effect intensity.  Set by the editor coordinator
+    /// whenever `AdaptiveEffectsEngine.intensity` changes.
+    var effectIntensity: EffectIntensity = .full {
+        didSet {
+            microEngine.effectIntensity = effectIntensity
+            snapAlignEngine.effectIntensity = effectIntensity
+        }
+    }
+
     // MARK: - Init
 
     override init(frame: CGRect) {

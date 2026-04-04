@@ -77,6 +77,9 @@ final class PageTransitionEngine {
     private let reduceMotion: Bool
     private var isTransitioning: Bool = false
 
+    /// Current adaptive effect intensity.  Updated by the owning view.
+    var effectIntensity: EffectIntensity = .full
+
     init() {
         reduceMotion = UIAccessibility.isReduceMotionEnabled
     }
@@ -110,7 +113,7 @@ final class PageTransitionEngine {
         }
         isTransitioning = true
 
-        if reduceMotion {
+        if reduceMotion || !effectIntensity.allowsPageTurnPhysics {
             playReducedMotionTransition(on: layer, completion: completion)
             return
         }

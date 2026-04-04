@@ -85,6 +85,9 @@ final class SnapAlignEffectEngine {
         hapticGenerator.prepare()
     }
 
+    /// Current adaptive effect intensity.  Updated by the owning view.
+    var effectIntensity: EffectIntensity = .full
+
     // MARK: - Snap Glow (Sticker Alignment)
 
     /// Plays a brief, subtle glow around a layer when it snaps to a guide.
@@ -100,7 +103,7 @@ final class SnapAlignEffectEngine {
         on layer: CALayer,
         color: UIColor = UIColor.systemBlue.withAlphaComponent(0.6)
     ) {
-        guard !reduceMotion else { return }
+        guard !reduceMotion, effectIntensity.allowsSnapAlignVisuals else { return }
         guard activeEffectCount < Self.maxSimultaneousEffects else { return }
 
         let previousShadowColor   = layer.shadowColor
@@ -160,7 +163,7 @@ final class SnapAlignEffectEngine {
         in container: CALayer,
         color: UIColor = UIColor.systemRed.withAlphaComponent(0.5)
     ) {
-        guard !reduceMotion else { return }
+        guard !reduceMotion, effectIntensity.allowsSnapAlignVisuals else { return }
         guard activeEffectCount < Self.maxSimultaneousEffects else { return }
 
         let path = UIBezierPath()

@@ -59,6 +59,14 @@ final class AttachmentCanvasView: UIView {
     private let microEngine = MicroInteractionEngine()
     private let interactionLayer = CALayer()
 
+    /// Current adaptive effect intensity.  Set by the editor coordinator.
+    var effectIntensity: EffectIntensity = .full {
+        didSet {
+            microEngine.effectIntensity = effectIntensity
+            snapAlignEngine.effectIntensity = effectIntensity
+        }
+    }
+
     /// Pending thumbnail loads to avoid duplicate dispatches.
     private var pendingLoads: Set<UUID> = []
 

@@ -81,10 +81,15 @@ final class FocusModeEngine {
         reduceMotion = UIAccessibility.isReduceMotionEnabled
     }
 
+    /// Current adaptive effect intensity.  Updated by the owning view.
+    var effectIntensity: EffectIntensity = .full
+
     // MARK: - Transition Duration
 
     private var fadeDuration: CFTimeInterval {
-        reduceMotion ? Tuning.reducedMotionDuration : Tuning.transitionDuration
+        reduceMotion ? Tuning.reducedMotionDuration
+        : (effectIntensity.allowsFocusModeOverlays ? Tuning.transitionDuration
+           : Tuning.reducedMotionDuration)
     }
 
     // MARK: - Activate

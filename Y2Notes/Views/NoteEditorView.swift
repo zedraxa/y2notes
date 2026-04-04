@@ -1930,6 +1930,18 @@ struct CanvasView: UIViewRepresentable {
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
+        // Sync adaptive effects engine with current note complexity.
+        context.coordinator.adaptiveEffectsEngine.pageCount = note.pageCount
+        // Propagate intensity to sub-engines.
+        let intensity = context.coordinator.adaptiveEffectsEngine.intensity
+        context.coordinator.pageTransitionEngine.effectIntensity = intensity
+        context.coordinator.focusModeEngine.effectIntensity = intensity
+        context.coordinator.ambientEngine.effectIntensity = intensity
+        // Propagate to canvas views that own their own micro/snap engines.
+        context.coordinator.shapeCanvas?.effectIntensity = intensity
+        context.coordinator.attachmentCanvas?.effectIntensity = intensity
+        context.coordinator.widgetCanvas?.effectIntensity = intensity
+
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
             engine.syncLayerFrames()
@@ -2005,6 +2017,10 @@ struct CanvasView: UIViewRepresentable {
 
         /// Ambient environment scene engine (rain / lo-fi / night grain).
         let ambientEngine = AmbientEnvironmentEngine()
+
+        /// Adaptive effects engine — evaluates context signals and sets
+        /// intensity for all effect subsystems.
+        let adaptiveEffectsEngine = AdaptiveEffectsEngine()
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
@@ -2243,6 +2259,12 @@ struct CanvasView: UIViewRepresentable {
             // Record pencil end time for palm guard (finger rejection window).
             palmGuard.pencilStrokeEnded()
 
+            // Signal stroke pause to the adaptive effects engine so it can
+            // decay the smoothed writing rate and potentially restore effects.
+            Task { @MainActor [weak self] in
+                self?.adaptiveEffectsEngine.reportStrokePause()
+            }
+
             // Notify effect engine of stroke end for ripple / fire cooldown.
             if let engine = effectEngine {
                 let lastStroke = canvasView.drawing.strokes.last
@@ -2442,6 +2464,8 @@ struct CanvasView: UIViewRepresentable {
             let strokeCount = canvasView.drawing.strokes.count
             Task { @MainActor [weak self] in
                 self?.strokeMonitor.update(strokeCount: strokeCount, dataSize: data.count)
+                self?.adaptiveEffectsEngine.currentPageStrokeCount = strokeCount
+                self?.adaptiveEffectsEngine.reportStrokeChange()
             }
 
             // Debounce disk writes using config constant.
@@ -2506,6 +2530,7 @@ struct CanvasView: UIViewRepresentable {
         /// `UIScrollViewDelegate` callbacks.
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             centerContentDuringZoom(scrollView)
+            adaptiveEffectsEngine.zoomScale = scrollView.zoomScale
         }
 
         /// Adjusts content insets so the page stays centered when the scaled

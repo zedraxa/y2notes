@@ -208,6 +208,27 @@ struct WritingEffectConfig: Codable, Equatable {
         return copy
     }
 
+    /// Further filters effects based on adaptive intensity.
+    ///
+    /// Call after `resolved(for:)` to apply runtime adaptive constraints.
+    /// At `.reduced`, all advanced effects are disabled.  At `.minimal`,
+    /// all optional core effects (micro-texture, opacity fluctuation) are
+    /// also disabled.
+    func adapted(for intensity: EffectIntensity) -> WritingEffectConfig {
+        var copy = self
+        if !intensity.allowsAdvancedWritingEffects {
+            copy.glowPenEnabled      = false
+            copy.neonInkEnabled      = false
+            copy.gradientInkEnabled  = false
+            copy.inkTrailFadeEnabled = false
+        }
+        if intensity == .minimal {
+            copy.microTextureEnabled       = false
+            copy.opacityFluctuationEnabled = false
+        }
+        return copy
+    }
+
     // MARK: Default preset
 
     static let `default` = WritingEffectConfig()

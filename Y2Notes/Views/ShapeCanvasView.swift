@@ -52,6 +52,14 @@ final class ShapeCanvasView: UIView {
     private let snapAlignEngine = SnapAlignEffectEngine()
     private let microEngine = MicroInteractionEngine()
 
+    /// Current adaptive effect intensity.  Set by the editor coordinator.
+    var effectIntensity: EffectIntensity = .full {
+        didSet {
+            microEngine.effectIntensity = effectIntensity
+            snapAlignEngine.effectIntensity = effectIntensity
+        }
+    }
+
     // MARK: - Init
 
     override init(frame: CGRect) {

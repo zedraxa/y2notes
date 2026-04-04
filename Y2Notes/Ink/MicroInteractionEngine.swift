@@ -150,9 +150,20 @@ final class MicroInteractionEngine {
     /// Whether Reduce Motion is enabled — cached once per engine lifetime.
     private let reduceMotion: Bool
 
+    /// Current adaptive effect intensity.  Updated by the owning view
+    /// whenever `AdaptiveEffectsEngine.intensity` changes.  Defaults to
+    /// `.full` so existing callers that don't set it get original behaviour.
+    var effectIntensity: EffectIntensity = .full
+
     init() {
         reduceMotion = InteractionRules.respectReduceMotion
             && UIAccessibility.isReduceMotionEnabled
+    }
+
+    /// Convenience guard: returns `true` when the animation should be skipped
+    /// due to Reduce Motion or adaptive intensity.
+    private var shouldSuppressAnimations: Bool {
+        reduceMotion || !effectIntensity.allowsMicroInteractions
     }
 
     // MARK: - Tap Ripple
@@ -172,7 +183,7 @@ final class MicroInteractionEngine {
         in container: CALayer,
         color: UIColor = UIColor.label.withAlphaComponent(0.25)
     ) {
-        guard !reduceMotion else { return }
+        guard !shouldSuppressAnimations else { return }
         guard activeAnimationCount < InteractionRules.maxSimultaneousAnimations else { return }
 
         let diameter: CGFloat = 44
@@ -234,7 +245,7 @@ final class MicroInteractionEngine {
         on layer: CALayer,
         color: UIColor = UIColor.systemBlue
     ) {
-        guard !reduceMotion else { return }
+        guard !shouldSuppressAnimations else { return }
         guard activeAnimationCount < InteractionRules.maxSimultaneousAnimations else { return }
 
         layer.shadowColor  = color.cgColor
@@ -279,7 +290,7 @@ final class MicroInteractionEngine {
     /// Uses a spring timing approximation for physically correct overshoot.
     /// Duration: 0.2 s.
     func playSnapBounce(on layer: CALayer) {
-        guard !reduceMotion else { return }
+        guard !shouldSuppressAnimations else { return }
         guard activeAnimationCount < InteractionRules.maxSimultaneousAnimations else { return }
 
         activeAnimationCount += 1
@@ -308,7 +319,7 @@ final class MicroInteractionEngine {
     /// Gives objects a tactile "lift" feeling.  Pairs well with `playSelectionGlow`.
     /// Duration: ~0.3 s (spring settling).
     func playSelectScale(on layer: CALayer) {
-        guard !reduceMotion else { return }
+        guard !shouldSuppressAnimations else { return }
 
         let anim             = CASpringAnimation(keyPath: "transform.scale")
         anim.fromValue       = 1.0
@@ -326,7 +337,7 @@ final class MicroInteractionEngine {
 
     /// Scales a layer back to 1.0 with an ease-out curve when deselected.
     func playDeselectScale(on layer: CALayer) {
-        guard !reduceMotion else {
+        guard !shouldSuppressAnimations else {
             layer.removeAnimation(forKey: "selectScale")
             layer.transform = CATransform3DIdentity
             return
@@ -344,7 +355,7 @@ final class MicroInteractionEngine {
 
     /// Plays a bounce + settle animation on release (1.05 → 1.0 with spring overshoot).
     func playReleaseBounce(on layer: CALayer) {
-        guard !reduceMotion else {
+        guard !shouldSuppressAnimations else {
             layer.removeAnimation(forKey: "selectScale")
             layer.transform = CATransform3DIdentity
             return
@@ -420,7 +431,7 @@ final class MicroInteractionEngine {
         from currentPosition: CGPoint,
         velocity: CGPoint
     ) {
-        guard !reduceMotion else { return }
+        guard !shouldSuppressAnimations else { return }
 
         let spec = Self.dragInertiaSpec
         let decayFactor: CGFloat = 0.12   // how far inertia carries (fraction of velocity)
@@ -463,7 +474,7 @@ final class MicroInteractionEngine {
         on layer: CALayer,
         dragDirection: CGPoint
     ) {
-        guard !reduceMotion else { return }
+        guard !shouldSuppressAnimations else { return }
 
         let maxOffset: CGFloat = 2.0
         let targetOffset = CGSize(
@@ -488,7 +499,7 @@ final class MicroInteractionEngine {
 
     /// Resets the shadow offset to the default resting position (0, 1).
     func resetSoftShadow(on layer: CALayer) {
-        guard !reduceMotion else {
+        guard !shouldSuppressAnimations else {
             layer.shadowOffset = CGSize(width: 0, height: 1)
             return
         }

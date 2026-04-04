@@ -28,6 +28,14 @@ final class WidgetCanvasView: UIView {
     private let microEngine = MicroInteractionEngine()
     private let interactionLayer = CALayer()
 
+    /// Current adaptive effect intensity.  Set by the editor coordinator.
+    var effectIntensity: EffectIntensity = .full {
+        didSet {
+            microEngine.effectIntensity = effectIntensity
+            snapAlignEngine.effectIntensity = effectIntensity
+        }
+    }
+
     private enum HandleCorner: CaseIterable { case topLeft, topRight, bottomLeft, bottomRight }
 
     // MARK: - Init
