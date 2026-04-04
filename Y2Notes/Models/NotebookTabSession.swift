@@ -74,7 +74,10 @@ final class NotebookTabSession {
         didSet { persistTabs() }
     }
 
-    /// Maximum number of simultaneously open tabs. Prevents runaway memory.
+    /// Maximum number of simultaneously open tabs.
+    /// 8 balances usability (enough for typical multi-subject workflows) against
+    /// memory (each active tab's PKCanvasView + PKDrawing can consume ~10-30 MB).
+    /// Only the active tab is fully loaded; suspended tabs keep metadata only.
     static let maxTabs = 8
 
     // MARK: - Init
