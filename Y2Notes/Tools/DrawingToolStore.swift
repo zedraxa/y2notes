@@ -78,6 +78,15 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts as nil.
     @Published var activeStickerSelection: UUID?
 
+    // MARK: - Shape Object State
+
+    /// The ID of the currently selected shape object on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeShapeSelection: UUID?
+
+    /// Convenience: true when any shape is selected (used by toolbar morphing).
+    var hasActiveShapeSelection: Bool { activeShapeSelection != nil }
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

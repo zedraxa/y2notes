@@ -272,6 +272,19 @@ final class NoteStore: ObservableObject {
         isDirty = true
     }
 
+    /// Updates the shape objects for a specific page.
+    func updateShapes(for noteID: UUID, pageIndex: Int, shapes: [ShapeInstance]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure shapeLayers array is sized to match pages
+        while notes[idx].shapeLayers.count < notes[idx].pages.count {
+            notes[idx].shapeLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].shapeLayers.count else { return }
+        notes[idx].shapeLayers[pageIndex] = shapes.isEmpty ? nil : shapes
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
     /// Appends a blank page to the note and returns the new page index.
     @discardableResult
     func addPage(to noteID: UUID) -> Int? {
@@ -281,6 +294,7 @@ final class NoteStore: ObservableObject {
         notes[idx].pageTypes.append(nil)   // nil = inherit from note-level pageType
         notes[idx].pageColors.append(nil)  // nil = inherit from theme
         notes[idx].stickerLayers.append(nil)  // nil = no stickers
+        notes[idx].shapeLayers.append(nil)    // nil = no shapes
         notes[idx].modifiedAt = Date()
         isDirty = true
         schedulePDFRegeneration(for: noteID)
@@ -302,6 +316,9 @@ final class NoteStore: ObservableObject {
         }
         if notes[idx].stickerLayers.indices.contains(pageIndex) {
             notes[idx].stickerLayers.remove(at: pageIndex)
+        }
+        if notes[idx].shapeLayers.indices.contains(pageIndex) {
+            notes[idx].shapeLayers.remove(at: pageIndex)
         }
         notes[idx].modifiedAt = Date()
         isDirty = true

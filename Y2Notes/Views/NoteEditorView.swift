@@ -206,7 +206,11 @@ struct NoteEditorView: View {
                             showPageOverview = true
                         },
                         pdfURL: noteStore.notePDFURL(for: note),
-                        toolStoreForFade: toolStore
+                        toolStoreForFade: toolStore,
+                        currentPageShapes: note.shapes(forPage: safePageIndex),
+                        onShapesChanged: { shapes in
+                            noteStore.updateShapes(for: note.id, pageIndex: safePageIndex, shapes: shapes)
+                        }
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
                     .id("\(note.id)-\(safePageIndex)")
@@ -250,6 +254,25 @@ struct NoteEditorView: View {
                     .padding(.bottom, 8)
                 }
                 .zIndex(0.5)
+            }
+
+            // Shape action bar — appears when a shape object is selected
+            if toolStore.hasActiveShapeSelection,
+               let selectedID = toolStore.activeShapeSelection,
+               let selectedShape = note.shapes(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+                VStack {
+                    ShapeHandlesView(
+                        toolStore: toolStore,
+                        selectedShape: selectedShape,
+                        onAction: { action in
+                            handleShapeAction(action, for: selectedID)
+                        }
+                    )
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    Spacer()
+                }
+                .padding(.top, 60)
+                .zIndex(0.6)
             }
 
             // Advanced tools inspector — slides in from the right
@@ -462,6 +485,50 @@ struct NoteEditorView: View {
         updatedNote.modifiedAt = Date()
 
         noteStore.updateStickers(for: note.id, pageIndex: pageIdx, stickers: existing)
+    }
+
+    // MARK: - Shape Actions
+
+    /// Handles actions from the shape action bar.
+    private func handleShapeAction(_ action: ShapeAction, for shapeID: UUID) {
+        let pageIdx = currentPageIndex
+        var shapes = note.shapes(forPage: pageIdx)
+        guard let idx = shapes.firstIndex(where: { $0.id == shapeID }) else { return }
+
+        switch action {
+        case .duplicate:
+            var copy = shapes[idx]
+            copy = ShapeInstance(
+                shapeType: copy.shapeType,
+                frame: copy.frame.offsetBy(dx: 20, dy: 20),
+                rotation: copy.rotation,
+                style: copy.style,
+                zIndex: (shapes.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false
+            )
+            shapes.append(copy)
+            toolStore.activeShapeSelection = copy.id
+
+        case .delete:
+            shapes.remove(at: idx)
+            toolStore.activeShapeSelection = nil
+
+        case .toggleLock:
+            shapes[idx].isLocked.toggle()
+
+        case .bringToFront:
+            let maxZ = shapes.map(\.zIndex).max() ?? 0
+            shapes[idx].zIndex = maxZ + 1
+
+        case .sendToBack:
+            let minZ = shapes.map(\.zIndex).min() ?? 0
+            shapes[idx].zIndex = minZ - 1
+
+        case .updateStyle(let newStyle):
+            shapes[idx].style = newStyle
+        }
+
+        noteStore.updateShapes(for: note.id, pageIndex: pageIdx, shapes: shapes)
     }
 
     // MARK: - Background blend helper
@@ -1076,6 +1143,11 @@ struct CanvasView: UIViewRepresentable {
     /// Reference to the toolbar store, used to drive auto-fade during drawing.
     var toolStoreForFade: DrawingToolStore?
 
+    /// Shape objects for the current page.
+    var currentPageShapes: [ShapeInstance] = []
+    /// Callback to persist shape changes.
+    var onShapesChanged: (([ShapeInstance]) -> Void)?
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
@@ -1236,6 +1308,29 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.shapeOverlay = overlay
 
+        // ── Shape object canvas (editable shapes layer) ──────────────────────
+        let shapeCanvas = ShapeCanvasView(frame: .zero)
+        shapeCanvas.translatesAutoresizingMaskIntoConstraints = false
+        shapeCanvas.shapes = currentPageShapes
+        shapeCanvas.isShapeToolActive = isShapeToolActive
+        shapeCanvas.onShapesChanged = { [weak shapeCanvas] shapes in
+            guard let shapeCanvas else { return }
+            context.coordinator.handleShapesChanged(shapes)
+            shapeCanvas.shapes = shapes
+        }
+        shapeCanvas.onSelectionChanged = { shapeID in
+            context.coordinator.handleShapeSelectionChanged(shapeID)
+        }
+        context.coordinator.onShapesChanged = onShapesChanged
+        container.addSubview(shapeCanvas)
+        NSLayoutConstraint.activate([
+            shapeCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            shapeCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            shapeCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            shapeCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.shapeCanvas = shapeCanvas
+
         // ── Hover overlay (non-interactive, floats above the canvas) ─────────
         let hoverOverlay = PencilHoverOverlayView(frame: .zero)
         hoverOverlay.translatesAutoresizingMaskIntoConstraints = false
@@ -1385,6 +1480,13 @@ struct CanvasView: UIViewRepresentable {
             overlay.strokeWidth = CGFloat(shapeWidth)
         }
 
+        // Sync shape object canvas.
+        if let shapeCanvas = context.coordinator.shapeCanvas {
+            shapeCanvas.isShapeToolActive = isShapeToolActive
+            shapeCanvas.shapes = currentPageShapes
+            shapeCanvas.selectedShapeID = toolStoreForFade?.activeShapeSelection
+        }
+
         // Zoom reset: animate to 1× when the trigger value flips.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -1464,6 +1566,15 @@ struct CanvasView: UIViewRepresentable {
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
+
+        /// Shape objects canvas for the current page.
+        weak var shapeCanvas: ShapeCanvasView?
+
+        /// Debounce timer for persisting shape changes.
+        private var shapeDebounceTimer: Timer?
+
+        /// Callback to persist shape changes.
+        var onShapesChanged: (([ShapeInstance]) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
@@ -1721,6 +1832,26 @@ struct CanvasView: UIViewRepresentable {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                     self?.toolStoreRef?.hasActiveSelection = false
                 }
+            }
+        }
+
+        // MARK: - Shape Object Handlers
+
+        /// Called when the shape canvas reports changes to shape objects.
+        func handleShapesChanged(_ shapes: [ShapeInstance]) {
+            shapeDebounceTimer?.invalidate()
+            shapeDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: ShapeConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onShapesChanged?(shapes)
+            }
+        }
+
+        /// Called when shape selection changes.
+        func handleShapeSelectionChanged(_ shapeID: UUID?) {
+            Task { @MainActor [weak self] in
+                self?.toolStoreRef?.activeShapeSelection = shapeID
             }
         }
 

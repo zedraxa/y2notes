@@ -73,10 +73,21 @@ struct Note: Identifiable, Codable, Hashable {
     /// An empty outer array means no pages have stickers yet.
     var stickerLayers: [[StickerInstance]?]
 
+    /// Per-page shape objects — parallel array to `pages`.
+    /// Each element is an array of shapes placed on that page, or `nil` (no shapes).
+    /// An empty outer array means no pages have shape objects yet.
+    var shapeLayers: [[ShapeInstance]?]
+
     /// Returns the stickers for the given page index, or an empty array.
     func stickers(forPage index: Int) -> [StickerInstance] {
         guard index >= 0 && index < stickerLayers.count else { return [] }
         return stickerLayers[index] ?? []
+    }
+
+    /// Returns the shape objects for the given page index, or an empty array.
+    func shapes(forPage index: Int) -> [ShapeInstance] {
+        guard index >= 0 && index < shapeLayers.count else { return [] }
+        return shapeLayers[index] ?? []
     }
 
     /// Returns the per-page colour for the given index, or `nil` to inherit theme.
@@ -126,6 +137,7 @@ struct Note: Identifiable, Codable, Hashable {
         paperMaterial: PaperMaterial? = nil,
         pageColors: [[Double]?] = [],
         stickerLayers: [[StickerInstance]?] = [],
+        shapeLayers: [[ShapeInstance]?] = [],
         pdfFilename: String? = nil,
         typedText: String = "",
         ocrText: String = ""
@@ -146,6 +158,7 @@ struct Note: Identifiable, Codable, Hashable {
         self.paperMaterial = paperMaterial
         self.pageColors = pageColors
         self.stickerLayers = stickerLayers
+        self.shapeLayers = shapeLayers
         self.pdfFilename = pdfFilename
         self.typedText = typedText
         self.ocrText = ocrText
@@ -157,7 +170,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, pdfFilename
+        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, pdfFilename
         case typedText, ocrText
     }
 
@@ -188,6 +201,7 @@ struct Note: Identifiable, Codable, Hashable {
         paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
         pageColors    = try c.decodeIfPresent([[Double]?].self,    forKey: .pageColors)  ?? []
         stickerLayers = try c.decodeIfPresent([[StickerInstance]?].self, forKey: .stickerLayers) ?? []
+        shapeLayers   = try c.decodeIfPresent([[ShapeInstance]?].self,   forKey: .shapeLayers)   ?? []
         pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
@@ -217,6 +231,7 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encodeIfPresent(paperMaterial, forKey: .paperMaterial)
         try c.encode(pageColors,              forKey: .pageColors)
         try c.encode(stickerLayers,            forKey: .stickerLayers)
+        try c.encode(shapeLayers,              forKey: .shapeLayers)
         try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
         try c.encode(typedText,     forKey: .typedText)
         try c.encode(ocrText,       forKey: .ocrText)
