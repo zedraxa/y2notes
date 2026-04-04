@@ -188,32 +188,41 @@ struct NotebookReaderView: View {
                     sectionDividerBanner(name)
                 }
 
-                // Drawing toolbar
-                DrawingToolbarView(toolStore: toolStore, inkStore: inkStore)
+                // Desk surface + page stack + floating toolbar
+                ZStack(alignment: .bottom) {
+                    ZStack {
+                        // Desk background — the page sits on a surface, not floating in void
+                        Color(uiColor: UIColor.secondarySystemBackground)
 
-                // Desk surface + page stack
-                ZStack {
-                    // Desk background — the page sits on a surface, not floating in void
-                    Color(uiColor: UIColor.secondarySystemBackground)
+                        // Page edge indicators (visible book edges)
+                        pageEdgeIndicators(pageCount: pages.count, currentIndex: safeIndex)
 
-                    // Page edge indicators (visible book edges)
-                    pageEdgeIndicators(pageCount: pages.count, currentIndex: safeIndex)
+                        // Background page shadows — fake "stacked pages" effect
+                        pageStackShadows(pageCount: pages.count, currentIndex: safeIndex)
 
-                    // Background page shadows — fake "stacked pages" effect
-                    pageStackShadows(pageCount: pages.count, currentIndex: safeIndex)
+                        // Current page canvas
+                        canvasForPage(ref, in: pages)
+                            .offset(x: dragOffset)
+                            // Subtle 3D page-flip hint: ~7.5° max at full 500pt drag
+                            .rotation3DEffect(
+                                .degrees(Double(dragOffset) * 0.015),
+                                axis: (x: 0, y: 1, z: 0),
+                                perspective: 0.5
+                            )
+                    }
+                    .gesture(pageSwipeGesture(totalPages: pages.count))
+                    .clipped()
 
-                    // Current page canvas
-                    canvasForPage(ref, in: pages)
-                        .offset(x: dragOffset)
-                        // Subtle 3D page-flip hint: ~7.5° max at full 500pt drag
-                        .rotation3DEffect(
-                            .degrees(Double(dragOffset) * 0.015),
-                            axis: (x: 0, y: 1, z: 0),
-                            perspective: 0.5
-                        )
+                    // Floating toolbar capsule — bottom-center, above page bar
+                    FloatingToolbarCapsule(
+                        toolStore: toolStore,
+                        inkStore: inkStore
+                    )
+                    .opacity(toolStore.toolbarOpacity)
+                    .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
+                    .allowsHitTesting(toolStore.toolbarOpacity > 0.5)
+                    .padding(.bottom, 8)
                 }
-                .gesture(pageSwipeGesture(totalPages: pages.count))
-                .clipped()
 
                 // Page navigation bar
                 notebookPageBar(totalPages: pages.count)
@@ -305,7 +314,8 @@ struct NotebookReaderView: View {
                     turnPage(direction: direction, totalPages: pages.count)
                 },
                 onPinchToOverview: { showPageOverview = true },
-                pdfURL: noteStore.notePDFURL(for: note)
+                pdfURL: noteStore.notePDFURL(for: note),
+                toolStoreForFade: toolStore
             )
             .id("\(ref.noteID)-\(ref.pageIndex)")
             .overlay(alignment: .bottom) {

@@ -48,6 +48,19 @@ final class DrawingToolStore: ObservableObject {
     /// `paperMaterial` property and reset to `.standard` when no note is open.
     @Published var currentPaperMaterial: PaperMaterial = .standard
 
+    // MARK: - Floating Toolbar State
+
+    /// Opacity of the floating toolbar capsule. Animated down to 0.3 during
+    /// active Pencil contact and back to 1.0 when the stroke ends.
+    /// **Not persisted** — always starts at 1.0.
+    @Published var toolbarOpacity: Double = 1.0
+
+    /// User preference: whether the toolbar is manually minimized / auto-hidden.
+    /// Persisted so the user's choice survives app restarts.
+    @Published var isToolbarMinimized: Bool = false {
+        didSet { UserDefaults.standard.set(isToolbarMinimized, forKey: Keys.toolbarMinimized) }
+    }
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.
@@ -188,6 +201,7 @@ final class DrawingToolStore: ObservableObject {
         static let shapeType  = "y2notes.tool.shapeType"
         static let presets    = "y2notes.tool.presets"
         static let opacity    = "y2notes.tool.opacity"
+        static let toolbarMinimized = "y2notes.tool.toolbarMinimized"
     }
 
     // MARK: - Persistence Helpers
@@ -240,5 +254,7 @@ final class DrawingToolStore: ObservableObject {
            let loaded = try? JSONDecoder().decode([ToolPreset].self, from: data) {
             presets = loaded
         }
+
+        isToolbarMinimized = ud.bool(forKey: Keys.toolbarMinimized)
     }
 }

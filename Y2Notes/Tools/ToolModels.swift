@@ -100,6 +100,25 @@ enum ShapeType: String, CaseIterable, Codable {
     }
 }
 
+// MARK: - Toolbar Mode
+
+/// Derived mode that controls which controls appear in the floating toolbar.
+/// This is never stored — it is computed from the active tool and canvas state.
+enum ToolbarMode: Equatable {
+    /// Pen / Pencil / Highlighter / Fountain Pen active — show writing tools.
+    case writing
+    /// Eraser active — show eraser mode toggle.
+    case erasing
+    /// Lasso active with a selection on canvas — show selection actions.
+    case selecting
+    /// Shape tool active — show shape picker.
+    case shaping
+    /// Page overview or page-turn gesture active — toolbar hidden.
+    case navigating
+    /// Media / sticker / attachment insertion flow — toolbar temporarily replaced.
+    case inserting
+}
+
 // MARK: - Tool Preset
 
 /// A saved combination of drawing tool, colour, stroke width, and opacity that

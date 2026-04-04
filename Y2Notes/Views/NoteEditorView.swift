@@ -144,13 +144,6 @@ struct NoteEditorView: View {
                     contrastBanner
                 }
                 Divider()
-                if !isTextMode {
-                    DrawingToolbarView(toolStore: toolStore, inkStore: inkStore, onOpenInspector: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            showAdvancedPanel.toggle()
-                        }
-                    })
-                }
                 if showFindBar {
                     findBar
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -211,7 +204,8 @@ struct NoteEditorView: View {
                         onPinchToOverview: {
                             showPageOverview = true
                         },
-                        pdfURL: noteStore.notePDFURL(for: note)
+                        pdfURL: noteStore.notePDFURL(for: note),
+                        toolStoreForFade: toolStore
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
                     .id("\(note.id)-\(safePageIndex)")
@@ -227,6 +221,31 @@ struct NoteEditorView: View {
                     pageNavigationBar
                 }
             }  // end VStack
+
+            // Floating toolbar capsule — bottom-center, above page navigation bar
+            if !isTextMode {
+                VStack {
+                    Spacer()
+                    FloatingToolbarCapsule(
+                        toolStore: toolStore,
+                        inkStore: inkStore,
+                        canUndo: canUndo,
+                        canRedo: canRedo,
+                        onUndo: { undoManager?.undo() },
+                        onRedo: { undoManager?.redo() },
+                        onOpenInspector: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showAdvancedPanel.toggle()
+                            }
+                        }
+                    )
+                    .opacity(toolStore.toolbarOpacity)
+                    .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
+                    .allowsHitTesting(toolStore.toolbarOpacity > 0.5)
+                    .padding(.bottom, 8)
+                }
+                .zIndex(0.5)
+            }
 
             // Advanced tools inspector — slides in from the right
             if showAdvancedPanel {
@@ -978,6 +997,8 @@ struct CanvasView: UIViewRepresentable {
     /// When non-nil the canvas renders the PDF page as background instead of the
     /// procedural `PageBackgroundView`, giving the note a book-like appearance.
     let pdfURL: URL?
+    /// Reference to the toolbar store, used to drive auto-fade during drawing.
+    var toolStoreForFade: DrawingToolStore?
 
     // MARK: - Page dimensions
 
@@ -1202,6 +1223,9 @@ struct CanvasView: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {
         guard let canvas = context.coordinator.canvas else { return }
 
+        // Wire up toolbar store reference for auto-fade (idempotent).
+        context.coordinator.toolStoreRef = toolStoreForFade
+
         // Sync container background colour when the theme/material changes.
         if uiView.backgroundColor != backgroundColor {
             uiView.backgroundColor = backgroundColor
@@ -1333,6 +1357,12 @@ struct CanvasView: UIViewRepresentable {
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
 
+        /// Weak reference to the drawing tool store for toolbar auto-fade.
+        weak var toolStoreRef: DrawingToolStore?
+
+        /// Task that schedules the toolbar fade after a delay of active drawing.
+        private var fadeTask: Task<Void, Never>?
+
         /// Pinch gesture recognizer for page overview.
         var pinchOverviewGesture: UIPinchGestureRecognizer?
 
@@ -1457,6 +1487,15 @@ struct CanvasView: UIViewRepresentable {
                 let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeBegan(at: center)
             }
+            // Auto-fade toolbar after 1.5s of continuous drawing
+            fadeTask?.cancel()
+            fadeTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(1.5))
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self?.toolStoreRef?.toolbarOpacity = 0.3
+                }
+            }
         }
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
@@ -1469,6 +1508,14 @@ struct CanvasView: UIViewRepresentable {
                     viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
+            }
+            // Restore toolbar opacity after drawing ends
+            fadeTask?.cancel()
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(0.5))
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self?.toolStoreRef?.toolbarOpacity = 1.0
+                }
             }
         }
 

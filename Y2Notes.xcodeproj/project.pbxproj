@@ -27,6 +27,8 @@
 		AA0001000000000000000083 /* ToolModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000080 /* ToolModels.swift */; };
 		AA0001000000000000000084 /* DrawingToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000081 /* DrawingToolStore.swift */; };
 		AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000082 /* DrawingToolbarView.swift */; };
+		AA00010000000000000000DD /* FloatingToolbarCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000DC /* FloatingToolbarCapsule.swift */; };
+		AA00010000000000000000DF /* ToolExpansionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000DE /* ToolExpansionView.swift */; };
 		AA00010000000000000000C2 /* PageRulingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000087 /* PageRulingView.swift */; };
 		AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
 		AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
@@ -92,6 +94,8 @@
 		AA0001000000000000000080 /* ToolModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolModels.swift; sourceTree = "<group>"; };
 		AA0001000000000000000081 /* DrawingToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolStore.swift; sourceTree = "<group>"; };
 		AA0001000000000000000082 /* DrawingToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolbarView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000DC /* FloatingToolbarCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingToolbarCapsule.swift; sourceTree = "<group>"; };
+		AA00010000000000000000DE /* ToolExpansionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolExpansionView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000087 /* PageRulingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRulingView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000053 /* PencilInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilInteractionCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000054 /* PencilHoverOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHoverOverlayView.swift; sourceTree = "<group>"; };
@@ -207,6 +211,8 @@
 				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
 				AA0001000000000000000082 /* DrawingToolbarView.swift */,
+				AA00010000000000000000DC /* FloatingToolbarCapsule.swift */,
+				AA00010000000000000000DE /* ToolExpansionView.swift */,
 				AA00010000000000000000DA /* NotebookQuickCreator.swift */,
 				AA00010000000000000000D9 /* NotebookReaderView.swift */,
 				AA000100000000000000008A /* LibrarySearchView.swift */,
@@ -424,6 +430,8 @@
 				AA0001000000000000000083 /* ToolModels.swift in Sources */,
 				AA0001000000000000000084 /* DrawingToolStore.swift in Sources */,
 				AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */,
+				AA00010000000000000000DD /* FloatingToolbarCapsule.swift in Sources */,
+				AA00010000000000000000DF /* ToolExpansionView.swift in Sources */,
 				AA00010000000000000000C2 /* PageRulingView.swift in Sources */,
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
