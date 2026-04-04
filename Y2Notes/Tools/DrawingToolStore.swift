@@ -126,6 +126,20 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts nil.
     @Published var activeRecordingSession: AudioSession?
 
+    // MARK: - Expansion Region State
+
+    /// The ID of the expansion region currently being edited, or nil for the main page.
+    /// **Not persisted** — always starts nil.
+    @Published var activeExpansionRegionID: UUID?
+
+    /// Whether edge-pull handles are shown on the current page.
+    /// **Not persisted** — always starts true (handles visible when editing).
+    @Published var isExpansionHandleVisible: Bool = true
+
+    /// Which edge is currently being dragged to create/resize an expansion.
+    /// **Not persisted** — always starts nil (no drag in progress).
+    @Published var expansionDragEdge: ExpansionEdge?
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

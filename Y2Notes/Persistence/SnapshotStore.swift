@@ -144,7 +144,8 @@ final class SnapshotStore {
             pages: pageDataMap,
             stickerLayers: stickerMap,
             shapeLayers: shapeMap,
-            attachmentLayers: attachmentMap
+            attachmentLayers: attachmentMap,
+            expansionRegions: note.expansionRegions
         )
 
         // Write page data to disk.
@@ -228,6 +229,12 @@ final class SnapshotStore {
         restoredNote.stickerLayers = reconstructedStickers
         restoredNote.shapeLayers = reconstructedShapes
         restoredNote.attachmentLayers = reconstructedAttachments
+
+        // Restore expansion regions from the target snapshot (use the most
+        // recent snapshot that has expansion data — the target itself).
+        if let targetData = loadSnapshotData(noteID: noteID, snapshotID: snapshotID) {
+            restoredNote.expansionRegions = targetData.expansionRegions
+        }
 
         // Ensure parallel arrays are sized correctly.
         while restoredNote.pageTypes.count < restoredNote.pages.count {

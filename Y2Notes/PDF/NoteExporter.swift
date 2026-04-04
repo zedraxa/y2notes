@@ -99,6 +99,221 @@ final class NoteExporter {
         }.value
     }
 
+    // MARK: - Multi-page PDF export with expansion regions
+
+    /// Renders all supplied pages into a single multi-page PDF file, including
+    /// visible (non-collapsed) expansion regions as additional pages immediately
+    /// following each main page.
+    ///
+    /// Expansion pages carry a "← continued from page N" label and a thin dotted
+    /// boundary line showing where the original page ended.
+    static func exportAsPDFWithExpansions(
+        title: String,
+        pages: [Data],
+        attachmentLayers: [[AttachmentObject]?] = [],
+        widgetLayers: [[NoteWidget]?] = [],
+        expansionRegions: [PageRegion] = [],
+        noteID: UUID? = nil,
+        backgroundColor: UIColor,
+        pageTypes: [PageType]
+    ) async -> URL? {
+        let resolvedImages = resolveAttachmentImages(
+            attachmentLayers: attachmentLayers,
+            noteID: noteID
+        )
+
+        return await Task.detached(priority: .userInitiated) {
+            let safeName = title
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: ":", with: "-")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let fileName = safeName.isEmpty ? "Note" : safeName
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("\(fileName).pdf")
+
+            do {
+                // Use a mutable PDF context so we can set variable page sizes.
+                var mediaBox = CGRect(origin: .zero, size: pdfPageSize)
+                guard let pdfCtx = CGContext(tempURL as CFURL, mediaBox: &mediaBox, nil) else {
+                    return nil
+                }
+
+                for (pageIndex, pageData) in pages.enumerated() {
+                    // --- Main page (standard US Letter) ---
+                    var mainBox = CGRect(origin: .zero, size: pdfPageSize)
+                    pdfCtx.beginPage(mediaBox: &mainBox)
+                    let pt = pageIndex < pageTypes.count ? pageTypes[pageIndex] : .blank
+                    let attachments = pageIndex < attachmentLayers.count
+                        ? attachmentLayers[pageIndex] : nil
+                    let widgets = pageIndex < widgetLayers.count
+                        ? widgetLayers[pageIndex] : nil
+                    renderPage(
+                        data: pageData,
+                        attachments: attachments,
+                        images: resolvedImages,
+                        widgets: widgets,
+                        pageSize: pdfPageSize,
+                        backgroundColor: backgroundColor,
+                        pageType: pt,
+                        into: pdfCtx
+                    )
+                    pdfCtx.endPage()
+
+                    // --- Expansion region pages ---
+                    let visibleRegions = expansionRegions.filter { $0.pageIndex == pageIndex && !$0.isCollapsed }
+                    for region in visibleRegions {
+                        switch region.edge {
+                        case .right:
+                            let expWidth = min(region.size.width, pdfPageSize.width * PageRegionConstants.maxWidthMultiplier)
+                            var expBox = CGRect(origin: .zero, size: CGSize(width: expWidth, height: pdfPageSize.height))
+                            pdfCtx.beginPage(mediaBox: &expBox)
+                            renderExpansionPage(
+                                region: region,
+                                pageSize: expBox.size,
+                                mainPageNumber: pageIndex + 1,
+                                backgroundColor: backgroundColor,
+                                images: resolvedImages,
+                                into: pdfCtx
+                            )
+                            pdfCtx.endPage()
+
+                        case .bottom:
+                            let expHeight = min(region.size.height, pdfPageSize.height * PageRegionConstants.maxHeightMultiplier)
+                            var expBox = CGRect(origin: .zero, size: CGSize(width: pdfPageSize.width, height: expHeight))
+                            pdfCtx.beginPage(mediaBox: &expBox)
+                            renderExpansionPage(
+                                region: region,
+                                pageSize: expBox.size,
+                                mainPageNumber: pageIndex + 1,
+                                backgroundColor: backgroundColor,
+                                images: resolvedImages,
+                                into: pdfCtx
+                            )
+                            pdfCtx.endPage()
+
+                        case .rightBottom:
+                            let expWidth = min(region.size.width, pdfPageSize.width * PageRegionConstants.maxWidthMultiplier)
+                            let expHeight = min(region.size.height, pdfPageSize.height * PageRegionConstants.maxHeightMultiplier)
+                            var expBox = CGRect(origin: .zero, size: CGSize(width: expWidth, height: expHeight))
+                            pdfCtx.beginPage(mediaBox: &expBox)
+                            renderExpansionPage(
+                                region: region,
+                                pageSize: expBox.size,
+                                mainPageNumber: pageIndex + 1,
+                                backgroundColor: backgroundColor,
+                                images: resolvedImages,
+                                into: pdfCtx
+                            )
+                            pdfCtx.endPage()
+                        }
+                    }
+                }
+
+                pdfCtx.closePDF()
+                return tempURL
+            }
+        }.value
+    }
+
+    /// Renders a single expansion region page into the PDF context.
+    private static func renderExpansionPage(
+        region: PageRegion,
+        pageSize: CGSize,
+        mainPageNumber: Int,
+        backgroundColor: UIColor,
+        images: [UUID: UIImage],
+        into ctx: CGContext
+    ) {
+        let rect = CGRect(origin: .zero, size: pageSize)
+
+        // 1. Background fill
+        ctx.setFillColor(backgroundColor.cgColor)
+        ctx.fill(rect)
+
+        // 2. "← continued from page N" label
+        let labelText = "← continued from page \(mainPageNumber)" as NSString
+        let labelAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 9, weight: .regular),
+            .foregroundColor: UIColor.secondaryLabel
+        ]
+        let labelRect = CGRect(x: 8, y: 6, width: pageSize.width - 16, height: 14)
+        labelText.draw(
+            with: labelRect,
+            options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+            attributes: labelAttrs,
+            context: nil
+        )
+
+        // 3. Dotted boundary line showing where the original page edge was
+        ctx.saveGState()
+        ctx.setStrokeColor(UIColor.separator.withAlphaComponent(0.4).cgColor)
+        ctx.setLineWidth(0.5)
+        ctx.setLineDash(phase: 0, lengths: [4, 3])
+        switch region.edge {
+        case .right:
+            // Vertical line at x=0 (left edge = original page right boundary)
+            ctx.move(to: CGPoint(x: 0.5, y: 0))
+            ctx.addLine(to: CGPoint(x: 0.5, y: pageSize.height))
+        case .bottom:
+            // Horizontal line at y=0 (top edge = original page bottom boundary)
+            ctx.move(to: CGPoint(x: 0, y: 0.5))
+            ctx.addLine(to: CGPoint(x: pageSize.width, y: 0.5))
+        case .rightBottom:
+            // Both edges
+            ctx.move(to: CGPoint(x: 0.5, y: 0))
+            ctx.addLine(to: CGPoint(x: 0.5, y: pageSize.height))
+            ctx.move(to: CGPoint(x: 0, y: 0.5))
+            ctx.addLine(to: CGPoint(x: pageSize.width, y: 0.5))
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
+
+        // 4. Draw expansion PKDrawing
+        if !region.drawingData.isEmpty,
+           let drawing = try? PKDrawing(data: region.drawingData),
+           !drawing.strokes.isEmpty {
+            let sourceRect = CGRect(origin: .zero, size: region.size)
+            let scaleX = pageSize.width / max(region.size.width, 1)
+            let scaleY = pageSize.height / max(region.size.height, 1)
+            let drawingScale = min(scaleX, scaleY)
+            let drawingImage = drawing.image(from: sourceRect, scale: drawingScale)
+            let drawRect = CGRect(
+                origin: .zero,
+                size: CGSize(
+                    width: region.size.width * drawingScale,
+                    height: region.size.height * drawingScale
+                )
+            )
+            drawingImage.draw(in: drawRect)
+        }
+
+        // 5. Render expansion widgets
+        if !region.widgetLayers.isEmpty {
+            let scaleX = pageSize.width / max(region.size.width, 1)
+            let scaleY = pageSize.height / max(region.size.height, 1)
+            let drawingScale = min(scaleX, scaleY)
+            renderWidgets(region.widgetLayers, drawingScale: drawingScale, into: ctx)
+        }
+
+        // 6. Render expansion attachments
+        if !region.attachmentLayers.isEmpty {
+            let screenBounds = UIScreen.main.bounds
+            let screenW = max(screenBounds.width, screenBounds.height)
+            let canvasPageSize = CGSize(width: screenW, height: ceil(screenW * 1.414))
+            let scaleX = pageSize.width / max(region.size.width, 1)
+            let scaleY = pageSize.height / max(region.size.height, 1)
+            let drawingScale = min(scaleX, scaleY)
+            renderAttachments(
+                region.attachmentLayers,
+                images: images,
+                canvasPageSize: canvasPageSize,
+                drawingScale: drawingScale,
+                backgroundColor: backgroundColor,
+                into: ctx
+            )
+        }
+    }
+
     // MARK: - Single-page image export
 
     /// Renders a single page as a `UIImage` at 2× Retina quality.

@@ -377,6 +377,50 @@ final class NoteStore: ObservableObject {
         scheduleNoteAutosave()
     }
 
+    // MARK: - Expansion Region Updates
+
+    /// Replaces the full set of expansion regions for a note.
+    /// Used when creating, resizing, collapsing, or deleting expansion regions.
+    func updateExpansionRegions(for noteID: UUID, regions: [PageRegion]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].expansionRegions = regions
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        scheduleNoteAutosave()
+    }
+
+    /// Updates a single expansion region identified by its ID.
+    /// If no region with the given ID exists, the update is silently ignored.
+    func updateExpansionRegion(for noteID: UUID, region: PageRegion) {
+        guard let noteIdx = notes.firstIndex(where: { $0.id == noteID }),
+              let regionIdx = notes[noteIdx].expansionRegions.firstIndex(where: { $0.id == region.id })
+        else { return }
+        notes[noteIdx].expansionRegions[regionIdx] = region
+        notes[noteIdx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(region.pageIndex)
+        scheduleNoteAutosave()
+    }
+
+    /// Adds a new expansion region to a note.
+    func addExpansionRegion(to noteID: UUID, region: PageRegion) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].expansionRegions.append(region)
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(region.pageIndex)
+        scheduleNoteAutosave()
+    }
+
+    /// Removes an expansion region by its ID, permanently deleting all contained content.
+    func removeExpansionRegion(from noteID: UUID, regionID: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].expansionRegions.removeAll { $0.id == regionID }
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        scheduleNoteAutosave()
+    }
+
     /// Appends a blank page to the note and returns the new page index.
     @discardableResult
     func addPage(to noteID: UUID) -> Int? {
@@ -417,6 +461,16 @@ final class NoteStore: ObservableObject {
         if notes[idx].attachmentLayers.indices.contains(pageIndex) {
             notes[idx].attachmentLayers.remove(at: pageIndex)
         }
+        if notes[idx].widgetLayers.indices.contains(pageIndex) {
+            notes[idx].widgetLayers.remove(at: pageIndex)
+        }
+        // Remove expansion regions attached to the deleted page and adjust
+        // pageIndex for regions on subsequent pages.
+        notes[idx].expansionRegions.removeAll { $0.pageIndex == pageIndex }
+        for i in notes[idx].expansionRegions.indices
+        where notes[idx].expansionRegions[i].pageIndex > pageIndex {
+            notes[idx].expansionRegions[i].pageIndex -= 1
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
         schedulePDFRegeneration(for: noteID)
@@ -441,6 +495,23 @@ final class NoteStore: ObservableObject {
             let alInsert = min(insertAt, notes[idx].attachmentLayers.count)
             notes[idx].attachmentLayers.insert(al, at: alInsert)
         }
+        // Remap expansion region pageIndex values to reflect the new page order.
+        for i in notes[idx].expansionRegions.indices {
+            let pi = notes[idx].expansionRegions[i].pageIndex
+            if pi == source {
+                notes[idx].expansionRegions[i].pageIndex = insertAt
+            } else if source < insertAt {
+                // Page moved forward: pages in (source, insertAt] shift back by 1
+                if pi > source && pi <= insertAt {
+                    notes[idx].expansionRegions[i].pageIndex -= 1
+                }
+            } else {
+                // Page moved backward: pages in [insertAt, source) shift forward by 1
+                if pi >= insertAt && pi < source {
+                    notes[idx].expansionRegions[i].pageIndex += 1
+                }
+            }
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
         schedulePDFRegeneration(for: noteID)
@@ -463,6 +534,28 @@ final class NoteStore: ObservableObject {
             notes[idx].pageTypes.append(nil)
         }
         notes[idx].pageTypes.insert(ptCopy, at: min(insertIndex, notes[idx].pageTypes.count))
+        // Shift expansion regions on pages after the insertion point,
+        // then duplicate expansion regions from the source page for the copy.
+        for i in notes[idx].expansionRegions.indices
+        where notes[idx].expansionRegions[i].pageIndex >= insertIndex {
+            notes[idx].expansionRegions[i].pageIndex += 1
+        }
+        let sourceRegions = notes[idx].expansionRegions.filter { $0.pageIndex == pageIndex }
+        for region in sourceRegions {
+            let dup = PageRegion(
+                pageIndex: insertIndex,
+                edge: region.edge,
+                size: region.size,
+                drawingData: region.drawingData,
+                widgetLayers: region.widgetLayers,
+                stickerLayers: region.stickerLayers,
+                shapeLayers: region.shapeLayers,
+                attachmentLayers: region.attachmentLayers,
+                isCollapsed: region.isCollapsed,
+                version: 0
+            )
+            notes[idx].expansionRegions.append(dup)
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
         return insertIndex
@@ -472,6 +565,21 @@ final class NoteStore: ObservableObject {
     @discardableResult
     func duplicateNote(id: UUID) -> Note? {
         guard let original = notes.first(where: { $0.id == id }) else { return nil }
+        // Duplicate expansion regions with new IDs to avoid ID collisions.
+        let copiedRegions = original.expansionRegions.map { region in
+            PageRegion(
+                pageIndex: region.pageIndex,
+                edge: region.edge,
+                size: region.size,
+                drawingData: region.drawingData,
+                widgetLayers: region.widgetLayers,
+                stickerLayers: region.stickerLayers,
+                shapeLayers: region.shapeLayers,
+                attachmentLayers: region.attachmentLayers,
+                isCollapsed: region.isCollapsed,
+                version: 0
+            )
+        }
         let copy = Note(
             title: original.title.isEmpty ? "Copy" : "\(original.title) (Copy)",
             createdAt: Date(),
@@ -483,7 +591,8 @@ final class NoteStore: ObservableObject {
             sortOrder: original.sortOrder + 1,
             templateID: original.templateID,
             pageType: original.pageType,
-            paperMaterial: original.paperMaterial
+            paperMaterial: original.paperMaterial,
+            expansionRegions: copiedRegions
         )
         // Shift pages that follow the original so the copy slots in right after it.
         for i in notes.indices

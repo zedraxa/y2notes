@@ -449,6 +449,71 @@ final class SearchIndex {
                 )
             }
         }
+
+        // Expansion region content — index widgets and attachments within each region.
+        // Results from expansion regions use the region's page index + regionID for
+        // precise navigation, and rank slightly below main page results.
+        for region in note.expansionRegions where !region.isCollapsed {
+            // Expansion widgets
+            for widget in region.widgetLayers {
+                let key = "\(baseID)-exp-wgt-\(widget.id.uuidString)"
+                let textContent = searchableText(for: widget)
+                guard !textContent.isEmpty else { continue }
+                let kindLabel = widget.kind.rawValue.capitalized
+                // Compute canvasPoint as center of the widget frame for scroll-to targeting
+                let center = CGPoint(
+                    x: widget.frame.boundingRect.midX,
+                    y: widget.frame.boundingRect.midY
+                )
+                entries[key] = SearchableEntry(
+                    id: key,
+                    kind: .widgetContent,
+                    primaryText: textContent,
+                    secondaryText: "\(kindLabel) · \(note.title) (expanded area)",
+                    notebookID: note.notebookID,
+                    anchor: note.notebookID.map { nbID in
+                        NavigationAnchor(
+                            notebookID: nbID,
+                            noteID: note.id,
+                            pageIndex: region.pageIndex,
+                            objectID: widget.id,
+                            regionID: region.id,
+                            canvasPoint: center
+                        )
+                    },
+                    modifiedAt: widget.placedAt
+                )
+            }
+
+            // Expansion attachments
+            for attachment in region.attachmentLayers {
+                let key = "\(baseID)-exp-att-\(attachment.id.uuidString)"
+                let typeName = attachment.type.rawValue.capitalized
+                let displayLabel = attachment.label.isEmpty ? "\(typeName) Attachment" : attachment.label
+                let center = CGPoint(
+                    x: attachment.frame.boundingRect.midX,
+                    y: attachment.frame.boundingRect.midY
+                )
+                entries[key] = SearchableEntry(
+                    id: key,
+                    kind: .attachmentLabel,
+                    primaryText: displayLabel,
+                    secondaryText: "\(typeName) · \(note.title) (expanded area)",
+                    notebookID: note.notebookID,
+                    anchor: note.notebookID.map { nbID in
+                        NavigationAnchor(
+                            notebookID: nbID,
+                            noteID: note.id,
+                            pageIndex: region.pageIndex,
+                            objectID: attachment.id,
+                            regionID: region.id,
+                            canvasPoint: center
+                        )
+                    },
+                    modifiedAt: attachment.placedAt
+                )
+            }
+        }
     }
 
     private func baseScore(for kind: SearchEntryKind) -> Int {

@@ -103,11 +103,13 @@ struct SnapshotPageData: Codable {
     let shapeLayers: [Int: [ShapeInstance]]
     /// Attachment metadata for changed pages.
     let attachmentLayers: [Int: [AttachmentObject]]
+    /// Expansion regions at snapshot time (full array — sparse, only pages with expansions).
+    let expansionRegions: [PageRegion]
 
     // MARK: Custom Codable — Dictionary<Int, _> needs String keys in JSON
 
     enum CodingKeys: String, CodingKey {
-        case snapshotID, pages, stickerLayers, shapeLayers, attachmentLayers
+        case snapshotID, pages, stickerLayers, shapeLayers, attachmentLayers, expansionRegions
     }
 
     init(
@@ -115,13 +117,15 @@ struct SnapshotPageData: Codable {
         pages: [Int: Data],
         stickerLayers: [Int: [StickerInstance]] = [:],
         shapeLayers: [Int: [ShapeInstance]] = [:],
-        attachmentLayers: [Int: [AttachmentObject]] = [:]
+        attachmentLayers: [Int: [AttachmentObject]] = [:],
+        expansionRegions: [PageRegion] = []
     ) {
         self.snapshotID = snapshotID
         self.pages = pages
         self.stickerLayers = stickerLayers
         self.shapeLayers = shapeLayers
         self.attachmentLayers = attachmentLayers
+        self.expansionRegions = expansionRegions
     }
 
     init(from decoder: Decoder) throws {
@@ -139,6 +143,8 @@ struct SnapshotPageData: Codable {
 
         let rawAttachments = try c.decodeIfPresent([String: [AttachmentObject]].self, forKey: .attachmentLayers) ?? [:]
         attachmentLayers = Dictionary(uniqueKeysWithValues: rawAttachments.compactMap { k, v in Int(k).map { ($0, v) } })
+
+        expansionRegions = try c.decodeIfPresent([PageRegion].self, forKey: .expansionRegions) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -156,6 +162,8 @@ struct SnapshotPageData: Codable {
 
         let stringAttachments = Dictionary(uniqueKeysWithValues: attachmentLayers.map { ("\($0.key)", $0.value) })
         try c.encode(stringAttachments, forKey: .attachmentLayers)
+
+        try c.encode(expansionRegions, forKey: .expansionRegions)
     }
 }
 
