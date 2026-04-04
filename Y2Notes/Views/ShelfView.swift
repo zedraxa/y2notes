@@ -1247,7 +1247,7 @@ private struct NoteCardView: View {
                   !drawing.bounds.isEmpty else { return nil }
             let renderRect = drawing.bounds.insetBy(dx: -20, dy: -20)
             let scale = max(200 / renderRect.width, 150 / renderRect.height) * 0.5
-            return drawing.image(from: renderRect, scale: scale)
+            return await drawing.image(from: renderRect, scale: scale)
         }.value
     }
 }

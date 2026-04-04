@@ -789,7 +789,7 @@ final class NoteStore: ObservableObject {
             let pageSize = CGSize(width: screenW, height: ceil(screenW * 1.414))
             Task { [weak self] in
                 let text = await OCREngine.recognizeText(inPages: pages, pageSize: pageSize)
-                DispatchQueue.main.async { [weak self] in
+                await MainActor.run { [weak self] in
                     self?.updateOCRText(for: noteID, text: text)
                 }
             }

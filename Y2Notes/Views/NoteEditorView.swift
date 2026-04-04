@@ -2002,80 +2002,102 @@ private struct PageOverviewGrid: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
-                        ForEach(0..<note.pageCount, id: \.self) { index in
-                            pageCell(index: index)
-                                .id(index)
-                                .draggable(index) {
-                                    // Drag preview — page number badge
-                                    Text("Page \(index + 1)")
-                                        .font(.caption.bold())
-                                        .padding(8)
-                                        .background(.ultraThinMaterial)
-                                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                                }
-                                .dropDestination(for: Int.self) { items, _ in
-                                    guard let source = items.first, source != index else { return false }
-                                    noteStore.reorderPageInNote(noteID: note.id, from: source, to: index)
-                                    // Adjust current page index after reorder
-                                    if currentPageIndex == source {
-                                        currentPageIndex = index
-                                    } else if source < currentPageIndex && index >= currentPageIndex {
-                                        currentPageIndex -= 1
-                                    } else if source > currentPageIndex && index <= currentPageIndex {
-                                        currentPageIndex += 1
-                                    }
-                                    thumbnails.removeAll()  // Regenerate all thumbnails
-                                    return true
-                                }
-                        }
-                    }
-                    .padding(16)
+            pageGridContent
+                .navigationTitle("Pages")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { pageOverviewToolbar }
+                .alert("Delete Page?", isPresented: $showDeleteConfirmation) {
+                    deletePageAlertActions
+                } message: {
+                    deletePageAlertMessage
                 }
-                .onAppear {
-                    proxy.scrollTo(currentPageIndex, anchor: .center)
-                }
-            }
-            .navigationTitle("Pages")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { onDismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        if let newIndex = noteStore.addPage(to: note.id) {
-                            currentPageIndex = newIndex
-                            onDismiss()
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Add page")
-                }
-            }
-            .alert("Delete Page?", isPresented: $showDeleteConfirmation) {
-                Button("Cancel", role: .cancel) { pageToDelete = nil }
-                Button("Delete", role: .destructive) {
-                    if let page = pageToDelete {
-                        let wasOnDeletedPage = currentPageIndex == page
-                        noteStore.removePage(from: note.id, at: page)
-                        thumbnails.removeAll()
-                        if wasOnDeletedPage {
-                            currentPageIndex = max(0, min(currentPageIndex, note.pageCount - 2))
-                        } else if page < currentPageIndex {
-                            currentPageIndex -= 1
-                        }
-                        pageToDelete = nil
+        }
+    }
+
+    // MARK: - Extracted subviews (type-checker decomposition)
+
+    private var pageGridContent: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(0..<note.pageCount, id: \.self) { index in
+                        draggablePageCell(index: index)
                     }
                 }
-            } message: {
-                if let page = pageToDelete {
-                    Text("Page \(page + 1) will be permanently deleted. This cannot be undone.")
-                }
+                .padding(16)
             }
+            .onAppear {
+                proxy.scrollTo(currentPageIndex, anchor: .center)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func draggablePageCell(index: Int) -> some View {
+        pageCell(index: index)
+            .id(index)
+            .draggable(index) {
+                Text("Page \(index + 1)")
+                    .font(.caption.bold())
+                    .padding(8)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .dropDestination(for: Int.self) { items, _ in
+                guard let source = items.first, source != index else { return false }
+                noteStore.reorderPageInNote(noteID: note.id, from: source, to: index)
+                if currentPageIndex == source {
+                    currentPageIndex = index
+                } else if source < currentPageIndex && index >= currentPageIndex {
+                    currentPageIndex -= 1
+                } else if source > currentPageIndex && index <= currentPageIndex {
+                    currentPageIndex += 1
+                }
+                thumbnails.removeAll()
+                return true
+            }
+    }
+
+    @ToolbarContentBuilder
+    private var pageOverviewToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Done") { onDismiss() }
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                if let newIndex = noteStore.addPage(to: note.id) {
+                    currentPageIndex = newIndex
+                    onDismiss()
+                }
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("Add page")
+        }
+    }
+
+    @ViewBuilder
+    private var deletePageAlertActions: some View {
+        Button("Cancel", role: .cancel) { pageToDelete = nil }
+        Button("Delete", role: .destructive) {
+            if let page = pageToDelete {
+                let wasOnDeletedPage = currentPageIndex == page
+                noteStore.removePage(from: note.id, at: page)
+                thumbnails.removeAll()
+                if wasOnDeletedPage {
+                    currentPageIndex = max(0, min(currentPageIndex, note.pageCount - 2))
+                } else if page < currentPageIndex {
+                    currentPageIndex -= 1
+                }
+                pageToDelete = nil
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var deletePageAlertMessage: some View {
+        if let page = pageToDelete {
+            Text("Page \(page + 1) will be permanently deleted. This cannot be undone.")
         }
     }
 
@@ -2181,7 +2203,7 @@ private struct PageOverviewGrid: View {
             let maxDimension: CGFloat = 240
             let scale = min(maxDimension / renderRect.width, maxDimension / renderRect.height, 1.0)
 
-            return drawing.image(from: renderRect, scale: scale * UIScreen.main.scale)
+            return await drawing.image(from: renderRect, scale: scale * UIScreen.main.scale)
         }.value
 
         if let image {
