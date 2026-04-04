@@ -683,7 +683,7 @@ struct NoteGridView: View {
                     ForEach(noteStore.notebooks) { nb in
                         NotebookCoverCard(
                             notebook: nb,
-                            noteCount: noteStore.notes(inNotebook: nb.id)
+                            pageCount: noteStore.notes(inNotebook: nb.id)
                                 .reduce(0) { $0 + $1.pageCount }
                         )
                         .onTapGesture {
@@ -1355,7 +1355,7 @@ private struct NoteCardView: View {
 /// Shows the gradient cover, notebook name, page count, and a subtle 3D effect.
 private struct NotebookCoverCard: View {
     let notebook: Notebook
-    let noteCount: Int
+    let pageCount: Int
 
     @State private var isPressed = false
 
@@ -1389,7 +1389,7 @@ private struct NotebookCoverCard: View {
                     Image(systemName: "book.fill")
                         .font(.system(size: 20, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
-                    Text("\(noteCount) page\(noteCount == 1 ? "" : "s")")
+                    Text("\(pageCount) page\(pageCount == 1 ? "" : "s")")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.white.opacity(0.6))
                 }
