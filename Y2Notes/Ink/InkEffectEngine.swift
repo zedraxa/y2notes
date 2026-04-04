@@ -109,15 +109,30 @@ final class InkEffectEngine {
     // MARK: - Attach / Detach
 
     /// Adds the non-interactive overlay above all existing subviews of `view`.
+    ///
+    /// Uses Auto Layout constraints instead of `autoresizingMask` so the overlay
+    /// correctly fills the container even when the container's initial bounds are
+    /// `.zero` (common when called from `makeUIView` before SwiftUI layout).
     func attach(to view: UIView) {
         containerView = view
-        overlayView.frame                = view.bounds
-        overlayView.autoresizingMask     = [.flexibleWidth, .flexibleHeight]
-        glitchLayer.frame                = view.bounds
-        // CALayer does not support UIView's autoresizingMask constants on iOS;
-        // rely on manual frame updates instead (attach caller should relayout).
+        overlayView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(overlayView)
+        NSLayoutConstraint.activate([
+            overlayView.topAnchor.constraint(equalTo: view.topAnchor),
+            overlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
         overlayView.isHidden = (activeFX == .none)
+    }
+
+    /// Keeps the glitch layer frame in sync with the overlay after layout.
+    /// Call from `updateUIView` or `layoutSubviews` so the glitch layer
+    /// matches the overlay's resolved size.
+    func syncLayerFrames() {
+        if glitchLayer.frame != overlayView.bounds {
+            glitchLayer.frame = overlayView.bounds
+        }
     }
 
     /// Stops all FX and removes the overlay from its superview.
@@ -132,12 +147,6 @@ final class InkEffectEngine {
     /// `InkEffectStore` change — internally compares to avoid redundant work.
     func configure(fx: WritingFXType, color: UIColor) {
         strokeColor = color
-
-        // Keep glitch layer frame in sync with the overlay; the overlay auto-resizes
-        // via autoresizingMask but CALayer sublayers do not.
-        if glitchLayer.frame != overlayView.bounds {
-            glitchLayer.frame = overlayView.bounds
-        }
 
         // Gracefully downgrade FX that the device cannot support.
         let resolved = fx.isSupported(on: tier) ? fx : .none

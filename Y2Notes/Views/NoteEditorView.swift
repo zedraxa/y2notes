@@ -915,7 +915,6 @@ private struct CanvasView: UIViewRepresentable {
 
         let container = UIView()
         container.backgroundColor = backgroundColor
-        container.clipsToBounds = true
 
         // ── Page background (ruling + paper tint, sits behind the canvas) ──────
         // Frame-based layout sized to the fixed page dimensions so the ruling
@@ -1040,10 +1039,13 @@ private struct CanvasView: UIViewRepresentable {
         container.addGestureRecognizer(swipeRight)
 
         // Pinch-in opens page overview grid.
+        // The gesture delegate allows simultaneous recognition with
+        // PKCanvasView's built-in pinch-to-zoom so normal zoom still works.
         let pinchOverview = UIPinchGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handlePinchToOverview(_:))
         )
+        pinchOverview.delegate = context.coordinator
         container.addGestureRecognizer(pinchOverview)
         context.coordinator.pinchOverviewGesture = pinchOverview
 
@@ -1136,6 +1138,7 @@ private struct CanvasView: UIViewRepresentable {
 
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
+            engine.syncLayerFrames()
             engine.configure(fx: activeFX, color: fxColor)
         }
     }
@@ -1173,7 +1176,7 @@ private struct CanvasView: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate {
+    final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         let onDrawingChanged: (Data) -> Void
         let onSaveRequested: () -> Void
         /// Page swipe callback: +1 next, −1 previous.
@@ -1200,6 +1203,10 @@ private struct CanvasView: UIViewRepresentable {
 
         /// Pinch gesture recognizer for page overview.
         var pinchOverviewGesture: UIPinchGestureRecognizer?
+
+        /// Minimum scale observed during the current pinch-to-overview gesture.
+        /// Tracked during `.changed` because `numberOfTouches` is zero at `.ended`.
+        private var pinchOverviewMinScale: CGFloat = 1.0
 
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
@@ -1267,11 +1274,32 @@ private struct CanvasView: UIViewRepresentable {
 
         /// Pinch-in handler for page overview.
         @objc func handlePinchToOverview(_ gesture: UIPinchGestureRecognizer) {
-            guard gesture.state == .ended else { return }
-            // Only trigger on pinch-in (scale < 0.7) with 2+ fingers.
-            if gesture.scale < 0.7 && gesture.numberOfTouches >= 2 {
-                onPinchToOverview?()
+            switch gesture.state {
+            case .began:
+                pinchOverviewMinScale = gesture.scale
+            case .changed:
+                pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
+            case .ended, .cancelled:
+                // Trigger overview when the user performed a clear pinch-in
+                // (fingers came together significantly).
+                if pinchOverviewMinScale < 0.7 {
+                    onPinchToOverview?()
+                }
+                pinchOverviewMinScale = 1.0
+            default:
+                break
             }
+        }
+
+        // MARK: - UIGestureRecognizerDelegate
+
+        /// Allows the page-overview pinch gesture to fire simultaneously with
+        /// PKCanvasView's built-in pinch-to-zoom so normal zoom is not blocked.
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            gestureRecognizer === pinchOverviewGesture
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
@@ -1453,6 +1481,7 @@ private struct CanvasView: UIViewRepresentable {
             }
             zoomScaleObservation = canvas.observe(\.zoomScale, options: [.new]) { [weak self] sv, _ in
                 self?.syncBackgroundWithCanvas(sv)
+                self?.centerContentDuringZoom(sv)
             }
         }
 
@@ -1489,8 +1518,16 @@ private struct CanvasView: UIViewRepresentable {
 
         /// Centers the canvas content when zoomed out below 1× so the page
         /// stays centered on screen rather than pinning to the top-left corner.
-        /// This fixes the "can only zoom into the left corner" issue.
+        /// Also called from the zoomScale KVO observer so the centering logic
+        /// fires reliably even when PKCanvasView does not forward
+        /// `UIScrollViewDelegate` callbacks.
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            centerContentDuringZoom(scrollView)
+        }
+
+        /// Adjusts content insets so the page stays centered when the scaled
+        /// content is smaller than the viewport.
+        private func centerContentDuringZoom(_ scrollView: UIScrollView) {
             let boundsSize  = scrollView.bounds.size
             let contentSize = scrollView.contentSize
 
