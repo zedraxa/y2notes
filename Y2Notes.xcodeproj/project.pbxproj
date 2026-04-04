@@ -93,6 +93,7 @@
 		AA000100000000000000010B /* AttachmentHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010A /* AttachmentHandlesView.swift */; };
 		AA000100000000000000010D /* AttachmentSourcePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010C /* AttachmentSourcePicker.swift */; };
 		AA000100000000000000010F /* AttachmentViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010E /* AttachmentViewerView.swift */; };
+		AA0001000000000000000111 /* AudioTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000110 /* AudioTimeline.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -184,6 +185,7 @@
 		AA000100000000000000010A /* AttachmentHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentHandlesView.swift; sourceTree = "<group>"; };
 		AA000100000000000000010C /* AttachmentSourcePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentSourcePicker.swift; sourceTree = "<group>"; };
 		AA000100000000000000010E /* AttachmentViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewerView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000110 /* AudioTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTimeline.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -252,6 +254,7 @@
 				AA00010000000000000000F4 /* ShapeObject.swift */,
 				AA00010000000000000000FA /* NavigationAnchor.swift */,
 				AA0001000000000000000104 /* Attachment.swift */,
+				AA0001000000000000000110 /* AudioTimeline.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -567,6 +570,7 @@
 				AA000100000000000000010B /* AttachmentHandlesView.swift in Sources */,
 				AA000100000000000000010D /* AttachmentSourcePicker.swift in Sources */,
 				AA000100000000000000010F /* AttachmentViewerView.swift in Sources */,
+				AA0001000000000000000111 /* AudioTimeline.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
