@@ -38,6 +38,25 @@ enum NotebookCover: String, CaseIterable, Codable {
         case .nebula:   return "Nebula"
         }
     }
+
+    /// RGB components of the cover's primary colour as [r, g, b] in 0…1 range.
+    /// Useful for lightweight serialisation (e.g. tab bar accent tint).
+    var rgbComponents: [Double] {
+        switch self {
+        case .ocean:    return [0.0, 0.48, 1.0]
+        case .forest:   return [0.10, 0.55, 0.30]
+        case .sunset:   return [1.0, 0.58, 0.0]
+        case .lavender: return [0.69, 0.32, 0.87]
+        case .slate:    return [0.56, 0.56, 0.58]
+        case .sand:     return [0.76, 0.60, 0.42]
+        case .ruby:     return [0.86, 0.15, 0.20]
+        case .midnight: return [0.10, 0.10, 0.25]
+        case .jade:     return [0.0, 0.66, 0.55]
+        case .coral:    return [1.0, 0.50, 0.31]
+        case .copper:   return [0.72, 0.45, 0.20]
+        case .nebula:   return [0.55, 0.27, 0.68]
+        }
+    }
 }
 
 // MARK: - Notebook model

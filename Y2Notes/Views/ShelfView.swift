@@ -110,15 +110,10 @@ struct ShelfView: View {
                         selectedSection = .notebook(nbID)
                         // Register the notebook as an open tab
                         if let nb = noteStore.notebooks.first(where: { $0.id == nbID }) {
-                            var coverRGB: [Double] = [0.4, 0.4, 0.8]
-                            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
-                            if UIColor(nb.cover).getRed(&r, green: &g, blue: &b, alpha: nil) {
-                                coverRGB = [Double(r), Double(g), Double(b)]
-                            }
                             tabSession.openNotebook(
                                 id: nbID,
                                 displayName: nb.name,
-                                coverColor: coverRGB
+                                coverColor: nb.cover.rgbComponents
                             )
                         }
                     }

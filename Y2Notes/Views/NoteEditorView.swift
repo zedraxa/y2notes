@@ -636,12 +636,6 @@ struct NoteEditorView: View {
         case .delete:
             app.sendAction(#selector(UIResponderStandardEditActions.delete(_:)), to: nil, from: nil, for: nil)
             toolStore.hasActiveSelection = false
-        case .recolor:
-            // Recoloring is handled visually in the selection toolbar's inline
-            // colour strip. The actual recolor requires PencilKit internal APIs
-            // which aren't public — for now this is a no-op placeholder.
-            // Future: iterate selected strokes and replace their ink colour.
-            break
         }
     }
 
@@ -1552,24 +1546,55 @@ struct CanvasView: UIViewRepresentable {
                 }
             }
             // Detect lasso selection state. When the user finishes a lasso gesture
-            // the canvas holds an internal selection. We surface this by checking
-            // whether the current tool is a lasso — PencilKit keeps selection state
-            // internally and will fire canvasViewDrawingDidChange when the selection
-            // is committed (paste / move). We set hasActiveSelection so the floating
-            // toolbar morphs to show selection actions.
-            updateSelectionState(for: canvasView)
+            // the canvas holds an internal selection. We set hasActiveSelection so
+            // the floating toolbar morphs to show selection actions.
+            if canvasView.tool is PKLassoTool {
+                markLassoSelectionActive()
+            } else {
+                updateSelectionState(for: canvasView)
+            }
         }
 
         /// Updates `toolStore.hasActiveSelection` based on whether the canvas
         /// currently holds a lasso selection. Called after tool-end events and
         /// drawing changes to keep the toolbar in sync.
+        ///
+        /// Detection: when the lasso tool finishes a gesture, PencilKit holds an
+        /// internal selection. We track this via a simple flag that is set when
+        /// `canvasViewDidEndUsingTool` fires while a PKLassoTool is active, and
+        /// cleared when the drawing changes (selection committed) or the tool
+        /// switches away from lasso.
         func updateSelectionState(for canvasView: PKCanvasView) {
-            let hasSelection = canvasView.tool is PKLassoTool && canvasView.undoManager?.canUndo == true
-            if toolStoreRef?.hasActiveSelection != hasSelection {
+            let isLasso = canvasView.tool is PKLassoTool
+            // Only set true when lasso tool just finished a gesture (likely selected
+            // something). Reset when drawing changes or tool switches.
+            if !isLasso && toolStoreRef?.hasActiveSelection == true {
                 Task { @MainActor [weak self] in
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                        self?.toolStoreRef?.hasActiveSelection = hasSelection
+                        self?.toolStoreRef?.hasActiveSelection = false
                     }
+                }
+            }
+        }
+
+        /// Marks that the lasso tool completed a selection gesture.
+        /// Called from `canvasViewDidEndUsingTool` when the active tool is a lasso.
+        func markLassoSelectionActive() {
+            guard toolStoreRef?.hasActiveSelection != true else { return }
+            Task { @MainActor [weak self] in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    self?.toolStoreRef?.hasActiveSelection = true
+                }
+            }
+        }
+
+        /// Clears the selection state (e.g. after the drawing changes, meaning
+        /// the selection was committed or the canvas was otherwise modified).
+        func clearSelectionState() {
+            guard toolStoreRef?.hasActiveSelection != false else { return }
+            Task { @MainActor [weak self] in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    self?.toolStoreRef?.hasActiveSelection = false
                 }
             }
         }
@@ -1626,9 +1651,9 @@ struct CanvasView: UIViewRepresentable {
             let um = canvasView.undoManager
             onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
 
-            // Drawing changed — selection may have been committed (paste, delete, etc.)
-            // so re-evaluate the selection state to collapse the selection toolbar.
-            updateSelectionState(for: canvasView)
+            // Drawing changed — selection was committed (paste, delete, move, etc.)
+            // so clear the selection state to collapse the selection toolbar.
+            clearSelectionState()
 
             // Debounce disk writes: flush 0.8 s after the last stroke.
             debounceTimer?.invalidate()
