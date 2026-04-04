@@ -91,6 +91,10 @@ final class AudioRecordingStore: ObservableObject {
     /// Note IDs encountered during the current recording session.
     private var sessionNoteIDs: Set<UUID> = []
 
+    /// Called after a recording session is stopped and finalized.
+    /// Use to trigger incremental search re-indexing (§6 Rule 2).
+    var onSessionRecorded: ((AudioSession) -> Void)?
+
     // MARK: - Paths
 
     private static var recordingsDirectory: URL {
@@ -264,6 +268,10 @@ final class AudioRecordingStore: ObservableObject {
         if quality == .standard {
             storageManager.compressSession(session.id) { _ in }
         }
+
+        // Notify for incremental search re-indexing (§6 Rule 2).
+        let completedSession = session
+        onSessionRecorded?(completedSession)
 
         // Reset state
         activeSession = nil

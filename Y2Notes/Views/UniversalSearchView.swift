@@ -29,13 +29,14 @@ struct UniversalSearchView: View {
     var onSelectPDF: ((UUID) -> Void)?
 
     @State private var query = ""
+    @State private var debouncedQuery = ""
     @FocusState private var queryFieldFocused: Bool
     @State private var searchIndex = SearchIndex()
 
     // MARK: - Computed results
 
     private var results: [UniversalSearchResult] {
-        searchIndex.search(query: query, currentNotebookID: currentNotebookID)
+        searchIndex.search(query: debouncedQuery, currentNotebookID: currentNotebookID)
     }
 
     private var groupedResults: [(group: SearchResultGroup, results: [UniversalSearchResult])] {
@@ -69,6 +70,14 @@ struct UniversalSearchView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Notes, bookmarks, handwriting, attachments, PDFs…"
             )
+            .task(id: query) {
+                // §2 Search constraint: debounce input by 0.3 s to avoid
+                // per-keystroke work.  `.task(id:)` auto-cancels on each
+                // new keystroke, so only the final value fires.
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                debouncedQuery = query
+            }
             .onAppear {
                 rebuildIndex()
                 queryFieldFocused = true
@@ -279,12 +288,15 @@ struct UniversalSearchView: View {
     // MARK: - Index management
 
     private func rebuildIndex() {
+        let storageManager = AudioStorageManager.shared
         searchIndex.rebuild(
             notes: noteStore.notes,
             notebooks: noteStore.notebooks,
             sections: noteStore.sections,
             bookmarks: navigationStore.bookmarks,
-            pdfRecords: pdfStore.records
+            pdfRecords: pdfStore.records,
+            audioStorageManager: storageManager,
+            isRecordingActive: storageManager.isRecordingActive
         )
     }
 }

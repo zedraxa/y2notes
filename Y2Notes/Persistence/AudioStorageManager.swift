@@ -94,6 +94,11 @@ final class AudioStorageManager {
     private var pendingEvents: [TimelineEvent] = []
     private var activeRecoveryCheckpoint: RecoveryCheckpoint?
 
+    /// True while a recording session is in progress (autosave is active).
+    /// Used to enforce §6 Rules 1-3: no compression, orphan cleanup, or
+    /// search re-indexing while recording.
+    var isRecordingActive: Bool { activeRecoveryCheckpoint != nil }
+
     // MARK: - Paths
 
     static var recordingsDirectory: URL {
@@ -512,10 +517,19 @@ final class AudioStorageManager {
     /// Compresses an audio file in the background to reduce disk usage.
     /// Called after recording stops if the file exceeds a size threshold.
     /// Uses AVAssetExportSession with a lower bitrate preset.
+    ///
+    /// - Precondition: Must not be called while a recording is active
+    ///   (§6 Rule 3: compression never overlaps recording).
     func compressSession(
         _ sessionID: UUID,
         completion: @escaping (Result<Int64, Error>) -> Void
     ) {
+        guard !isRecordingActive else {
+            storageLogger.warning("compressSession() called during active recording — skipped (§6 Rule 3)")
+            completion(.failure(StorageError.compressionNotAvailable))
+            return
+        }
+
         let sourceURL = audioFileURL(for: sessionID)
         let tempURL = Self.recordingsDirectory
             .appendingPathComponent("\(sessionID.uuidString)_compressed.m4a")
@@ -618,6 +632,10 @@ final class AudioStorageManager {
     /// Removes recovery files and orphaned audio files older than the max age.
     /// Dispatched to `.utility` QoS (§3 constraint: < 100 ms, never during recording).
     private func cleanupOrphans() {
+        guard !isRecordingActive else {
+            storageLogger.info("Orphan cleanup skipped — recording is active (§3)")
+            return
+        }
         PerformanceConstraints.storageQueue.async { [weak self] in
             self?.performOrphanCleanup()
         }
