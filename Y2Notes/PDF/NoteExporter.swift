@@ -244,6 +244,9 @@ final class NoteExporter {
                     // Render first page of embedded PDF at export resolution
                     if let pdfImage = renderEmbeddedPDFPage(at: contentURL) {
                         result[attachment.id] = pdfImage
+                    } else if let thumb = store.thumbnail(for: attachment.id, noteID: noteID) {
+                        // Fallback to thumbnail if PDF render fails
+                        result[attachment.id] = thumb
                     }
                 } else if let data = try? Data(contentsOf: contentURL),
                           let image = UIImage(data: data) {
