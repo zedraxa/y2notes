@@ -1,206 +1,428 @@
 import Foundation
+import UIKit
 
-// MARK: - Notebook Tab
+// MARK: - Tab Content
 
-/// Represents a single open notebook tab in the workspace.
-///
-/// Each tab stores the notebook's identity and the last-known navigation state
-/// so switching back to a previously open tab restores the exact position.
-/// The model is `Codable` for persistence across app relaunches.
-struct NotebookTab: Identifiable, Codable, Equatable {
-    /// Unique tab instance identifier (not the notebook's ID — the same notebook
-    /// can theoretically be opened in multiple tabs, though the UI prevents it).
-    let id: UUID
-    /// The notebook this tab is displaying.
-    let notebookID: UUID
-    /// Display name cached from the notebook for tab-bar rendering without
-    /// requiring a store lookup.
-    var displayName: String
-    /// Cover color components [r, g, b] for the tab's accent tint.
-    var coverColor: [Double]
-    /// The page index the user was viewing when this tab was last active.
-    var lastPageIndex: Int
-    /// Timestamp of the last interaction with this tab — used for LRU eviction.
-    var lastActiveDate: Date
+/// What a tab displays. The tab bar doesn't care about the content type —
+/// notebooks, notes, PDFs, and documents all share the same lifecycle.
+enum TabContent: Codable, Equatable {
+    case notebook(id: UUID)
+    case note(id: UUID)
+    case pdf(id: UUID)
+    case document(id: UUID)
 
-    init(
-        id: UUID = UUID(),
-        notebookID: UUID,
-        displayName: String,
-        coverColor: [Double] = [0.4, 0.4, 0.8],
-        lastPageIndex: Int = 0,
-        lastActiveDate: Date = Date()
-    ) {
-        self.id = id
-        self.notebookID = notebookID
-        self.displayName = displayName
-        self.coverColor = coverColor
-        self.lastPageIndex = lastPageIndex
-        self.lastActiveDate = lastActiveDate
+    /// The content's unique identifier regardless of type.
+    var contentID: UUID {
+        switch self {
+        case .notebook(let id), .note(let id), .pdf(let id), .document(let id):
+            return id
+        }
+    }
+
+    /// SF Symbol name for display in the tab bar.
+    var iconName: String {
+        switch self {
+        case .notebook: return "book.closed"
+        case .note:     return "doc.text"
+        case .pdf:      return "doc.richtext"
+        case .document: return "doc"
+        }
     }
 }
 
-// MARK: - Notebook Tab Session
+// MARK: - Tab Session
 
-/// Manages the collection of open notebook tabs, the active tab, and
-/// persistence across relaunches.
+/// Represents a single open tab in the workspace.
 ///
-/// **State ownership**: This is an `@Observable` class owned at the app level
-/// (injected via `.environment`). Individual notebook views read `activeTabID`
-/// to decide whether they are the frontmost tab.
+/// Each tab stores its content identity and the last-known navigation state
+/// so switching back restores the exact position. `Codable` for persistence.
+struct TabSession: Identifiable, Codable, Equatable {
+    /// Unique tab instance identifier.
+    let id: UUID
+    /// What content this tab is displaying.
+    var content: TabContent
+    /// Cached display name for the tab bar (avoids store lookups).
+    var displayName: String
+    /// Accent color components [r, g, b] in 0…1 for the tab's tint.
+    var accentColor: [Double]
+    /// Current page (flat index for notebooks, page index for notes).
+    var pageIndex: Int
+    /// Active section tab (notebooks only).
+    var sectionID: UUID?
+    /// Canvas zoom level.
+    var zoomScale: Double
+    /// Canvas scroll position.
+    var contentOffsetX: Double
+    var contentOffsetY: Double
+    /// Whether the right-side inspector panel was open.
+    var showAdvancedPanel: Bool
+    /// Timestamp of the last interaction — used for LRU eviction.
+    var lastActiveAt: Date
+    /// When the tab was created.
+    let createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        content: TabContent,
+        displayName: String,
+        accentColor: [Double] = [0.4, 0.4, 0.8],
+        pageIndex: Int = 0,
+        sectionID: UUID? = nil,
+        zoomScale: Double = 1.0,
+        contentOffsetX: Double = 0,
+        contentOffsetY: Double = 0,
+        showAdvancedPanel: Bool = false
+    ) {
+        self.id = id
+        self.content = content
+        self.displayName = displayName
+        self.accentColor = accentColor
+        self.pageIndex = pageIndex
+        self.sectionID = sectionID
+        self.zoomScale = zoomScale
+        self.contentOffsetX = contentOffsetX
+        self.contentOffsetY = contentOffsetY
+        self.showAdvancedPanel = showAdvancedPanel
+        self.lastActiveAt = Date()
+        self.createdAt = Date()
+    }
+
+    /// Convenience: CGPoint form of scroll offset.
+    var contentOffset: CGPoint {
+        get { CGPoint(x: contentOffsetX, y: contentOffsetY) }
+        set { contentOffsetX = newValue.x; contentOffsetY = newValue.y }
+    }
+}
+
+// MARK: - Tab Workspace Store
+
+/// Manages the collection of open tabs, the active tab, persistence,
+/// and the warm-tab memory cache.
 ///
-/// **Persistence**: Tabs are serialised to UserDefaults on every mutation so
-/// the workspace survives force-quit and relaunch. The serialised data is
-/// lightweight (UUIDs + page indices, no drawing data).
+/// **State ownership**: `@Observable` class owned at the app level,
+/// injected via `.environment()`. Content views read `activeTabID`
+/// and report state changes back through `updateTabState(...)`.
 ///
-/// **Caching strategy**: Only the active tab's notebook is fully loaded in
-/// memory (PKCanvasView, PKDrawing, page background). Suspended tabs keep
-/// their `NotebookTab` metadata and a cached thumbnail. When the user switches
-/// tabs, the outgoing notebook's drawing is saved and its canvas is released;
-/// the incoming notebook is loaded from the NoteStore/PDF cache.
+/// **Persistence**: Tabs are serialised to `y2notes_tabs.json` in the
+/// Documents directory on every mutation, matching the existing
+/// `y2notes_notes.json` / `y2notes_notebooks.json` pattern.
+///
+/// **Caching**: Only the active tab's content view is mounted.
+/// The 2 most-recently-used suspended tabs keep serialised drawing
+/// data in memory (`warmCache`); others load from disk on resume.
 @Observable
-final class NotebookTabSession {
+final class TabWorkspaceStore {
 
-    // MARK: - Published State
+    // MARK: - State
 
-    /// Ordered list of open tabs. The tab bar renders these left-to-right.
-    var tabs: [NotebookTab] = [] {
-        didSet { persistTabs() }
+    /// Ordered list of open tabs (matches visual tab bar order).
+    var tabs: [TabSession] = [] {
+        didSet { persist() }
     }
 
-    /// The tab currently displayed in the workspace. `nil` when no notebooks
-    /// are open (shows the shelf / empty state).
+    /// The tab currently displayed. `nil` = no content open.
     var activeTabID: UUID? {
-        didSet { persistTabs() }
+        didSet { persist() }
     }
 
-    /// Maximum number of simultaneously open tabs.
-    /// 8 balances usability (enough for typical multi-subject workflows) against
-    /// memory (each active tab's PKCanvasView + PKDrawing can consume ~10-30 MB).
-    /// Only the active tab is fully loaded; suspended tabs keep metadata only.
-    static let maxTabs = 8
+    /// Soft limit — after this, oldest tab is evicted on new open.
+    static let softMaxTabs = 8
+    /// Hard limit — beyond this, oldest suspended tab is auto-closed.
+    static let hardMaxTabs = 12
+
+    // MARK: - Derived
+
+    /// The currently active tab session, if any.
+    var activeTab: TabSession? {
+        guard let activeTabID else { return nil }
+        return tabs.first { $0.id == activeTabID }
+    }
+
+    /// The active tab's content, if any.
+    var activeContent: TabContent? { activeTab?.content }
+
+    // MARK: - Warm Cache
+
+    /// Serialised PKDrawing data for recently-suspended tabs.
+    /// Key = tab ID. Kept for the 2 most-recently-used non-active tabs.
+    private var warmCache: [UUID: Data] = [:]
+    private static let warmCacheLimit = 2
+
+    /// Thumbnail images for tab bar display.
+    let thumbnailCache = NSCache<NSUUID, UIImage>()
 
     // MARK: - Init
 
     init() {
-        loadTabs()
+        thumbnailCache.countLimit = 20
+        load()
     }
 
-    // MARK: - Tab Management
+    // MARK: - Open
 
-    /// Opens a notebook in a new tab, or switches to it if already open.
-    /// Returns the tab that is now active.
+    /// Opens content in a new tab, or switches to it if already open.
     @discardableResult
-    func openNotebook(
-        id notebookID: UUID,
+    func openTab(
+        _ content: TabContent,
         displayName: String,
-        coverColor: [Double] = [0.4, 0.4, 0.8]
-    ) -> NotebookTab {
-        // If already open, just switch to it
-        if let existing = tabs.first(where: { $0.notebookID == notebookID }) {
-            activeTabID = existing.id
-            // Update last-active timestamp
-            if let idx = tabs.firstIndex(where: { $0.id == existing.id }) {
-                tabs[idx].lastActiveDate = Date()
-            }
-            return existing
+        accentColor: [Double] = [0.4, 0.4, 0.8]
+    ) -> UUID {
+        // Dedup: if already open, switch to it
+        if let existing = tabs.first(where: { $0.content == content }) {
+            switchTo(existing.id)
+            return existing.id
         }
 
-        // Evict oldest tab if at capacity
-        if tabs.count >= Self.maxTabs {
+        // Evict if at soft limit
+        if tabs.count >= Self.softMaxTabs {
             evictOldestTab()
         }
 
-        let tab = NotebookTab(
-            notebookID: notebookID,
+        let tab = TabSession(
+            content: content,
             displayName: displayName,
-            coverColor: coverColor
+            accentColor: accentColor
         )
         tabs.append(tab)
         activeTabID = tab.id
-        return tab
+        return tab.id
     }
 
-    /// Closes a tab by its ID. If the closed tab was active, switches to the
-    /// nearest sibling (right, then left, then nil).
-    func closeTab(id tabID: UUID) {
+    // MARK: - Close
+
+    /// Closes a tab. If it was active, switches to the nearest sibling.
+    func closeTab(_ tabID: UUID) {
         guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         let wasActive = activeTabID == tabID
         tabs.remove(at: idx)
+        warmCache.removeValue(forKey: tabID)
+        thumbnailCache.removeObject(forKey: tabID as NSUUID)
 
         if wasActive {
             if tabs.isEmpty {
                 activeTabID = nil
             } else {
-                // Prefer the tab that was to the right, else the one to the left
                 let newIdx = min(idx, tabs.count - 1)
                 activeTabID = tabs[newIdx].id
             }
         }
     }
 
-    /// Moves a tab from one position to another (for drag-to-reorder).
-    func moveTab(from source: Int, to destination: Int) {
+    /// Closes all tabs except the specified one.
+    func closeOtherTabs(except keepID: UUID) {
+        let idsToClose = tabs.filter { $0.id != keepID }.map(\.id)
+        for id in idsToClose { closeTab(id) }
+    }
+
+    // MARK: - Switch
+
+    /// Switches to a specific tab, updating last-active timestamp.
+    func switchTo(_ tabID: UUID) {
+        guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        activeTabID = tabID
+        tabs[idx].lastActiveAt = Date()
+    }
+
+    // MARK: - Reorder
+
+    /// Moves a tab from one position to another (drag-to-reorder).
+    func reorderTab(from source: Int, to destination: Int) {
         guard source != destination,
               source >= 0, source < tabs.count,
               destination >= 0, destination <= tabs.count else { return }
         let tab = tabs.remove(at: source)
-        let adjustedDestination = destination > source ? destination - 1 : destination
-        tabs.insert(tab, at: min(adjustedDestination, tabs.count))
+        let adjusted = destination > source ? destination - 1 : destination
+        tabs.insert(tab, at: min(adjusted, tabs.count))
     }
 
-    /// Updates the saved page index for a tab (called when the user navigates
-    /// pages within a notebook).
-    func updatePageIndex(_ pageIndex: Int, forTab tabID: UUID) {
+    // MARK: - State Updates
+
+    /// Updates persisted navigation state for a tab (page, zoom, scroll, panel).
+    func updateTabState(
+        _ tabID: UUID,
+        pageIndex: Int? = nil,
+        sectionID: UUID?? = nil,
+        zoomScale: Double? = nil,
+        contentOffset: CGPoint? = nil,
+        showAdvancedPanel: Bool? = nil
+    ) {
         guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
-        tabs[idx].lastPageIndex = pageIndex
-        tabs[idx].lastActiveDate = Date()
+        if let p = pageIndex            { tabs[idx].pageIndex = p }
+        if let s = sectionID            { tabs[idx].sectionID = s }
+        if let z = zoomScale            { tabs[idx].zoomScale = z }
+        if let o = contentOffset        { tabs[idx].contentOffset = o }
+        if let a = showAdvancedPanel    { tabs[idx].showAdvancedPanel = a }
+        tabs[idx].lastActiveAt = Date()
     }
 
-    /// The currently active tab, if any.
-    var activeTab: NotebookTab? {
-        guard let activeTabID else { return nil }
-        return tabs.first { $0.id == activeTabID }
+    // MARK: - Warm Cache
+
+    /// Stores serialised drawing data for a suspended tab.
+    func suspendTab(_ tabID: UUID, drawingData: Data) {
+        warmCache[tabID] = drawingData
+        trimWarmCache()
+    }
+
+    /// Retrieves warm-cached drawing data, or `nil` if evicted to cold.
+    func resumeTabData(_ tabID: UUID) -> Data? {
+        warmCache[tabID]
+    }
+
+    /// Drops all warm caches (e.g. on memory warning).
+    func flushWarmCache() {
+        warmCache.removeAll()
+    }
+
+    private func trimWarmCache() {
+        guard warmCache.count > Self.warmCacheLimit else { return }
+        // Keep only the most-recently-active tabs' data
+        let recentTabIDs = Set(
+            tabs
+                .filter { $0.id != activeTabID }
+                .sorted { $0.lastActiveAt > $1.lastActiveAt }
+                .prefix(Self.warmCacheLimit)
+                .map(\.id)
+        )
+        for key in warmCache.keys where !recentTabIDs.contains(key) {
+            warmCache.removeValue(forKey: key)
+        }
     }
 
     // MARK: - Eviction
 
-    /// Removes the least-recently-used tab that is not the active tab.
     private func evictOldestTab() {
         guard let oldest = tabs
             .filter({ $0.id != activeTabID })
-            .min(by: { $0.lastActiveDate < $1.lastActiveDate })
+            .min(by: { $0.lastActiveAt < $1.lastActiveAt })
         else { return }
-        closeTab(id: oldest.id)
+        closeTab(oldest.id)
+    }
+
+    // MARK: - Validation
+
+    /// Removes tabs whose content no longer exists in the stores.
+    /// Called on app launch after stores have loaded.
+    func validateTabs(
+        notebookIDs: Set<UUID>,
+        noteIDs: Set<UUID>,
+        pdfIDs: Set<UUID>,
+        documentIDs: Set<UUID>
+    ) {
+        let invalidIDs = tabs.filter { tab in
+            switch tab.content {
+            case .notebook(let id): return !notebookIDs.contains(id)
+            case .note(let id):     return !noteIDs.contains(id)
+            case .pdf(let id):      return !pdfIDs.contains(id)
+            case .document(let id): return !documentIDs.contains(id)
+            }
+        }.map(\.id)
+
+        for id in invalidIDs { closeTab(id) }
     }
 
     // MARK: - Persistence
 
-    private static let persistenceKey = "y2notes.workspace.tabs"
-    private static let activeTabKey = "y2notes.workspace.activeTab"
-
-    private func persistTabs() {
-        guard let data = try? JSONEncoder().encode(tabs) else { return }
-        UserDefaults.standard.set(data, forKey: Self.persistenceKey)
-        if let activeTabID {
-            UserDefaults.standard.set(activeTabID.uuidString, forKey: Self.activeTabKey)
-        } else {
-            UserDefaults.standard.removeObject(forKey: Self.activeTabKey)
-        }
+    private static var fileURL: URL {
+        FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("y2notes_tabs.json")
     }
 
-    private func loadTabs() {
-        let ud = UserDefaults.standard
-        if let data = ud.data(forKey: Self.persistenceKey),
-           let loaded = try? JSONDecoder().decode([NotebookTab].self, from: data) {
-            tabs = loaded
+    /// Codable wrapper for the full tab bar state.
+    private struct TabBarState: Codable {
+        var tabs: [TabSession]
+        var activeTabID: UUID?
+        var lastSavedAt: Date
+    }
+
+    private func persist() {
+        let state = TabBarState(
+            tabs: tabs,
+            activeTabID: activeTabID,
+            lastSavedAt: Date()
+        )
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        try? data.write(to: Self.fileURL, options: .atomic)
+    }
+
+    private func load() {
+        guard let data = try? Data(contentsOf: Self.fileURL),
+              let state = try? JSONDecoder().decode(TabBarState.self, from: data)
+        else {
+            // Migrate from legacy UserDefaults-based storage if present
+            migrateFromLegacyStorage()
+            return
         }
-        if let str = ud.string(forKey: Self.activeTabKey),
-           let uuid = UUID(uuidString: str),
-           tabs.contains(where: { $0.id == uuid }) {
-            activeTabID = uuid
+        tabs = state.tabs
+        if let id = state.activeTabID, tabs.contains(where: { $0.id == id }) {
+            activeTabID = id
         } else {
             activeTabID = tabs.first?.id
         }
     }
+
+    /// One-time migration from the old `NotebookTabSession` UserDefaults keys.
+    private func migrateFromLegacyStorage() {
+        let ud = UserDefaults.standard
+        let legacyKey = "y2notes.workspace.tabs"
+        let legacyActiveKey = "y2notes.workspace.activeTab"
+
+        // Old format: [NotebookTab] with notebookID/displayName/coverColor/lastPageIndex
+        struct LegacyTab: Codable {
+            let id: UUID
+            let notebookID: UUID
+            var displayName: String
+            var coverColor: [Double]
+            var lastPageIndex: Int
+            var lastActiveDate: Date
+        }
+
+        if let data = ud.data(forKey: legacyKey),
+           let legacy = try? JSONDecoder().decode([LegacyTab].self, from: data) {
+            tabs = legacy.map { old in
+                TabSession(
+                    id: old.id,
+                    content: .notebook(id: old.notebookID),
+                    displayName: old.displayName,
+                    accentColor: old.coverColor,
+                    pageIndex: old.lastPageIndex
+                )
+            }
+            if let str = ud.string(forKey: legacyActiveKey),
+               let uuid = UUID(uuidString: str),
+               tabs.contains(where: { $0.id == uuid }) {
+                activeTabID = uuid
+            } else {
+                activeTabID = tabs.first?.id
+            }
+            // Persist in new format and remove legacy keys
+            persist()
+            ud.removeObject(forKey: legacyKey)
+            ud.removeObject(forKey: legacyActiveKey)
+        }
+    }
+
+    // MARK: - Compatibility Shim
+
+    /// Convenience for notebook tabs — matches the old `openNotebook(...)` API
+    /// used by ShelfView so callers don't need to change their call sites.
+    @discardableResult
+    func openNotebook(
+        id notebookID: UUID,
+        displayName: String,
+        coverColor: [Double] = [0.4, 0.4, 0.8]
+    ) -> UUID {
+        openTab(
+            .notebook(id: notebookID),
+            displayName: displayName,
+            accentColor: coverColor
+        )
+    }
 }
+
+// MARK: - Legacy Type Aliases
+
+/// Backwards-compatible alias so existing code compiles during migration.
+typealias NotebookTabSession = TabWorkspaceStore
+/// Backwards-compatible alias for the old tab model name.
+typealias NotebookTab = TabSession

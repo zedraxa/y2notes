@@ -67,7 +67,7 @@ struct ShelfView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore:  PDFStore
     @EnvironmentObject var documentStore: DocumentStore
-    @Environment(NotebookTabSession.self) private var tabSession
+    @Environment(TabWorkspaceStore.self) private var tabSession
 
     @State private var selectedSection: LibrarySection? = .allNotes
     @State private var selectedNoteID: UUID?
@@ -120,25 +120,9 @@ struct ShelfView: View {
                 )
             }
         } detail: {
-            if let doc = selectedDocument {
-                DocumentViewerView(
-                    document: doc,
-                    fileURL: documentStore.storedURL(for: doc)
-                )
-                .id(doc.id)
-            } else if let record = selectedPDFRecord {
-                PDFViewerView(record: record)
-                    .id(record.id)
-            } else if let note = selectedNote {
-                NoteEditorView(note: note)
-                    .id(note.id)
-            } else if case .notebook(let nbID) = selectedSection,
-                      let nb = noteStore.notebooks.first(where: { $0.id == nbID }) {
-                NotebookReaderView(notebook: nb)
-                    .id(nb.id)
-            } else {
-                ShelfDetailPlaceholder()
-            }
+            NotebookWorkspaceView(onOpenShelf: {
+                columnVisibility = .all
+            })
         }
         // Clear irrelevant selections when switching sections.
         .onChange(of: selectedSection) { _, section in
@@ -149,10 +133,44 @@ struct ShelfView: View {
             case .documentLibrary:
                 selectedNoteID = nil
                 selectedPDFID  = nil
+            case .notebook:
+                // Notebook tabs are already opened in onOpenNotebook
+                selectedPDFID  = nil
+                selectedDocumentID = nil
             default:
                 selectedPDFID  = nil
                 selectedDocumentID = nil
             }
+        }
+        // When a note is selected in the sidebar/grid, open it as a tab.
+        .onChange(of: selectedNoteID) { _, newID in
+            guard let id = newID,
+                  let note = noteStore.notes.first(where: { $0.id == id }) else { return }
+            tabSession.openTab(
+                .note(id: id),
+                displayName: note.title.isEmpty ? "Untitled Note" : note.title,
+                accentColor: [0.45, 0.45, 0.5]
+            )
+        }
+        // When a PDF is selected, open it as a tab.
+        .onChange(of: selectedPDFID) { _, newID in
+            guard let id = newID,
+                  let record = pdfStore.records.first(where: { $0.id == id }) else { return }
+            tabSession.openTab(
+                .pdf(id: id),
+                displayName: record.title,
+                accentColor: [0.8, 0.3, 0.3]
+            )
+        }
+        // When a document is selected, open it as a tab.
+        .onChange(of: selectedDocumentID) { _, newID in
+            guard let id = newID,
+                  let doc = documentStore.documents.first(where: { $0.id == id }) else { return }
+            tabSession.openTab(
+                .document(id: id),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
         }
         // If the selected note is deleted elsewhere, clear the selection.
         .onChange(of: noteStore.notes) { _, _ in

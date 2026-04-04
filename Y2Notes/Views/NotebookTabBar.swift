@@ -2,84 +2,93 @@ import SwiftUI
 
 /// Notebook-style tab bar that sits between the navigation bar and the canvas.
 ///
-/// **Visual design**: Each tab is a thin rounded-top card with the notebook's
-/// cover colour as an accent stripe. The active tab appears "pulled forward"
-/// (slightly taller, opaque background). Inactive tabs are shorter with a
-/// translucent background. This avoids the browser-tab look by using soft
-/// rounded shapes and notebook accent colours instead of sharp rectangles.
+/// **Visual design**: A thin 36pt strip with soft, rounded tab cards tinted by
+/// each tab's accent colour. The active tab appears "pulled forward" (slightly
+/// taller, opaque background, semibold text, close button visible). Inactive
+/// tabs are shorter, translucent, and calmer — no visible close buttons.
 ///
 /// **Interactions**:
-/// - Tap to switch tabs
+/// - Tap to switch tabs (spring animation)
 /// - Long-press + drag to reorder
 /// - Swipe-left or close button to dismiss a tab
-/// - "+" button to open a new notebook from the shelf
+/// - Context menu: Close / Close Other Tabs
+/// - "+" button to open new content from the shelf
+///
+/// **Anti-browser**: no sharp rectangular tabs, no tab count badge, no ×
+/// buttons on inactive tabs. The colour accent stripe mirrors the notebook
+/// identity bar used in NotebookReaderView.
 struct NotebookTabBar: View {
-    @Environment(NotebookTabSession.self) private var tabSession
+    @Environment(TabWorkspaceStore.self) private var workspace
     var onNewTab: () -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
-                ForEach(Array(tabSession.tabs.enumerated()), id: \.element.id) { index, tab in
+                ForEach(Array(workspace.tabs.enumerated()), id: \.element.id) { index, tab in
                     tabCard(tab, index: index)
                 }
-
-                // New tab button
                 newTabButton
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
         }
         .frame(height: 36)
-        .background(Color(uiColor: .systemGroupedBackground).opacity(0.6))
+        .background(
+            Color(uiColor: .systemGroupedBackground)
+                .opacity(0.6)
+                .overlay(alignment: .bottom) {
+                    // Subtle gradient fade into the canvas area
+                    LinearGradient(
+                        colors: [.clear, Color(uiColor: .systemGroupedBackground).opacity(0.08)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 4)
+                    .offset(y: 4)
+                }
+        )
     }
 
     // MARK: - Tab Card
 
     @ViewBuilder
-    private func tabCard(_ tab: NotebookTab, index: Int) -> some View {
-        let isActive = tabSession.activeTabID == tab.id
-        let accentColor = tabAccentColor(tab)
+    private func tabCard(_ tab: TabSession, index: Int) -> some View {
+        let isActive = workspace.activeTabID == tab.id
+        let accent = tabAccentColor(tab)
 
         Button {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                tabSession.activeTabID = tab.id
+                workspace.switchTo(tab.id)
             }
         } label: {
             HStack(spacing: 5) {
-                // Notebook accent stripe
+                // Accent stripe — mirrors the notebook identity bar
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(accentColor)
+                    .fill(accent)
                     .frame(width: 3, height: 16)
 
+                // Icon for content type
+                Image(systemName: tab.content.iconName)
+                    .font(.system(size: 10))
+                    .foregroundStyle(isActive ? accent : Color(uiColor: .tertiaryLabel))
+
+                // Title
                 Text(tab.displayName)
                     .font(.caption.weight(isActive ? .semibold : .regular))
                     .lineLimit(1)
-                    .foregroundStyle(isActive ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel))
+                    .frame(maxWidth: 120)
+                    .foregroundStyle(
+                        isActive ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel)
+                    )
 
-                // Close button (only on active tab to keep it calm)
+                // Close button — only visible on the active tab
                 if isActive {
-                    Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                            tabSession.closeTab(id: tab.id)
-                        }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
-                            .frame(width: 16, height: 16)
-                            .background(Color(uiColor: .systemGray5), in: Circle())
-                    }
-                    .buttonStyle(.plain)
+                    closeButton(for: tab)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(
-                isActive
-                    ? AnyShapeStyle(Color(uiColor: .systemBackground))
-                    : AnyShapeStyle(Color(uiColor: .secondarySystemBackground).opacity(0.5))
-            )
+            .background(tabBackground(isActive: isActive, accent: accent))
             .clipShape(
                 UnevenRoundedRectangle(
                     topLeadingRadius: 8,
@@ -97,17 +106,40 @@ struct NotebookTabBar: View {
                 .padding(8)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
         }
+        .dropDestination(for: String.self) { items, _ in
+            guard let sourceStr = items.first,
+                  let source = Int(sourceStr),
+                  source != index else { return false }
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                workspace.reorderTab(from: source, to: index)
+            }
+            return true
+        }
         .contextMenu {
             Button("Close Tab", systemImage: "xmark") {
-                withAnimation { tabSession.closeTab(id: tab.id) }
+                withAnimation { workspace.closeTab(tab.id) }
             }
             Button("Close Other Tabs", systemImage: "xmark.square") {
-                withAnimation {
-                    let otherIDs = tabSession.tabs.filter { $0.id != tab.id }.map(\.id)
-                    for id in otherIDs { tabSession.closeTab(id: id) }
-                }
+                withAnimation { workspace.closeOtherTabs(except: tab.id) }
             }
         }
+    }
+
+    // MARK: - Close Button
+
+    private func closeButton(for tab: TabSession) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                workspace.closeTab(tab.id)
+            }
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                .frame(width: 16, height: 16)
+                .background(Color(uiColor: .systemGray5), in: Circle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - New Tab Button
@@ -121,17 +153,29 @@ struct NotebookTabBar: View {
                 .background(Color(uiColor: .systemGray6), in: RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Open notebook")
+        .accessibilityLabel("Open new tab")
     }
 
     // MARK: - Helpers
 
-    private func tabAccentColor(_ tab: NotebookTab) -> Color {
-        guard tab.coverColor.count >= 3 else { return .accentColor }
+    private func tabAccentColor(_ tab: TabSession) -> Color {
+        guard tab.accentColor.count >= 3 else { return .accentColor }
         return Color(
-            red: tab.coverColor[0],
-            green: tab.coverColor[1],
-            blue: tab.coverColor[2]
+            red: tab.accentColor[0],
+            green: tab.accentColor[1],
+            blue: tab.accentColor[2]
         )
+    }
+
+    @ViewBuilder
+    private func tabBackground(isActive: Bool, accent: Color) -> some View {
+        if isActive {
+            // Active: opaque with very subtle accent tint
+            Color(uiColor: .systemBackground)
+                .overlay(accent.opacity(0.05))
+        } else {
+            Color(uiColor: .secondarySystemBackground)
+                .opacity(0.5)
+        }
     }
 }

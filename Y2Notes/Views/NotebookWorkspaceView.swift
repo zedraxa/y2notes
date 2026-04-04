@@ -1,59 +1,132 @@
 import SwiftUI
 
-/// Multi-tab notebook workspace that lets users work across several notebooks
-/// without losing context.
+/// Multi-tab workspace that replaces the ShelfView detail column.
 ///
 /// **Architecture**:
-/// - `NotebookTabBar` at the top shows open tabs with notebook accent colours.
-/// - Below the tab bar, the active notebook's `NotebookReaderView` is shown.
-/// - Inactive tabs preserve their page index in `NotebookTabSession` so
-///   switching back restores position instantly.
-/// - The floating toolbar and advanced inspector remain shared — they bind to
-///   the global `DrawingToolStore` which is tool-state, not notebook-state.
+/// - `NotebookTabBar` at the top shows open tabs with accent colours.
+/// - `TabContentView` below renders the active tab's content view.
+/// - Only one content view is live at a time — switching tabs destroys the
+///   old view and creates a new one (Option B from the design doc).
 ///
-/// **Performance**: Only one `NotebookReaderView` is live at a time. Switching
-/// tabs saves the outgoing drawing and loads the incoming notebook from the
-/// NoteStore cache. `NotebookReaderView` already handles page restoration via
-/// `flatPageIndex`.
+/// **Performance**: A 200ms crossfade masks the ~100ms view recreation cost.
+/// The floating toolbar stays in place during switches (it's shared globally).
 ///
 /// **Future split-view**: This container can be embedded in each side of a
-/// `NavigationSplitView` to support side-by-side notebook editing.
+/// split layout to support side-by-side editing.
 struct NotebookWorkspaceView: View {
     @EnvironmentObject var noteStore: NoteStore
-    @Environment(NotebookTabSession.self) private var tabSession
-    /// Callback to show the shelf/notebook picker for opening a new tab.
+    @EnvironmentObject var pdfStore: PDFStore
+    @EnvironmentObject var documentStore: DocumentStore
+    @Environment(TabWorkspaceStore.self) private var workspace
+    /// Callback to show the shelf/picker for opening new content.
     var onOpenShelf: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab bar — only shown when more than 1 tab is open
-            if tabSession.tabs.count > 1 {
-                NotebookTabBar(onNewTab: onOpenShelf)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            // Active notebook content
-            activeContent
+            tabBarSection
+            tabContentSection
         }
-        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: tabSession.tabs.count)
-        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: tabSession.activeTabID)
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: workspace.tabs.count)
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: workspace.activeTabID)
     }
 
-    // MARK: - Active Content
+    // MARK: - Tab Bar
 
     @ViewBuilder
-    private var activeContent: some View {
-        if let activeTab = tabSession.activeTab,
-           let notebook = noteStore.notebooks.first(where: { $0.id == activeTab.notebookID }) {
-            NotebookReaderView(notebook: notebook)
-                .id(activeTab.id)
-                .onDisappear {
-                    // Page index is saved continuously via NotebookReaderView's
-                    // onChange handler — this is a safety net.
-                }
+    private var tabBarSection: some View {
+        if workspace.tabs.count > 1 {
+            NotebookTabBar(onNewTab: onOpenShelf)
+                .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    // MARK: - Content
+
+    @ViewBuilder
+    private var tabContentSection: some View {
+        if let tab = workspace.activeTab {
+            tabContentView(for: tab)
+                .id(tab.id) // Force recreation on tab switch
+                .transition(.opacity.animation(.easeInOut(duration: 0.2)))
         } else {
-            // No active tab — show a prompt to open a notebook
             emptyWorkspace
+        }
+    }
+
+    @ViewBuilder
+    private func tabContentView(for tab: TabSession) -> some View {
+        switch tab.content {
+        case .notebook(let id):
+            notebookContent(id: id, tab: tab)
+        case .note(let id):
+            noteContent(id: id, tab: tab)
+        case .pdf(let id):
+            pdfContent(id: id, tab: tab)
+        case .document(let id):
+            documentContent(id: id, tab: tab)
+        }
+    }
+
+    // MARK: - Content Type Renderers
+
+    @ViewBuilder
+    private func notebookContent(id: UUID, tab: TabSession) -> some View {
+        if let notebook = noteStore.notebooks.first(where: { $0.id == id }) {
+            NotebookReaderView(notebook: notebook)
+        } else {
+            deletedContentPlaceholder(tab: tab)
+        }
+    }
+
+    @ViewBuilder
+    private func noteContent(id: UUID, tab: TabSession) -> some View {
+        if let note = noteStore.notes.first(where: { $0.id == id }) {
+            NoteEditorView(note: note)
+        } else {
+            deletedContentPlaceholder(tab: tab)
+        }
+    }
+
+    @ViewBuilder
+    private func pdfContent(id: UUID, tab: TabSession) -> some View {
+        if let record = pdfStore.records.first(where: { $0.id == id }) {
+            PDFViewerView(record: record)
+        } else {
+            deletedContentPlaceholder(tab: tab)
+        }
+    }
+
+    @ViewBuilder
+    private func documentContent(id: UUID, tab: TabSession) -> some View {
+        if let doc = documentStore.documents.first(where: { $0.id == id }) {
+            DocumentViewerView(
+                document: doc,
+                fileURL: documentStore.storedURL(for: doc)
+            )
+        } else {
+            deletedContentPlaceholder(tab: tab)
+        }
+    }
+
+    // MARK: - Deleted Content
+
+    @ViewBuilder
+    private func deletedContentPlaceholder(tab: TabSession) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 36, weight: .thin))
+                .foregroundStyle(.tertiary)
+            Text(""\(tab.displayName)" was deleted")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemGroupedBackground))
+        .onAppear {
+            // Auto-close after 3 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation { workspace.closeTab(tab.id) }
+            }
         }
     }
 
