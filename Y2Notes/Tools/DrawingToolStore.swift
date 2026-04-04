@@ -99,6 +99,20 @@ final class DrawingToolStore: ObservableObject {
     /// Whether the attachment source picker sheet is presented.
     @Published var isAttachmentPickerPresented: Bool = false
 
+    // MARK: - Recording State
+
+    /// Whether an audio recording is currently in progress.
+    /// Drives the toolbar mic→stop morph. **Not persisted** — always starts false.
+    @Published var isRecording: Bool = false
+
+    /// Whether the recording session list sheet is presented.
+    /// **Not persisted** — always starts false.
+    @Published var isRecordingSessionListPresented: Bool = false
+
+    /// The live recording session (mirrors AudioRecordingStore.activeSession).
+    /// **Not persisted** — always starts nil.
+    @Published var activeRecordingSession: AudioSession?
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

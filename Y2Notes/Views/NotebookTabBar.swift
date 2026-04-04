@@ -19,6 +19,7 @@ import SwiftUI
 /// identity bar used in NotebookReaderView.
 struct NotebookTabBar: View {
     @Environment(TabWorkspaceStore.self) private var workspace
+    @EnvironmentObject var toolStore: DrawingToolStore
     var onNewTab: () -> Void
 
     var body: some View {
@@ -71,6 +72,15 @@ struct NotebookTabBar: View {
                 Image(systemName: tab.content.iconName)
                     .font(.system(size: 10))
                     .foregroundStyle(isActive ? accent : Color(uiColor: .tertiaryLabel))
+                    .overlay(alignment: .topTrailing) {
+                        // Recording badge — red dot when recording is active on this tab
+                        if isActive && toolStore.isRecording {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 6, height: 6)
+                                .offset(x: 3, y: -3)
+                        }
+                    }
 
                 // Title
                 Text(tab.displayName)

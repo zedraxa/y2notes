@@ -20,6 +20,7 @@ struct FloatingToolbarCapsule: View {
     @ObservedObject var toolStore: DrawingToolStore
     var inkStore: InkEffectStore? = nil
     var stickerStore: StickerStore? = nil
+    var recordingStore: AudioRecordingStore? = nil
     var canUndo: Bool = false
     var canRedo: Bool = false
     var onUndo: (() -> Void)? = nil
@@ -33,6 +34,7 @@ struct FloatingToolbarCapsule: View {
 
     @State private var expandedTool: DrawingTool?
     @State private var showInkPicker = false
+    @State private var showRecordingExpansion = false
 
     /// The tool that was active before switching to eraser/shape,
     /// so tapping the "previous ink" button returns to it.
@@ -94,8 +96,59 @@ struct FloatingToolbarCapsule: View {
             // Tier 2 — contextual expansion above the capsule
             tier2Expansion
 
+            // Recording expansion — quality picker + recordings link
+            recordingExpansion
+
             // Tier 1 — always-present capsule
             tier1Capsule
+        }
+    }
+
+    // MARK: - Recording Expansion (Tier 2)
+
+    @ViewBuilder
+    private var recordingExpansion: some View {
+        if showRecordingExpansion, let recordingStore {
+            VStack(spacing: 8) {
+                // Quality picker
+                HStack(spacing: 8) {
+                    ForEach(AudioRecordingStore.RecordingQuality.allCases) { quality in
+                        let isSelected = recordingStore.quality == quality
+                        Button {
+                            recordingStore.quality = quality
+                        } label: {
+                            Text(quality.displayName)
+                                .font(.caption.weight(isSelected ? .semibold : .regular))
+                                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    isSelected
+                                        ? Color.accentColor.opacity(0.12)
+                                        : Color(uiColor: .systemGray5),
+                                    in: Capsule()
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                // Recordings link
+                Button {
+                    showRecordingExpansion = false
+                    toolStore.isRecordingSessionListPresented = true
+                } label: {
+                    Label("Recordings", systemImage: "list.bullet")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
@@ -147,6 +200,11 @@ struct FloatingToolbarCapsule: View {
             .disabled(!canRedo)
             .keyboardShortcut("z", modifiers: [.command, .shift])
             .accessibilityLabel("Redo")
+
+            // Recording mic / stop
+            if recordingStore != nil {
+                micButton
+            }
 
             // Inspector / Ink effects
             if onOpenInspector != nil || inkStore != nil {
@@ -263,6 +321,64 @@ struct FloatingToolbarCapsule: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Sticker")
+    }
+
+    // MARK: - Recording Mic Button
+
+    @State private var micPulsing = false
+
+    @ViewBuilder
+    private var micButton: some View {
+        tier1Separator
+
+        if toolStore.isRecording {
+            // Stop button — pulsing red dot
+            Button {
+                recordingStore?.stopRecording()
+                toolStore.isRecording = false
+                toolStore.activeRecordingSession = nil
+            } label: {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 12, height: 12)
+                    .opacity(micPulsing ? 1.0 : 0.6)
+                    .frame(width: 34, height: 34)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Stop recording")
+            .onAppear {
+                withAnimation(
+                    .easeInOut(duration: 0.8)
+                    .repeatForever(autoreverses: true)
+                ) {
+                    micPulsing = true
+                }
+            }
+            .onDisappear { micPulsing = false }
+        } else {
+            // Mic button — idle state
+            Button {
+                // Start recording handled by the parent view
+                // (needs notebookID context that the toolbar doesn't have).
+                // Toggle the flag; parent observes and calls recordingStore.startRecording().
+                toolStore.isRecording = true
+            } label: {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Start recording")
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.5)
+                    .onEnded { _ in
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                            showRecordingExpansion.toggle()
+                        }
+                    }
+            )
+        }
     }
 
     // MARK: - Helpers

@@ -95,6 +95,9 @@
 		AA000100000000000000010F /* AttachmentViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010E /* AttachmentViewerView.swift */; };
 		AA0001000000000000000111 /* AudioTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000110 /* AudioTimeline.swift */; };
 		AA0001000000000000000113 /* AudioTimelineLinkingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000112 /* AudioTimelineLinkingController.swift */; };
+		AA0001000000000000000115 /* AudioRecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000114 /* AudioRecordingStore.swift */; };
+		AA0001000000000000000117 /* RecordingIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000116 /* RecordingIndicatorView.swift */; };
+		AA0001000000000000000119 /* RecordingSessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000118 /* RecordingSessionListView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -188,6 +191,9 @@
 		AA000100000000000000010E /* AttachmentViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewerView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000110 /* AudioTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTimeline.swift; sourceTree = "<group>"; };
 		AA0001000000000000000112 /* AudioTimelineLinkingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTimelineLinkingController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000114 /* AudioRecordingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecordingStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000116 /* RecordingIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingIndicatorView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000118 /* RecordingSessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSessionListView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -298,6 +304,8 @@
 				AA000100000000000000010A /* AttachmentHandlesView.swift */,
 				AA000100000000000000010C /* AttachmentSourcePicker.swift */,
 				AA000100000000000000010E /* AttachmentViewerView.swift */,
+				AA0001000000000000000116 /* RecordingIndicatorView.swift */,
+				AA0001000000000000000118 /* RecordingSessionListView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -309,6 +317,7 @@
 				AA00010000000000000000EC /* StickerStore.swift */,
 				AA00010000000000000000FC /* NavigationStore.swift */,
 				AA0001000000000000000106 /* AttachmentStore.swift */,
+				AA0001000000000000000114 /* AudioRecordingStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -575,6 +584,9 @@
 				AA000100000000000000010F /* AttachmentViewerView.swift in Sources */,
 				AA0001000000000000000111 /* AudioTimeline.swift in Sources */,
 				AA0001000000000000000113 /* AudioTimelineLinkingController.swift in Sources */,
+				AA0001000000000000000115 /* AudioRecordingStore.swift in Sources */,
+				AA0001000000000000000117 /* RecordingIndicatorView.swift in Sources */,
+				AA0001000000000000000119 /* RecordingSessionListView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
