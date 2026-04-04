@@ -726,7 +726,7 @@ private struct CanvasView: UIViewRepresentable {
     /// Called when a two-finger swipe gesture requests a page change.
     /// Positive = next page, negative = previous page.
     let onPageSwipe: ((Int) -> Void)?
-    /// Called when a three-finger pinch gesture requests the page overview.
+    /// Called when a pinch-in gesture requests the page overview.
     let onPinchToOverview: (() -> Void)?
 
     // MARK: - Page dimensions
@@ -1794,7 +1794,7 @@ private struct PageOverviewGrid: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Page \(index + 1)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .task(id: note.pages.indices.contains(index) ? note.pages[index].hashValue : 0) {
+        .task(id: "\(note.id)-\(index)-\(note.pages.indices.contains(index) ? note.pages[index].count : 0)") {
             await generateThumbnail(for: index)
         }
     }
