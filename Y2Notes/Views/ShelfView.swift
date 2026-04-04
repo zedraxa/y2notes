@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import SwiftUI
 import PencilKit
 import PDFKit
@@ -10,6 +11,7 @@ enum LibrarySection: Hashable {
     case favorites
     case notebook(UUID)
     case pdfLibrary
+    case documentLibrary
 }
 
 // MARK: - Cover gradients (SwiftUI extension on model type)
@@ -63,10 +65,12 @@ extension NotebookCover {
 struct ShelfView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore:  PDFStore
+    @EnvironmentObject var documentStore: DocumentStore
 
     @State private var selectedSection: LibrarySection? = .allNotes
     @State private var selectedNoteID: UUID?
     @State private var selectedPDFID:  UUID?
+    @State private var selectedDocumentID: UUID?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     private var selectedNote: Note? {
@@ -79,6 +83,11 @@ struct ShelfView: View {
         return pdfStore.records.first { $0.id == id }
     }
 
+    private var selectedDocument: ImportedDocument? {
+        guard let id = selectedDocumentID else { return nil }
+        return documentStore.documents.first { $0.id == id }
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             ShelfSidebarView(
@@ -88,6 +97,8 @@ struct ShelfView: View {
         } content: {
             if case .pdfLibrary = selectedSection {
                 PDFLibraryView(selectedPDFID: $selectedPDFID)
+            } else if case .documentLibrary = selectedSection {
+                DocumentLibraryView()
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
@@ -95,7 +106,13 @@ struct ShelfView: View {
                 )
             }
         } detail: {
-            if let record = selectedPDFRecord {
+            if let doc = selectedDocument {
+                DocumentViewerView(
+                    document: doc,
+                    fileURL: documentStore.storedURL(for: doc)
+                )
+                .id(doc.id)
+            } else if let record = selectedPDFRecord {
                 PDFViewerView(record: record)
                     .id(record.id)
             } else if let note = selectedNote {
@@ -105,12 +122,18 @@ struct ShelfView: View {
                 ShelfDetailPlaceholder()
             }
         }
-        // Clear note selection when switching to the PDF section and vice versa.
+        // Clear irrelevant selections when switching sections.
         .onChange(of: selectedSection) { _, section in
-            if case .pdfLibrary = section {
+            switch section {
+            case .pdfLibrary:
                 selectedNoteID = nil
-            } else {
-                selectedPDFID = nil
+                selectedDocumentID = nil
+            case .documentLibrary:
+                selectedNoteID = nil
+                selectedPDFID  = nil
+            default:
+                selectedPDFID  = nil
+                selectedDocumentID = nil
             }
         }
         // If the selected note is deleted elsewhere, clear the selection.
@@ -125,6 +148,12 @@ struct ShelfView: View {
                 selectedPDFID = nil
             }
         }
+        // If the selected document is deleted, clear the selection.
+        .onChange(of: documentStore.documents) { _, _ in
+            if let id = selectedDocumentID, !documentStore.documents.contains(where: { $0.id == id }) {
+                selectedDocumentID = nil
+            }
+        }
     }
 }
 
@@ -133,6 +162,7 @@ struct ShelfView: View {
 private struct ShelfSidebarView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore:  PDFStore
+    @EnvironmentObject var documentStore: DocumentStore
     @Binding var selectedSection: LibrarySection?
 
     @State private var showNewNotebookSheet = false
@@ -145,6 +175,7 @@ private struct ShelfSidebarView: View {
     // Binding passed down from ShelfView so tapping a search result selects the note.
     var onSelectNote: (UUID) -> Void
 
+    // swiftlint:disable:next function_body_length
     var body: some View {
         List(selection: $selectedSection) {
             // ── Library ──────────────────────────────────────────────────
@@ -164,6 +195,10 @@ private struct ShelfSidebarView: View {
                 Label("PDF Documents", systemImage: "doc.richtext")
                     .tag(LibrarySection.pdfLibrary)
                     .badge(pdfStore.records.count)
+
+                Label("Documents", systemImage: "doc.fill")
+                    .tag(LibrarySection.documentLibrary)
+                    .badge(documentStore.documents.count)
             }
 
             // ── Study ─────────────────────────────────────────────────────
@@ -374,6 +409,8 @@ struct NoteGridView: View {
             return noteStore.notes(inNotebook: id).sorted { $0.modifiedAt > $1.modifiedAt }
         case .pdfLibrary:
             return []
+        case .documentLibrary:
+            return []
         }
     }
 
@@ -402,6 +439,7 @@ struct NoteGridView: View {
         case .notebook(let id):
             return noteStore.notebooks.first { $0.id == id }?.name ?? "Notebook"
         case .pdfLibrary:         return "PDF Documents"
+        case .documentLibrary:    return "Documents"
         }
     }
 
@@ -829,6 +867,7 @@ struct NoteGridView: View {
         case .favorites: return "star"
         case .notebook:  return "book.closed"
         case .pdfLibrary: return "doc.richtext"
+        case .documentLibrary: return "doc.fill"
         }
     }
 
@@ -839,6 +878,7 @@ struct NoteGridView: View {
         case .favorites: return "No Favorites Yet"
         case .notebook:  return "Empty Notebook"
         case .pdfLibrary: return "No PDFs Yet"
+        case .documentLibrary: return "No Documents Yet"
         }
     }
 
@@ -849,6 +889,7 @@ struct NoteGridView: View {
         case .favorites: return "Tap ★ in a note's menu to collect favorites here."
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
         case .pdfLibrary: return "Import a PDF document to get started."
+        case .documentLibrary: return "Import a document to get started."
         }
     }
 }

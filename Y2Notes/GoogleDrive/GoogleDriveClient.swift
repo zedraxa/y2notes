@@ -169,7 +169,9 @@ struct GoogleDriveClient {
         if let extra = query {
             q += " and \(extra)"
         }
-        let urlString = "\(apiBase)/files?q=\(q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&fields=files(id,name,mimeType,modifiedTime,size,md5Checksum)&orderBy=modifiedTime desc&pageSize=100"
+        let encodedQ = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let fields = "files(id,name,mimeType,modifiedTime,size,md5Checksum)"
+        let urlString = "\(apiBase)/files?q=\(encodedQ)&fields=\(fields)&orderBy=modifiedTime desc&pageSize=100"
         let url = URL(string: urlString)!
         let response: DriveListResponse = try await get(url, accessToken: accessToken)
 

@@ -68,6 +68,7 @@ struct GoogleDriveSettingsView: View {
     @State private var showSignOutConfirmation = false
     @State private var showImportConfirmation = false
 
+    // swiftlint:disable:next function_body_length
     var body: some View {
         List {
             // MARK: - Account section

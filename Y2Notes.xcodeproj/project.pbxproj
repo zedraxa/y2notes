@@ -60,6 +60,11 @@
 		AA00010000000000000000C1 /* GoogleDriveSyncStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000BB /* GoogleDriveSyncStatusView.swift */; };
 		AA00010000000000000000C8 /* NoteCreationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000C7 /* NoteCreationSheet.swift */; };
 		AA00010000000000000000CA /* StudyStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000C9 /* StudyStatsView.swift */; };
+		AA00010000000000000000CE /* ImportedDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000CB /* ImportedDocument.swift */; };
+		AA00010000000000000000CF /* DocumentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000CC /* DocumentStore.swift */; };
+		AA00010000000000000000D0 /* DocumentViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000CD /* DocumentViewerView.swift */; };
+		AA00010000000000000000D3 /* OCREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D2 /* OCREngine.swift */; };
+		AA00010000000000000000D5 /* NoteExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D4 /* NoteExporter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -118,6 +123,11 @@
 		AA00010000000000000000BB /* GoogleDriveSyncStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncStatusView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000C7 /* NoteCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteCreationSheet.swift; sourceTree = "<group>"; };
 		AA00010000000000000000C9 /* StudyStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyStatsView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000CB /* ImportedDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedDocument.swift; sourceTree = "<group>"; };
+		AA00010000000000000000CC /* DocumentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000000CD /* DocumentViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentViewerView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000D2 /* OCREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCREngine.swift; sourceTree = "<group>"; };
+		AA00010000000000000000D4 /* NoteExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteExporter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -161,6 +171,7 @@
 				AA00010000000000000000C6 /* Search */,
 				AA000100000000000000008F /* PDF */,
 				AA000100000000000000009D /* Ink */,
+				AA00010000000000000000D1 /* Documents */,
 				AA00010000000000000000B3 /* Settings */,
 				AA00010000000000000000B4 /* Accessibility */,
 				AA00010000000000000000B5 /* GoogleDrive */,
@@ -203,6 +214,7 @@
 				AA00010000000000000000AD /* OnboardingView.swift */,
 				AA00010000000000000000C7 /* NoteCreationSheet.swift */,
 				AA00010000000000000000C9 /* StudyStatsView.swift */,
+				AA00010000000000000000CD /* DocumentViewerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -247,6 +259,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000088 /* SearchService.swift */,
+				AA00010000000000000000D2 /* OCREngine.swift */,
 			);
 			path = Search;
 			sourceTree = "<group>";
@@ -258,6 +271,7 @@
 				AA0001000000000000000091 /* PDFStore.swift */,
 				AA0001000000000000000092 /* PDFPageAnnotationView.swift */,
 				AA0001000000000000000093 /* PDFViewerView.swift */,
+				AA00010000000000000000D4 /* NoteExporter.swift */,
 			);
 			path = PDF;
 			sourceTree = "<group>";
@@ -271,6 +285,15 @@
 				AA000100000000000000009B /* InkEffectStore.swift */,
 			);
 			path = Ink;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000000D1 /* Documents */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000000CB /* ImportedDocument.swift */,
+				AA00010000000000000000CC /* DocumentStore.swift */,
+			);
+			path = Documents;
 			sourceTree = "<group>";
 		};
 		AA00010000000000000000B3 /* Settings */ = {
@@ -427,6 +450,11 @@
 				AA00010000000000000000C1 /* GoogleDriveSyncStatusView.swift in Sources */,
 				AA00010000000000000000C8 /* NoteCreationSheet.swift in Sources */,
 				AA00010000000000000000CA /* StudyStatsView.swift in Sources */,
+				AA00010000000000000000CE /* ImportedDocument.swift in Sources */,
+				AA00010000000000000000CF /* DocumentStore.swift in Sources */,
+				AA00010000000000000000D0 /* DocumentViewerView.swift in Sources */,
+				AA00010000000000000000D3 /* OCREngine.swift in Sources */,
+				AA00010000000000000000D5 /* NoteExporter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

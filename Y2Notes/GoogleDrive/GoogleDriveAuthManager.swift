@@ -180,15 +180,21 @@ final class GoogleDriveAuthManager: NSObject, ObservableObject {
 
     private func handleTokenResponse(_ data: Data, preserveRefresh: String? = nil) throws {
         struct TokenResponse: Decodable {
-            let access_token: String
-            let refresh_token: String?
-            let expires_in: Int
+            let accessToken: String
+            let refreshToken: String?
+            let expiresIn: Int
+
+            enum CodingKeys: String, CodingKey {
+                case accessToken  = "access_token"
+                case refreshToken = "refresh_token"
+                case expiresIn    = "expires_in"
+            }
         }
         let decoded = try JSONDecoder().decode(TokenResponse.self, from: data)
         let newTokens = GoogleDriveTokens(
-            accessToken: decoded.access_token,
-            refreshToken: decoded.refresh_token ?? preserveRefresh ?? "",
-            expiresAt: Date().addingTimeInterval(TimeInterval(decoded.expires_in))
+            accessToken: decoded.accessToken,
+            refreshToken: decoded.refreshToken ?? preserveRefresh ?? "",
+            expiresAt: Date().addingTimeInterval(TimeInterval(decoded.expiresIn))
         )
         self.tokens = newTokens
         self.isAuthenticated = true

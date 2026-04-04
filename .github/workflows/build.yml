@@ -1,0 +1,94 @@
+name: Build & Lint
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Restrict GITHUB_TOKEN to read-only by default.
+permissions:
+  contents: read
+
+jobs:
+  # ── SwiftLint ─────────────────────────────────────────────────────
+  lint:
+    name: SwiftLint
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: Run SwiftLint
+        run: swiftlint lint --config .swiftlint.yml --reporter github-actions-logging
+
+  # ── Build (Simulator) ────────────────────────────────────────────
+  build:
+    name: Build (iPad Simulator)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-deriveddata-${{ hashFiles('Y2Notes.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-deriveddata-
+
+      - name: Build for iPad Simulator
+        run: |
+          xcodebuild build \
+            -project Y2Notes.xcodeproj \
+            -scheme Y2Notes \
+            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4)' \
+            -sdk iphonesimulator \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+  # ── Localisation Check ──────────────────────────────────────────
+  strings-check:
+    name: Localisation Integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for duplicate keys
+        run: |
+          echo "Checking Localizable.strings for duplicate keys..."
+          DUPES=$(awk -F'"' '/^"/ {print $2}' Y2Notes/en.lproj/Localizable.strings | sort | uniq -d)
+          if [ -n "$DUPES" ]; then
+            echo "❌ Duplicate localisation keys found:"
+            echo "$DUPES"
+            exit 1
+          else
+            echo "✅ No duplicate keys"
+          fi
+
+      - name: Check locale scaffolding parity
+        run: |
+          EN_KEYS=$(awk -F'"' '/^"/ {print $2}' Y2Notes/en.lproj/Localizable.strings | sort)
+          for LPROJ in Y2Notes/*.lproj; do
+            LANG=$(basename "$LPROJ" .lproj)
+            [ "$LANG" = "en" ] && continue
+            FILE="$LPROJ/Localizable.strings"
+            [ ! -f "$FILE" ] && continue
+            LANG_KEYS=$(awk -F'"' '/^"/ {print $2}' "$FILE" | sort)
+            MISSING=$(comm -23 <(echo "$EN_KEYS") <(echo "$LANG_KEYS"))
+            if [ -n "$MISSING" ]; then
+              echo "⚠️  [$LANG] Missing keys:"
+              echo "$MISSING" | head -10
+              echo "  ... ($(echo "$MISSING" | wc -l | tr -d ' ') total missing)"
+            else
+              echo "✅ [$LANG] All keys present"
+            fi
+          done
