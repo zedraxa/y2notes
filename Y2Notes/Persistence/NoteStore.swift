@@ -50,8 +50,16 @@ final class NoteStore: ObservableObject {
 
     /// True when in-memory state has been mutated but not yet flushed to disk.
     private var isDirty = false
+    /// Per-note set of page indices that have been mutated since the last snapshot.
+    /// Used by `SnapshotStore` to capture only changed pages.
+    private var dirtyPages: [UUID: Set<Int>] = [:]
+    /// The note ID currently being actively edited (set by the editor view).
+    /// Used to apply the faster 5-second autosave debounce.
+    var activeNoteID: UUID?
     /// Repeating timer that autosaves dirty state approximately every 30 s.
     private var autosaveTimer: Timer?
+    /// Per-note debounced autosave timer (5 s) for the actively edited note.
+    private var noteAutosaveTimer: Timer?
 
     /// Per-note OCR debounce timers.  A timer is started (or restarted) each time a page
     /// drawing changes, and fires 4 seconds later to trigger a background Vision pass.
@@ -87,13 +95,21 @@ final class NoteStore: ObservableObject {
         ensurePDFsForLegacyNotes()
         startAutosaveTimer()
         setupLifecycleObservers()
+        writeCrashFlag()
+        checkCrashRecovery()
+        // Run snapshot compaction on background queue at launch.
+        PerformanceConstraints.storageQueue.async {
+            SnapshotStore.shared.runCompaction()
+        }
     }
 
     deinit {
         autosaveTimer?.invalidate()
+        noteAutosaveTimer?.invalidate()
         ocrTimers.values.forEach { $0.invalidate() }
         pdfRegenTimers.values.forEach { $0.invalidate() }
         NotificationCenter.default.removeObserver(self)
+        removeCrashFlag()
     }
 
     // MARK: - Autosave / lifecycle
@@ -104,6 +120,17 @@ final class NoteStore: ObservableObject {
             self.flushToDisk()
         }
         autosaveTimer?.tolerance = 5
+    }
+
+    /// Schedules a 5-second debounced autosave for the actively edited note.
+    /// Called each time a per-note mutation marks `isDirty`.
+    private func scheduleNoteAutosave() {
+        noteAutosaveTimer?.invalidate()
+        noteAutosaveTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+            guard let self, self.isDirty else { return }
+            self.flushToDisk()
+        }
+        noteAutosaveTimer?.tolerance = 1
     }
 
     private func setupLifecycleObservers() {
@@ -117,7 +144,34 @@ final class NoteStore: ObservableObject {
 
     @objc private func handleAppWillResignActive() {
         guard isDirty else { return }
-        flushToDisk()
+        flushToDisk(trigger: .lifecycle)
+    }
+
+    // MARK: - Crash detection
+
+    private static var crashFlagURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("session_active.flag")
+    }
+
+    private func writeCrashFlag() {
+        let data = Data("active".utf8)
+        try? data.write(to: Self.crashFlagURL, options: .atomic)
+    }
+
+    private func removeCrashFlag() {
+        try? FileManager.default.removeItem(at: Self.crashFlagURL)
+    }
+
+    /// Detects if the previous session ended in a crash (flag file still present).
+    private func checkCrashRecovery() {
+        let flagURL = Self.crashFlagURL
+        guard FileManager.default.fileExists(atPath: flagURL.path) else { return }
+        // Previous session did not exit cleanly. Data is safe due to atomic writes
+        // and rolling backups. Log for diagnostics.
+        #if DEBUG
+        print("Y2Notes: crash detected — previous session did not exit cleanly. Data recovered from last save.")
+        #endif
     }
 
     // MARK: - Note CRUD
@@ -245,6 +299,8 @@ final class NoteStore: ObservableObject {
         // Mark dirty so autosave timer and willResignActive flush pick this up.
         // The canvas coordinator owns the debounced 0.8 s save trigger.
         isDirty = true
+        dirtyPages[noteID, default: []].insert(0)
+        scheduleNoteAutosave()
         schedulePDFRegeneration(for: noteID)
     }
 
@@ -255,6 +311,8 @@ final class NoteStore: ObservableObject {
         notes[idx].pages[pageIndex] = data
         notes[idx].modifiedAt = Date()
         isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
         scheduleOCR(for: noteID)
         schedulePDFRegeneration(for: noteID)
     }
@@ -270,8 +328,9 @@ final class NoteStore: ObservableObject {
         notes[idx].stickerLayers[pageIndex] = stickers.isEmpty ? nil : stickers
         notes[idx].modifiedAt = Date()
         isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
     }
-
     /// Updates the shape objects for a specific page.
     func updateShapes(for noteID: UUID, pageIndex: Int, shapes: [ShapeInstance]) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
@@ -283,6 +342,8 @@ final class NoteStore: ObservableObject {
         notes[idx].shapeLayers[pageIndex] = shapes.isEmpty ? nil : shapes
         notes[idx].modifiedAt = Date()
         isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
     }
 
     func updateAttachments(for noteID: UUID, pageIndex: Int, attachments: [AttachmentObject]) {
@@ -295,6 +356,8 @@ final class NoteStore: ObservableObject {
         notes[idx].attachmentLayers[pageIndex] = attachments.isEmpty ? nil : attachments
         notes[idx].modifiedAt = Date()
         isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
     }
 
     /// Appends a blank page to the note and returns the new page index.
@@ -765,7 +828,8 @@ final class NoteStore: ObservableObject {
     // MARK: - Persistence internals
 
     /// Writes all data files atomically and updates `saveState`.
-    private func flushToDisk() {
+    /// Optionally creates a snapshot for notes with dirty pages.
+    private func flushToDisk(trigger: SnapshotTrigger = .autosave) {
         saveState = .saving
         var firstError: Error?
         do {
@@ -792,22 +856,48 @@ final class NoteStore: ObservableObject {
         } else {
             saveState = .saved
         }
+
+        // Create snapshots for notes with dirty pages (background queue).
+        let pendingDirtyPages = dirtyPages
+        dirtyPages.removeAll()
+        if !pendingDirtyPages.isEmpty {
+            let notesCopy = notes
+            PerformanceConstraints.storageQueue.async {
+                for (noteID, pages) in pendingDirtyPages {
+                    guard let note = notesCopy.first(where: { $0.id == noteID }) else { continue }
+                    SnapshotStore.shared.createSnapshot(for: note, dirtyPages: pages, trigger: trigger)
+                }
+            }
+        }
     }
 
     /// Writes `data` to `url` using an atomic swap (write-to-temp + rename), while keeping
-    /// a one-generation backup at `url.bak` to allow recovery from interrupted writes.
+    /// three rolling backup generations at `url.bak.1`, `.bak.2`, `.bak.3` to allow recovery
+    /// from interrupted writes or corruption.
     fileprivate func writeAtomically(_ data: Data, to url: URL) throws {
-        let backupURL = url.appendingPathExtension("bak")
-        // Snapshot the current good file as a backup before overwriting it.
-        if FileManager.default.fileExists(atPath: url.path) {
-            try? FileManager.default.removeItem(at: backupURL)
-            if (try? FileManager.default.copyItem(at: url, to: backupURL)) == nil {
-                // Best-effort — the primary write still proceeds. Log in debug builds
-                // so disk-full or permission issues are visible during development.
+        let bak1 = url.appendingPathExtension("bak.1")
+        let bak2 = url.appendingPathExtension("bak.2")
+        let bak3 = url.appendingPathExtension("bak.3")
+        let fm = FileManager.default
+
+        // Rotate backups: bak.2 → bak.3, bak.1 → bak.2, current → bak.1.
+        if fm.fileExists(atPath: url.path) {
+            try? fm.removeItem(at: bak3)
+            if fm.fileExists(atPath: bak2.path) {
+                try? fm.moveItem(at: bak2, to: bak3)
+            }
+            if fm.fileExists(atPath: bak1.path) {
+                try? fm.moveItem(at: bak1, to: bak2)
+            }
+            if (try? fm.copyItem(at: url, to: bak1)) == nil {
                 #if DEBUG
                 print("Y2Notes: backup creation failed for \(url.lastPathComponent)")
                 #endif
             }
+            // Also maintain the legacy .bak for backward compatibility.
+            let legacyBak = url.appendingPathExtension("bak")
+            try? fm.removeItem(at: legacyBak)
+            try? fm.copyItem(at: bak1, to: legacyBak)
         }
         // .atomic writes to a temp sibling then renames into place, making the
         // final swap as close to atomic as the filesystem permits.
@@ -821,23 +911,24 @@ final class NoteStore: ObservableObject {
     }
 
     /// Decodes `type` from `url`. On missing or corrupt primary file, falls back to
-    /// the `.bak` sibling created by `writeAtomically` so interrupted writes are recoverable.
+    /// the rolling backups created by `writeAtomically` so interrupted writes are recoverable.
     fileprivate func loadJSON<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
         if let value = attemptLoad(type, from: url) {
             return value
         }
-        // Primary missing or corrupt — try the backup.
-        let backupURL = url.appendingPathExtension("bak")
-        if let value = attemptLoad(type, from: backupURL) {
-            // Promote the backup to primary so the next save goes to the right place.
-            // If this copy fails, data is still in memory and will be written to the
-            // primary path on the very next save() call.
-            if (try? FileManager.default.copyItem(at: backupURL, to: url)) == nil {
-                #if DEBUG
-                print("Y2Notes: backup promotion failed for \(url.lastPathComponent); data will be rewritten on next save")
-                #endif
+        // Try rolling backups: bak.1, bak.2, bak.3, then legacy .bak.
+        let backupSuffixes = ["bak.1", "bak.2", "bak.3", "bak"]
+        for suffix in backupSuffixes {
+            let backupURL = url.appendingPathExtension(suffix)
+            if let value = attemptLoad(type, from: backupURL) {
+                // Promote the backup to primary so the next save goes to the right place.
+                if (try? FileManager.default.copyItem(at: backupURL, to: url)) == nil {
+                    #if DEBUG
+                    print("Y2Notes: backup promotion failed for \(url.lastPathComponent) from .\(suffix); data will be rewritten on next save")
+                    #endif
+                }
+                return value
             }
-            return value
         }
         return nil
     }
@@ -1008,6 +1099,65 @@ final class NoteStore: ObservableObject {
     func reloadFromDisk() {
         load()
         loadStudy()
+    }
+
+    // MARK: - Version history restoration
+
+    /// Replaces a note in the store with a restored version.
+    /// Used by `VersionHistoryView` to restore an entire note from a snapshot.
+    func replaceNote(_ note: Note) {
+        guard let idx = notes.firstIndex(where: { $0.id == note.id }) else { return }
+        notes[idx] = note
+        save()
+        schedulePDFRegeneration(for: note.id)
+    }
+
+    /// Restores a single page of a note from snapshot data.
+    func restorePage(
+        noteID: UUID,
+        pageIndex: Int,
+        data: Data,
+        stickers: [StickerInstance]?,
+        shapes: [ShapeInstance]?,
+        attachments: [AttachmentObject]?
+    ) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              pageIndex >= 0 && pageIndex < notes[idx].pages.count else { return }
+        notes[idx].pages[pageIndex] = data
+        // Ensure parallel arrays are sized correctly.
+        while notes[idx].stickerLayers.count < notes[idx].pages.count {
+            notes[idx].stickerLayers.append(nil)
+        }
+        notes[idx].stickerLayers[pageIndex] = stickers
+        while notes[idx].shapeLayers.count < notes[idx].pages.count {
+            notes[idx].shapeLayers.append(nil)
+        }
+        notes[idx].shapeLayers[pageIndex] = shapes
+        while notes[idx].attachmentLayers.count < notes[idx].pages.count {
+            notes[idx].attachmentLayers.append(nil)
+        }
+        notes[idx].attachmentLayers[pageIndex] = attachments
+        notes[idx].modifiedAt = Date()
+        save()
+        schedulePDFRegeneration(for: noteID)
+    }
+
+    /// Inserts a restored note (copy) into the store.
+    func insertRestoredNote(_ note: Note) {
+        notes.insert(note, at: 0)
+        save()
+    }
+
+    /// Creates a pre-destructive snapshot of a note before deletion.
+    func createPreDestructiveSnapshot(for noteID: UUID) {
+        guard let note = notes.first(where: { $0.id == noteID }) else { return }
+        PerformanceConstraints.storageQueue.async {
+            SnapshotStore.shared.createSnapshot(
+                for: note,
+                dirtyPages: Set(0 ..< note.pages.count),
+                trigger: .preDestructive
+            )
+        }
     }
 }
 

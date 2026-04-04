@@ -101,6 +101,9 @@
 		AA000100000000000000011B /* AudioStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000011A /* AudioStorageManager.swift */; };
 		AA000100000000000000011D /* AudioSearchIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000011C /* AudioSearchIndexer.swift */; };
 		AA000100000000000000011F /* PerformanceConstraints.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000011E /* PerformanceConstraints.swift */; };
+		AA0001000000000000000121 /* SnapshotModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000120 /* SnapshotModel.swift */; };
+		AA0001000000000000000123 /* SnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000122 /* SnapshotStore.swift */; };
+		AA0001000000000000000125 /* VersionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000124 /* VersionHistoryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -200,6 +203,9 @@
 		AA000100000000000000011A /* AudioStorageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStorageManager.swift; sourceTree = "<group>"; };
 		AA000100000000000000011C /* AudioSearchIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSearchIndexer.swift; sourceTree = "<group>"; };
 		AA000100000000000000011E /* PerformanceConstraints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceConstraints.swift; sourceTree = "<group>"; };
+		AA0001000000000000000120 /* SnapshotModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotModel.swift; sourceTree = "<group>"; };
+		AA0001000000000000000122 /* SnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000124 /* VersionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionHistoryView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -270,6 +276,7 @@
 				AA0001000000000000000104 /* Attachment.swift */,
 				AA0001000000000000000110 /* AudioTimeline.swift */,
 				AA000100000000000000011E /* PerformanceConstraints.swift */,
+				AA0001000000000000000120 /* SnapshotModel.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -313,6 +320,7 @@
 				AA000100000000000000010E /* AttachmentViewerView.swift */,
 				AA0001000000000000000116 /* RecordingIndicatorView.swift */,
 				AA0001000000000000000118 /* RecordingSessionListView.swift */,
+				AA0001000000000000000124 /* VersionHistoryView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -326,6 +334,7 @@
 				AA0001000000000000000106 /* AttachmentStore.swift */,
 				AA0001000000000000000114 /* AudioRecordingStore.swift */,
 				AA000100000000000000011A /* AudioStorageManager.swift */,
+				AA0001000000000000000122 /* SnapshotStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -599,6 +608,9 @@
 				AA000100000000000000011B /* AudioStorageManager.swift in Sources */,
 				AA0001000000000000000117 /* RecordingIndicatorView.swift in Sources */,
 				AA0001000000000000000119 /* RecordingSessionListView.swift in Sources */,
+				AA0001000000000000000121 /* SnapshotModel.swift in Sources */,
+				AA0001000000000000000123 /* SnapshotStore.swift in Sources */,
+				AA0001000000000000000125 /* VersionHistoryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
