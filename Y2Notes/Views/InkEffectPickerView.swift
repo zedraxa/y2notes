@@ -205,11 +205,19 @@ private struct InkPresetCard: View {
 
     private func fxBadgeColor(for fx: WritingFXType) -> Color {
         switch fx {
-        case .fire:    return .orange
-        case .glitch:  return .purple
-        case .sparkle: return .yellow
-        case .ripple:  return .blue
-        case .none:    return .secondary
+        case .none:      return .secondary
+        case .sparkle:   return .yellow
+        case .fire:      return .orange
+        case .glitch:    return .purple
+        case .ripple:    return .blue
+        case .rainbow:   return .pink
+        case .snow:      return .cyan
+        case .lightning: return .yellow
+        case .dissolve:  return .gray
+        case .glow:      return .mint
+        case .sheen:     return .indigo
+        case .shadow:    return Color(uiColor: .darkGray)
+        case .blood:     return .red
         }
     }
 
