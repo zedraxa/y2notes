@@ -120,17 +120,24 @@ final class AudioTimelineLinkingController {
         let best: TimelineEvent
         if let x = tapX, let y = tapY {
             // Prefer the stroke event whose bounding box contains the tap point.
-            best = candidates
-                .filter { $0.kind == .stroke }
+            if let hit = candidates
+                .filter({ $0.kind == .stroke })
                 .first(where: { event in
                     guard case .stroke(let s) = event.payload else { return false }
                     return x >= s.regionX
                         && x <= s.regionX + s.regionWidth
                         && y >= s.regionY
                         && y <= s.regionY + s.regionHeight
-                }) ?? candidates.last! // fallback: last event on this page
+                }) {
+                best = hit
+            } else if let last = candidates.last {
+                best = last
+            } else {
+                return // candidates verified non-empty above; defensive guard
+            }
         } else {
-            best = candidates.last!
+            guard let last = candidates.last else { return }
+            best = last
         }
 
         onSeekAudio?(best.offset)
