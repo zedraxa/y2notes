@@ -424,9 +424,10 @@ final class NoteExporter {
 
         let iconName: String
         switch attachment.type {
-        case .image: iconName = "photo"
-        case .pdf:   iconName = "doc.richtext"
-        case .link:  iconName = "link"
+        case .image:   iconName = "photo"
+        case .pdf:     iconName = "doc.richtext"
+        case .link:    iconName = "link"
+        default:       iconName = "doc.questionmark"
         }
         let iconConfig = UIImage.SymbolConfiguration(pointSize: max(14, 20 * drawingScale), weight: .light)
         if let icon = UIImage(systemName: iconName, withConfiguration: iconConfig) {
