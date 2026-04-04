@@ -53,6 +53,10 @@ final class NoteStore: ObservableObject {
     /// Repeating timer that autosaves dirty state approximately every 30 s.
     private var autosaveTimer: Timer?
 
+    /// Per-note OCR debounce timers.  A timer is started (or restarted) each time a page
+    /// drawing changes, and fires 4 seconds later to trigger a background Vision pass.
+    private var ocrTimers: [UUID: Timer] = [:]
+
     init() {
         load()
         loadStudy()
@@ -62,6 +66,7 @@ final class NoteStore: ObservableObject {
 
     deinit {
         autosaveTimer?.invalidate()
+        ocrTimers.values.forEach { $0.invalidate() }
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -183,6 +188,7 @@ final class NoteStore: ObservableObject {
         notes[idx].pages[pageIndex] = data
         notes[idx].modifiedAt = Date()
         isDirty = true
+        scheduleOCR(for: noteID)
     }
 
     /// Appends a blank page to the note and returns the new page index.
@@ -760,6 +766,34 @@ final class NoteStore: ObservableObject {
         notes[idx].ocrText = text
         notes[idx].modifiedAt = Date()
         isDirty = true
+    }
+
+    // MARK: - On-device handwriting OCR
+
+    /// Schedules a Vision OCR pass on all pages of the note 4 seconds after the last
+    /// drawing change.  Calling this method resets the timer so rapid drawing strokes
+    /// don't trigger redundant recognition passes.
+    ///
+    /// Called automatically by `updateDrawing(for:pageIndex:data:)`.
+    func scheduleOCR(for noteID: UUID) {
+        ocrTimers[noteID]?.invalidate()
+        ocrTimers[noteID] = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.ocrTimers.removeValue(forKey: noteID)
+            // Capture page data on the main thread before switching to async context.
+            let pages = self.notes.first(where: { $0.id == noteID })?.pages ?? []
+            guard !pages.isEmpty else { return }
+            // Recompute the canonical canvas page size (mirrors CanvasView.pageSize).
+            let screenBounds = UIScreen.main.bounds
+            let screenW = max(screenBounds.width, screenBounds.height)
+            let pageSize = CGSize(width: screenW, height: ceil(screenW * 1.414))
+            Task { [weak self] in
+                let text = await OCREngine.recognizeText(inPages: pages, pageSize: pageSize)
+                DispatchQueue.main.async { [weak self] in
+                    self?.updateOCRText(for: noteID, text: text)
+                }
+            }
+        }
     }
 
     // MARK: - Reload from disk (Drive sync)

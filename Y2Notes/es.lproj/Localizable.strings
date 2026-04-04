@@ -234,3 +234,15 @@
 "Common.Error"                    = "Error";
 "Common.Success"                  = "Éxito";
 "Common.Loading"                  = "Cargando...";
+
+/* ── Export ────────────────────────────────────────────────────── */
+
+"Export.Export"                   = "Exportar";
+"Export.ExportPageAsPDF"          = "Exportar página como PDF";
+"Export.ExportAllPagesAsPDF"      = "Exportar todas las páginas como PDF";
+"Export.ExportPageAsImage"        = "Exportar página como imagen";
+"Export.ExportNotebookAsPDF"      = "Exportar cuaderno como PDF";
+"Export.Exporting"                = "Exportando…";
+"Export.PDFExportFailed"          = "Error al exportar PDF";
+"Export.ImageExportFailed"        = "Error al exportar imagen";
+"Export.HandwritingOCR"           = "Reconociendo escritura…";

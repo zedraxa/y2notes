@@ -10,6 +10,8 @@ The app is fully functional with:
 - ✅ Notebooks with sections, reordering, and management
 - ✅ PDF import and per-page annotation
 - ✅ Document import (DOCX, EPUB, PPTX, Keynote, ODP) with Quick Look viewer
+- ✅ **Multi-page PDF export + PNG image export** with background, ruling and drawing composite
+- ✅ **On-device handwriting OCR** via Vision framework — auto-runs after drawing, feeds search
 - ✅ SM-2 spaced-repetition flashcard study system
 - ✅ Google Drive cloud sync with offline queue
 - ✅ 6 themes, 7 paper materials, 12 notebook covers
@@ -138,10 +140,10 @@ in the navigation bar.
 
 | Format | Status | Description |
 |--------|--------|-------------|
-| PDF (single page) | Implemented | Via PDFStore |
-| PDF (multi-page) | Not yet | Combine all note pages into one PDF |
-| Image (PNG) | Not yet | Export current page as image |
-| Notebook export | Not yet | Export entire notebook as multi-page PDF |
+| PDF (single page) | ✅ Done | Via PDFStore for annotated PDFs; via NoteExporter for freehand notes |
+| PDF (multi-page) | ✅ Done | `NoteExporter.exportAsPDF` combines all note pages into one PDF |
+| Image (PNG) | ✅ Done | `NoteExporter.exportPageAsImage` exports current page as UIImage |
+| Notebook export | Not yet | Export entire notebook (all its notes) as one large PDF |
 
 ### 8. New Effects
 
@@ -160,11 +162,13 @@ in the navigation bar.
 
 ### 9. Handwriting-to-Text Conversion
 
+**Status**: ✅ Implemented
+
 Use Apple's Vision framework to convert handwritten notes to typed text:
-- On-device OCR running in background after each page edit
-- Results stored in `note.ocrText` (field already exists)
-- Searchable via `SearchService` (already wired)
-- Optional: show converted text as a selectable overlay
+- On-device OCR running in background 4 seconds after each page edit (debounced)
+- Results stored in `note.ocrText` via `NoteStore.scheduleOCR(for:)` → `OCREngine`
+- Searchable via `SearchService` (already wired — `SearchMatchType.handwritingOCR`)
+- Find bar in the editor now searches OCR text for drawing-only notes
 
 ---
 
