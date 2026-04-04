@@ -22,6 +22,7 @@ struct NotebookReaderView: View {
     let notebook: Notebook
 
     @State private var flatPageIndex = 0
+    @State private var didRestorePosition = false
     @State private var showPageOverview = false
     /// Horizontal drag offset for the page-turn gesture.
     @State private var dragOffset: CGFloat = 0
@@ -166,6 +167,11 @@ struct NotebookReaderView: View {
     var body: some View {
         let pages = allPages
         VStack(spacing: 0) {
+            // Notebook identity bar — thin gradient strip using the cover color
+            notebook.cover.gradient
+                .frame(height: 3)
+                .opacity(0.8)
+
             // Section tabs
             if sectionTabs.count > 1 {
                 sectionTabsBar
@@ -185,14 +191,25 @@ struct NotebookReaderView: View {
                 // Drawing toolbar
                 DrawingToolbarView(toolStore: toolStore, inkStore: inkStore)
 
-                // Page stack: stacked shadows behind current page for book depth
+                // Desk surface + page stack
                 ZStack {
+                    // Desk background — the page sits on a surface, not floating in void
+                    Color(uiColor: UIColor.secondarySystemBackground)
+
+                    // Page edge indicators (visible book edges)
+                    pageEdgeIndicators(pageCount: pages.count, currentIndex: safeIndex)
+
                     // Background page shadows — fake "stacked pages" effect
                     pageStackShadows(pageCount: pages.count, currentIndex: safeIndex)
 
                     // Current page canvas
                     canvasForPage(ref, in: pages)
                         .offset(x: dragOffset)
+                        .rotation3DEffect(
+                            .degrees(Double(dragOffset) * 0.015),
+                            axis: (x: 0, y: 1, z: 0),
+                            perspective: 0.5
+                        )
                 }
                 .gesture(pageSwipeGesture(totalPages: pages.count))
                 .clipped()
@@ -239,6 +256,19 @@ struct NotebookReaderView: View {
                 }
             }
         }
+        // Restore last page position when notebook opens (object permanence)
+        .onAppear {
+            if !didRestorePosition {
+                let saved = noteStore.lastPageIndex(for: notebook.id)
+                let maxIdx = max(0, allPages.count - 1)
+                flatPageIndex = min(saved, maxIdx)
+                didRestorePosition = true
+            }
+        }
+        // Persist page position on every page turn
+        .onChange(of: flatPageIndex) { _, newIndex in
+            noteStore.setLastPageIndex(newIndex, for: notebook.id)
+        }
     }
 
     // MARK: - Canvas for a page
@@ -277,6 +307,21 @@ struct NotebookReaderView: View {
                 pdfURL: noteStore.notePDFURL(for: note)
             )
             .id("\(ref.noteID)-\(ref.pageIndex)")
+            .overlay(alignment: .bottom) {
+                // Page number watermark — like a printed notebook
+                pageNumberWatermark(flatIndex: flatPageIndex, totalPages: pages.count)
+            }
+            .overlay(alignment: .leading) {
+                // Left margin line on ruled pages
+                if effectivePageType(for: ref) == .ruled {
+                    Rectangle()
+                        .fill(Color.red.opacity(0.08))
+                        .frame(width: 1)
+                        .padding(.leading, 28)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
+            }
             .transition(.asymmetric(
                 insertion: .move(edge: slideDirection),
                 removal: .move(edge: slideDirection == .trailing ? .leading : .trailing)
@@ -318,6 +363,53 @@ struct NotebookReaderView: View {
         }
     }
 
+    // MARK: - Page edge indicators (visible book edges)
+
+    /// Subtle lines along left/right edges indicating remaining pages,
+    /// like the visible edges of a closed physical book.
+    private func pageEdgeIndicators(pageCount: Int, currentIndex: Int) -> some View {
+        let pagesBefore = min(currentIndex, 6)
+        let pagesAfter = min(pageCount - 1 - currentIndex, 6)
+        return HStack {
+            // Left edge — pages before
+            VStack(spacing: 1.5) {
+                ForEach(0..<pagesBefore, id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color(uiColor: .systemBackground).opacity(0.6))
+                        .frame(width: 2, height: 6)
+                }
+            }
+            .padding(.leading, 1)
+
+            Spacer()
+
+            // Right edge — pages after
+            VStack(spacing: 1.5) {
+                ForEach(0..<pagesAfter, id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color(uiColor: .systemBackground).opacity(0.6))
+                        .frame(width: 2, height: 6)
+                }
+            }
+            .padding(.trailing, 1)
+        }
+        .frame(maxHeight: .infinity, alignment: .center)
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - Page number watermark
+
+    /// Subtle page number in the bottom-right corner of the page, like printed notebooks.
+    private func pageNumberWatermark(flatIndex: Int, totalPages: Int) -> some View {
+        Text("\(flatIndex + 1)")
+            .font(.system(size: 10, weight: .light, design: .serif))
+            .foregroundStyle(.secondary.opacity(0.35))
+            .padding(.trailing, 14)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .allowsHitTesting(false)
+    }
+
     // MARK: - Swipe gesture for page turns
 
     /// Horizontal drag that turns pages; swiping past the last page auto-creates a new one.
@@ -328,7 +420,7 @@ struct NotebookReaderView: View {
                 let horizontal = abs(value.translation.width)
                 let vertical = abs(value.translation.height)
                 if horizontal > vertical * 1.2 {
-                    dragOffset = value.translation.width * 0.3
+                    dragOffset = value.translation.width * 0.5
                 }
             }
             .onEnded { value in

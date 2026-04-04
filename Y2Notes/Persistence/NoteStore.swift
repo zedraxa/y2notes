@@ -62,6 +62,24 @@ final class NoteStore: ObservableObject {
     private var pdfRegenTimers: [UUID: Timer] = [:]
     private static let pdfRegenerationDebounceInterval: TimeInterval = 2.0
 
+    // MARK: - Last page position (notebook illusion — object permanence)
+
+    /// Remembers the last viewed flat-page index per notebook so reopening
+    /// a notebook returns the user to where they left off.
+    /// Stored in UserDefaults under "notebookLastPage".
+    private static let lastPageKey = "notebookLastPage"
+
+    func lastPageIndex(for notebookID: UUID) -> Int {
+        let dict = UserDefaults.standard.dictionary(forKey: Self.lastPageKey) as? [String: Int] ?? [:]
+        return dict[notebookID.uuidString] ?? 0
+    }
+
+    func setLastPageIndex(_ index: Int, for notebookID: UUID) {
+        var dict = UserDefaults.standard.dictionary(forKey: Self.lastPageKey) as? [String: Int] ?? [:]
+        dict[notebookID.uuidString] = index
+        UserDefaults.standard.set(dict, forKey: Self.lastPageKey)
+    }
+
     init() {
         load()
         loadStudy()
