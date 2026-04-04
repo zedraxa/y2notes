@@ -60,6 +60,7 @@ final class NoteStore: ObservableObject {
     /// Per-note PDF regeneration debounce timers.  Fires 2 seconds after the last drawing
     /// change to composite page backgrounds + strokes into the backing PDF file.
     private var pdfRegenTimers: [UUID: Timer] = [:]
+    private static let pdfRegenerationDebounceInterval: TimeInterval = 2.0
 
     init() {
         load()
@@ -834,7 +835,9 @@ final class NoteStore: ObservableObject {
     /// after the last drawing change so rapid strokes don't cause redundant PDF writes.
     func schedulePDFRegeneration(for noteID: UUID) {
         pdfRegenTimers[noteID]?.invalidate()
-        pdfRegenTimers[noteID] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+        pdfRegenTimers[noteID] = Timer.scheduledTimer(
+            withTimeInterval: Self.pdfRegenerationDebounceInterval, repeats: false
+        ) { [weak self] _ in
             guard let self else { return }
             self.pdfRegenTimers.removeValue(forKey: noteID)
             guard let note = self.notes.first(where: { $0.id == noteID }),

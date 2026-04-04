@@ -965,7 +965,7 @@ private struct CanvasView: UIViewRepresentable {
            let pdfPage = pdfDoc.page(at: pageIndex) {
             let mediaBox = pdfPage.bounds(for: .mediaBox)
             let format = UIGraphicsImageRendererFormat()
-            format.scale = 2.0
+            format.scale = UIScreen.main.scale
             format.opaque = true
             let renderer = UIGraphicsImageRenderer(size: ps, format: format)
             let pageImage = renderer.image { ctx in
