@@ -226,6 +226,23 @@ struct NoteEditorView: View {
                                 if attachmentID != nil {
                                     toolStore.activeShapeSelection = nil
                                     toolStore.activeStickerSelection = nil
+                                    toolStore.activeWidgetSelection = nil
+                                    toolStore.hasActiveSelection = false
+                                }
+                            }
+                        },
+                        currentPageWidgets: note.widgets(forPage: safePageIndex),
+                        onWidgetsChanged: { widgets in
+                            noteStore.updateWidgets(for: note.id, pageIndex: safePageIndex, widgets: widgets)
+                        },
+                        onWidgetSelectionChanged: { widgetID in
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                toolStore.activeWidgetSelection = widgetID
+                                // Clear other selections when widget is selected
+                                if widgetID != nil {
+                                    toolStore.activeShapeSelection = nil
+                                    toolStore.activeStickerSelection = nil
+                                    toolStore.activeAttachmentSelection = nil
                                     toolStore.hasActiveSelection = false
                                 }
                             }
@@ -310,6 +327,24 @@ struct NoteEditorView: View {
                 }
                 .padding(.top, 60)
                 .zIndex(0.7)
+            }
+
+            // Widget action bar — appears when a widget is selected
+            if toolStore.hasActiveWidgetSelection,
+               let selectedID = toolStore.activeWidgetSelection,
+               let selectedWidget = note.widgets(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+                VStack {
+                    WidgetHandlesView(
+                        widget: selectedWidget,
+                        onAction: { action in
+                            handleWidgetAction(action, for: selectedID)
+                        }
+                    )
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    Spacer()
+                }
+                .padding(.top, 60)
+                .zIndex(0.75)
             }
 
             // Advanced tools inspector — slides in from the right
@@ -626,6 +661,42 @@ struct NoteEditorView: View {
         }
 
         noteStore.updateAttachments(for: note.id, pageIndex: pageIdx, attachments: attachments)
+    }
+
+    private func handleWidgetAction(_ action: WidgetAction, for widgetID: UUID) {
+        let pageIdx = currentPageIndex
+        var widgets = note.widgets(forPage: pageIdx)
+        guard let idx = widgets.firstIndex(where: { $0.id == widgetID }) else { return }
+
+        switch action {
+        case .duplicate:
+            let source = widgets[idx]
+            let copy = NoteWidget(
+                kind: source.kind,
+                frame: WidgetFrame(
+                    position: CGPoint(
+                        x: source.frame.position.x + WidgetConstants.duplicateOffset,
+                        y: source.frame.position.y + WidgetConstants.duplicateOffset
+                    ),
+                    size: source.frame.size
+                ),
+                payload: source.payload,
+                zIndex: (widgets.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false,
+                borderColorComponents: source.borderColorComponents
+            )
+            widgets.append(copy)
+            toolStore.activeWidgetSelection = copy.id
+
+        case .toggleLock:
+            widgets[idx].isLocked.toggle()
+
+        case .delete:
+            widgets.remove(at: idx)
+            toolStore.activeWidgetSelection = nil
+        }
+
+        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
     }
 
     // MARK: - Background blend helper
@@ -1269,6 +1340,13 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when attachment selection changes.
     var onAttachmentSelectionChanged: ((UUID?) -> Void)?
 
+    /// Widget instances for the current page.
+    var currentPageWidgets: [NoteWidget] = []
+    /// Callback to persist widget changes.
+    var onWidgetsChanged: (([NoteWidget]) -> Void)?
+    /// Callback when widget selection changes.
+    var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
@@ -1453,6 +1531,30 @@ struct CanvasView: UIViewRepresentable {
             attachCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         context.coordinator.attachmentCanvas = attachCanvas
+
+        // ── Widget canvas (interactive widget cards layer) ───────────────────
+        let widgetCanvas = WidgetCanvasView(frame: .zero)
+        widgetCanvas.translatesAutoresizingMaskIntoConstraints = false
+        widgetCanvas.widgets = currentPageWidgets
+        widgetCanvas.onSelectionChanged = { widgetID in
+            context.coordinator.onWidgetSelectionChanged?(widgetID)
+        }
+        widgetCanvas.onWidgetTransformed = { widget in
+            context.coordinator.handleWidgetTransformed(widget)
+        }
+        widgetCanvas.onWidgetsChanged = { widgets in
+            context.coordinator.handleWidgetsChanged(widgets)
+        }
+        context.coordinator.onWidgetsChanged = onWidgetsChanged
+        context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
+        container.addSubview(widgetCanvas)
+        NSLayoutConstraint.activate([
+            widgetCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            widgetCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            widgetCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            widgetCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.widgetCanvas = widgetCanvas
 
         // ── Shape object canvas (editable shapes layer) ──────────────────────
         let shapeCanvas = ShapeCanvasView(frame: .zero)
@@ -1643,6 +1745,14 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onAttachmentsChanged = onAttachmentsChanged
         context.coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
 
+        // Sync widget canvas.
+        if let widgetCanvas = context.coordinator.widgetCanvas {
+            widgetCanvas.widgets = currentPageWidgets
+            widgetCanvas.selectedWidgetID = toolStoreForFade?.activeWidgetSelection
+        }
+        context.coordinator.onWidgetsChanged = onWidgetsChanged
+        context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
+
         // Zoom reset: animate to 1× when the trigger value flips.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -1743,6 +1853,18 @@ struct CanvasView: UIViewRepresentable {
 
         /// Callback when attachment selection changes.
         var onAttachmentSelectionChanged: ((UUID?) -> Void)?
+
+        /// Widget canvas overlay for the current page.
+        weak var widgetCanvas: WidgetCanvasView?
+
+        /// Debounce timer for persisting widget changes.
+        private var widgetDebounceTimer: Timer?
+
+        /// Callback to persist widget changes.
+        var onWidgetsChanged: (([NoteWidget]) -> Void)?
+
+        /// Callback when widget selection changes.
+        var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
@@ -2050,6 +2172,27 @@ struct CanvasView: UIViewRepresentable {
                 repeats: false
             ) { [weak self] _ in
                 self?.onAttachmentsChanged?(attachments)
+            }
+        }
+
+        // MARK: - Widget Coordinator
+
+        func handleWidgetTransformed(_ widget: NoteWidget) {
+            guard var widgets = widgetCanvas?.widgets else { return }
+            if let idx = widgets.firstIndex(where: { $0.id == widget.id }) {
+                widgets[idx] = widget
+            }
+            handleWidgetsChanged(widgets)
+        }
+
+        /// Debounced persistence for widget changes.
+        func handleWidgetsChanged(_ widgets: [NoteWidget]) {
+            widgetDebounceTimer?.invalidate()
+            widgetDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: WidgetConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onWidgetsChanged?(widgets)
             }
         }
 
