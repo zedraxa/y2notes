@@ -119,12 +119,9 @@ struct BookmarkListView: View {
     }
 
     private func resolvedDetail(for bookmark: PageBookmark) -> String {
-        if let section = noteStore.sections.first(where: {
-            $0.notebookID == notebook.id
-        }), let note = noteStore.notes.first(where: { $0.id == bookmark.anchor.noteID }),
+        if let note = noteStore.notes.first(where: { $0.id == bookmark.anchor.noteID }),
            let sID = note.sectionID,
            let sec = noteStore.sections.first(where: { $0.id == sID }) {
-            _ = section // suppress unused
             return sec.name
         }
         return ""
