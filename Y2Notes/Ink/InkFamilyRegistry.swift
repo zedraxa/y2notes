@@ -30,6 +30,9 @@ final class InkFamilyRegistry {
         + InkFamilyRegistry.firePresets()
         + InkFamilyRegistry.glitchPresets()
         + InkFamilyRegistry.phantomPresets()
+        + InkFamilyRegistry.sheenPresets()
+        + InkFamilyRegistry.shadowPresets()
+        + InkFamilyRegistry.bloodPresets()
     }()
 
     /// Returns built-in presets for a specific family.
@@ -144,5 +147,52 @@ final class InkFamilyRegistry {
                   family: .phantom, traits: .dry, writingFX: .sparkle,
                   color: UIColor(red: 0.50, green: 0.00, blue: 1.00, alpha: 0.20),
                   baseWidth: 3, isBuiltIn: true),
+    ]}
+
+    // MARK: - Sheen (holographic iridescent)
+
+    private static func sheenPresets() -> [InkPreset] {[
+        InkPreset(name: "Holographic",
+                  family: .sheen, traits: .metallic, writingFX: .sheen,
+                  color: UIColor(red: 0.90, green: 0.30, blue: 1.00, alpha: 1),
+                  baseWidth: 2.5, isBuiltIn: true),
+        InkPreset(name: "Aurora",
+                  family: .sheen, traits: .metallic, writingFX: .sheen,
+                  color: UIColor(red: 0.00, green: 0.80, blue: 0.90, alpha: 1),
+                  baseWidth: 2.5, isBuiltIn: true),
+        InkPreset(name: "Prism",
+                  family: .sheen, traits: .metallic, writingFX: .sheen,
+                  color: UIColor(red: 1.00, green: 0.85, blue: 0.10, alpha: 1),
+                  baseWidth: 3, isBuiltIn: true),
+    ]}
+
+    // MARK: - Shadow (dark smoky ink)
+
+    private static func shadowPresets() -> [InkPreset] {[
+        InkPreset(name: "Obsidian Smoke",
+                  family: .shadow, traits: .standard, writingFX: .shadow,
+                  color: UIColor(red: 0.08, green: 0.08, blue: 0.15, alpha: 1),
+                  baseWidth: 2.5, isBuiltIn: true),
+        InkPreset(name: "Shadow Violet",
+                  family: .shadow, traits: .standard, writingFX: .shadow,
+                  color: UIColor(red: 0.25, green: 0.05, blue: 0.35, alpha: 1),
+                  baseWidth: 2.5, isBuiltIn: true),
+        InkPreset(name: "Ash Drift",
+                  family: .shadow, traits: .dry, writingFX: .shadow,
+                  color: UIColor(red: 0.30, green: 0.30, blue: 0.32, alpha: 1),
+                  baseWidth: 3, isBuiltIn: true),
+    ]}
+
+    // MARK: - Blood (horror drip effect)
+
+    private static func bloodPresets() -> [InkPreset] {[
+        InkPreset(name: "Crimson",
+                  family: .blood, traits: .wet, writingFX: .blood,
+                  color: UIColor(red: 0.55, green: 0.02, blue: 0.02, alpha: 1),
+                  baseWidth: 2, isBuiltIn: true),
+        InkPreset(name: "Dark Ichor",
+                  family: .blood, traits: .wet, writingFX: .blood,
+                  color: UIColor(red: 0.35, green: 0.00, blue: 0.05, alpha: 1),
+                  baseWidth: 2.5, isBuiltIn: true),
     ]}
 }

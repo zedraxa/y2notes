@@ -80,9 +80,15 @@ struct NoteEditorView: View {
         return noteStore.notebooks.first { $0.id == id }
     }
 
-    /// Page ruling style: note-level override → notebook setting → `.blank` fallback.
+    /// Page ruling style: per-page override → note-level override → notebook setting → `.blank` fallback.
     private var effectivePageType: PageType {
         note.pageType ?? notebook?.pageType ?? .blank
+    }
+
+    /// Per-page ruling style for a given page index.
+    /// Cascade: pageTypes[index] → note.pageType → notebook.pageType → .blank
+    private func effectivePageType(forPage index: Int) -> PageType {
+        note.pageType(forPage: index) ?? notebook?.pageType ?? .blank
     }
 
     /// Paper material: note-level override → notebook setting → `.standard` fallback.
@@ -149,7 +155,7 @@ struct NoteEditorView: View {
                         shapeWidth: toolStore.activeWidth,
                         drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
                         zoomResetTrigger: zoomResetTrigger,
-                        pageType: effectivePageType,
+                        pageType: effectivePageType(forPage: safePageIndex),
                         paperMaterial: effectivePaperMaterial,
                         activeFX: inkStore.resolvedFX,
                         fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
@@ -179,9 +185,13 @@ struct NoteEditorView: View {
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
                     .id("\(note.id)-\(safePageIndex)")
+                    // Cross-fade transition between pages: SwiftUI animates the opacity
+                    // removal of the old canvas and insertion of the new one via .id().
+                    .transition(.opacity)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
                     .padding(.horizontal, 1)
+                    .animation(.easeInOut(duration: 0.22), value: safePageIndex)
 
                     // Page navigation bar — book-like experience
                     pageNavigationBar
@@ -386,9 +396,28 @@ struct NoteEditorView: View {
     /// GoodNotes-style page setup menu — lets users change the page ruling and paper material
     /// for the current note without leaving the editor.
     private var pageSetupMenu: some View {
-        Menu {
-            // Paper type section
-            Section("Paper Type") {
+        let safePageIndex: Int = min(currentPageIndex, max(0, note.pageCount - 1))
+        let currentPagePT = effectivePageType(forPage: safePageIndex)
+        return Menu {
+            // Per-page ruling section — only changes the current page
+            Section("This Page") {
+                ForEach(PageType.allCases) { pt in
+                    Button {
+                        noteStore.updatePageType(for: note.id, pageIndex: safePageIndex, pageType: pt)
+                    } label: {
+                        if currentPagePT == pt {
+                            Label(pt.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pt.displayName, systemImage: pt.systemImage)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            // Note-level ruling — applies to all pages that have no per-page override
+            Section("All Pages") {
                 ForEach(PageType.allCases) { pt in
                     Button {
                         noteStore.updatePageType(for: note.id, pageType: pt)

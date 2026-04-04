@@ -1,15 +1,24 @@
 import UIKit
 import QuartzCore
 
-/// Performance-budgeted overlay engine for writing effects with 2D physics.
+    /// Performance-budgeted overlay engine for writing effects with 2D physics.
 ///
 /// Attaches a non-interactive `UIView` above the canvas container to render:
-/// - **Sparkle / Fire / Rainbow / Snow / Dissolve / Glow** — `CAEmitterLayer`
-///   with physics-informed parameters and per-tier particle budget.
+/// - **Sparkle / Fire / Rainbow / Snow / Dissolve / Glow / Sheen / Shadow / Blood** —
+///   `CAEmitterLayer` with physics-informed parameters and per-tier particle budget.
 /// - **Glitch** — `CAAnimationGroup` on a full-bounds layer (horizontal shift +
 ///   transient colour tint) triggered each time a stroke event fires.
 /// - **Ripple** — expanding `CAShapeLayer` ring at the stroke endpoint.
 /// - **Lightning** — branching electric bolt `CAShapeLayer` at stroke end.
+///
+/// **New interactive effects (AGENT-21)**
+/// - **Sheen** — Holographic iridescent shimmer; hue cycles rapidly as you write,
+///   creating a colour-shifting rainbow sheen that follows the nib exactly.
+/// - **Shadow** — Dark translucent smoke particles billow and sink behind strokes,
+///   giving ink a cinematic depth and weight.
+/// - **Blood** — Heavy crimson drops fall from the nib as you write, creating a
+///   visceral horror ink experience.  Particles obey high-gravity physics so they
+///   quickly fall off-screen below the stroke.
 ///
 /// **Physics engine**
 /// Each emitter-based effect reads a `ParticlePhysics` preset that maps to
@@ -69,6 +78,9 @@ final class InkEffectEngine {
 
     // Rainbow hue offset — advances with each stroke update for colour cycling
     private var rainbowHueOffset: CGFloat = 0
+
+    // Sheen hue offset — advances faster than rainbow for rapid colour cycling
+    private var sheenHueOffset: CGFloat = 0
 
     // Current stroke colour — updated via configure(fx:color:)
     private var strokeColor: UIColor = .black
@@ -132,8 +144,10 @@ final class InkEffectEngine {
         guard resolved != activeFX else {
             // Same FX, but colour might have changed — recolour emitter cells.
             switch resolved {
-            case .fire, .sparkle, .snow, .dissolve, .rainbow:
+            case .fire, .sparkle, .snow, .dissolve, .rainbow, .shadow, .blood:
                 recolourEmitter(color: color)
+            case .sheen:
+                sheenHueOffset = 0  // hue cycles automatically in onStrokeUpdated
             case .glow:
                 configureGlowColor(color)
             default:
@@ -156,6 +170,9 @@ final class InkEffectEngine {
         case .lightning:  break  // triggered per-stroke via onStrokeEnded
         case .dissolve:  setupDissolveEmitter(color: color)
         case .glow:      setupGlowLayer(color: color)
+        case .sheen:     setupSheenEmitter(color: color)
+        case .shadow:    setupShadowEmitter(color: color)
+        case .blood:     setupBloodEmitter(color: color)
         case .none:      break
         }
     }
@@ -166,7 +183,7 @@ final class InkEffectEngine {
     func onStrokeBegan(at point: CGPoint) {
         guard activeFX != .none else { return }
         switch activeFX {
-        case .fire, .sparkle, .snow, .dissolve, .rainbow:
+        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .shadow, .blood:
             emitterLayer.isHidden   = false
             emitterLayer.birthRate  = 1
             updateEmitterPosition(point)
@@ -185,12 +202,17 @@ final class InkEffectEngine {
     func onStrokeUpdated(at point: CGPoint) {
         guard activeFX != .none else { return }
         switch activeFX {
-        case .fire, .sparkle, .snow, .dissolve:
+        case .fire, .sparkle, .snow, .dissolve, .shadow, .blood:
             updateEmitterPosition(point)
         case .rainbow:
             rainbowHueOffset += 0.02
             if rainbowHueOffset > 1.0 { rainbowHueOffset -= 1.0 }
             recolourEmitter(color: UIColor(hue: rainbowHueOffset, saturation: 0.9, brightness: 1.0, alpha: 0.9))
+            updateEmitterPosition(point)
+        case .sheen:
+            sheenHueOffset += 0.04
+            if sheenHueOffset > 1.0 { sheenHueOffset -= 1.0 }
+            recolourEmitter(color: UIColor(hue: sheenHueOffset, saturation: 1.0, brightness: 1.0, alpha: 0.85))
             updateEmitterPosition(point)
         case .glitch:
             triggerGlitchPulse()
@@ -204,7 +226,7 @@ final class InkEffectEngine {
     /// Call when the pencil lifts (stroke finished).
     func onStrokeEnded(at point: CGPoint) {
         switch activeFX {
-        case .fire, .sparkle, .snow, .dissolve, .rainbow:
+        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .shadow, .blood:
             emitterLayer.birthRate = 0
         case .ripple:
             triggerRipple(at: point)
@@ -637,6 +659,116 @@ final class InkEffectEngine {
         lightningLayers.removeAll()
 
         rainbowHueOffset = 0
+        sheenHueOffset   = 0
+    }
+
+    // MARK: - Private: Sheen (holographic iridescent shimmer)
+
+    private func setupSheenEmitter(color: UIColor) {
+        let physics = ParticlePhysics.sheenPhysics
+        emitterLayer.emitterShape = .point
+        emitterLayer.emitterSize  = CGSize(width: 2, height: 2)
+        emitterLayer.isHidden     = false
+        emitterLayer.emitterCells = [makeSheenCell(color: color, physics: physics)]
+        emitterLayer.birthRate    = 0
+    }
+
+    private func makeSheenCell(color: UIColor, physics: ParticlePhysics) -> CAEmitterCell {
+        let cell               = CAEmitterCell()
+        cell.birthRate         = Float(min(tier.maxParticles, 50)) * 0.7
+        cell.lifetime          = 0.55
+        cell.lifetimeRange     = 0.20
+        cell.velocity          = 40
+        cell.velocityRange     = CGFloat(physics.turbulence)
+        cell.yAcceleration     = physics.gravity
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi * 2  // omnidirectional shimmer
+        cell.scale             = 0.03
+        cell.scaleRange        = 0.015
+        cell.scaleSpeed        = -0.018
+        cell.alphaSpeed        = -2.0
+        cell.spin              = 2.0
+        cell.spinRange         = physics.spinRange
+        // Sheen starts at the user's hue and cycles via onStrokeUpdated
+        cell.color             = color.cgColor
+        cell.redRange          = 0.5
+        cell.greenRange        = 0.5
+        cell.blueRange         = 0.5
+        cell.contents          = diamondCGImage(size: 8)
+        return cell
+    }
+
+    // MARK: - Private: Shadow (dark smoke trailing behind strokes)
+
+    private func setupShadowEmitter(color: UIColor) {
+        let physics = ParticlePhysics.shadowPhysics
+        emitterLayer.emitterShape = .point
+        emitterLayer.emitterSize  = CGSize(width: 6, height: 6)
+        emitterLayer.isHidden     = false
+        emitterLayer.emitterCells = [makeShadowCell(color: color, physics: physics)]
+        emitterLayer.birthRate    = 0
+    }
+
+    private func makeShadowCell(color: UIColor, physics: ParticlePhysics) -> CAEmitterCell {
+        let cell               = CAEmitterCell()
+        cell.birthRate         = Float(min(tier.maxParticles, 35)) * 0.6
+        cell.lifetime          = 0.80
+        cell.lifetimeRange     = 0.30
+        cell.velocity          = 25
+        cell.velocityRange     = CGFloat(physics.turbulence)
+        cell.yAcceleration     = physics.gravity
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi / 2  // mostly sideways / slightly upward
+        cell.emissionLongitude = -.pi / 6 // slight upward bias before gravity pulls down
+        cell.scale             = 0.07
+        cell.scaleRange        = 0.03
+        cell.scaleSpeed        = 0.012   // puffs grow then fade — smoke billowing
+        cell.alphaSpeed        = -1.3
+        cell.spin              = 0.4
+        cell.spinRange         = physics.spinRange
+        // Shadow ink is always dark regardless of user color —
+        // mix 80% black with 20% of the chosen colour for a subtle tint.
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let sr = r * 0.2,  sg = g * 0.2,  sb = b * 0.2
+        cell.color      = UIColor(red: sr, green: sg, blue: sb, alpha: 0.55).cgColor
+        cell.contents   = circleCGImage(diameter: 18)
+        return cell
+    }
+
+    // MARK: - Private: Blood (viscous crimson drips)
+
+    private func setupBloodEmitter(color: UIColor) {
+        let physics = ParticlePhysics.bloodPhysics
+        emitterLayer.emitterShape = .point
+        emitterLayer.emitterSize  = CGSize(width: 3, height: 3)
+        emitterLayer.isHidden     = false
+        emitterLayer.emitterCells = [makeBloodCell(physics: physics)]
+        emitterLayer.birthRate    = 0
+    }
+
+    private func makeBloodCell(physics: ParticlePhysics) -> CAEmitterCell {
+        let cell               = CAEmitterCell()
+        cell.birthRate         = Float(min(tier.maxParticles, 25)) * 0.5
+        cell.lifetime          = 0.70
+        cell.lifetimeRange     = 0.25
+        cell.velocity          = 20
+        cell.velocityRange     = CGFloat(physics.turbulence)
+        cell.yAcceleration     = physics.gravity   // heavy downward pull
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi / 6            // mostly downward splatter
+        cell.emissionLongitude = .pi / 2            // emitting downward
+        cell.scale             = 0.04
+        cell.scaleRange        = 0.025
+        cell.scaleSpeed        = -0.010
+        cell.alphaSpeed        = -1.5
+        cell.spin              = 0
+        cell.spinRange         = physics.spinRange
+        // Deep crimson — not user-customisable for maximum horror effect
+        cell.color      = UIColor(red: 0.55, green: 0.02, blue: 0.02, alpha: 0.92).cgColor
+        cell.redRange   = 0.15
+        cell.contents   = dropCGImage(size: 10)
+        return cell
     }
 
     // MARK: - Private: Helpers
@@ -681,6 +813,48 @@ final class InkEffectEngine {
         return renderer.image { _ in
             UIColor.white.setFill()
             UIBezierPath(roundedRect: CGRect(origin: .zero, size: sz), cornerRadius: 1).fill()
+        }.cgImage
+    }
+
+    /// Diamond (rotated square) bitmap for the sheen effect — gives an iridescent sparkle shape.
+    private func diamondCGImage(size: CGFloat) -> CGImage? {
+        let sz = CGSize(width: size, height: size)
+        let renderer = UIGraphicsImageRenderer(size: sz)
+        return renderer.image { ctx in
+            let cx = size / 2, cy = size / 2, r = size / 2 - 0.5
+            let path = UIBezierPath()
+            path.move(to:    CGPoint(x: cx,     y: cy - r))  // top
+            path.addLine(to: CGPoint(x: cx + r, y: cy))       // right
+            path.addLine(to: CGPoint(x: cx,     y: cy + r))  // bottom
+            path.addLine(to: CGPoint(x: cx - r, y: cy))       // left
+            path.close()
+            UIColor.white.setFill()
+            path.fill()
+        }.cgImage
+    }
+
+    /// Teardrop bitmap for the blood effect — simulates a heavy falling drop.
+    private func dropCGImage(size: CGFloat) -> CGImage? {
+        let sz = CGSize(width: size, height: size)
+        let renderer = UIGraphicsImageRenderer(size: sz)
+        return renderer.image { _ in
+            let cx = size / 2
+            let path = UIBezierPath()
+            // Round bottom half
+            path.addArc(
+                withCenter: CGPoint(x: cx, y: size * 0.65),
+                radius: size * 0.32,
+                startAngle: 0,
+                endAngle: .pi,
+                clockwise: false
+            )
+            // Pointed tip at top
+            path.addLine(to: CGPoint(x: cx - size * 0.32, y: size * 0.65))
+            path.addQuadCurve(to: CGPoint(x: cx + size * 0.32, y: size * 0.65),
+                              controlPoint: CGPoint(x: cx, y: 0))
+            path.close()
+            UIColor.white.setFill()
+            path.fill()
         }.cgImage
     }
 }

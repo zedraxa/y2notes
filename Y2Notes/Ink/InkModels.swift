@@ -67,6 +67,9 @@ enum InkFamily: String, CaseIterable, Codable, Identifiable {
     case fire        // flame-particle trailing effect
     case glitch      // digital artefact / scan-line distortion
     case phantom     // near-invisible ink that is revealed by contrast or tilt
+    case sheen       // holographic / iridescent colour-shifting ink
+    case shadow      // dark smoky ink with trailing shadow particles
+    case blood       // deep crimson ink with dripping horror particles
 
     var id: String { rawValue }
 
@@ -79,6 +82,9 @@ enum InkFamily: String, CaseIterable, Codable, Identifiable {
         case .fire:       return "Fire"
         case .glitch:     return "Glitch"
         case .phantom:    return "Phantom"
+        case .sheen:      return "Sheen"
+        case .shadow:     return "Shadow"
+        case .blood:      return "Blood"
         }
     }
 
@@ -91,6 +97,9 @@ enum InkFamily: String, CaseIterable, Codable, Identifiable {
         case .fire:       return "flame.fill"
         case .glitch:     return "waveform.path.ecg"
         case .phantom:    return "eye.slash"
+        case .sheen:      return "sun.dust.fill"
+        case .shadow:     return "smoke.fill"
+        case .blood:      return "drop.fill"
         }
     }
 }
@@ -151,6 +160,9 @@ enum WritingFXType: String, CaseIterable, Codable, Identifiable {
     case lightning // electric bolt branching from stroke end (pro+ tier)
     case dissolve  // particles crumbling away from the stroke (pro+ tier)
     case glow      // soft luminous aura around the nib (standard+ tier)
+    case sheen     // iridescent holographic shimmer following the nib (standard+ tier)
+    case shadow    // dark smoke particles trailing behind the stroke (standard+ tier)
+    case blood     // viscous dripping crimson particles (pro+ tier)
 
     var id: String { rawValue }
 
@@ -166,6 +178,9 @@ enum WritingFXType: String, CaseIterable, Codable, Identifiable {
         case .lightning: return "Lightning"
         case .dissolve:  return "Dissolve"
         case .glow:      return "Glow"
+        case .sheen:     return "Sheen"
+        case .shadow:    return "Shadow"
+        case .blood:     return "Blood"
         }
     }
 
@@ -181,17 +196,20 @@ enum WritingFXType: String, CaseIterable, Codable, Identifiable {
         case .lightning: return "bolt.fill"
         case .dissolve:  return "aqi.medium"
         case .glow:      return "light.max"
+        case .sheen:     return "sun.dust.fill"
+        case .shadow:    return "smoke.fill"
+        case .blood:     return "drop.fill"
         }
     }
 
     /// Minimum device tier required for this effect.
     var minimumTier: DeviceCapabilityTier {
         switch self {
-        case .none:                            return .basic
+        case .none:                                   return .basic
         case .sparkle, .ripple, .rainbow,
-             .snow, .glow:                     return .standard
+             .snow, .glow, .sheen, .shadow:           return .standard
         case .fire, .glitch, .lightning,
-             .dissolve:                        return .pro
+             .dissolve, .blood:                       return .pro
         }
     }
 
@@ -287,6 +305,39 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 0,
+        fadeOut: true
+    )
+
+    static let sheenPhysics = ParticlePhysics(
+        gravity: -10,         // very slight rise for an ethereal look
+        wind: 0,
+        turbulence: 20,       // gentle scatter for iridescence
+        drag: 0.96,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.5,
+        fadeOut: true
+    )
+
+    static let shadowPhysics = ParticlePhysics(
+        gravity: 15,          // smoke sinks slowly
+        wind: 5,              // slight horizontal drift
+        turbulence: 25,       // wispy billowing
+        drag: 0.94,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 0.8,
+        fadeOut: true
+    )
+
+    static let bloodPhysics = ParticlePhysics(
+        gravity: 180,         // heavy drops fall fast
+        wind: 0,
+        turbulence: 20,       // slight splatter
+        drag: 0.80,           // high drag so drops slow as they fall
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 0.3,
         fadeOut: true
     )
 }

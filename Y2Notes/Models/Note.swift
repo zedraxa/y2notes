@@ -45,6 +45,20 @@ struct Note: Identifiable, Codable, Hashable {
     /// Per-note page ruling override (nil = inherit from notebook, or `.blank` for unfiled notes).
     var pageType: PageType?
 
+    /// Per-page ruling overrides — parallel array to `pages`.
+    /// A nil element means that page inherits from `pageType` (note-level override).
+    /// An empty array means all pages use `pageType`.
+    /// Use `pageType(forPage:)` to resolve the effective ruling for a given page.
+    var pageTypes: [PageType?]
+
+    /// Returns the per-page ruling override for the given index, falling back to the
+    /// note-level `pageType`.  Does **not** cascade to the notebook — callers in
+    /// `NoteEditorView` are responsible for the final notebook/blank fallback.
+    func pageType(forPage index: Int) -> PageType? {
+        guard index >= 0 && index < pageTypes.count else { return pageType }
+        return pageTypes[index] ?? pageType
+    }
+
     /// Per-note paper material override (nil = inherit from notebook, or `.standard` for unfiled notes).
     var paperMaterial: PaperMaterial?
 
@@ -74,6 +88,7 @@ struct Note: Identifiable, Codable, Hashable {
         templateID: String = "builtin.blank",
         themeOverride: AppTheme? = nil,
         pageType: PageType? = nil,
+        pageTypes: [PageType?] = [],
         paperMaterial: PaperMaterial? = nil,
         typedText: String = "",
         ocrText: String = ""
@@ -90,6 +105,7 @@ struct Note: Identifiable, Codable, Hashable {
         self.templateID = templateID
         self.themeOverride = themeOverride
         self.pageType = pageType
+        self.pageTypes = pageTypes
         self.paperMaterial = paperMaterial
         self.typedText = typedText
         self.ocrText = ocrText
@@ -101,7 +117,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, paperMaterial
+        case pageType, pageTypes, paperMaterial
         case typedText, ocrText
     }
 
@@ -128,6 +144,7 @@ struct Note: Identifiable, Codable, Hashable {
         templateID    = try c.decodeIfPresent(String.self,   forKey: .templateID)   ?? "builtin.blank"
         themeOverride = try c.decodeIfPresent(AppTheme.self, forKey: .themeOverride)
         pageType      = try c.decodeIfPresent(PageType.self,      forKey: .pageType)
+        pageTypes     = try c.decodeIfPresent([PageType?].self,   forKey: .pageTypes)   ?? []
         paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
@@ -153,6 +170,7 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encode(templateID,    forKey: .templateID)
         try c.encodeIfPresent(themeOverride, forKey: .themeOverride)
         try c.encodeIfPresent(pageType,      forKey: .pageType)
+        try c.encode(pageTypes,              forKey: .pageTypes)
         try c.encodeIfPresent(paperMaterial, forKey: .paperMaterial)
         try c.encode(typedText,     forKey: .typedText)
         try c.encode(ocrText,       forKey: .ocrText)

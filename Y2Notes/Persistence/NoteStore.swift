@@ -144,6 +144,20 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    /// Sets the ruling override for a single page within a note.
+    /// Pass nil to clear the per-page override and inherit from the note-level setting.
+    func updatePageType(for noteID: UUID, pageIndex: Int, pageType: PageType?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.indices.contains(pageIndex) else { return }
+        // Grow pageTypes to match pages count if needed (backward compat with old notes)
+        while notes[idx].pageTypes.count < notes[idx].pages.count {
+            notes[idx].pageTypes.append(nil)
+        }
+        notes[idx].pageTypes[pageIndex] = pageType
+        notes[idx].modifiedAt = Date()
+        save()
+    }
+
     /// Sets or clears the per-note paper material override.
     /// Pass nil to inherit from the notebook (or fall back to `.standard` for unfiled notes).
     func updatePaperMaterial(for noteID: UUID, paperMaterial: PaperMaterial?) {
@@ -176,6 +190,8 @@ final class NoteStore: ObservableObject {
     func addPage(to noteID: UUID) -> Int? {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return nil }
         notes[idx].pages.append(Data())
+        // Keep pageTypes in sync with pages so per-page ruling can be set on the new page.
+        notes[idx].pageTypes.append(nil)  // nil = inherit from note-level pageType
         notes[idx].modifiedAt = Date()
         isDirty = true
         return notes[idx].pages.count - 1
@@ -188,6 +204,9 @@ final class NoteStore: ObservableObject {
               notes[idx].pages.count > 1,
               notes[idx].pages.indices.contains(pageIndex) else { return }
         notes[idx].pages.remove(at: pageIndex)
+        if notes[idx].pageTypes.indices.contains(pageIndex) {
+            notes[idx].pageTypes.remove(at: pageIndex)
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
     }
@@ -200,6 +219,12 @@ final class NoteStore: ObservableObject {
         let page = notes[idx].pages.remove(at: source)
         let insertAt = destination > source ? destination - 1 : destination
         notes[idx].pages.insert(page, at: min(insertAt, notes[idx].pages.count))
+        // Keep per-page types in sync during reorder
+        if notes[idx].pageTypes.indices.contains(source) {
+            let pt = notes[idx].pageTypes.remove(at: source)
+            let ptInsert = min(insertAt, notes[idx].pageTypes.count)
+            notes[idx].pageTypes.insert(pt, at: ptInsert)
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
     }
@@ -212,6 +237,12 @@ final class NoteStore: ObservableObject {
         let copy = notes[idx].pages[pageIndex]
         let insertIndex = pageIndex + 1
         notes[idx].pages.insert(copy, at: insertIndex)
+        // Duplicate the per-page type as well so the copy inherits the same ruling.
+        let ptCopy: PageType? = notes[idx].pageTypes.indices.contains(pageIndex)
+            ? notes[idx].pageTypes[pageIndex] : nil
+        if insertIndex <= notes[idx].pageTypes.count {
+            notes[idx].pageTypes.insert(ptCopy, at: insertIndex)
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
         return insertIndex

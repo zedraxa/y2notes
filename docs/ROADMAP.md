@@ -5,13 +5,16 @@
 The app is fully functional with:
 - ✅ PencilKit drawing with full Apple Pencil support
 - ✅ Multi-page notes with page navigation
-- ✅ Ink effects (fire, sparkle, glitch, ripple) with device-tier budgeting
+- ✅ Ink effects (fire, sparkle, glitch, ripple, rainbow, snow, lightning, dissolve, glow) with device-tier budgeting
+- ✅ **New interactive inks**: Sheen (holographic shimmer), Shadow (dark smoke), Blood (crimson drips)
 - ✅ Notebooks with sections, reordering, and management
 - ✅ PDF import and per-page annotation
+- ✅ Document import (DOCX, EPUB, PPTX, Keynote, ODP) with Quick Look viewer
 - ✅ SM-2 spaced-repetition flashcard study system
 - ✅ Google Drive cloud sync with offline queue
 - ✅ 6 themes, 7 paper materials, 12 notebook covers
 - ✅ Page templates (blank, lined, grid, dotted, Cornell, music staff)
+- ✅ **Per-page ruling**: each page in a note can individually use blank/lined/grid/dotted
 - ✅ Full-text search (title + typed text + handwriting OCR)
 - ✅ Codemagic CI/CD → TestFlight distribution
 
@@ -69,19 +72,13 @@ Add a test target to `Y2Notes.xcodeproj`:
 
 ### 2. Page Transition Animations
 
-**Priority**: Medium
+**Status**: ✅ Implemented
 
-Currently, switching pages destroys the CanvasView and creates a new one (via `.id()` modifier).
-This causes a brief flash and loses undo history.
-
-Improvement: Pre-render the next page's `PKDrawing` as an image snapshot, cross-fade to it,
-then swap the live canvas underneath. This gives a smooth page-turn feel:
-
-```
-                 ┌──────────────────┐
-User taps Next → │ Snapshot current │ → Cross-fade → │ Swap canvas data │ → Remove snapshot
-                 └──────────────────┘                 └──────────────────┘
-```
+Page switches now use a cross-fade transition via SwiftUI's `.transition(.opacity)` on the
+`CanvasView` combined with a `.animation(.easeInOut(duration: 0.22), value: safePageIndex)`
+modifier. When the user swipes to a new page, the old canvas fades out and the new canvas
+fades in simultaneously over 220 ms. This eliminates the jarring flash that occurred before
+when the canvas was simply recreated without any transition.
 
 ### 3. Error Reporting UI
 
@@ -148,18 +145,18 @@ in the navigation bar.
 
 ### 8. New Effects
 
-| Effect | Description | Tier |
-|--------|-------------|------|
-| **Rainbow** | Hue-cycling stroke trail | Standard+ |
-| **Snow** | Falling particle overlay | Standard+ |
-| **Lightning** | Brief flash lines at stroke end | Pro+ |
-| **Dissolve** | Particles scatter from old strokes | Pro+ |
-| **Glow** | Bloom/blur around stroke path | Ultra |
+**Status**: ✅ Implemented (all five, plus three new interactive ink families)
 
-Each new effect would follow the existing pattern:
-1. Add a case to `WritingFXType`
-2. Implement setup + event hooks in `InkEffectEngine`
-3. Add presets to `InkFamilyRegistry`
+| Effect | Description | Tier | Status |
+|--------|-------------|------|--------|
+| **Rainbow** | Hue-cycling stroke trail | Standard+ | ✅ Done |
+| **Snow** | Falling particle overlay | Standard+ | ✅ Done |
+| **Lightning** | Brief flash lines at stroke end | Pro+ | ✅ Done |
+| **Dissolve** | Particles scatter from old strokes | Pro+ | ✅ Done |
+| **Glow** | Bloom/blur around stroke path | Ultra | ✅ Done |
+| **Sheen** | Iridescent holographic shimmer (hue cycles while you write) | Standard+ | ✅ Done |
+| **Shadow** | Dark cinematic smoke trailing behind strokes | Standard+ | ✅ Done |
+| **Blood** | Viscous crimson drips that fall from the nib | Pro+ | ✅ Done |
 
 ### 9. Handwriting-to-Text Conversion
 
