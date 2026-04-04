@@ -1,0 +1,233 @@
+/* Y2Notes Localizable Strings — Español (Spanish)
+   =================================================
+   Scaffolding file for Spanish localisation.
+   Keys are kept in sync with en.lproj/Localizable.strings.
+
+   Translation status: SCAFFOLDING — values need professional review.
+   Key naming convention: <Screen>.<Element> or <Feature>.<Action>
+*/
+
+/* ── Onboarding ────────────────────────────────────────────────── */
+
+"Onboarding.Welcome.Title"       = "Bienvenido a Y2Notes";
+"Onboarding.Welcome.Subtitle"    = "Una app de notas para iPad y Apple Pencil. Escribe, dibuja y estudia — todo en un solo lugar.";
+"Onboarding.Pencil.Title"        = "Apple Pencil Listo";
+"Onboarding.Pencil.Subtitle"     = "Dibujo sensible a la presión, vista previa al pasar el lápiz y doble toque para cambiar herramientas. Y2Notes está diseñado para la mejor experiencia con Pencil.";
+"Onboarding.Pencil.Toggle"       = "Dibujo solo con Pencil";
+"Onboarding.Theme.Title"         = "Elige Tu Tema";
+"Onboarding.Theme.Subtitle"      = "Escoge un aspecto que te guste. Puedes cambiarlo más tarde en Ajustes.";
+"Onboarding.Ready.Title"         = "¡Todo Listo!";
+"Onboarding.Ready.Subtitle"      = "Crea tu primer cuaderno y empieza a escribir. Tus notas se guardan automáticamente.";
+"Onboarding.Skip"                = "Saltar";
+"Onboarding.Next"                = "Siguiente";
+"Onboarding.GetStarted"          = "Comenzar";
+
+/* ── Settings ──────────────────────────────────────────────────── */
+
+"Settings.Title"                  = "Ajustes";
+"Settings.Done"                   = "Listo";
+
+"Settings.Appearance"             = "Apariencia";
+"Settings.Appearance.Theme"       = "Tema";
+"Settings.Appearance.Contrast"    = "Contraste";
+"Settings.Appearance.ContrastPass" = "Pasa AA";
+"Settings.Appearance.ContrastLow" = "Contraste Bajo";
+
+"Settings.DocumentDefaults"       = "Valores por Defecto del Documento";
+"Settings.DocumentDefaults.PageType"       = "Tipo de Página";
+"Settings.DocumentDefaults.PageSize"       = "Tamaño de Página";
+"Settings.DocumentDefaults.Orientation"    = "Orientación";
+"Settings.DocumentDefaults.PaperMaterial"  = "Material del Papel";
+"Settings.DocumentDefaults.Footer"         = "Estos valores por defecto se aplican al crear nuevos cuadernos. Los cuadernos existentes no se ven afectados.";
+
+"Settings.ToolPreferences"        = "Preferencias de Herramientas";
+"Settings.ToolPreferences.DefaultTool"     = "Herramienta por Defecto";
+"Settings.ToolPreferences.StrokeWidth"     = "Ancho del Trazo";
+"Settings.ToolPreferences.PencilOnly"      = "Dibujo solo con Pencil";
+
+"Settings.Accessibility"          = "Accesibilidad";
+"Settings.Accessibility.ReduceMotion"      = "Reducir Movimiento";
+"Settings.Accessibility.HighContrast"      = "Aumentar Contraste";
+"Settings.Accessibility.AutosaveInterval"  = "Intervalo de Guardado Automático";
+"Settings.Accessibility.Footer"            = "Reducir Movimiento suprime las transiciones. Aumentar Contraste mejora los bordes y el grosor del texto.";
+
+"Settings.About"                  = "Acerca de";
+"Settings.About.Version"          = "Versión";
+"Settings.About.Diagnostics"      = "Diagnósticos y Soporte";
+"Settings.About.Reset"            = "Restablecer Todos los Ajustes";
+"Settings.About.ResetConfirm"     = "Esto restablecerá los valores predeterminados del documento, las preferencias de herramientas y los ajustes de accesibilidad. Tus notas y cuadernos no se verán afectados.";
+
+/* ── Diagnostics ───────────────────────────────────────────────── */
+
+"Diagnostics.Title"               = "Diagnósticos";
+"Diagnostics.Storage"             = "Almacenamiento";
+"Diagnostics.Notes"               = "Notas";
+"Diagnostics.Notebooks"           = "Cuadernos";
+"Diagnostics.Sections"            = "Secciones";
+"Diagnostics.StudySets"           = "Sets de Estudio";
+"Diagnostics.StudyCards"          = "Tarjetas de Estudio";
+"Diagnostics.PDFDocuments"        = "Documentos PDF";
+"Diagnostics.ContrastValidation"  = "Validación de Contraste del Tema";
+"Diagnostics.DataIntegrity"       = "Integridad de Datos";
+"Diagnostics.SaveState"           = "Estado de Guardado";
+"Diagnostics.OrphanedNotes"       = "Notas Huérfanas";
+"Diagnostics.CopyReport"          = "Copiar Informe de Diagnósticos";
+"Diagnostics.ReShowOnboarding"    = "Mostrar Bienvenida de Nuevo";
+"Diagnostics.ForceSave"           = "Forzar Guardado Ahora";
+
+/* ── Shelf / Sidebar ───────────────────────────────────────────── */
+
+"Shelf.Title"                     = "Y2Notes";
+"Shelf.AllNotes"                  = "Todas las Notas";
+"Shelf.Recents"                   = "Recientes";
+"Shelf.Favorites"                 = "Favoritos";
+"Shelf.PDFDocuments"              = "Documentos PDF";
+"Shelf.StudySets"                 = "Sets de Estudio";
+"Shelf.Notebooks"                 = "Cuadernos";
+"Shelf.NewNotebook"               = "Nuevo Cuaderno";
+"Shelf.Settings"                  = "Ajustes";
+"Shelf.SearchLibrary"             = "Buscar en la biblioteca";
+
+/* ── Themes ────────────────────────────────────────────────────── */
+
+"Theme.System"                    = "Sistema";
+"Theme.Light"                     = "Claro";
+"Theme.Dark"                      = "Oscuro";
+"Theme.Sepia"                     = "Sepia";
+"Theme.Midnight"                  = "Medianoche";
+"Theme.Ocean"                     = "Océano";
+
+/* ── Editor ────────────────────────────────────────────────────── */
+
+"Editor.Undo"                     = "Deshacer";
+"Editor.Redo"                     = "Rehacer";
+"Editor.FindInNote"               = "Buscar en la nota";
+"Editor.ResetZoom"                = "Restablecer zoom al 100%";
+"Editor.SwitchToText"             = "Cambiar a modo texto";
+"Editor.SwitchToDrawing"          = "Cambiar a modo dibujo";
+"Editor.PencilOnly"               = "Activar dibujo solo con Pencil";
+"Editor.FingerDrawing"            = "Activar dibujo con dedo";
+"Editor.NoteTheme"                = "Tema de la nota";
+"Editor.Saving"                   = "Guardando";
+"Editor.Saved"                    = "Guardado";
+"Editor.SaveError"                = "Error al guardar";
+
+/* ── Pages ─────────────────────────────────────────────────────── */
+
+"Pages.PageOf"                    = "Página %d de %d";
+"Pages.AddPage"                   = "Añadir Página";
+"Pages.RemovePage"                = "Eliminar Página";
+"Pages.PreviousPage"              = "Página Anterior";
+"Pages.NextPage"                  = "Página Siguiente";
+
+/* ── Notebooks ─────────────────────────────────────────────────── */
+
+"Notebook.Create"                 = "Crear Cuaderno";
+"Notebook.Name"                   = "Nombre del Cuaderno";
+"Notebook.Cover"                  = "Portada";
+"Notebook.PageType"               = "Tipo de Página";
+"Notebook.PaperMaterial"          = "Material del Papel";
+"Notebook.Sections"               = "Secciones";
+"Notebook.ManageSections"         = "Gestionar Secciones";
+"Notebook.NewSection"             = "Nueva Sección";
+"Notebook.RenameSection"          = "Renombrar Sección";
+"Notebook.DeleteSection"          = "Eliminar Sección";
+"Notebook.Unsectioned"            = "Sin Sección";
+"Notebook.MoveNote"               = "Mover Nota";
+
+/* ── Study ─────────────────────────────────────────────────────── */
+
+"Study.NewSet"                    = "Nuevo Set de Estudio";
+"Study.SetName"                   = "Nombre del Set";
+"Study.AddCard"                   = "Añadir Tarjeta";
+"Study.EditCard"                  = "Editar Tarjeta";
+"Study.Front"                     = "Anverso";
+"Study.Back"                      = "Reverso";
+"Study.Tags"                      = "Etiquetas";
+"Study.StartSession"              = "Iniciar Sesión";
+"Study.EndSession"                = "Finalizar Sesión";
+"Study.ShowAnswer"                = "Mostrar Respuesta";
+"Study.Again"                     = "De Nuevo";
+"Study.Hard"                      = "Difícil";
+"Study.Good"                      = "Bien";
+"Study.Easy"                      = "Fácil";
+"Study.CardsRemaining"            = "Tarjetas Restantes";
+"Study.SessionComplete"           = "Sesión Completada";
+"Study.BulkImport"                = "Importación Masiva";
+"Study.BulkImportHint"            = "Una tarjeta por línea, separada por ::";
+"Study.MasteryNew"                = "Nueva";
+"Study.MasteryLearning"           = "Aprendiendo";
+"Study.MasteryReviewing"          = "Repasando";
+"Study.MasteryMastered"           = "Dominada";
+"Study.Stats"                     = "Estadísticas";
+"Study.TotalReviews"              = "Total de Repasos";
+"Study.AverageQuality"            = "Calidad Promedio";
+"Study.CurrentStreak"             = "Racha Actual";
+
+/* ── PDF ───────────────────────────────────────────────────────── */
+
+"PDF.Import"                      = "Importar PDF";
+"PDF.PageOf"                      = "Página %d de %d";
+"PDF.Annotate"                    = "Anotar";
+"PDF.ClearAnnotation"             = "Borrar Anotación";
+
+/* ── Ink Effects ───────────────────────────────────────────────── */
+
+"InkEffects.Title"                = "Efectos de Tinta";
+"InkEffects.None"                 = "Ninguno";
+"InkEffects.Sparkle"              = "Destellos";
+"InkEffects.Fire"                 = "Fuego";
+"InkEffects.Glitch"               = "Distorsión";
+"InkEffects.Ripple"               = "Onda";
+"InkEffects.DeviceUnsupported"    = "Efectos no disponibles en este dispositivo";
+"InkEffects.CustomPreset"         = "Preset Personalizado";
+
+/* ── Tools ─────────────────────────────────────────────────────── */
+
+"Tools.Pen"                       = "Bolígrafo";
+"Tools.Pencil"                    = "Lápiz";
+"Tools.Marker"                    = "Marcador";
+"Tools.Eraser"                    = "Borrador";
+"Tools.Lasso"                     = "Lazo";
+"Tools.Ruler"                     = "Regla";
+"Tools.ColorPicker"               = "Selector de Color";
+"Tools.StrokeWidth"               = "Ancho del Trazo";
+
+/* ── Creation ──────────────────────────────────────────────────── */
+
+"Creation.NewNote"                = "Nueva Nota";
+"Creation.NoteTitle"              = "Título de la Nota";
+"Creation.Template"               = "Plantilla";
+"Creation.Create"                 = "Crear";
+
+/* ── Search ────────────────────────────────────────────────────── */
+
+"Search.Placeholder"              = "Buscar notas...";
+"Search.NoResults"                = "Sin Resultados";
+"Search.Results"                  = "%d resultados";
+
+/* ── Sync ──────────────────────────────────────────────────────── */
+
+"Sync.GoogleDrive"                = "Google Drive";
+"Sync.SignIn"                     = "Iniciar Sesión";
+"Sync.SignOut"                    = "Cerrar Sesión";
+"Sync.SyncNow"                   = "Sincronizar Ahora";
+"Sync.LastSync"                   = "Última Sincronización";
+"Sync.Syncing"                    = "Sincronizando...";
+"Sync.Error"                      = "Error de Sincronización";
+"Sync.OfflineQueued"              = "En Cola (Sin Conexión)";
+
+/* ── Common ────────────────────────────────────────────────────── */
+
+"Common.Cancel"                   = "Cancelar";
+"Common.Delete"                   = "Eliminar";
+"Common.Rename"                   = "Renombrar";
+"Common.Done"                     = "Listo";
+"Common.OK"                       = "OK";
+"Common.Save"                     = "Guardar";
+"Common.Edit"                     = "Editar";
+"Common.Close"                    = "Cerrar";
+"Common.Confirm"                  = "Confirmar";
+"Common.Error"                    = "Error";
+"Common.Success"                  = "Éxito";
+"Common.Loading"                  = "Cargando...";
