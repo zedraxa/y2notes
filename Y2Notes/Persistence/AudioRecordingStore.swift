@@ -10,6 +10,9 @@ import Foundation
 /// Session metadata + timeline events are persisted to
 /// `Documents/Recordings/sessions.json`.
 ///
+/// **Storage integration**: Uses `AudioStorageManager` for manifest-based
+/// session linking, autosave, crash recovery, and post-recording compression.
+///
 /// **Thread safety**: All published state is updated on the main actor.
 /// Audio callbacks dispatch back to main before mutating state.
 final class AudioRecordingStore: ObservableObject {
@@ -82,6 +85,12 @@ final class AudioRecordingStore: ObservableObject {
     private var pendingStrokeRegion: (x: Double, y: Double, w: Double, h: Double)?
     private var pendingStrokeCount: Int = 0
 
+    /// The storage manager handles file layout, autosave, recovery, and compression.
+    private let storageManager = AudioStorageManager.shared
+
+    /// Note IDs encountered during the current recording session.
+    private var sessionNoteIDs: Set<UUID> = []
+
     // MARK: - Paths
 
     private static var recordingsDirectory: URL {
@@ -110,7 +119,30 @@ final class AudioRecordingStore: ObservableObject {
     init() {
         loadQuality()
         loadSessions()
+        mergeRecoveredSessions()
         configureAudioSession()
+    }
+
+    /// Checks the storage manager for sessions recovered from interrupted
+    /// recordings and merges them into the local sessions list.
+    private func mergeRecoveredSessions() {
+        for entry in storageManager.manifest.sessions {
+            if !sessions.contains(where: { $0.id == entry.id }) {
+                let recovered = AudioSession(
+                    id: entry.id,
+                    notebookID: entry.notebookID,
+                    title: "Recovered — " + Self.defaultTitle(for: entry.createdAt),
+                    startedAt: entry.createdAt,
+                    endedAt: entry.createdAt.addingTimeInterval(entry.duration),
+                    duration: entry.duration,
+                    filename: entry.filename
+                )
+                sessions.insert(recovered, at: 0)
+            }
+        }
+        if !sessions.isEmpty {
+            saveSessions()
+        }
     }
 
     // MARK: - Audio Session Configuration
@@ -166,12 +198,13 @@ final class AudioRecordingStore: ObservableObject {
             return nil
         }
 
+        let filename = "\(sessionID.uuidString).m4a"
         let session = AudioSession(
             id: sessionID,
             notebookID: notebookID,
             title: Self.defaultTitle(for: now),
             startedAt: now,
-            filename: "\(sessionID.uuidString).m4a"
+            filename: filename
         )
 
         activeSession = session
@@ -182,6 +215,16 @@ final class AudioRecordingStore: ObservableObject {
         lastPageEventTime = nil
         pendingStrokeRegion = nil
         pendingStrokeCount = 0
+        sessionNoteIDs = [noteID]
+
+        // Register with storage manager for manifest tracking and autosave
+        storageManager.registerSession(session)
+        storageManager.beginAutosave(
+            for: sessionID,
+            notebookID: notebookID,
+            startedAt: now,
+            filename: filename
+        )
 
         startElapsedTimer()
 
@@ -198,6 +241,9 @@ final class AudioRecordingStore: ObservableObject {
         recorder?.stop()
         stopElapsedTimer()
 
+        // End autosave and collect any remaining events
+        _ = storageManager.endAutosave()
+
         session.endedAt = Date()
         session.duration = session.endedAt!.timeIntervalSince(session.startedAt)
 
@@ -206,12 +252,26 @@ final class AudioRecordingStore: ObservableObject {
         saveSessions()
         saveEvents(activeEvents, for: session.id)
 
+        // Finalize with storage manager (updates manifest with file size, links)
+        storageManager.finalizeSession(
+            session.id,
+            duration: session.duration,
+            eventCount: activeEvents.count,
+            noteIDs: Array(sessionNoteIDs)
+        )
+
+        // Trigger background compression for standard quality recordings
+        if quality == .standard {
+            storageManager.compressSession(session.id) { _ in }
+        }
+
         // Reset state
         activeSession = nil
         activeEvents = []
         isRecording = false
         elapsedTime = 0
         recorder = nil
+        sessionNoteIDs = []
     }
 
     /// Deletes a saved session and its audio file.
@@ -219,14 +279,8 @@ final class AudioRecordingStore: ObservableObject {
         sessions.removeAll { $0.id == sessionID }
         saveSessions()
 
-        // Remove audio file
-        let audioURL = audioFileURL(for: sessionID)
-        try? FileManager.default.removeItem(at: audioURL)
-
-        // Remove events file
-        let eventsURL = Self.recordingsDirectory
-            .appendingPathComponent("\(sessionID.uuidString)_events.json")
-        try? FileManager.default.removeItem(at: eventsURL)
+        // Remove from storage manager (deletes files + manifest entry)
+        storageManager.removeSession(sessionID)
     }
 
     /// Renames a session.
@@ -393,6 +447,17 @@ final class AudioRecordingStore: ObservableObject {
     private func appendEvent(_ event: TimelineEvent) {
         activeEvents.append(event)
 
+        // Track note IDs for session linking
+        if !sessionNoteIDs.contains(event.noteID) {
+            sessionNoteIDs.insert(event.noteID)
+            if let session = activeSession {
+                storageManager.linkNote(event.noteID, toSession: session.id)
+            }
+        }
+
+        // Queue for autosave (storage manager flushes on debounced interval)
+        storageManager.queueEvent(event)
+
         // Prune if over limit
         if activeEvents.count > AudioTimelineConstants.maxEventsPerSession {
             activeEvents.removeFirst(activeEvents.count - AudioTimelineConstants.maxEventsPerSession)
@@ -446,6 +511,7 @@ final class AudioRecordingStore: ObservableObject {
     func checkpoint() {
         guard isRecording, let session = activeSession else { return }
         saveEvents(activeEvents, for: session.id)
+        storageManager.forceCheckpoint()
     }
 
     // MARK: - Helpers
