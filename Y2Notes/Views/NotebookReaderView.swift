@@ -45,7 +45,6 @@ struct NotebookReaderView: View {
 
         // Unsectioned notes first (notebook-level, no section)
         let unsectioned = noteStore.unsectionedPages(inNotebook: notebook.id)
-        var prevSectionID: UUID?
         for note in unsectioned {
             for pIdx in 0..<note.pages.count {
                 let isFirst = result.isEmpty
@@ -82,7 +81,6 @@ struct NotebookReaderView: View {
                     isFirst = false
                 }
             }
-            prevSectionID = section.id
         }
 
         return result
@@ -379,7 +377,7 @@ struct NotebookReaderView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 260)
             Button {
-                let note = noteStore.addNote(inNotebook: notebook.id)
+                _ = noteStore.addNote(inNotebook: notebook.id)
                 flatPageIndex = 0
             } label: {
                 Label("Add First Page", systemImage: "plus")

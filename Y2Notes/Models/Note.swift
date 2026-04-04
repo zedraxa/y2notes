@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 struct Note: Identifiable, Codable, Hashable {
     let id: UUID

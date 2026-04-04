@@ -934,7 +934,7 @@ struct NoteEditorView: View {
 /// - Barrel-roll fountain pen (Pencil Pro, iOS 17.5+): modulates fountain-pen width.
 /// - Contextual palette: compact floating palette anchored near the Pencil tip.
 
-private struct CanvasView: UIViewRepresentable {
+struct CanvasView: UIViewRepresentable {
     let noteID: UUID
     let drawingData: Data
     let backgroundColor: UIColor
