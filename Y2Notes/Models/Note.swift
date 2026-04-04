@@ -62,6 +62,21 @@ struct Note: Identifiable, Codable, Hashable {
     /// Per-note paper material override (nil = inherit from notebook, or `.standard` for unfiled notes).
     var paperMaterial: PaperMaterial?
 
+    /// Per-page background colour overrides — parallel array to `pages`.
+    /// Each element stores RGBA components `[Double]` (0…1 range), or `nil` to
+    /// inherit from the theme.  An empty array means all pages use the theme colour.
+    var pageColors: [[Double]?]
+
+    /// Returns the per-page colour for the given index, or `nil` to inherit theme.
+    func pageColor(forPage index: Int) -> UIColor? {
+        guard index >= 0 && index < pageColors.count,
+              let comps = pageColors[index], comps.count == 4 else { return nil }
+        return UIColor(
+            red: CGFloat(comps[0]), green: CGFloat(comps[1]),
+            blue: CGFloat(comps[2]), alpha: CGFloat(comps[3])
+        )
+    }
+
     /// Basename of the automatically maintained PDF file inside `Documents/NotePDFs/`.
     /// When non-nil the editor renders this PDF as the page background and sharing
     /// exports the maintained file directly — giving the note a "book-like" feel.
@@ -97,6 +112,7 @@ struct Note: Identifiable, Codable, Hashable {
         pageType: PageType? = nil,
         pageTypes: [PageType?] = [],
         paperMaterial: PaperMaterial? = nil,
+        pageColors: [[Double]?] = [],
         pdfFilename: String? = nil,
         typedText: String = "",
         ocrText: String = ""
@@ -115,6 +131,7 @@ struct Note: Identifiable, Codable, Hashable {
         self.pageType = pageType
         self.pageTypes = pageTypes
         self.paperMaterial = paperMaterial
+        self.pageColors = pageColors
         self.pdfFilename = pdfFilename
         self.typedText = typedText
         self.ocrText = ocrText
@@ -126,7 +143,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial, pdfFilename
+        case pageType, pageTypes, paperMaterial, pageColors, pdfFilename
         case typedText, ocrText
     }
 
@@ -155,6 +172,7 @@ struct Note: Identifiable, Codable, Hashable {
         pageType      = try c.decodeIfPresent(PageType.self,      forKey: .pageType)
         pageTypes     = try c.decodeIfPresent([PageType?].self,   forKey: .pageTypes)   ?? []
         paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
+        pageColors    = try c.decodeIfPresent([[Double]?].self,    forKey: .pageColors)  ?? []
         pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
@@ -182,6 +200,7 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encodeIfPresent(pageType,      forKey: .pageType)
         try c.encode(pageTypes,              forKey: .pageTypes)
         try c.encodeIfPresent(paperMaterial, forKey: .paperMaterial)
+        try c.encode(pageColors,              forKey: .pageColors)
         try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
         try c.encode(typedText,     forKey: .typedText)
         try c.encode(ocrText,       forKey: .ocrText)

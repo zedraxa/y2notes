@@ -200,6 +200,25 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    /// Sets or clears the background colour for a single page.
+    /// Pass nil to inherit from the theme.  Colour is stored as `[r, g, b, a]` in 0…1.
+    func updatePageColor(for noteID: UUID, pageIndex: Int, color: UIColor?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.indices.contains(pageIndex) else { return }
+        while notes[idx].pageColors.count < notes[idx].pages.count {
+            notes[idx].pageColors.append(nil)
+        }
+        if let color {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            notes[idx].pageColors[pageIndex] = [Double(r), Double(g), Double(b), Double(a)]
+        } else {
+            notes[idx].pageColors[pageIndex] = nil
+        }
+        notes[idx].modifiedAt = Date()
+        save()
+    }
+
     func updateDrawing(for noteID: UUID, data: Data) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].drawingData = data
@@ -226,8 +245,9 @@ final class NoteStore: ObservableObject {
     func addPage(to noteID: UUID) -> Int? {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return nil }
         notes[idx].pages.append(Data())
-        // Keep pageTypes in sync with pages so per-page ruling can be set on the new page.
-        notes[idx].pageTypes.append(nil)  // nil = inherit from note-level pageType
+        // Keep pageTypes and pageColors in sync with pages.
+        notes[idx].pageTypes.append(nil)   // nil = inherit from note-level pageType
+        notes[idx].pageColors.append(nil)  // nil = inherit from theme
         notes[idx].modifiedAt = Date()
         isDirty = true
         schedulePDFRegeneration(for: noteID)
@@ -243,6 +263,9 @@ final class NoteStore: ObservableObject {
         notes[idx].pages.remove(at: pageIndex)
         if notes[idx].pageTypes.indices.contains(pageIndex) {
             notes[idx].pageTypes.remove(at: pageIndex)
+        }
+        if notes[idx].pageColors.indices.contains(pageIndex) {
+            notes[idx].pageColors.remove(at: pageIndex)
         }
         notes[idx].modifiedAt = Date()
         isDirty = true

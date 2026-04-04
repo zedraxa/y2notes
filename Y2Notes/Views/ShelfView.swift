@@ -2,6 +2,7 @@
 import SwiftUI
 import PencilKit
 import PDFKit
+import UniformTypeIdentifiers
 
 // MARK: - Library section
 
@@ -118,6 +119,10 @@ struct ShelfView: View {
             } else if let note = selectedNote {
                 NoteEditorView(note: note)
                     .id(note.id)
+            } else if case .notebook(let nbID) = selectedSection,
+                      let nb = noteStore.notebooks.first(where: { $0.id == nbID }) {
+                NotebookReaderView(notebook: nb)
+                    .id(nb.id)
             } else {
                 ShelfDetailPlaceholder()
             }
@@ -378,6 +383,8 @@ private struct NotebookSidebarRow: View {
 
 struct NoteGridView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var pdfStore: PDFStore
+    @EnvironmentObject var documentStore: DocumentStore
     let section: LibrarySection
     @Binding var selectedNoteID: UUID?
 
@@ -395,6 +402,8 @@ struct NoteGridView: View {
     @State private var sectionRenameText = ""
     @State private var collapsedSections: Set<UUID> = []
     @State private var showManageSections = false
+    @State private var showDocImporter = false
+    @State private var showPDFImporter = false
 
     /// All notes for non-notebook views (flat).
     private var notes: [Note] {
@@ -528,6 +537,24 @@ struct NoteGridView: View {
             }
             Button("Cancel", role: .cancel) { sectionToRename = nil }
         }
+        .fileImporter(
+            isPresented: $showPDFImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                pdfStore.importPDF(from: url)
+            }
+        }
+        .fileImporter(
+            isPresented: $showDocImporter,
+            allowedContentTypes: ImportedDocumentType.allUTTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                documentStore.importDocument(from: url)
+            }
+        }
     }
 
     // MARK: Toolbar menu
@@ -579,6 +606,20 @@ struct NoteGridView: View {
                 showNotebookWizard = true
             } label: {
                 Label("New Notebook…", systemImage: "book.closed.fill")
+            }
+
+            Divider()
+
+            Button {
+                showPDFImporter = true
+            } label: {
+                Label("Import PDF…", systemImage: "doc.fill")
+            }
+
+            Button {
+                showDocImporter = true
+            } label: {
+                Label("Import Document…", systemImage: "square.and.arrow.down")
             }
         } label: {
             Image(systemName: "plus")

@@ -3,6 +3,7 @@ import SwiftUI
 import PencilKit
 import PDFKit
 import OSLog
+import UniformTypeIdentifiers
 
 // MARK: - Performance instrumentation
 
@@ -20,6 +21,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
+    @EnvironmentObject var documentStore: DocumentStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
@@ -70,6 +72,9 @@ struct NoteEditorView: View {
     /// True while an export render is in progress — disables the export button.
     @State private var isExporting = false
 
+    /// Whether the document import picker is visible.
+    @State private var showDocumentImporter = false
+
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
@@ -117,9 +122,14 @@ struct NoteEditorView: View {
         effectiveTheme.definition
     }
 
-    /// Canvas background blended with the paper material's tint colour.
+    /// Canvas background: per-page colour → theme base blended with paper material tint.
     private var canvasBackgroundColor: UIColor {
-        blendedBackground(
+        // Per-page colour takes absolute precedence when set.
+        let safeIdx = min(currentPageIndex, max(0, note.pages.count - 1))
+        if let explicit = note.pageColor(forPage: safeIdx) {
+            return explicit
+        }
+        return blendedBackground(
             base: effectiveDefinition.canvasBackground,
             tint: effectivePaperMaterial.pageTint
         )
@@ -248,6 +258,14 @@ struct NoteEditorView: View {
                 // Export menu — PDF (single page), PDF (all pages), PNG image.
                 exportMenu
 
+                // Import document into the library.
+                Button {
+                    showDocumentImporter = true
+                } label: {
+                    Image(systemName: "square.and.arrow.down")
+                }
+                .accessibilityLabel("Import document")
+
                 // Draw ↔ Type mode toggle.
                 // "keyboard" switches to text mode; "pencil" returns to drawing mode.
                 Button {
@@ -358,6 +376,15 @@ struct NoteEditorView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(activityItems: shareItems)
         }
+        .fileImporter(
+            isPresented: $showDocumentImporter,
+            allowedContentTypes: ImportedDocumentType.allUTTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                documentStore.importDocument(from: url)
+            }
+        }
     }
 
     // MARK: - Background blend helper
@@ -466,10 +493,46 @@ struct NoteEditorView: View {
                     }
                 }
             }
+
+            Divider()
+
+            // Page colour — quick presets for the current page
+            Section("Page Colour") {
+                Button {
+                    noteStore.updatePageColor(for: note.id, pageIndex: safePageIndex, color: nil)
+                } label: {
+                    Label("Theme Default", systemImage: note.pageColor(forPage: safePageIndex) == nil
+                          ? "checkmark" : "paintbrush")
+                }
+                ForEach(pageColorPresets, id: \.name) { preset in
+                    Button {
+                        noteStore.updatePageColor(
+                            for: note.id, pageIndex: safePageIndex, color: preset.color)
+                    } label: {
+                        Label(preset.name, systemImage: "circle.fill")
+                    }
+                }
+            }
         } label: {
             Image(systemName: "doc.richtext")
                 .accessibilityLabel("Page setup")
         }
+    }
+
+    /// Quick-access page background colour presets.
+    private var pageColorPresets: [(name: String, color: UIColor)] {
+        [
+            ("White",       .white),
+            ("Cream",       UIColor(red: 0.99, green: 0.97, blue: 0.93, alpha: 1)),
+            ("Parchment",   UIColor(red: 0.96, green: 0.94, blue: 0.87, alpha: 1)),
+            ("Pale Yellow",  UIColor(red: 1.00, green: 0.99, blue: 0.88, alpha: 1)),
+            ("Pale Blue",    UIColor(red: 0.93, green: 0.96, blue: 1.00, alpha: 1)),
+            ("Pale Green",   UIColor(red: 0.93, green: 0.99, blue: 0.93, alpha: 1)),
+            ("Pale Pink",    UIColor(red: 1.00, green: 0.93, blue: 0.95, alpha: 1)),
+            ("Light Grey",   UIColor(red: 0.94, green: 0.94, blue: 0.94, alpha: 1)),
+            ("Dark Grey",    UIColor(red: 0.20, green: 0.20, blue: 0.22, alpha: 1)),
+            ("Black",        UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1)),
+        ]
     }
 
     // MARK: - Contrast banner
