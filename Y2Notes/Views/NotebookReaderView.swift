@@ -27,6 +27,12 @@ struct NotebookReaderView: View {
     @State private var dragOffset: CGFloat = 0
     /// Direction of the last completed page turn for the slide transition.
     @State private var slideDirection: Edge = .trailing
+    /// Whether the jump-to-page popover is shown.
+    @State private var showJumpToPage = false
+    /// Text field content for jump-to-page.
+    @State private var jumpPageText = ""
+    /// Transient "saved" checkmark badge — auto-hides after 2 s.
+    @State private var showSavedBadge = false
 
     // MARK: - Linearised page model
 
@@ -197,6 +203,42 @@ struct NotebookReaderView: View {
         }
         .navigationTitle(notebook.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showPageOverview = true
+                } label: {
+                    Image(systemName: "square.grid.2x2")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .accessibilityLabel("Page overview")
+            }
+        }
+        .sheet(isPresented: $showPageOverview) {
+            notebookPageOverviewSheet
+        }
+        .overlay(alignment: .topTrailing) {
+            if showSavedBadge {
+                Label("Saved", systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.trailing, 12)
+                    .padding(.top, 8)
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+        }
+        .onChange(of: noteStore.saveState) { _, newState in
+            if newState == .saved {
+                withAnimation(.easeIn(duration: 0.2)) { showSavedBadge = true }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(2))
+                    withAnimation(.easeOut(duration: 0.3)) { showSavedBadge = false }
+                }
+            }
+        }
     }
 
     // MARK: - Canvas for a page
@@ -410,17 +452,27 @@ struct NotebookReaderView: View {
 
             Spacer()
 
-            // Page info — section + absolute page number
-            VStack(spacing: 1) {
-                if let sName = currentPage?.sectionName {
-                    Text(sName)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.accentColor)
+            // Page info — section + absolute page number (tap to jump)
+            Button {
+                jumpPageText = "\(flatPageIndex + 1)"
+                showJumpToPage = true
+            } label: {
+                VStack(spacing: 1) {
+                    if let sName = currentPage?.sectionName {
+                        Text(sName)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.accentColor)
+                    }
+                    Text("Page \(flatPageIndex + 1) of \(totalPages)")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
-                Text("Page \(flatPageIndex + 1) of \(totalPages)")
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
             }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showJumpToPage) {
+                jumpToPagePopover(totalPages: totalPages)
+            }
+            .accessibilityLabel("Page \(flatPageIndex + 1) of \(totalPages). Tap to jump to page.")
 
             Spacer()
 
@@ -515,5 +567,137 @@ struct NotebookReaderView: View {
             blue:  bb + (tb - bb) * fraction,
             alpha: ba
         )
+    }
+
+    // MARK: - Jump to page popover
+
+    private func jumpToPagePopover(totalPages: Int) -> some View {
+        VStack(spacing: 12) {
+            Text("Jump to Page")
+                .font(.headline)
+            HStack(spacing: 8) {
+                TextField("Page", text: $jumpPageText)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+                    .multilineTextAlignment(.center)
+                    .submitLabel(.go)
+                    .onSubmit { commitJump(totalPages: totalPages) }
+                Text("of \(totalPages)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Button("Go") {
+                commitJump(totalPages: totalPages)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+        .padding()
+        .frame(minWidth: 200)
+    }
+
+    private func commitJump(totalPages: Int) {
+        if let target = Int(jumpPageText), target >= 1 && target <= totalPages {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                flatPageIndex = target - 1
+            }
+        }
+        showJumpToPage = false
+    }
+
+    // MARK: - Notebook page overview sheet
+
+    private var notebookPageOverviewSheet: some View {
+        NavigationStack {
+            let pages = allPages
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 140, maximum: 200), spacing: 12)],
+                        spacing: 12
+                    ) {
+                        ForEach(Array(pages.enumerated()), id: \.element.id) { idx, ref in
+                            notebookPageThumbnail(ref: ref, flatIndex: idx)
+                        }
+                    }
+                    .padding()
+                }
+                .onAppear {
+                    let idx = min(flatPageIndex, pages.count - 1)
+                    if idx >= 0 && idx < pages.count {
+                        proxy.scrollTo(pages[idx].id, anchor: .center)
+                    }
+                }
+            }
+            .navigationTitle("Pages (\(pages.count))")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showPageOverview = false }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func notebookPageThumbnail(ref: PageRef, flatIndex: Int) -> some View {
+        let isSelected = flatIndex == flatPageIndex
+        Button {
+            flatPageIndex = flatIndex
+            showPageOverview = false
+        } label: {
+            VStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(uiColor: canvasBackground(for: ref)))
+                    .aspectRatio(0.75, contentMode: .fit)
+                    .overlay(
+                        pageTypeIndicator(for: ref)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(
+                                isSelected ? Color.accentColor : Color.clear,
+                                lineWidth: 2.5
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.08), radius: 3, y: 2)
+
+                Text("Page \(flatIndex + 1)")
+                    .font(.caption2)
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .id(ref.id)
+        .accessibilityLabel("Page \(flatIndex + 1)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// Simple visual indicator of the page ruling type inside a thumbnail.
+    @ViewBuilder
+    private func pageTypeIndicator(for ref: PageRef) -> some View {
+        let ruling = effectivePageType(for: ref)
+        switch ruling {
+        case .ruled:
+            VStack(spacing: 8) {
+                ForEach(0..<5, id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.15))
+                        .frame(height: 0.5)
+                }
+            }
+            .padding(12)
+        case .grid:
+            Image(systemName: "grid")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .dot:
+            Image(systemName: "circle.grid.3x3")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .blank:
+            EmptyView()
+        }
     }
 }

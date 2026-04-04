@@ -683,7 +683,8 @@ struct NoteGridView: View {
                     ForEach(noteStore.notebooks) { nb in
                         NotebookCoverCard(
                             notebook: nb,
-                            noteCount: noteStore.notes(inNotebook: nb.id).count
+                            noteCount: noteStore.notes(inNotebook: nb.id)
+                                .reduce(0) { $0 + $1.pageCount }
                         )
                         .onTapGesture {
                             onOpenNotebook?(nb.id)

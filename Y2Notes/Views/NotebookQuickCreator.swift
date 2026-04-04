@@ -461,7 +461,7 @@ struct NotebookQuickCreator: View {
         }
 
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        noteStore.addNotebook(
+        let nb = noteStore.addNotebook(
             name: trimmed.isEmpty ? "Untitled" : trimmed,
             cover: cover,
             pageType: pageType,
@@ -470,6 +470,13 @@ struct NotebookQuickCreator: View {
             defaultTheme: defaultTheme,
             paperMaterial: paperMaterial,
             customCoverData: useCustomCover ? customCoverData : nil
+        )
+
+        // Auto-create the first page so the notebook opens ready to write
+        noteStore.addNote(
+            inNotebook: nb.id,
+            pageType: pageType,
+            paperMaterial: paperMaterial
         )
 
         // Brief delay to show checkmark then dismiss
