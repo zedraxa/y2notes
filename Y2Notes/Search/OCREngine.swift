@@ -34,7 +34,7 @@ final class OCREngine {
         return await Task.detached(priority: .utility) {
             let renderRect = CGRect(origin: .zero, size: pageSize)
             // Scale 1× for recognition — Vision operates on the pixel grid, not pt.
-            let image = await drawing.image(from: renderRect, scale: 1.0)
+            let image = drawing.image(from: renderRect, scale: 1.0)
             guard let cgImage = image.cgImage else { return "" }
 
             let request = VNRecognizeTextRequest()

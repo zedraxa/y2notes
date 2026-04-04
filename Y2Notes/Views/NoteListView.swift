@@ -248,7 +248,7 @@ private struct NoteRowView: View {
             let targetHeight: CGFloat = 90
             let scale = max(targetWidth / renderRect.width,
                             targetHeight / renderRect.height) * 0.5
-            return await drawing.image(from: renderRect, scale: scale)
+            return drawing.image(from: renderRect, scale: scale)
         }.value
     }
 }

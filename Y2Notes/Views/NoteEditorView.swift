@@ -2036,15 +2036,17 @@ private struct PageOverviewGrid: View {
     private func draggablePageCell(index: Int) -> some View {
         pageCell(index: index)
             .id(index)
-            .draggable(index) {
+            .draggable(String(index)) {
                 Text("Page \(index + 1)")
                     .font(.caption.bold())
                     .padding(8)
                     .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            .dropDestination(for: Int.self) { items, _ in
-                guard let source = items.first, source != index else { return false }
+            .dropDestination(for: String.self) { items, _ in
+                guard let sourceStr = items.first,
+                      let source = Int(sourceStr),
+                      source != index else { return false }
                 noteStore.reorderPageInNote(noteID: note.id, from: source, to: index)
                 if currentPageIndex == source {
                     currentPageIndex = index
@@ -2203,7 +2205,7 @@ private struct PageOverviewGrid: View {
             let maxDimension: CGFloat = 240
             let scale = min(maxDimension / renderRect.width, maxDimension / renderRect.height, 1.0)
 
-            return await drawing.image(from: renderRect, scale: scale * UIScreen.main.scale)
+            return drawing.image(from: renderRect, scale: scale * UIScreen.main.scale)
         }.value
 
         if let image {
