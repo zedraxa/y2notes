@@ -945,6 +945,8 @@ final class NoteStore: ObservableObject {
                 NotePDFGenerator.regeneratePDF(
                     filename: filename,
                     pages: pages,
+                    attachmentLayers: note.attachmentLayers,
+                    noteID: note.id,
                     backgroundColor: .white,
                     pageTypes: pageTypes
                 )
@@ -980,6 +982,8 @@ final class NoteStore: ObservableObject {
                     NotePDFGenerator.regeneratePDF(
                         filename: filename,
                         pages: notes[i].pages,
+                        attachmentLayers: notes[i].attachmentLayers,
+                        noteID: notes[i].id,
                         backgroundColor: .white,
                         pageTypes: pageTypes
                     )

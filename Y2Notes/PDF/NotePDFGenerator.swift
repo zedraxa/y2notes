@@ -83,19 +83,23 @@ enum NotePDFGenerator {
     // MARK: - Composite PDF generation (background + strokes)
 
     /// Regenerates the note's backing PDF by compositing page backgrounds with
-    /// PencilKit strokes.  Overwrites the file at `filename` in place.
+    /// PencilKit strokes and attachment images.  Overwrites the file at `filename` in place.
     ///
     /// Called on the debounced save path so the on-disk PDF always mirrors the
     /// latest drawing state.
     ///
     /// - Parameters:
-    ///   - filename:        Existing PDF filename to overwrite.
-    ///   - pages:           Serialised `PKDrawing` data — one element per page.
-    ///   - backgroundColor: Canvas background colour.
-    ///   - pageTypes:       Ruling style per page.
+    ///   - filename:         Existing PDF filename to overwrite.
+    ///   - pages:            Serialised `PKDrawing` data — one element per page.
+    ///   - attachmentLayers: Per-page attachment arrays (parallel to `pages`), or empty for no attachments.
+    ///   - noteID:           Note identifier used to resolve attachment file paths.
+    ///   - backgroundColor:  Canvas background colour.
+    ///   - pageTypes:        Ruling style per page.
     static func regeneratePDF(
         filename: String,
         pages: [Data],
+        attachmentLayers: [[AttachmentObject]?] = [],
+        noteID: UUID? = nil,
         backgroundColor: UIColor,
         pageTypes: [PageType]
     ) {
@@ -103,6 +107,12 @@ enum NotePDFGenerator {
         let pageRect = CGRect(origin: .zero, size: pdfPageSize)
         let format = UIGraphicsPDFRendererFormat()
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: format)
+
+        // Pre-resolve attachment images for flattening
+        let resolvedImages = NoteExporter.resolveAttachmentImages(
+            attachmentLayers: attachmentLayers,
+            noteID: noteID
+        )
 
         do {
             try renderer.writePDF(to: url) { pdfCtx in
@@ -116,6 +126,28 @@ enum NotePDFGenerator {
                         pageType: pt,
                         into: ctx
                     )
+                    // Flatten attachments before strokes
+                    let attachments = i < attachmentLayers.count
+                        ? attachmentLayers[i] : nil
+                    if let attachments = attachments, !attachments.isEmpty {
+                        let screenBounds = UIScreen.main.bounds
+                        let screenW = max(screenBounds.width, screenBounds.height)
+                        let canvasPageSize = CGSize(
+                            width: screenW,
+                            height: ceil(screenW * 1.414)
+                        )
+                        let scaleX = pdfPageSize.width / canvasPageSize.width
+                        let scaleY = pdfPageSize.height / canvasPageSize.height
+                        let drawingScale = min(scaleX, scaleY)
+                        NoteExporter.renderAttachments(
+                            attachments,
+                            images: resolvedImages,
+                            canvasPageSize: canvasPageSize,
+                            drawingScale: drawingScale,
+                            backgroundColor: backgroundColor,
+                            into: ctx
+                        )
+                    }
                     renderStrokes(data: pageData, pageSize: pdfPageSize, into: ctx)
                 }
             }
