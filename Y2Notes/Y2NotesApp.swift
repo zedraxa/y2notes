@@ -10,6 +10,7 @@ struct Y2NotesApp: App {
     @StateObject private var settingsStore = AppSettingsStore()
     @StateObject private var syncEngine    = GoogleDriveSyncEngine()
     @StateObject private var documentStore = DocumentStore()
+    @StateObject private var stickerStore  = StickerStore()
     @State private var tabSession          = TabWorkspaceStore()
 
     var body: some Scene {
@@ -23,6 +24,7 @@ struct Y2NotesApp: App {
                 .environmentObject(settingsStore)
                 .environmentObject(syncEngine)
                 .environmentObject(documentStore)
+                .environmentObject(stickerStore)
                 .environment(tabSession)
                 .onAppear {
                     syncEngine.noteStore = noteStore

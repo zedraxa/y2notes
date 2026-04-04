@@ -22,6 +22,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var stickerStore: StickerStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
@@ -229,6 +230,7 @@ struct NoteEditorView: View {
                     FloatingToolbarCapsule(
                         toolStore: toolStore,
                         inkStore: inkStore,
+                        stickerStore: stickerStore,
                         canUndo: canUndo,
                         canRedo: canRedo,
                         onUndo: { undoManager?.undo() },
@@ -405,6 +407,12 @@ struct NoteEditorView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(activityItems: shareItems)
         }
+        .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
+            StickerLibraryView(stickerStore: stickerStore) { asset in
+                placeSticker(asset)
+            }
+            .presentationDetents([.medium, .large])
+        }
         .fileImporter(
             isPresented: $showDocumentImporter,
             allowedContentTypes: ImportedDocumentType.allUTTypes,
@@ -414,6 +422,46 @@ struct NoteEditorView: View {
                 documentStore.importDocument(from: url)
             }
         }
+    }
+
+    // MARK: - Sticker Placement
+
+    /// Places a sticker asset at the center of the current page.
+    private func placeSticker(_ asset: StickerAsset) {
+        guard var updatedNote = noteStore.notes.first(where: { $0.id == note.id }) else { return }
+        let pageIdx = currentPageIndex
+
+        // Ensure stickerLayers array is sized to match pages
+        while updatedNote.stickerLayers.count < updatedNote.pages.count {
+            updatedNote.stickerLayers.append(nil)
+        }
+
+        var existing = updatedNote.stickerLayers[pageIdx] ?? []
+
+        // Enforce per-page limit
+        guard existing.count < StickerConstants.maxStickersPerPage else { return }
+
+        let maxZ = existing.map(\.zIndex).max() ?? 0
+
+        // Place at approximate center of page
+        let pageSize = CanvasView.pageSize
+        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
+
+        let instance = StickerInstance(
+            stickerID: asset.id,
+            position: center,
+            scale: 1.0,
+            rotation: 0,
+            opacity: 1.0,
+            zIndex: maxZ + 1,
+            isLocked: false
+        )
+
+        existing.append(instance)
+        updatedNote.stickerLayers[pageIdx] = existing
+        updatedNote.modifiedAt = Date()
+
+        noteStore.updateStickers(for: note.id, pageIndex: pageIdx, stickers: existing)
     }
 
     // MARK: - Background blend helper

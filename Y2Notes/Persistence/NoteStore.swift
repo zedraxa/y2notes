@@ -259,6 +259,19 @@ final class NoteStore: ObservableObject {
         schedulePDFRegeneration(for: noteID)
     }
 
+    /// Updates the sticker instances for a specific page.
+    func updateStickers(for noteID: UUID, pageIndex: Int, stickers: [StickerInstance]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure stickerLayers array is sized to match pages
+        while notes[idx].stickerLayers.count < notes[idx].pages.count {
+            notes[idx].stickerLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].stickerLayers.count else { return }
+        notes[idx].stickerLayers[pageIndex] = stickers.isEmpty ? nil : stickers
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
     /// Appends a blank page to the note and returns the new page index.
     @discardableResult
     func addPage(to noteID: UUID) -> Int? {
@@ -267,6 +280,7 @@ final class NoteStore: ObservableObject {
         // Keep pageTypes and pageColors in sync with pages.
         notes[idx].pageTypes.append(nil)   // nil = inherit from note-level pageType
         notes[idx].pageColors.append(nil)  // nil = inherit from theme
+        notes[idx].stickerLayers.append(nil)  // nil = no stickers
         notes[idx].modifiedAt = Date()
         isDirty = true
         schedulePDFRegeneration(for: noteID)
@@ -285,6 +299,9 @@ final class NoteStore: ObservableObject {
         }
         if notes[idx].pageColors.indices.contains(pageIndex) {
             notes[idx].pageColors.remove(at: pageIndex)
+        }
+        if notes[idx].stickerLayers.indices.contains(pageIndex) {
+            notes[idx].stickerLayers.remove(at: pageIndex)
         }
         notes[idx].modifiedAt = Date()
         isDirty = true

@@ -19,6 +19,7 @@ import SwiftUI
 struct FloatingToolbarCapsule: View {
     @ObservedObject var toolStore: DrawingToolStore
     var inkStore: InkEffectStore? = nil
+    var stickerStore: StickerStore? = nil
     var canUndo: Bool = false
     var canRedo: Bool = false
     var onUndo: (() -> Void)? = nil
@@ -111,6 +112,11 @@ struct FloatingToolbarCapsule: View {
 
             // Lasso / Select
             tier1ToolButton(.lasso)
+
+            // Sticker
+            if stickerStore != nil {
+                stickerButton
+            }
 
             tier1Separator
 
@@ -228,6 +234,35 @@ struct FloatingToolbarCapsule: View {
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+    }
+
+    // MARK: - Sticker Button
+
+    @ViewBuilder
+    private var stickerButton: some View {
+        let isActive = toolStore.activeTool == .sticker
+        Button {
+            if isActive {
+                // Already in sticker mode — open library
+                toolStore.isStickerLibraryPresented = true
+            } else {
+                toolStore.activeTool = .sticker
+                toolStore.isStickerLibraryPresented = true
+            }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "face.smiling")
+                    .font(.system(size: 15, weight: isActive ? .semibold : .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(isActive ? Color.accentColor : Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Sticker")
     }
 
     // MARK: - Helpers

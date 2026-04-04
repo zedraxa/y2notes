@@ -74,6 +74,11 @@
 		AA00010000000000000000D3 /* OCREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D2 /* OCREngine.swift */; };
 		AA00010000000000000000D5 /* NoteExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D4 /* NoteExporter.swift */; };
 		AA00010000000000000000D7 /* NotePDFGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D6 /* NotePDFGenerator.swift */; };
+		AA00010000000000000000EB /* Sticker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000EA /* Sticker.swift */; };
+		AA00010000000000000000ED /* StickerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000EC /* StickerStore.swift */; };
+		AA00010000000000000000EF /* StickerLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000EE /* StickerLibraryView.swift */; };
+		AA00010000000000000000F1 /* StickerCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F0 /* StickerCanvasView.swift */; };
+		AA00010000000000000000F3 /* StickerHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F2 /* StickerHandlesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -146,6 +151,11 @@
 		AA00010000000000000000D2 /* OCREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCREngine.swift; sourceTree = "<group>"; };
 		AA00010000000000000000D4 /* NoteExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteExporter.swift; sourceTree = "<group>"; };
 		AA00010000000000000000D6 /* NotePDFGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotePDFGenerator.swift; sourceTree = "<group>"; };
+		AA00010000000000000000EA /* Sticker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sticker.swift; sourceTree = "<group>"; };
+		AA00010000000000000000EC /* StickerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000000EE /* StickerLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerLibraryView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000F0 /* StickerCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerCanvasView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000F2 /* StickerHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerHandlesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -210,6 +220,7 @@
 				AA0001000000000000000070 /* NotebookConfig.swift */,
 				AA0001000000000000000089 /* StudySet.swift */,
 				AA00010000000000000000E2 /* NotebookTabSession.swift */,
+				AA00010000000000000000EA /* Sticker.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -240,6 +251,9 @@
 				AA00010000000000000000E0 /* SelectionToolbar.swift */,
 				AA00010000000000000000E4 /* NotebookTabBar.swift */,
 				AA00010000000000000000E6 /* NotebookWorkspaceView.swift */,
+				AA00010000000000000000EE /* StickerLibraryView.swift */,
+				AA00010000000000000000F0 /* StickerCanvasView.swift */,
+				AA00010000000000000000F2 /* StickerHandlesView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -248,6 +262,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000016 /* NoteStore.swift */,
+				AA00010000000000000000EC /* StickerStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -491,6 +506,11 @@
 				AA00010000000000000000D3 /* OCREngine.swift in Sources */,
 				AA00010000000000000000D5 /* NoteExporter.swift in Sources */,
 				AA00010000000000000000D7 /* NotePDFGenerator.swift in Sources */,
+				AA00010000000000000000EB /* Sticker.swift in Sources */,
+				AA00010000000000000000ED /* StickerStore.swift in Sources */,
+				AA00010000000000000000EF /* StickerLibraryView.swift in Sources */,
+				AA00010000000000000000F1 /* StickerCanvasView.swift in Sources */,
+				AA00010000000000000000F3 /* StickerHandlesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
