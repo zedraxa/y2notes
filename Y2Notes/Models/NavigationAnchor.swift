@@ -15,17 +15,22 @@ struct NavigationAnchor: Identifiable, Codable, Hashable {
     var noteID: UUID
     /// 0-based page index within the note's `pages` array.
     var pageIndex: Int
+    /// Optional object ID on the target page (e.g. attachment UUID).
+    /// When set, the navigation handler highlights this object after jumping.
+    var objectID: UUID?
 
     init(
         id: UUID = UUID(),
         notebookID: UUID,
         noteID: UUID,
-        pageIndex: Int
+        pageIndex: Int,
+        objectID: UUID? = nil
     ) {
         self.id = id
         self.notebookID = notebookID
         self.noteID = noteID
         self.pageIndex = pageIndex
+        self.objectID = objectID
     }
 }
 

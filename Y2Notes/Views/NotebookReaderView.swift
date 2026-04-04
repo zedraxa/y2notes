@@ -422,6 +422,19 @@ struct NotebookReaderView: View {
     /// Resolves a NavigationAnchor to a flat page index and navigates.
     private func navigateToAnchor(_ anchor: NavigationAnchor) {
         resolveAndJump(to: anchor)
+        // Highlight a specific object (e.g. attachment) on the target page.
+        if let objectID = anchor.objectID {
+            Task { @MainActor in
+                // Allow page transition to settle before selecting.
+                try? await Task.sleep(for: .seconds(0.4))
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeAttachmentSelection = objectID
+                    toolStore.activeShapeSelection = nil
+                    toolStore.activeStickerSelection = nil
+                    toolStore.hasActiveSelection = false
+                }
+            }
+        }
     }
 
     /// Resolves an anchor to a flat index and jumps.

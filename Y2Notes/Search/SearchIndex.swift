@@ -30,6 +30,7 @@ enum SearchEntryKind: String, Hashable {
     case sectionName
     case stickerLabel
     case pdfTitle
+    case attachmentLabel
 }
 
 // MARK: - Grouped search result
@@ -356,18 +357,46 @@ final class SearchIndex {
                 modifiedAt: note.modifiedAt
             )
         }
+
+        // Attachment labels — each attachment indexed individually with page-level anchor.
+        // Searchable by label (name) and type (image/pdf/link).
+        for (pageIdx, layer) in note.attachmentLayers.enumerated() {
+            guard let attachments = layer else { continue }
+            for attachment in attachments {
+                let key = "\(baseID)-att-\(attachment.id.uuidString)"
+                let typeName = attachment.type.rawValue.capitalized
+                let displayLabel = attachment.label.isEmpty ? "\(typeName) Attachment" : attachment.label
+                entries[key] = SearchableEntry(
+                    id: key,
+                    kind: .attachmentLabel,
+                    primaryText: displayLabel,
+                    secondaryText: "\(typeName) · \(note.title)",
+                    notebookID: note.notebookID,
+                    anchor: note.notebookID.map { nbID in
+                        NavigationAnchor(
+                            notebookID: nbID,
+                            noteID: note.id,
+                            pageIndex: pageIdx,
+                            objectID: attachment.id
+                        )
+                    },
+                    modifiedAt: attachment.placedAt
+                )
+            }
+        }
     }
 
     private func baseScore(for kind: SearchEntryKind) -> Int {
         switch kind {
-        case .noteTitle:     return 100
-        case .noteText:      return 50
-        case .noteOCR:       return 40
-        case .notebookName:  return 80
-        case .bookmarkLabel: return 60
-        case .sectionName:   return 70
-        case .stickerLabel:  return 20
-        case .pdfTitle:      return 60
+        case .noteTitle:       return 100
+        case .noteText:        return 50
+        case .noteOCR:         return 40
+        case .notebookName:    return 80
+        case .bookmarkLabel:   return 60
+        case .sectionName:     return 70
+        case .stickerLabel:    return 20
+        case .pdfTitle:        return 60
+        case .attachmentLabel: return 35
         }
     }
 

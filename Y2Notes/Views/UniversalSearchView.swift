@@ -7,7 +7,7 @@ import SwiftUI
 /// via `NavigationAnchor`.
 ///
 /// **Search scope:** notebook titles, note titles, typed text, handwriting OCR,
-/// bookmark labels, section names, sticker IDs, and PDF titles.
+/// bookmark labels, section names, sticker IDs, PDF titles, and attachment names/types.
 ///
 /// **Jump behaviour:** Tapping a result dismisses the sheet and calls `onJump`
 /// with either a `NavigationAnchor` (for in-notebook navigation) or a note/PDF ID
@@ -67,7 +67,7 @@ struct UniversalSearchView: View {
             .searchable(
                 text: $query,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Notes, bookmarks, handwriting, PDFs…"
+                prompt: "Notes, bookmarks, handwriting, attachments, PDFs…"
             )
             .onAppear {
                 rebuildIndex()
@@ -86,7 +86,7 @@ struct UniversalSearchView: View {
             Text("Search everything")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Text("Titles, typed text, handwriting, bookmarks, notebooks, and PDFs")
+            Text("Titles, typed text, handwriting, bookmarks, notebooks, attachments, and PDFs")
                 .font(.callout)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -192,6 +192,8 @@ struct UniversalSearchView: View {
             name = "star.circle"
         case .pdfTitle:
             name = "doc.richtext.fill"
+        case .attachmentLabel:
+            name = "paperclip"
         }
         return Image(systemName: name)
     }
@@ -200,14 +202,15 @@ struct UniversalSearchView: View {
     private func matchBadge(_ kind: SearchEntryKind) -> some View {
         let (icon, label): (String, String) = {
             switch kind {
-            case .noteTitle:     return ("textformat", "Title")
-            case .noteText:      return ("text.alignleft", "Text")
-            case .noteOCR:       return ("pencil.and.scribble", "Handwriting")
-            case .notebookName:  return ("book.closed", "Notebook")
-            case .bookmarkLabel: return ("bookmark", "Bookmark")
-            case .sectionName:   return ("folder", "Section")
-            case .stickerLabel:  return ("star.circle", "Sticker")
-            case .pdfTitle:      return ("doc.richtext", "PDF")
+            case .noteTitle:       return ("textformat", "Title")
+            case .noteText:        return ("text.alignleft", "Text")
+            case .noteOCR:         return ("pencil.and.scribble", "Handwriting")
+            case .notebookName:    return ("book.closed", "Notebook")
+            case .bookmarkLabel:   return ("bookmark", "Bookmark")
+            case .sectionName:     return ("folder", "Section")
+            case .stickerLabel:    return ("star.circle", "Sticker")
+            case .pdfTitle:        return ("doc.richtext", "PDF")
+            case .attachmentLabel: return ("paperclip", "Attachment")
             }
         }()
 
@@ -237,7 +240,7 @@ struct UniversalSearchView: View {
 
         // Otherwise resolve by kind
         switch result.entry.kind {
-        case .noteTitle, .noteText, .noteOCR, .stickerLabel:
+        case .noteTitle, .noteText, .noteOCR, .stickerLabel, .attachmentLabel:
             // Extract noteID from the entry id (format: "note-<UUID>-suffix")
             if let noteID = extractNoteID(from: result.entry.id) {
                 onSelectNote(noteID)
