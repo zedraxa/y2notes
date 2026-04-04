@@ -19,6 +19,7 @@ struct NotebookReaderView: View {
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
+    @EnvironmentObject var navigationStore: NavigationStore
     let notebook: Notebook
 
     @State private var flatPageIndex = 0
@@ -34,6 +35,10 @@ struct NotebookReaderView: View {
     @State private var jumpPageText = ""
     /// Transient "saved" checkmark badge — auto-hides after 2 s.
     @State private var showSavedBadge = false
+    /// Whether the bookmarks list sheet is shown.
+    @State private var showBookmarks = false
+    /// Whether the recent-locations popover is shown.
+    @State private var showRecentLocations = false
 
     // MARK: - Linearised page model
 
@@ -231,7 +236,53 @@ struct NotebookReaderView: View {
         .navigationTitle(notebook.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarLeading) {
+                // Back button
+                Button {
+                    navigateBack()
+                } label: {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .disabled(!navigationStore.canGoBack)
+                .accessibilityLabel("Go back")
+
+                // Forward button
+                Button {
+                    navigateForward()
+                } label: {
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .disabled(!navigationStore.canGoForward)
+                .accessibilityLabel("Go forward")
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                // Recent locations
+                Button {
+                    showRecentLocations = true
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .popover(isPresented: $showRecentLocations) {
+                    RecentLocationsView(
+                        notebook: notebook,
+                        onJump: { anchor in navigateToAnchor(anchor) }
+                    )
+                }
+                .accessibilityLabel("Recent pages")
+
+                // Bookmarks list
+                Button {
+                    showBookmarks = true
+                } label: {
+                    Image(systemName: "bookmark")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .accessibilityLabel("Bookmarks")
+
+                // Page overview grid
                 Button {
                     showPageOverview = true
                 } label: {
@@ -243,6 +294,15 @@ struct NotebookReaderView: View {
         }
         .sheet(isPresented: $showPageOverview) {
             notebookPageOverviewSheet
+        }
+        .sheet(isPresented: $showBookmarks) {
+            NavigationStack {
+                BookmarkListView(
+                    notebook: notebook,
+                    onJump: { anchor in navigateToAnchor(anchor) }
+                )
+            }
+            .presentationDetents([.medium, .large])
         }
         .overlay(alignment: .topTrailing) {
             if showSavedBadge {
@@ -268,6 +328,7 @@ struct NotebookReaderView: View {
         }
         // Restore last page position when notebook opens (object permanence)
         .onAppear {
+            navigationStore.activateNotebook(notebook.id)
             if !didRestorePosition {
                 let saved = noteStore.lastPageIndex(for: notebook.id)
                 let maxIdx = max(0, allPages.count - 1)
@@ -275,9 +336,75 @@ struct NotebookReaderView: View {
                 didRestorePosition = true
             }
         }
-        // Persist page position on every page turn
+        // Persist page position on every page turn + push history
         .onChange(of: flatPageIndex) { _, newIndex in
             noteStore.setLastPageIndex(newIndex, for: notebook.id)
+            pushCurrentPageToHistory()
+        }
+    }
+
+    // MARK: - Navigation helpers
+
+    /// Pushes the current page into the navigation history.
+    private func pushCurrentPageToHistory() {
+        let pages = allPages
+        let safeIndex = min(flatPageIndex, pages.count - 1)
+        guard safeIndex >= 0 && safeIndex < pages.count else { return }
+        let ref = pages[safeIndex]
+        navigationStore.pushHistory(
+            notebookID: notebook.id,
+            noteID: ref.noteID,
+            pageIndex: ref.pageIndex,
+            flatPageIndex: safeIndex
+        )
+    }
+
+    /// Navigates back in history.
+    private func navigateBack() {
+        let pages = allPages
+        let safeIndex = min(flatPageIndex, pages.count - 1)
+        guard safeIndex >= 0 && safeIndex < pages.count else { return }
+        let ref = pages[safeIndex]
+        if let entry = navigationStore.goBack(
+            currentNotebookID: notebook.id,
+            currentNoteID: ref.noteID,
+            currentPageIndex: ref.pageIndex,
+            currentFlatIndex: safeIndex
+        ) {
+            resolveAndJump(to: entry.anchor)
+        }
+    }
+
+    /// Navigates forward in history.
+    private func navigateForward() {
+        let pages = allPages
+        let safeIndex = min(flatPageIndex, pages.count - 1)
+        guard safeIndex >= 0 && safeIndex < pages.count else { return }
+        let ref = pages[safeIndex]
+        if let entry = navigationStore.goForward(
+            currentNotebookID: notebook.id,
+            currentNoteID: ref.noteID,
+            currentPageIndex: ref.pageIndex,
+            currentFlatIndex: safeIndex
+        ) {
+            resolveAndJump(to: entry.anchor)
+        }
+    }
+
+    /// Resolves a NavigationAnchor to a flat page index and navigates.
+    private func navigateToAnchor(_ anchor: NavigationAnchor) {
+        resolveAndJump(to: anchor)
+    }
+
+    /// Resolves an anchor to a flat index and jumps.
+    private func resolveAndJump(to anchor: NavigationAnchor) {
+        let pages = allPages
+        if let idx = pages.firstIndex(where: {
+            $0.noteID == anchor.noteID && $0.pageIndex == anchor.pageIndex
+        }) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                flatPageIndex = idx
+            }
         }
     }
 
@@ -604,6 +731,30 @@ struct NotebookReaderView: View {
             }
             .accessibilityLabel("Add page")
 
+            // Bookmark toggle for current page
+            Button {
+                if let ref = currentPage {
+                    navigationStore.toggleBookmark(
+                        notebookID: notebook.id,
+                        noteID: ref.noteID,
+                        pageIndex: ref.pageIndex
+                    )
+                }
+            } label: {
+                let isMarked = currentPage.map {
+                    navigationStore.isBookmarked(
+                        notebookID: notebook.id,
+                        noteID: $0.noteID,
+                        pageIndex: $0.pageIndex
+                    )
+                } ?? false
+                Image(systemName: isMarked ? "bookmark.fill" : "bookmark")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(isMarked ? .red : .primary)
+                    .frame(width: 32, height: 32)
+            }
+            .accessibilityLabel("Toggle bookmark")
+
             // Next page
             Button {
                 slideDirection = .trailing
@@ -747,6 +898,11 @@ struct NotebookReaderView: View {
     @ViewBuilder
     private func notebookPageThumbnail(ref: PageRef, flatIndex: Int) -> some View {
         let isSelected = flatIndex == flatPageIndex
+        let isMarked = navigationStore.isBookmarked(
+            notebookID: notebook.id,
+            noteID: ref.noteID,
+            pageIndex: ref.pageIndex
+        )
         Button {
             flatPageIndex = flatIndex
             showPageOverview = false
@@ -758,6 +914,14 @@ struct NotebookReaderView: View {
                     .overlay(
                         pageTypeIndicator(for: ref)
                     )
+                    .overlay(alignment: .topTrailing) {
+                        if isMarked {
+                            Image(systemName: "bookmark.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red)
+                                .padding(4)
+                        }
+                    }
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
                             .strokeBorder(
@@ -774,7 +938,7 @@ struct NotebookReaderView: View {
         }
         .buttonStyle(.plain)
         .id(ref.id)
-        .accessibilityLabel("Page \(flatIndex + 1)")
+        .accessibilityLabel("Page \(flatIndex + 1)\(isMarked ? ", bookmarked" : "")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 

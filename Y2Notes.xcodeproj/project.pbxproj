@@ -82,6 +82,9 @@
 		AA00010000000000000000F5 /* ShapeObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F4 /* ShapeObject.swift */; };
 		AA00010000000000000000F7 /* ShapeCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F6 /* ShapeCanvasView.swift */; };
 		AA00010000000000000000F9 /* ShapeHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F8 /* ShapeHandlesView.swift */; };
+		AA00010000000000000000FB /* NavigationAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FA /* NavigationAnchor.swift */; };
+		AA00010000000000000000FD /* NavigationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FC /* NavigationStore.swift */; };
+		AA00010000000000000000FF /* BookmarkListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FE /* BookmarkListView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -162,6 +165,9 @@
 		AA00010000000000000000F4 /* ShapeObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeObject.swift; sourceTree = "<group>"; };
 		AA00010000000000000000F6 /* ShapeCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeCanvasView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000F8 /* ShapeHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeHandlesView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000FA /* NavigationAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationAnchor.swift; sourceTree = "<group>"; };
+		AA00010000000000000000FC /* NavigationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000000FE /* BookmarkListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkListView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -228,6 +234,7 @@
 				AA00010000000000000000E2 /* NotebookTabSession.swift */,
 				AA00010000000000000000EA /* Sticker.swift */,
 				AA00010000000000000000F4 /* ShapeObject.swift */,
+				AA00010000000000000000FA /* NavigationAnchor.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -263,6 +270,7 @@
 				AA00010000000000000000F2 /* StickerHandlesView.swift */,
 				AA00010000000000000000F6 /* ShapeCanvasView.swift */,
 				AA00010000000000000000F8 /* ShapeHandlesView.swift */,
+				AA00010000000000000000FE /* BookmarkListView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -272,6 +280,7 @@
 			children = (
 				AA0001000000000000000016 /* NoteStore.swift */,
 				AA00010000000000000000EC /* StickerStore.swift */,
+				AA00010000000000000000FC /* NavigationStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -523,6 +532,9 @@
 				AA00010000000000000000F5 /* ShapeObject.swift in Sources */,
 				AA00010000000000000000F7 /* ShapeCanvasView.swift in Sources */,
 				AA00010000000000000000F9 /* ShapeHandlesView.swift in Sources */,
+				AA00010000000000000000FB /* NavigationAnchor.swift in Sources */,
+				AA00010000000000000000FD /* NavigationStore.swift in Sources */,
+				AA00010000000000000000FF /* BookmarkListView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
