@@ -103,7 +103,11 @@ struct ShelfView: View {
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
-                    selectedNoteID: $selectedNoteID
+                    selectedNoteID: $selectedNoteID,
+                    onOpenNotebook: { nbID in
+                        selectedNoteID = nil
+                        selectedSection = .notebook(nbID)
+                    }
                 )
             }
         } detail: {
@@ -387,6 +391,8 @@ struct NoteGridView: View {
     @EnvironmentObject var documentStore: DocumentStore
     let section: LibrarySection
     @Binding var selectedNoteID: UUID?
+    /// Called when the user taps a notebook cover in the shelf row.
+    var onOpenNotebook: ((UUID) -> Void)?
 
     /// Sentinel UUID used to track collapse state of the "Unsectioned" group.
     private static let unsectionedSentinel = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
@@ -680,8 +686,7 @@ struct NoteGridView: View {
                             noteCount: noteStore.notes(inNotebook: nb.id).count
                         )
                         .onTapGesture {
-                            // Navigate directly into notebook reader by switching sidebar section
-                            selectedNoteID = nil
+                            onOpenNotebook?(nb.id)
                         }
                     }
                 }

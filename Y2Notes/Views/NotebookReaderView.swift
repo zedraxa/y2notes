@@ -308,6 +308,7 @@ struct NotebookReaderView: View {
     /// auto-creates a new blank page so writing never stops.
     private func turnPage(direction: Int, totalPages: Int) {
         if direction > 0 {
+            slideDirection = .trailing
             if flatPageIndex >= totalPages - 1 {
                 // Swipe past last page → auto-create new page
                 if let ref = currentPage,
@@ -316,15 +317,12 @@ struct NotebookReaderView: View {
                     if let newFlat = updatedPages.firstIndex(where: {
                         $0.noteID == ref.noteID && $0.pageIndex == newIdx
                     }) {
-                        slideDirection = .trailing
                         flatPageIndex = newFlat
                     } else {
-                        slideDirection = .trailing
                         flatPageIndex = allPages.count - 1
                     }
                 }
             } else {
-                slideDirection = .trailing
                 flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
             }
         } else {
