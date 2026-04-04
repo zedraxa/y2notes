@@ -1,6 +1,7 @@
 // swiftlint:disable file_length
 import SwiftUI
 import PencilKit
+import PDFKit
 import OSLog
 
 // MARK: - Performance instrumentation
@@ -192,7 +193,8 @@ struct NoteEditorView: View {
                         },
                         onPinchToOverview: {
                             showPageOverview = true
-                        }
+                        },
+                        pdfURL: noteStore.notePDFURL(for: note)
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
                     .id("\(note.id)-\(safePageIndex)")
@@ -583,7 +585,26 @@ struct NoteEditorView: View {
     }
 
     /// Exports every page of the note as a multi-page PDF and presents the share sheet.
+    /// When the note has a maintained backing PDF, shares it directly without re-rendering.
     private func exportAllPagesAsPDF() {
+        // Fast path: share the maintained PDF file directly when available.
+        if let pdfURL = noteStore.notePDFURL(for: note),
+           FileManager.default.fileExists(atPath: pdfURL.path) {
+            // Force a synchronous regeneration so the PDF reflects the very latest strokes.
+            if let filename = note.pdfFilename {
+                let pageTypes = (0..<note.pageCount).map { effectivePageType(forPage: $0) }
+                NotePDFGenerator.regeneratePDF(
+                    filename: filename,
+                    pages: note.pages,
+                    backgroundColor: canvasBackgroundColor,
+                    pageTypes: pageTypes
+                )
+            }
+            shareItems = [pdfURL]
+            showShareSheet = true
+            return
+        }
+        // Fallback: render a new PDF from scratch (legacy notes without backing PDF).
         let pages = note.pages
         let pageTypes = (0..<note.pageCount).map { effectivePageType(forPage: $0) }
         let bg = canvasBackgroundColor
@@ -883,6 +904,10 @@ private struct CanvasView: UIViewRepresentable {
     let onPageSwipe: ((Int) -> Void)?
     /// Called when a pinch-in gesture requests the page overview.
     let onPinchToOverview: (() -> Void)?
+    /// On-disk URL of the note's backing PDF, if available.
+    /// When non-nil the canvas renders the PDF page as background instead of the
+    /// procedural `PageBackgroundView`, giving the note a book-like appearance.
+    let pdfURL: URL?
 
     // MARK: - Page dimensions
 
@@ -929,6 +954,41 @@ private struct CanvasView: UIViewRepresentable {
 
         container.addSubview(pageBackground)
         context.coordinator.pageBackground = pageBackground
+
+        // ── PDF page background (book-like feel) ─────────────────────────────
+        // When the note has a backing PDF, render the template page from the PDF
+        // file so the background is a real PDF page.  This sits above the
+        // procedural PageBackgroundView and provides pixel-perfect fidelity with
+        // the exported PDF.
+        if let pdfURL,
+           let pdfDoc = PDFDocument(url: pdfURL),
+           let pdfPage = pdfDoc.page(at: pageIndex) {
+            let mediaBox = pdfPage.bounds(for: .mediaBox)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 2.0
+            format.opaque = true
+            let renderer = UIGraphicsImageRenderer(size: ps, format: format)
+            let pageImage = renderer.image { ctx in
+                let cgCtx = ctx.cgContext
+                cgCtx.setFillColor(backgroundColor.cgColor)
+                cgCtx.fill(CGRect(origin: .zero, size: ps))
+                // Scale from PDF media box to canvas page size
+                let sx = ps.width / mediaBox.width
+                let sy = ps.height / mediaBox.height
+                let scale = min(sx, sy)
+                cgCtx.saveGState()
+                cgCtx.scaleBy(x: scale, y: -scale)
+                cgCtx.translateBy(x: 0, y: -mediaBox.height)
+                pdfPage.draw(with: .mediaBox, to: cgCtx)
+                cgCtx.restoreGState()
+            }
+            let pdfImageView = UIImageView(image: pageImage)
+            pdfImageView.frame = CGRect(origin: .zero, size: ps)
+            pdfImageView.contentMode = .scaleToFill
+            pdfImageView.isUserInteractionEnabled = false
+            container.addSubview(pdfImageView)
+            context.coordinator.pdfBackgroundView = pdfImageView
+        }
 
         // ── PencilKit canvas ─────────────────────────────────────────────────
         let canvas = PKCanvasView()
@@ -1187,6 +1247,8 @@ private struct CanvasView: UIViewRepresentable {
         weak var shapeOverlay: ShapeOverlayView?
         /// Page ruling / background view placed behind the canvas.
         weak var pageBackground: PageBackgroundView?
+        /// PDF page image rendered behind the canvas (book-like feel).
+        weak var pdfBackgroundView: UIImageView?
         /// Updated by updateUIView to always hold the freshest closure.
         var onUndoStateChanged: ((Bool, Bool) -> Void)?
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
@@ -1436,10 +1498,12 @@ private struct CanvasView: UIViewRepresentable {
             let tx = -o.x + pw * (z - 1) / 2
             let ty = -o.y + ph * (z - 1) / 2
 
+            let xform = CGAffineTransform(scaleX: z, y: z)
+                .concatenating(CGAffineTransform(translationX: tx, y: ty))
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            bg.transform = CGAffineTransform(scaleX: z, y: z)
-                .concatenating(CGAffineTransform(translationX: tx, y: ty))
+            bg.transform = xform
+            pdfBackgroundView?.transform = xform
             CATransaction.commit()
         }
 

@@ -57,9 +57,14 @@ final class NoteStore: ObservableObject {
     /// drawing changes, and fires 4 seconds later to trigger a background Vision pass.
     private var ocrTimers: [UUID: Timer] = [:]
 
+    /// Per-note PDF regeneration debounce timers.  Fires 2 seconds after the last drawing
+    /// change to composite page backgrounds + strokes into the backing PDF file.
+    private var pdfRegenTimers: [UUID: Timer] = [:]
+
     init() {
         load()
         loadStudy()
+        ensurePDFsForLegacyNotes()
         startAutosaveTimer()
         setupLifecycleObservers()
     }
@@ -67,6 +72,7 @@ final class NoteStore: ObservableObject {
     deinit {
         autosaveTimer?.invalidate()
         ocrTimers.values.forEach { $0.invalidate() }
+        pdfRegenTimers.values.forEach { $0.invalidate() }
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -97,17 +103,28 @@ final class NoteStore: ObservableObject {
     // MARK: - Note CRUD
 
     /// Creates a new note, optionally filing it into a notebook and with per-note paper settings.
+    /// Generates a backing PDF template so the note is PDF-based from the start.
     @discardableResult
     func addNote(
         inNotebook notebookID: UUID? = nil,
         pageType: PageType? = nil,
         paperMaterial: PaperMaterial? = nil
     ) -> Note {
+        // Generate the template PDF before creating the note so `pdfFilename` is set immediately.
+        let effectiveType = pageType
+            ?? notebooks.first(where: { $0.id == notebookID })?.pageType
+            ?? .blank
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [effectiveType]
+        )
         let note = Note(
             title: "Note \(notes.count + 1)",
             notebookID: notebookID,
             pageType: pageType,
-            paperMaterial: paperMaterial
+            paperMaterial: paperMaterial,
+            pdfFilename: pdfFilename
         )
         notes.insert(note, at: 0)
         save()
@@ -115,12 +132,22 @@ final class NoteStore: ObservableObject {
     }
 
     func deleteNotes(at offsets: IndexSet) {
+        for i in offsets {
+            if let filename = notes[i].pdfFilename {
+                NotePDFGenerator.deletePDF(filename: filename)
+            }
+        }
         notes.remove(atOffsets: offsets)
         save()
     }
 
     /// Deletes notes whose IDs are in `ids`. Safe when caller holds a filtered/sorted view.
     func deleteNotes(ids: [UUID]) {
+        for note in notes where ids.contains(note.id) {
+            if let filename = note.pdfFilename {
+                NotePDFGenerator.deletePDF(filename: filename)
+            }
+        }
         notes.removeAll { ids.contains($0.id) }
         save()
     }
@@ -179,6 +206,7 @@ final class NoteStore: ObservableObject {
         // Mark dirty so autosave timer and willResignActive flush pick this up.
         // The canvas coordinator owns the debounced 0.8 s save trigger.
         isDirty = true
+        schedulePDFRegeneration(for: noteID)
     }
 
     /// Updates drawing data for a specific page within a multi-page note.
@@ -189,6 +217,7 @@ final class NoteStore: ObservableObject {
         notes[idx].modifiedAt = Date()
         isDirty = true
         scheduleOCR(for: noteID)
+        schedulePDFRegeneration(for: noteID)
     }
 
     /// Appends a blank page to the note and returns the new page index.
@@ -200,6 +229,7 @@ final class NoteStore: ObservableObject {
         notes[idx].pageTypes.append(nil)  // nil = inherit from note-level pageType
         notes[idx].modifiedAt = Date()
         isDirty = true
+        schedulePDFRegeneration(for: noteID)
         return notes[idx].pages.count - 1
     }
 
@@ -215,6 +245,7 @@ final class NoteStore: ObservableObject {
         }
         notes[idx].modifiedAt = Date()
         isDirty = true
+        schedulePDFRegeneration(for: noteID)
     }
 
     /// Reorders pages within a note by moving a page from one index to another.
@@ -233,6 +264,7 @@ final class NoteStore: ObservableObject {
         }
         notes[idx].modifiedAt = Date()
         isDirty = true
+        schedulePDFRegeneration(for: noteID)
     }
 
     /// Duplicates a page within a note, inserting the copy immediately after the original.
@@ -794,6 +826,75 @@ final class NoteStore: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - PDF regeneration
+
+    /// Schedules a background PDF regeneration for the given note.  The timer fires 2 seconds
+    /// after the last drawing change so rapid strokes don't cause redundant PDF writes.
+    func schedulePDFRegeneration(for noteID: UUID) {
+        pdfRegenTimers[noteID]?.invalidate()
+        pdfRegenTimers[noteID] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.pdfRegenTimers.removeValue(forKey: noteID)
+            guard let note = self.notes.first(where: { $0.id == noteID }),
+                  let filename = note.pdfFilename else { return }
+            let pages = note.pages
+            let pageTypes = self.resolvedPageTypes(for: note)
+            Task.detached(priority: .utility) {
+                NotePDFGenerator.regeneratePDF(
+                    filename: filename,
+                    pages: pages,
+                    backgroundColor: .white,
+                    pageTypes: pageTypes
+                )
+            }
+        }
+    }
+
+    /// Resolves the effective `PageType` array for every page of a note by cascading
+    /// per-page → note-level → notebook-level → `.blank`.
+    func resolvedPageTypes(for note: Note) -> [PageType] {
+        let notebook = notebooks.first(where: { $0.id == note.notebookID })
+        return (0 ..< note.pageCount).map { i in
+            note.pageType(forPage: i) ?? notebook?.pageType ?? .blank
+        }
+    }
+
+    /// Lazily generates backing PDFs for notes created before the PDF-based storage migration.
+    /// Called once during `init()`.  Only touches notes whose `pdfFilename` is nil.
+    private func ensurePDFsForLegacyNotes() {
+        var changed = false
+        for i in notes.indices where notes[i].pdfFilename == nil {
+            let pageTypes = resolvedPageTypes(for: notes[i])
+            if let filename = NotePDFGenerator.generateTemplatePDF(
+                pageCount: notes[i].pageCount,
+                backgroundColor: .white,
+                pageTypes: pageTypes
+            ) {
+                notes[i].pdfFilename = filename
+                changed = true
+                // Regenerate immediately with strokes if the note has drawing data.
+                let hasStrokes = notes[i].pages.contains { !$0.isEmpty }
+                if hasStrokes {
+                    NotePDFGenerator.regeneratePDF(
+                        filename: filename,
+                        pages: notes[i].pages,
+                        backgroundColor: .white,
+                        pageTypes: pageTypes
+                    )
+                }
+            }
+        }
+        if changed {
+            isDirty = true
+        }
+    }
+
+    /// Returns the on-disk PDF URL for a given note, or nil if the note has no backing PDF.
+    func notePDFURL(for note: Note) -> URL? {
+        guard let filename = note.pdfFilename else { return nil }
+        return NotePDFGenerator.pdfURL(for: filename)
     }
 
     // MARK: - Reload from disk (Drive sync)

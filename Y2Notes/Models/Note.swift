@@ -62,6 +62,13 @@ struct Note: Identifiable, Codable, Hashable {
     /// Per-note paper material override (nil = inherit from notebook, or `.standard` for unfiled notes).
     var paperMaterial: PaperMaterial?
 
+    /// Basename of the automatically maintained PDF file inside `Documents/NotePDFs/`.
+    /// When non-nil the editor renders this PDF as the page background and sharing
+    /// exports the maintained file directly — giving the note a "book-like" feel.
+    /// Nil for legacy notes that predate PDF-based storage; those are migrated lazily
+    /// on first open.
+    var pdfFilename: String?
+
     /// Keyboard-typed text content for this note.
     /// Empty string = drawing-only note. Used by `SearchService` and the in-document find bar.
     var typedText: String
@@ -90,6 +97,7 @@ struct Note: Identifiable, Codable, Hashable {
         pageType: PageType? = nil,
         pageTypes: [PageType?] = [],
         paperMaterial: PaperMaterial? = nil,
+        pdfFilename: String? = nil,
         typedText: String = "",
         ocrText: String = ""
     ) {
@@ -107,6 +115,7 @@ struct Note: Identifiable, Codable, Hashable {
         self.pageType = pageType
         self.pageTypes = pageTypes
         self.paperMaterial = paperMaterial
+        self.pdfFilename = pdfFilename
         self.typedText = typedText
         self.ocrText = ocrText
     }
@@ -117,7 +126,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial
+        case pageType, pageTypes, paperMaterial, pdfFilename
         case typedText, ocrText
     }
 
@@ -146,6 +155,7 @@ struct Note: Identifiable, Codable, Hashable {
         pageType      = try c.decodeIfPresent(PageType.self,      forKey: .pageType)
         pageTypes     = try c.decodeIfPresent([PageType?].self,   forKey: .pageTypes)   ?? []
         paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
+        pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
     }
@@ -172,6 +182,7 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encodeIfPresent(pageType,      forKey: .pageType)
         try c.encode(pageTypes,              forKey: .pageTypes)
         try c.encodeIfPresent(paperMaterial, forKey: .paperMaterial)
+        try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
         try c.encode(typedText,     forKey: .typedText)
         try c.encode(ocrText,       forKey: .ocrText)
     }

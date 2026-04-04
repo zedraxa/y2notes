@@ -65,6 +65,7 @@
 		AA00010000000000000000D0 /* DocumentViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000CD /* DocumentViewerView.swift */; };
 		AA00010000000000000000D3 /* OCREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D2 /* OCREngine.swift */; };
 		AA00010000000000000000D5 /* NoteExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D4 /* NoteExporter.swift */; };
+		AA00010000000000000000D7 /* NotePDFGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D6 /* NotePDFGenerator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -128,6 +129,7 @@
 		AA00010000000000000000CD /* DocumentViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentViewerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000D2 /* OCREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCREngine.swift; sourceTree = "<group>"; };
 		AA00010000000000000000D4 /* NoteExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteExporter.swift; sourceTree = "<group>"; };
+		AA00010000000000000000D6 /* NotePDFGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotePDFGenerator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -272,6 +274,7 @@
 				AA0001000000000000000092 /* PDFPageAnnotationView.swift */,
 				AA0001000000000000000093 /* PDFViewerView.swift */,
 				AA00010000000000000000D4 /* NoteExporter.swift */,
+				AA00010000000000000000D6 /* NotePDFGenerator.swift */,
 			);
 			path = PDF;
 			sourceTree = "<group>";
@@ -455,6 +458,7 @@
 				AA00010000000000000000D0 /* DocumentViewerView.swift in Sources */,
 				AA00010000000000000000D3 /* OCREngine.swift in Sources */,
 				AA00010000000000000000D5 /* NoteExporter.swift in Sources */,
+				AA00010000000000000000D7 /* NotePDFGenerator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
