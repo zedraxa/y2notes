@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 // MARK: - Navigation anchor — universal deep-link target
 
@@ -24,6 +25,12 @@ struct NavigationAnchor: Identifiable, Codable, Hashable {
     /// Optional audio offset (seconds from session start) for keyword→audio jump.
     /// Used together with `audioSessionID` to seek to a specific playback position.
     var audioOffset: TimeInterval?
+    /// Optional expansion region ID for anchors that target content in an expansion area.
+    /// When set, the navigation handler scrolls to the expansion region after jumping to the page.
+    var regionID: UUID?
+    /// Optional scroll-to point in canvas coordinates within the target page or expansion region.
+    /// Used for precise viewport positioning after navigation.
+    var canvasPoint: CGPoint?
 
     init(
         id: UUID = UUID(),
@@ -32,7 +39,9 @@ struct NavigationAnchor: Identifiable, Codable, Hashable {
         pageIndex: Int,
         objectID: UUID? = nil,
         audioSessionID: UUID? = nil,
-        audioOffset: TimeInterval? = nil
+        audioOffset: TimeInterval? = nil,
+        regionID: UUID? = nil,
+        canvasPoint: CGPoint? = nil
     ) {
         self.id = id
         self.notebookID = notebookID
@@ -41,6 +50,52 @@ struct NavigationAnchor: Identifiable, Codable, Hashable {
         self.objectID = objectID
         self.audioSessionID = audioSessionID
         self.audioOffset = audioOffset
+        self.regionID = regionID
+        self.canvasPoint = canvasPoint
+    }
+}
+
+// MARK: - Custom Codable for CGPoint support
+
+extension NavigationAnchor {
+    enum CodingKeys: String, CodingKey {
+        case id, notebookID, noteID, pageIndex, objectID
+        case audioSessionID, audioOffset
+        case regionID, canvasPointX, canvasPointY
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id              = try c.decode(UUID.self, forKey: .id)
+        notebookID      = try c.decode(UUID.self, forKey: .notebookID)
+        noteID          = try c.decode(UUID.self, forKey: .noteID)
+        pageIndex       = try c.decode(Int.self, forKey: .pageIndex)
+        objectID        = try c.decodeIfPresent(UUID.self, forKey: .objectID)
+        audioSessionID  = try c.decodeIfPresent(UUID.self, forKey: .audioSessionID)
+        audioOffset     = try c.decodeIfPresent(TimeInterval.self, forKey: .audioOffset)
+        regionID        = try c.decodeIfPresent(UUID.self, forKey: .regionID)
+        if let x = try c.decodeIfPresent(CGFloat.self, forKey: .canvasPointX),
+           let y = try c.decodeIfPresent(CGFloat.self, forKey: .canvasPointY) {
+            canvasPoint = CGPoint(x: x, y: y)
+        } else {
+            canvasPoint = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(notebookID, forKey: .notebookID)
+        try c.encode(noteID, forKey: .noteID)
+        try c.encode(pageIndex, forKey: .pageIndex)
+        try c.encodeIfPresent(objectID, forKey: .objectID)
+        try c.encodeIfPresent(audioSessionID, forKey: .audioSessionID)
+        try c.encodeIfPresent(audioOffset, forKey: .audioOffset)
+        try c.encodeIfPresent(regionID, forKey: .regionID)
+        if let point = canvasPoint {
+            try c.encode(point.x, forKey: .canvasPointX)
+            try c.encode(point.y, forKey: .canvasPointY)
+        }
     }
 }
 
