@@ -112,6 +112,7 @@
 		AA0001000000000000000131 /* WritingEffectModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000130 /* WritingEffectModel.swift */; };
 		AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000132 /* MicroInteractionEngine.swift */; };
 		AA0001000000000000000135 /* SnapAlignEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000134 /* SnapAlignEffectEngine.swift */; };
+		AA0001000000000000000137 /* PageTransitionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000136 /* PageTransitionEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -166,6 +167,7 @@
 		AA0001000000000000000130 /* WritingEffectModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectModel.swift; sourceTree = "<group>"; };
 		AA0001000000000000000132 /* MicroInteractionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicroInteractionEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000134 /* SnapAlignEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAlignEffectEngine.swift; sourceTree = "<group>"; };
+		AA0001000000000000000136 /* PageTransitionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTransitionEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -424,6 +426,7 @@
 				AA0001000000000000000130 /* WritingEffectModel.swift */,
 				AA0001000000000000000132 /* MicroInteractionEngine.swift */,
 				AA0001000000000000000134 /* SnapAlignEffectEngine.swift */,
+				AA0001000000000000000136 /* PageTransitionEngine.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -643,6 +646,7 @@
 				AA0001000000000000000131 /* WritingEffectModel.swift in Sources */,
 				AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */,
 				AA0001000000000000000135 /* SnapAlignEffectEngine.swift in Sources */,
+				AA0001000000000000000137 /* PageTransitionEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

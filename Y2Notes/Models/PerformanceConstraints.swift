@@ -153,6 +153,11 @@ enum PerformanceConstraints {
     /// Prevents layer tree bloat on rapid repeated taps.
     static let maxSimultaneousMicroAnimations: Int = 2
 
+    /// Page transition effect budget per frame.
+    /// Slide / shadow / bend effects on page change — GPU-composited,
+    /// two `CAGradientLayer` + position animation.  Total setup < 0.4 ms.
+    static let pageTransitionBudgetMs: Double = 0.4
+
     // MARK: 8. Future — Transcript Search
 
     /// Speech-to-text processing: post-recording only, `.background` QoS.

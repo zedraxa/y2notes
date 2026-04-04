@@ -1887,6 +1887,9 @@ struct CanvasView: UIViewRepresentable {
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
 
+        /// Page transition engine for physical page-turn effects.
+        let pageTransitionEngine = PageTransitionEngine()
+
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
 
@@ -1998,6 +2001,19 @@ struct CanvasView: UIViewRepresentable {
         /// Two-finger swipe handler for page navigation.
         @objc func handlePageSwipe(_ gesture: UISwipeGestureRecognizer) {
             guard !isDrawing else { return }
+
+            // Play physical page-turn effect on the gesture's container layer.
+            if let container = gesture.view?.layer {
+                let direction: PageTransitionDirection =
+                    gesture.direction == .left ? .forward : .backward
+                let pageWidth = container.bounds.width
+                pageTransitionEngine.playTransition(
+                    on: container,
+                    direction: direction,
+                    pageWidth: pageWidth
+                ) { /* visual cleanup handled internally */ }
+            }
+
             switch gesture.direction {
             case .left:
                 onPageSwipe?(1)   // Next page
