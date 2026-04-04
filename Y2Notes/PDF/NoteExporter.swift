@@ -46,6 +46,7 @@ final class NoteExporter {
         title: String,
         pages: [Data],
         attachmentLayers: [[AttachmentObject]?] = [],
+        widgetLayers: [[NoteWidget]?] = [],
         noteID: UUID? = nil,
         backgroundColor: UIColor,
         pageTypes: [PageType]
@@ -77,10 +78,13 @@ final class NoteExporter {
                         let pt = pageIndex < pageTypes.count ? pageTypes[pageIndex] : .blank
                         let attachments = pageIndex < attachmentLayers.count
                             ? attachmentLayers[pageIndex] : nil
+                        let widgets = pageIndex < widgetLayers.count
+                            ? widgetLayers[pageIndex] : nil
                         renderPage(
                             data: pageData,
                             attachments: attachments,
                             images: resolvedImages,
+                            widgets: widgets,
                             pageSize: pdfPageSize,
                             backgroundColor: backgroundColor,
                             pageType: pt,
@@ -110,6 +114,7 @@ final class NoteExporter {
     static func exportPageAsImage(
         pageData: Data,
         attachments: [AttachmentObject]? = nil,
+        widgets: [NoteWidget]? = nil,
         noteID: UUID? = nil,
         backgroundColor: UIColor,
         pageType: PageType,
@@ -130,6 +135,7 @@ final class NoteExporter {
                     data: pageData,
                     attachments: attachments,
                     images: resolvedImages,
+                    widgets: widgets,
                     pageSize: pdfPageSize,
                     backgroundColor: backgroundColor,
                     pageType: pageType,
@@ -159,6 +165,7 @@ final class NoteExporter {
         data: Data,
         attachments: [AttachmentObject]?,
         images: [UUID: UIImage],
+        widgets: [NoteWidget]?,
         pageSize: CGSize,
         backgroundColor: UIColor,
         pageType: PageType,
@@ -196,6 +203,15 @@ final class NoteExporter {
                 canvasPageSize: canvasPageSize,
                 drawingScale: drawingScale,
                 backgroundColor: backgroundColor,
+                into: ctx
+            )
+        }
+
+        // 3b. Flatten widgets (drawn below strokes, above attachments)
+        if let widgets = widgets, !widgets.isEmpty {
+            renderWidgets(
+                widgets,
+                drawingScale: drawingScale,
                 into: ctx
             )
         }
@@ -442,6 +458,191 @@ final class NoteExporter {
                 height: iconSize.height
             )
             icon.withTintColor(.systemGray3).draw(in: iconRect)
+        }
+    }
+
+    // MARK: - Widget rendering for export
+
+    /// Renders widget cards as static snapshots into the PDF/image export context.
+    /// Each widget is drawn as a bordered card with type-specific body content.
+    private static func renderWidgets(
+        _ widgets: [NoteWidget],
+        drawingScale: CGFloat,
+        into ctx: CGContext
+    ) {
+        let sorted = widgets.sorted(by: { $0.zIndex < $1.zIndex })
+        for widget in sorted {
+            let bounds = widget.frame.boundingRect
+            let exportRect = CGRect(
+                x: bounds.origin.x * drawingScale,
+                y: bounds.origin.y * drawingScale,
+                width: bounds.size.width * drawingScale,
+                height: bounds.size.height * drawingScale
+            )
+            let cr = WidgetConstants.cardCornerRadius * drawingScale
+            let pad = WidgetConstants.containerPadding * drawingScale
+            let titleSize = WidgetConstants.titleFontSize * drawingScale
+            let bodySize = WidgetConstants.bodyFontSize * drawingScale
+
+            // Card background
+            let cardPath = UIBezierPath(roundedRect: exportRect, cornerRadius: cr)
+            ctx.saveGState()
+            let bgColor: UIColor = widget.kind == .referenceCard
+                ? UIColor.systemGray6.withAlphaComponent(0.9)
+                : UIColor.systemBackground.withAlphaComponent(0.85)
+            ctx.setFillColor(bgColor.cgColor)
+            ctx.addPath(cardPath.cgPath)
+            ctx.fillPath()
+            ctx.restoreGState()
+
+            // Border
+            ctx.saveGState()
+            ctx.setStrokeColor(UIColor.separator.withAlphaComponent(WidgetConstants.borderOpacity).cgColor)
+            ctx.setLineWidth(WidgetConstants.borderWidth * drawingScale)
+            ctx.addPath(cardPath.cgPath)
+            ctx.strokePath()
+            ctx.restoreGState()
+
+            // Clip body content
+            ctx.saveGState()
+            ctx.addPath(cardPath.cgPath)
+            ctx.clip()
+
+            let titleAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: titleSize, weight: .bold),
+                .foregroundColor: UIColor.label
+            ]
+            let bodyAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: bodySize),
+                .foregroundColor: UIColor.label
+            ]
+
+            switch widget.payload {
+            case .checklist(let title, let items):
+                var y = exportRect.minY + pad
+                if !title.isEmpty {
+                    let textRect = CGRect(x: exportRect.minX + pad, y: y,
+                                          width: exportRect.width - pad * 2, height: titleSize + 4 * drawingScale)
+                    (title as NSString).draw(in: textRect, withAttributes: titleAttrs)
+                    y += titleSize + 8 * drawingScale
+                }
+                let cbSize = WidgetConstants.checkboxSize * drawingScale
+                for item in items {
+                    guard y + cbSize <= exportRect.maxY - pad else { break }
+                    let cbRect = CGRect(x: exportRect.minX + pad, y: y, width: cbSize, height: cbSize)
+                        .insetBy(dx: 2 * drawingScale, dy: 2 * drawingScale)
+                    if item.isChecked {
+                        ctx.setFillColor(UIColor.tintColor.cgColor)
+                        ctx.fill(cbRect)
+                    } else {
+                        ctx.setStrokeColor(UIColor.secondaryLabel.cgColor)
+                        ctx.setLineWidth(1.5 * drawingScale)
+                        ctx.stroke(cbRect)
+                    }
+                    let textX = exportRect.minX + pad + cbSize + 6 * drawingScale
+                    (item.text as NSString).draw(
+                        in: CGRect(x: textX, y: y,
+                                   width: exportRect.maxX - textX - pad, height: cbSize),
+                        withAttributes: bodyAttrs
+                    )
+                    y += cbSize + 4 * drawingScale
+                }
+
+            case .quickTable(let title, let columns, let rows, let cells):
+                var y = exportRect.minY + pad
+                if !title.isEmpty {
+                    let textRect = CGRect(x: exportRect.minX + pad, y: y,
+                                          width: exportRect.width - pad * 2, height: titleSize + 4 * drawingScale)
+                    (title as NSString).draw(in: textRect, withAttributes: titleAttrs)
+                    y += titleSize + 8 * drawingScale
+                }
+                guard columns > 0, rows > 0 else { break }
+                let tableW = exportRect.width - pad * 2
+                let tableH = exportRect.maxY - y - pad
+                let colW = tableW / CGFloat(columns)
+                let rowH = tableH / CGFloat(rows)
+                let tableX = exportRect.minX + pad
+                ctx.saveGState()
+                ctx.setStrokeColor(UIColor.separator.cgColor)
+                ctx.setLineWidth(0.5 * drawingScale)
+                for r in 0...rows {
+                    let ly = y + CGFloat(r) * rowH
+                    ctx.move(to: CGPoint(x: tableX, y: ly))
+                    ctx.addLine(to: CGPoint(x: tableX + tableW, y: ly))
+                }
+                for c in 0...columns {
+                    let lx = tableX + CGFloat(c) * colW
+                    ctx.move(to: CGPoint(x: lx, y: y))
+                    ctx.addLine(to: CGPoint(x: lx, y: y + tableH))
+                }
+                ctx.strokePath()
+                ctx.restoreGState()
+                let cp = WidgetConstants.cellPadding * drawingScale
+                for r in 0..<rows {
+                    for c in 0..<columns {
+                        let idx = r * columns + c
+                        guard idx < cells.count, !cells[idx].text.isEmpty else { continue }
+                        let cellRect = CGRect(x: tableX + CGFloat(c) * colW + cp,
+                                              y: y + CGFloat(r) * rowH + cp,
+                                              width: colW - cp * 2, height: rowH - cp * 2)
+                        let sz = (cells[idx].text as NSString).size(withAttributes: bodyAttrs)
+                        (cells[idx].text as NSString).draw(
+                            in: CGRect(x: cellRect.midX - sz.width / 2,
+                                       y: cellRect.midY - sz.height / 2,
+                                       width: sz.width, height: sz.height),
+                            withAttributes: bodyAttrs
+                        )
+                    }
+                }
+
+            case .calloutBox(let title, let body, let style):
+                let accentColor: UIColor
+                switch style {
+                case .note:      accentColor = UIColor.systemBlue.withAlphaComponent(0.5)
+                case .important: accentColor = UIColor.systemOrange.withAlphaComponent(0.5)
+                case .tip:       accentColor = UIColor.systemGreen.withAlphaComponent(0.5)
+                case .warning:   accentColor = UIColor.systemRed.withAlphaComponent(0.5)
+                }
+                let barW = 4 * drawingScale
+                ctx.setFillColor(accentColor.cgColor)
+                ctx.fill(CGRect(x: exportRect.minX, y: exportRect.minY, width: barW, height: exportRect.height))
+                let contentX = exportRect.minX + barW + pad
+                let contentW = exportRect.width - barW - pad * 2
+                var y = exportRect.minY + pad
+                if !title.isEmpty {
+                    (title as NSString).draw(
+                        in: CGRect(x: contentX, y: y, width: contentW, height: titleSize + 4 * drawingScale),
+                        withAttributes: titleAttrs
+                    )
+                    y += titleSize + 8 * drawingScale
+                }
+                if !body.isEmpty {
+                    (body as NSString).draw(
+                        in: CGRect(x: contentX, y: y, width: contentW, height: exportRect.maxY - y - pad),
+                        withAttributes: bodyAttrs
+                    )
+                }
+
+            case .referenceCard(let title, let body):
+                var y = exportRect.minY + pad
+                if !title.isEmpty {
+                    (title as NSString).draw(
+                        in: CGRect(x: exportRect.minX + pad, y: y,
+                                   width: exportRect.width - pad * 2, height: titleSize + 4 * drawingScale),
+                        withAttributes: titleAttrs
+                    )
+                    y += titleSize + 8 * drawingScale
+                }
+                if !body.isEmpty {
+                    (body as NSString).draw(
+                        in: CGRect(x: exportRect.minX + pad, y: y,
+                                   width: exportRect.width - pad * 2, height: exportRect.maxY - y - pad),
+                        withAttributes: bodyAttrs
+                    )
+                }
+            }
+
+            ctx.restoreGState()
         }
     }
 

@@ -967,6 +967,7 @@ struct NoteEditorView: View {
         let bg = canvasBackgroundColor
         let title = note.title.isEmpty ? "Note" : note.title
         let attachments = note.attachments(forPage: pageIndex)
+        let widgets = note.widgets(forPage: pageIndex)
         let nid = note.id
         isExporting = true
         Task {
@@ -974,6 +975,7 @@ struct NoteEditorView: View {
                 title: "\(title) — Page \(pageIndex + 1)",
                 pages: [pageData],
                 attachmentLayers: [attachments.isEmpty ? nil : attachments],
+                widgetLayers: [widgets.isEmpty ? nil : widgets],
                 noteID: nid,
                 backgroundColor: bg,
                 pageTypes: [pt]
@@ -992,6 +994,7 @@ struct NoteEditorView: View {
     /// When the note has a maintained backing PDF, shares it directly without re-rendering.
     private func exportAllPagesAsPDF() {
         let attachmentLayers = note.attachmentLayers
+        let widgetLayersData = note.widgetLayers
         let nid = note.id
 
         // Fast path: share the maintained PDF file directly when available.
@@ -1024,6 +1027,7 @@ struct NoteEditorView: View {
                 title: title,
                 pages: pages,
                 attachmentLayers: attachmentLayers,
+                widgetLayers: widgetLayersData,
                 noteID: nid,
                 backgroundColor: bg,
                 pageTypes: pageTypes
@@ -1045,12 +1049,14 @@ struct NoteEditorView: View {
         let pt = effectivePageType(forPage: pageIndex)
         let bg = canvasBackgroundColor
         let attachments = note.attachments(forPage: pageIndex)
+        let widgets = note.widgets(forPage: pageIndex)
         let nid = note.id
         isExporting = true
         Task {
             let image = await NoteExporter.exportPageAsImage(
                 pageData: pageData,
                 attachments: attachments.isEmpty ? nil : attachments,
+                widgets: widgets.isEmpty ? nil : widgets,
                 noteID: nid,
                 backgroundColor: bg,
                 pageType: pt

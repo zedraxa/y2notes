@@ -104,6 +104,9 @@
 		AA0001000000000000000121 /* SnapshotModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000120 /* SnapshotModel.swift */; };
 		AA0001000000000000000123 /* SnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000122 /* SnapshotStore.swift */; };
 		AA0001000000000000000125 /* VersionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000124 /* VersionHistoryView.swift */; };
+		AA0001000000000000000127 /* WidgetModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000126 /* WidgetModel.swift */; };
+		AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000128 /* WidgetCanvasView.swift */; };
+		AA000100000000000000012B /* WidgetHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012A /* WidgetHandlesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -206,6 +209,9 @@
 		AA0001000000000000000120 /* SnapshotModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotModel.swift; sourceTree = "<group>"; };
 		AA0001000000000000000122 /* SnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStore.swift; sourceTree = "<group>"; };
 		AA0001000000000000000124 /* VersionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionHistoryView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000126 /* WidgetModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetModel.swift; sourceTree = "<group>"; };
+		AA0001000000000000000128 /* WidgetCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetCanvasView.swift; sourceTree = "<group>"; };
+		AA000100000000000000012A /* WidgetHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetHandlesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -277,6 +283,7 @@
 				AA0001000000000000000110 /* AudioTimeline.swift */,
 				AA000100000000000000011E /* PerformanceConstraints.swift */,
 				AA0001000000000000000120 /* SnapshotModel.swift */,
+				AA0001000000000000000126 /* WidgetModel.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -321,6 +328,8 @@
 				AA0001000000000000000116 /* RecordingIndicatorView.swift */,
 				AA0001000000000000000118 /* RecordingSessionListView.swift */,
 				AA0001000000000000000124 /* VersionHistoryView.swift */,
+				AA0001000000000000000128 /* WidgetCanvasView.swift */,
+				AA000100000000000000012A /* WidgetHandlesView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -611,6 +620,9 @@
 				AA0001000000000000000121 /* SnapshotModel.swift in Sources */,
 				AA0001000000000000000123 /* SnapshotStore.swift in Sources */,
 				AA0001000000000000000125 /* VersionHistoryView.swift in Sources */,
+				AA0001000000000000000127 /* WidgetModel.swift in Sources */,
+				AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */,
+				AA000100000000000000012B /* WidgetHandlesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
