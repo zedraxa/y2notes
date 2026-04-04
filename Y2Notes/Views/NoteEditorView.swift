@@ -1017,7 +1017,7 @@ private struct CanvasView: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, PKCanvasViewDelegate {
+    final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate {
         let onDrawingChanged: (Data) -> Void
         let onSaveRequested: () -> Void
         /// Page swipe callback: +1 next, −1 previous.
@@ -1221,6 +1221,28 @@ private struct CanvasView: UIViewRepresentable {
             bg.transform = CGAffineTransform(scaleX: z, y: z)
                 .concatenating(CGAffineTransform(translationX: tx, y: ty))
             CATransaction.commit()
+        }
+
+        // MARK: - UIScrollViewDelegate (zoom centering)
+
+        /// Centers the canvas content when zoomed out below 1× so the page
+        /// stays centered on screen rather than pinning to the top-left corner.
+        /// This fixes the "can only zoom into the left corner" issue.
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            let boundsSize  = scrollView.bounds.size
+            let contentSize = scrollView.contentSize
+
+            // Horizontal centering: when scaled content is narrower than viewport
+            let xInset = max(0, (boundsSize.width  - contentSize.width)  / 2)
+            // Vertical centering: when scaled content is shorter than viewport
+            let yInset = max(0, (boundsSize.height - contentSize.height) / 2)
+
+            scrollView.contentInset = UIEdgeInsets(
+                top: yInset, left: xInset,
+                bottom: yInset, right: xInset
+            )
+
+            syncBackgroundWithCanvas(scrollView)
         }
     }
 }
@@ -1707,6 +1729,10 @@ private struct PageOverviewGrid: View {
 
     /// Thumbnails are generated asynchronously — keyed by page index.
     @State private var thumbnails: [Int: UIImage] = [:]
+    /// Page index pending deletion confirmation.
+    @State private var pageToDelete: Int?
+    /// Whether the delete confirmation alert is shown.
+    @State private var showDeleteConfirmation = false
 
     private let columns = [
         GridItem(.adaptive(minimum: 160, maximum: 240), spacing: 16)
@@ -1720,6 +1746,28 @@ private struct PageOverviewGrid: View {
                         ForEach(0..<note.pageCount, id: \.self) { index in
                             pageCell(index: index)
                                 .id(index)
+                                .draggable(index) {
+                                    // Drag preview — page number badge
+                                    Text("Page \(index + 1)")
+                                        .font(.caption.bold())
+                                        .padding(8)
+                                        .background(.ultraThinMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                }
+                                .dropDestination(for: Int.self) { items, _ in
+                                    guard let source = items.first, source != index else { return false }
+                                    noteStore.reorderPageInNote(noteID: note.id, from: source, to: index)
+                                    // Adjust current page index after reorder
+                                    if currentPageIndex == source {
+                                        currentPageIndex = index
+                                    } else if source < currentPageIndex && index >= currentPageIndex {
+                                        currentPageIndex -= 1
+                                    } else if source > currentPageIndex && index <= currentPageIndex {
+                                        currentPageIndex += 1
+                                    }
+                                    thumbnails.removeAll()  // Regenerate all thumbnails
+                                    return true
+                                }
                         }
                     }
                     .padding(16)
@@ -1744,6 +1792,26 @@ private struct PageOverviewGrid: View {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel("Add page")
+                }
+            }
+            .alert("Delete Page?", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { pageToDelete = nil }
+                Button("Delete", role: .destructive) {
+                    if let page = pageToDelete {
+                        let wasOnDeletedPage = currentPageIndex == page
+                        noteStore.removePage(from: note.id, at: page)
+                        thumbnails.removeAll()
+                        if wasOnDeletedPage {
+                            currentPageIndex = max(0, min(currentPageIndex, note.pageCount - 2))
+                        } else if page < currentPageIndex {
+                            currentPageIndex -= 1
+                        }
+                        pageToDelete = nil
+                    }
+                }
+            } message: {
+                if let page = pageToDelete {
+                    Text("Page \(page + 1) will be permanently deleted. This cannot be undone.")
                 }
             }
         }
@@ -1794,6 +1862,33 @@ private struct PageOverviewGrid: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Page \(index + 1)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .contextMenu {
+            Button {
+                currentPageIndex = index
+                onDismiss()
+            } label: {
+                Label("Go to Page", systemImage: "arrow.right")
+            }
+
+            Button {
+                if let newIdx = noteStore.duplicatePageInNote(noteID: note.id, pageIndex: index) {
+                    thumbnails.removeAll()
+                    currentPageIndex = newIdx
+                }
+            } label: {
+                Label("Duplicate Page", systemImage: "doc.on.doc")
+            }
+
+            if note.pageCount > 1 {
+                Divider()
+                Button(role: .destructive) {
+                    pageToDelete = index
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete Page", systemImage: "trash")
+                }
+            }
+        }
         .task(id: "\(note.id)-\(index)-\(note.pages.indices.contains(index) ? note.pages[index].count : 0)") {
             await generateThumbnail(for: index)
         }
@@ -1823,10 +1918,6 @@ private struct PageOverviewGrid: View {
             // Scale to thumbnail size (max 240pt wide).
             let maxDimension: CGFloat = 240
             let scale = min(maxDimension / renderRect.width, maxDimension / renderRect.height, 1.0)
-            let targetSize = CGSize(
-                width: ceil(renderRect.width * scale),
-                height: ceil(renderRect.height * scale)
-            )
 
             return drawing.image(from: renderRect, scale: scale * UIScreen.main.scale)
         }.value

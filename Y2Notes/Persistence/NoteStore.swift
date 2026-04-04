@@ -192,6 +192,31 @@ final class NoteStore: ObservableObject {
         isDirty = true
     }
 
+    /// Reorders pages within a note by moving a page from one index to another.
+    func reorderPageInNote(noteID: UUID, from source: Int, to destination: Int) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.indices.contains(source),
+              destination >= 0, destination <= notes[idx].pages.count else { return }
+        let page = notes[idx].pages.remove(at: source)
+        let insertAt = destination > source ? destination - 1 : destination
+        notes[idx].pages.insert(page, at: min(insertAt, notes[idx].pages.count))
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+    }
+
+    /// Duplicates a page within a note, inserting the copy immediately after the original.
+    @discardableResult
+    func duplicatePageInNote(noteID: UUID, pageIndex: Int) -> Int? {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.indices.contains(pageIndex) else { return nil }
+        let copy = notes[idx].pages[pageIndex]
+        let insertIndex = pageIndex + 1
+        notes[idx].pages.insert(copy, at: insertIndex)
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        return insertIndex
+    }
+
     /// Creates a copy of the note inserted directly after the original.
     @discardableResult
     func duplicateNote(id: UUID) -> Note? {
