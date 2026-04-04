@@ -135,6 +135,9 @@
 "Pages.RemovePage"                = "Remove Page";
 "Pages.PreviousPage"              = "Previous Page";
 "Pages.NextPage"                  = "Next Page";
+"Pages.Overview"                  = "Pages";
+"Pages.OverviewHint"              = "Tap to open page overview";
+"Pages.SwipeHint"                 = "Swipe left or right with two fingers to change pages";
 
 /* ── Notebooks ─────────────────────────────────────────────────── */
 

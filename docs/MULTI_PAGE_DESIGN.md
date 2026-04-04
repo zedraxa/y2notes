@@ -146,9 +146,9 @@ This guards against:
 ### Navigation Bar Layout
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  [◄ Prev]      Page 1 of 3      [+ Add]   [Next ►]     │
-└──────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│  [◄ Prev]    [▦ Page 1 of 3]    [+ Add]   [Next ►]           │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 | Control | Action | Disabled When |
@@ -156,9 +156,58 @@ This guards against:
 | ◄ Prev | `currentPageIndex -= 1` | `currentPageIndex <= 0` |
 | Next ► | `currentPageIndex += 1` | `currentPageIndex >= pageCount - 1` |
 | + Add | `noteStore.addPage(to:)` → navigate to new page | Never |
-| Indicator | Shows "Page X of Y" | Read-only |
+| ▦ Page X of Y | Opens page overview grid | Never |
 
 All transitions are animated with `easeInOut(duration: 0.25)`.
+
+### Page Gestures
+
+| Gesture | Touch Count | Action | Conflict Avoidance |
+|---------|-------------|--------|-------------------|
+| Swipe left | 2 fingers | Next page | Single-finger/Pencil reserved for drawing |
+| Swipe right | 2 fingers | Previous page | Single-finger/Pencil reserved for drawing |
+| Pinch in (scale < 0.7) | 2+ fingers | Open page overview grid | Normal zoom uses pinch-out; pinch-in below threshold triggers overview |
+
+Gesture recognizers are attached to the container UIView (not the PKCanvasView) to avoid
+interfering with PencilKit's internal gesture handling. The swipe handlers check `isDrawing`
+and are no-ops mid-stroke.
+
+### Page Overview Grid
+
+The page overview is a full-screen sheet (`PageOverviewGrid`) showing all pages as thumbnails
+in an adaptive `LazyVGrid` (160–240pt columns):
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  Pages                                           [+] Done  │
+├────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────┐  ┌──────────┐  ┌══════════┐  ┌──────────┐  │
+│  │          │  │          │  ║          ║  │          │  │
+│  │  Page 1  │  │  Page 2  │  ║  Page 3  ║  │  Page 4  │  │
+│  │          │  │          │  ║ (active) ║  │          │  │
+│  └──────────┘  └──────────┘  └══════════┘  └──────────┘  │
+│                                                             │
+│  ┌──────────┐  ┌──────────┐                                │
+│  │          │  │          │                                │
+│  │  Page 5  │  │  Page 6  │                                │
+│  │          │  │          │                                │
+│  └──────────┘  └──────────┘                                │
+└────────────────────────────────────────────────────────────┘
+```
+
+Features:
+- Async thumbnail rendering (off main thread, `PKDrawing.image(from:scale:)`)
+- Current page highlighted with accent colour border
+- Tap to jump to any page (dismisses overview)
+- Add page button in toolbar
+- Auto-scrolls to current page on appear
+- VoiceOver: `.isSelected` trait on current page
+
+Three entry points to the overview:
+1. Tap the page indicator button in the navigation bar
+2. Pinch-to-overview gesture (pinch in with 2+ fingers)
+3. Future: keyboard shortcut (not yet implemented)
 
 ---
 

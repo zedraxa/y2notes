@@ -119,6 +119,9 @@
 "Pages.RemovePage"                = "Eliminar Página";
 "Pages.PreviousPage"              = "Página Anterior";
 "Pages.NextPage"                  = "Página Siguiente";
+"Pages.Overview"                  = "Páginas";
+"Pages.OverviewHint"              = "Toca para abrir vista general de páginas";
+"Pages.SwipeHint"                 = "Desliza a la izquierda o derecha con dos dedos para cambiar de página";
 
 /* ── Notebooks ─────────────────────────────────────────────────── */
 

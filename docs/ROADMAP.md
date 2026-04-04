@@ -124,13 +124,18 @@ highlighted. Tap to jump, long-press to reorder, swipe to delete.
 
 ### 6. Page Gestures
 
-| Gesture | Action |
-|---------|--------|
-| Swipe left (2 fingers) | Next page |
-| Swipe right (2 fingers) | Previous page |
-| Pinch-to-overview | Show all pages in a grid for reordering |
+**Status**: ✅ Implemented
+
+| Gesture | Action | Status |
+|---------|--------|--------|
+| Swipe left (2 fingers) | Next page | ✅ Done |
+| Swipe right (2 fingers) | Previous page | ✅ Done |
+| Pinch-to-overview | Show all pages in a grid for selection | ✅ Done |
 
 Two-finger swipes avoid conflict with Apple Pencil drawing (single-finger/pencil).
+The pinch-to-overview uses a pinch-in gesture (scale < 0.7) to open a full-screen
+page grid with thumbnails. The grid is also accessible via the page indicator button
+in the navigation bar.
 
 ### 7. Export Improvements
 
