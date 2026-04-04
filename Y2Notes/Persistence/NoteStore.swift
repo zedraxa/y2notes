@@ -240,9 +240,12 @@ final class NoteStore: ObservableObject {
         // Duplicate the per-page type as well so the copy inherits the same ruling.
         let ptCopy: PageType? = notes[idx].pageTypes.indices.contains(pageIndex)
             ? notes[idx].pageTypes[pageIndex] : nil
-        if insertIndex <= notes[idx].pageTypes.count {
-            notes[idx].pageTypes.insert(ptCopy, at: insertIndex)
+        // Grow pageTypes to match pages length (minus 1 — the new page hasn't been counted yet).
+        // This handles old notes that were saved before per-page pageTypes existed.
+        while notes[idx].pageTypes.count < notes[idx].pages.count - 1 {
+            notes[idx].pageTypes.append(nil)
         }
+        notes[idx].pageTypes.insert(ptCopy, at: min(insertIndex, notes[idx].pageTypes.count))
         notes[idx].modifiedAt = Date()
         isDirty = true
         return insertIndex

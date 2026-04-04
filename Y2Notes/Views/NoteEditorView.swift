@@ -80,7 +80,9 @@ struct NoteEditorView: View {
         return noteStore.notebooks.first { $0.id == id }
     }
 
-    /// Page ruling style: per-page override → note-level override → notebook setting → `.blank` fallback.
+    /// Note-level page ruling fallback: note.pageType → notebook.pageType → .blank.
+    /// This is the default when no per-page override exists.
+    /// Use `effectivePageType(forPage:)` for per-page resolution.
     private var effectivePageType: PageType {
         note.pageType ?? notebook?.pageType ?? .blank
     }

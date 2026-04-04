@@ -840,7 +840,7 @@ final class InkEffectEngine {
         return renderer.image { _ in
             let cx = size / 2
             let path = UIBezierPath()
-            // Round bottom half
+            // Round bottom half — arc from right (angle 0) counterclockwise to left (angle π)
             path.addArc(
                 withCenter: CGPoint(x: cx, y: size * 0.65),
                 radius: size * 0.32,
@@ -848,8 +848,7 @@ final class InkEffectEngine {
                 endAngle: .pi,
                 clockwise: false
             )
-            // Pointed tip at top
-            path.addLine(to: CGPoint(x: cx - size * 0.32, y: size * 0.65))
+            // Pointed tip: quad curve from the arc's end point (left) up to a peak and back to the right
             path.addQuadCurve(to: CGPoint(x: cx + size * 0.32, y: size * 0.65),
                               controlPoint: CGPoint(x: cx, y: 0))
             path.close()
