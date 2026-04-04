@@ -68,6 +68,16 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts as false.
     @Published var hasActiveSelection: Bool = false
 
+    // MARK: - Sticker State
+
+    /// Whether the sticker library bottom sheet is presented.
+    /// **Not persisted** — always starts as false.
+    @Published var isStickerLibraryPresented: Bool = false
+
+    /// The ID of the currently selected sticker on the canvas (for manipulation).
+    /// **Not persisted** — always starts as nil.
+    @Published var activeStickerSelection: UUID?
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.
@@ -99,6 +109,10 @@ final class DrawingToolStore: ObservableObject {
         case .shape:
             // The shape overlay intercepts all input; the canvas uses a pen as fallback.
             return PKInkingTool(.pen, color: inkColor, width: activeWidth)
+        case .sticker:
+            // The sticker overlay handles interaction; canvas uses lasso as fallback
+            // so accidental touches don't create ink strokes.
+            return PKLassoTool()
         }
     }
 

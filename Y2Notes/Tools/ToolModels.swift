@@ -14,6 +14,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     case eraser
     case lasso
     case shape
+    case sticker
 
     var id: String { rawValue }
 
@@ -26,6 +27,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .eraser:       return "Eraser"
         case .lasso:        return "Lasso"
         case .shape:        return "Shape"
+        case .sticker:      return "Sticker"
         }
     }
 
@@ -38,6 +40,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .eraser:       return "eraser"
         case .lasso:        return "lasso"
         case .shape:        return "square.on.circle"
+        case .sticker:      return "face.smiling"
         }
     }
 
@@ -45,7 +48,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     var isInking: Bool {
         switch self {
         case .pen, .pencil, .highlighter, .fountainPen, .shape: return true
-        case .eraser, .lasso: return false
+        case .eraser, .lasso, .sticker: return false
         }
     }
 
@@ -123,6 +126,8 @@ enum ToolbarMode: Equatable {
     case navigating
     /// Media / sticker / attachment insertion flow — toolbar temporarily replaced.
     case inserting
+    /// Sticker tool active — show sticker picker / library.
+    case stickering
 }
 
 // MARK: - Tool Preset
