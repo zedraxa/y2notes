@@ -235,3 +235,15 @@
 "Sync.Syncing"                    = "Syncing…";
 "Sync.Error"                      = "Sync Error";
 "Sync.OfflineQueued"              = "Queued (Offline)";
+
+/* ── Export ────────────────────────────────────────────────────── */
+
+"Export.Export"                   = "Export";
+"Export.ExportPageAsPDF"          = "Export Page as PDF";
+"Export.ExportAllPagesAsPDF"      = "Export All Pages as PDF";
+"Export.ExportPageAsImage"        = "Export Page as Image";
+"Export.ExportNotebookAsPDF"      = "Export Notebook as PDF";
+"Export.Exporting"                = "Exporting…";
+"Export.PDFExportFailed"          = "PDF export failed";
+"Export.ImageExportFailed"        = "Image export failed";
+"Export.HandwritingOCR"           = "Recognising handwriting…";

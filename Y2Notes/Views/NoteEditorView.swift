@@ -62,6 +62,13 @@ struct NoteEditorView: View {
     /// Whether the page overview grid is visible (triggered by pinch-to-overview gesture).
     @State private var showPageOverview = false
 
+    /// Whether the system share sheet is presented for an exported file or image.
+    @State private var showShareSheet = false
+    /// Items forwarded to `UIActivityViewController` when `showShareSheet` is true.
+    @State private var shareItems: [Any] = []
+    /// True while an export render is in progress — disables the export button.
+    @State private var isExporting = false
+
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
@@ -235,6 +242,9 @@ struct NoteEditorView: View {
                 }
                 .accessibilityLabel("Create Flashcard")
 
+                // Export menu — PDF (single page), PDF (all pages), PNG image.
+                exportMenu
+
                 // Draw ↔ Type mode toggle.
                 // "keyboard" switches to text mode; "pencil" returns to drawing mode.
                 Button {
@@ -341,6 +351,9 @@ struct NoteEditorView: View {
                 canvasBackground: canvasBackgroundColor,
                 onDismiss: { showPageOverview = false }
             )
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(activityItems: shareItems)
         }
     }
 
@@ -504,6 +517,115 @@ struct NoteEditorView: View {
     private func refreshUndoRedoState() {
         canUndo = undoManager?.canUndo ?? false
         canRedo = undoManager?.canRedo ?? false
+    }
+
+    // MARK: - Export menu
+
+    /// Toolbar menu that offers PDF and image export options for the current note.
+    private var exportMenu: some View {
+        let safePageIndex: Int = min(currentPageIndex, max(0, note.pageCount - 1))
+        return Menu {
+            Section("Export") {
+                Button {
+                    exportCurrentPageAsPDF(pageIndex: safePageIndex)
+                } label: {
+                    Label("Export Page as PDF", systemImage: "doc.fill")
+                }
+
+                Button {
+                    exportAllPagesAsPDF()
+                } label: {
+                    Label("Export All Pages as PDF", systemImage: "doc.on.doc.fill")
+                }
+
+                Button {
+                    exportCurrentPageAsImage(pageIndex: safePageIndex)
+                } label: {
+                    Label("Export Page as Image", systemImage: "photo")
+                }
+            }
+        } label: {
+            if isExporting {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "square.and.arrow.up")
+            }
+        }
+        .disabled(isExporting)
+        .accessibilityLabel("Export")
+    }
+
+    /// Exports only the current page as a single-page PDF and presents the share sheet.
+    private func exportCurrentPageAsPDF(pageIndex: Int) {
+        guard note.pages.indices.contains(pageIndex) else { return }
+        let pageData = note.pages[pageIndex]
+        let pt = effectivePageType(forPage: pageIndex)
+        let bg = canvasBackgroundColor
+        let title = note.title.isEmpty ? "Note" : note.title
+        isExporting = true
+        Task {
+            let url = await NoteExporter.exportAsPDF(
+                title: "\(title) — Page \(pageIndex + 1)",
+                pages: [pageData],
+                backgroundColor: bg,
+                pageTypes: [pt]
+            )
+            await MainActor.run {
+                isExporting = false
+                if let url {
+                    shareItems = [url]
+                    showShareSheet = true
+                }
+            }
+        }
+    }
+
+    /// Exports every page of the note as a multi-page PDF and presents the share sheet.
+    private func exportAllPagesAsPDF() {
+        let pages = note.pages
+        let pageTypes = (0..<note.pageCount).map { effectivePageType(forPage: $0) }
+        let bg = canvasBackgroundColor
+        let title = note.title.isEmpty ? "Note" : note.title
+        isExporting = true
+        Task {
+            let url = await NoteExporter.exportAsPDF(
+                title: title,
+                pages: pages,
+                backgroundColor: bg,
+                pageTypes: pageTypes
+            )
+            await MainActor.run {
+                isExporting = false
+                if let url {
+                    shareItems = [url]
+                    showShareSheet = true
+                }
+            }
+        }
+    }
+
+    /// Exports the current page as a PNG image and presents the share sheet.
+    private func exportCurrentPageAsImage(pageIndex: Int) {
+        guard note.pages.indices.contains(pageIndex) else { return }
+        let pageData = note.pages[pageIndex]
+        let pt = effectivePageType(forPage: pageIndex)
+        let bg = canvasBackgroundColor
+        isExporting = true
+        Task {
+            let image = await NoteExporter.exportPageAsImage(
+                pageData: pageData,
+                backgroundColor: bg,
+                pageType: pt
+            )
+            await MainActor.run {
+                isExporting = false
+                if let image {
+                    shareItems = [image]
+                    showShareSheet = true
+                }
+            }
+        }
     }
 
     private var titleField: some View {
