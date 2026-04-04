@@ -145,6 +145,11 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts false (normal UI).
     @Published var isFocusModeActive: Bool = false
 
+    /// The currently active ambient environment scene (rain, lo-fi, night).
+    /// `nil` means no ambient scene is active.
+    /// **Not persisted** — always starts nil.
+    @Published var activeAmbientScene: AmbientScene?
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

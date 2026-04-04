@@ -114,6 +114,7 @@
 		AA0001000000000000000135 /* SnapAlignEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000134 /* SnapAlignEffectEngine.swift */; };
 		AA0001000000000000000137 /* PageTransitionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000136 /* PageTransitionEngine.swift */; };
 		AA0001000000000000000139 /* FocusModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000138 /* FocusModeEngine.swift */; };
+		AA000100000000000000013B /* AmbientEnvironmentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013A /* AmbientEnvironmentEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -170,6 +171,7 @@
 		AA0001000000000000000134 /* SnapAlignEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAlignEffectEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000136 /* PageTransitionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTransitionEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000138 /* FocusModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusModeEngine.swift; sourceTree = "<group>"; };
+		AA000100000000000000013A /* AmbientEnvironmentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientEnvironmentEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -430,6 +432,7 @@
 				AA0001000000000000000134 /* SnapAlignEffectEngine.swift */,
 				AA0001000000000000000136 /* PageTransitionEngine.swift */,
 				AA0001000000000000000138 /* FocusModeEngine.swift */,
+				AA000100000000000000013A /* AmbientEnvironmentEngine.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -651,6 +654,7 @@
 				AA0001000000000000000135 /* SnapAlignEffectEngine.swift in Sources */,
 				AA0001000000000000000137 /* PageTransitionEngine.swift in Sources */,
 				AA0001000000000000000139 /* FocusModeEngine.swift in Sources */,
+				AA000100000000000000013B /* AmbientEnvironmentEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

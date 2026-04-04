@@ -182,6 +182,9 @@ struct FloatingToolbarCapsule: View {
             // Focus mode
             focusModeButton
 
+            // Ambient environment scene
+            ambientSceneButton
+
             tier1Separator
 
             // Undo
@@ -382,6 +385,81 @@ struct FloatingToolbarCapsule: View {
         .accessibilityLabel("Focus Mode")
         .accessibilityAddTraits(toolStore.isFocusModeActive
                                 ? .isSelected : [])
+    }
+
+    // MARK: - Ambient Scene Button
+
+    @State private var showAmbientPicker = false
+
+    @ViewBuilder
+    private var ambientSceneButton: some View {
+        Button {
+            if toolStore.activeAmbientScene != nil {
+                // If active, tap deactivates.
+                toolStore.activeAmbientScene = nil
+            } else {
+                showAmbientPicker = true
+            }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: toolStore.activeAmbientScene?.iconName
+                      ?? "cloud.rain")
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(toolStore.activeAmbientScene != nil
+                                     ? Color.accentColor
+                                     : Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(toolStore.activeAmbientScene != nil
+                          ? Color.accentColor : Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Ambient Scene")
+        .accessibilityAddTraits(toolStore.activeAmbientScene != nil
+                                ? .isSelected : [])
+        .popover(isPresented: $showAmbientPicker, arrowEdge: .bottom) {
+            ambientScenePicker
+        }
+    }
+
+    @ViewBuilder
+    private var ambientScenePicker: some View {
+        VStack(spacing: 0) {
+            ForEach(AmbientScene.allCases) { scene in
+                Button {
+                    toolStore.activeAmbientScene = scene
+                    showAmbientPicker = false
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: scene.iconName)
+                            .font(.system(size: 16))
+                            .frame(width: 24)
+                        Text(scene.label)
+                            .font(.subheadline)
+                        Spacer()
+                        if toolStore.activeAmbientScene == scene {
+                            Image(systemName: "checkmark")
+                                .font(.caption.bold())
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color(uiColor: .label))
+
+                if scene != AmbientScene.allCases.last {
+                    Divider().padding(.leading, 48)
+                }
+            }
+        }
+        .frame(width: 160)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Recording Mic Button

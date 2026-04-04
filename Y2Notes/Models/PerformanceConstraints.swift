@@ -163,6 +163,12 @@ enum PerformanceConstraints {
     /// setup overhead < 0.3 ms.
     static let focusModeBudgetMs: Double = 0.3
 
+    /// Ambient environment scene budget per activation.
+    /// Rain streaks / grain texture / warm wash — GPU-composited after
+    /// initial setup.  Total setup overhead < 0.5 ms, steady-state
+    /// zero CPU (repeating `CABasicAnimation`s).
+    static let ambientEnvironmentBudgetMs: Double = 0.5
+
     // MARK: 8. Future — Transcript Search
 
     /// Speech-to-text processing: post-recording only, `.background` QoS.

@@ -369,8 +369,20 @@ struct NoteEditorView: View {
                     .allowsHitTesting(false)
                     .transition(.opacity)
             }
+
+            // Ambient environment scene indicator — a thin tinted
+            // overlay matching the active scene's colour.  The bulk
+            // of the effect (rain streaks, grain, warm wash) is
+            // handled via CALayers by AmbientEnvironmentEngine.
+            if toolStore.activeAmbientScene != nil {
+                ambientSceneOverlay
+                    .zIndex(0.35)  // below focus overlay and toolbars
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }  // end ZStack
         .animation(.easeInOut(duration: 0.35), value: toolStore.isFocusModeActive)
+        .animation(.easeInOut(duration: 0.45), value: toolStore.activeAmbientScene)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showAdvancedPanel)
         .navigationBarTitleDisplayMode(.inline)
         .animation(.spring(duration: 0.25), value: showFindBar)
@@ -488,6 +500,19 @@ struct NoteEditorView: View {
                 toolStore.toolbarOpacity = 1.0
             }
         }
+        .onChange(of: toolStore.activeAmbientScene) { _, scene in
+            // Ambient environment scenes are driven via the Coordinator's
+            // AmbientEnvironmentEngine — all effects are GPU-composited
+            // CALayers added to the editor container layer.
+            //
+            // When an ambient scene becomes active, focus mode is
+            // deactivated (they share toolbar dimming).
+            if scene != nil {
+                if toolStore.isFocusModeActive {
+                    toolStore.isFocusModeActive = false
+                }
+            }
+        }
         // Notification-based fallback to keep undo/redo state in sync even when the
         // canvas delegate fires before the onUndoStateChanged callback is invoked.
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
@@ -519,6 +544,11 @@ struct NoteEditorView: View {
             // Reset focus mode on editor tear-down so state doesn't leak.
             if toolStore.isFocusModeActive {
                 toolStore.isFocusModeActive = false
+                toolStore.toolbarOpacity = 1.0
+            }
+            // Reset ambient scene.
+            if toolStore.activeAmbientScene != nil {
+                toolStore.activeAmbientScene = nil
                 toolStore.toolbarOpacity = 1.0
             }
             noteStore.save()
@@ -962,6 +992,32 @@ struct NoteEditorView: View {
                 endRadius: UIScreen.main.bounds.height * 0.55
             )
             .ignoresSafeArea()
+        }
+    }
+
+    // MARK: - Ambient Scene Overlay
+
+    /// Lightweight SwiftUI tint overlay for the active ambient scene.
+    /// The heavy lifting (rain streaks, grain, warm wash) is handled via
+    /// CALayers in `AmbientEnvironmentEngine` — this overlay just adds
+    /// a subtle colour tint that auto-sizes on rotation.
+    @ViewBuilder
+    private var ambientSceneOverlay: some View {
+        switch toolStore.activeAmbientScene {
+        case .rainStudy:
+            // Cool blue-grey tint.
+            Color(red: 0.6, green: 0.72, blue: 0.88).opacity(0.05)
+                .ignoresSafeArea()
+        case .lofiLight:
+            // Warm amber tint.
+            Color(red: 1.0, green: 0.92, blue: 0.76).opacity(0.04)
+                .ignoresSafeArea()
+        case .nightGrain:
+            // Cool dark blue tint.
+            Color(red: 0.15, green: 0.18, blue: 0.28).opacity(0.06)
+                .ignoresSafeArea()
+        case .none:
+            EmptyView()
         }
     }
 
@@ -1946,6 +2002,9 @@ struct CanvasView: UIViewRepresentable {
 
         /// Focus mode ambient effect engine.
         let focusModeEngine = FocusModeEngine()
+
+        /// Ambient environment scene engine (rain / lo-fi / night grain).
+        let ambientEngine = AmbientEnvironmentEngine()
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
