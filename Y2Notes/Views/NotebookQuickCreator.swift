@@ -11,6 +11,7 @@ struct NotebookQuickCreator: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
+    @State private var description: String = ""
     @State private var cover: NotebookCover = .ocean
     @State private var useCustomCover: Bool = false
     @State private var customCoverData: Data?
@@ -34,6 +35,8 @@ struct NotebookQuickCreator: View {
                     .padding(.top, 20)
 
                 nameField
+
+                descriptionField
 
                 coverStrip
 
@@ -150,6 +153,23 @@ struct NotebookQuickCreator: View {
             .submitLabel(.done)
             .onSubmit { isNameFocused = false }
             .accessibilityLabel("Notebook name")
+    }
+
+    // MARK: - Zone 2b: Description Field
+
+    private var descriptionField: some View {
+        TextField("Add a description…", text: $description, axis: .vertical)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .lineLimit(2...4)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+            .accessibilityLabel("Notebook description")
     }
 
     // MARK: - Zone 3: Cover Strip
@@ -463,6 +483,7 @@ struct NotebookQuickCreator: View {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let nb = noteStore.addNotebook(
             name: trimmed.isEmpty ? "Untitled" : trimmed,
+            description: description.trimmingCharacters(in: .whitespacesAndNewlines),
             cover: cover,
             pageType: pageType,
             pageSize: pageSize,

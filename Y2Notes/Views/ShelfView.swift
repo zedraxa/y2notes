@@ -320,6 +320,16 @@ private struct ShelfSidebarView: View {
                         Image(systemName: "externaldrive.fill")
                     }
                 }
+                if syncEngine.authManager.isAuthenticated {
+                    NavigationLink(destination: GoogleDriveFileBrowserView()) {
+                        Label {
+                            Text("My Drive")
+                        } icon: {
+                            Image(systemName: "folder.fill")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
                 GoogleDriveSyncStatusView()
             }
         }
@@ -799,10 +809,12 @@ struct NoteGridView: View {
                         isCollapsed: collapsedSections.contains(Self.unsectionedSentinel),
                         systemImage: "tray",
                         onToggle: {
-                            if collapsedSections.contains(Self.unsectionedSentinel) {
-                                collapsedSections.remove(Self.unsectionedSentinel)
-                            } else {
-                                collapsedSections.insert(Self.unsectionedSentinel)
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                if collapsedSections.contains(Self.unsectionedSentinel) {
+                                    collapsedSections.remove(Self.unsectionedSentinel)
+                                } else {
+                                    collapsedSections.insert(Self.unsectionedSentinel)
+                                }
                             }
                         }
                     )
@@ -819,6 +831,7 @@ struct NoteGridView: View {
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
 
@@ -845,10 +858,12 @@ struct NoteGridView: View {
                             isCollapsed: collapsedSections.contains(nbSection.id),
                             systemImage: "folder.fill",
                             onToggle: {
-                                if collapsedSections.contains(nbSection.id) {
-                                    collapsedSections.remove(nbSection.id)
-                                } else {
-                                    collapsedSections.insert(nbSection.id)
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    if collapsedSections.contains(nbSection.id) {
+                                        collapsedSections.remove(nbSection.id)
+                                    } else {
+                                        collapsedSections.insert(nbSection.id)
+                                    }
                                 }
                             }
                         )
@@ -886,6 +901,7 @@ struct NoteGridView: View {
                                 }
                                 .padding(.vertical, 16)
                                 .padding(.horizontal, 20)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             } else {
                                 LazyVGrid(columns: columns, spacing: 16) {
                                     ForEach(sectionNotes) { note in
@@ -896,6 +912,7 @@ struct NoteGridView: View {
                                 }
                                 .padding(.horizontal, 20)
                                 .padding(.top, 12)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             }
                         }
                     }
@@ -917,6 +934,7 @@ struct NoteGridView: View {
         }
 
         Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             noteStore.toggleFavorite(id: note.id)
         } label: {
             Label(
@@ -985,6 +1003,7 @@ struct NoteGridView: View {
         Divider()
 
         Button(role: .destructive) {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
             if selectedNoteID == note.id { selectedNoteID = nil }
             noteStore.deleteNotes(ids: [note.id])
         } label: {
@@ -995,6 +1014,7 @@ struct NoteGridView: View {
     /// Quick Note — creates a note instantly with the notebook's paper settings (or blank for unfiled).
     /// GoodNotes equivalent: "Quick Note" from the "+" menu.
     private func quickNote() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         let nbID = notebookIDForSection
         // Inherit paper settings from the notebook when inside one.
         let nb = nbID.flatMap { id in noteStore.notebooks.first { $0.id == id } }
@@ -1364,6 +1384,32 @@ private struct NotebookCoverBadge: View {
     }
 }
 
+// MARK: - Shimmer loading placeholder
+
+private struct ShimmerView: View {
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(uiColor: .systemFill)
+                LinearGradient(
+                    colors: [.clear, Color(uiColor: .secondarySystemBackground).opacity(0.55), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: geo.size.width * 0.55)
+                .offset(x: (geo.size.width * 1.55) * phase - geo.size.width * 0.28)
+            }
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
+                phase = 1
+            }
+        }
+    }
+}
+
 // MARK: - Note card
 
 private struct NoteCardView: View {
@@ -1371,6 +1417,8 @@ private struct NoteCardView: View {
     let isSelected: Bool
 
     @State private var thumbnail: UIImage?
+    @GestureState private var isPressing: Bool = false
+    @State private var selectionFeedback = UISelectionFeedbackGenerator()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1388,8 +1436,7 @@ private struct NoteCardView: View {
                         .font(.system(size: 30, weight: .ultraLight))
                         .foregroundStyle(.quaternary)
                 } else {
-                    ProgressView()
-                        .scaleEffect(0.75)
+                    ShimmerView()
                 }
             }
             .frame(height: 130)
@@ -1427,7 +1474,20 @@ private struct NoteCardView: View {
                     lineWidth: isSelected ? 2 : 0.5
                 )
         )
-        .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
+        .shadow(
+            color: isSelected ? Color.accentColor.opacity(0.28) : .black.opacity(0.06),
+            radius: isSelected ? 10 : 5,
+            y: isSelected ? 0 : 2
+        )
+        .scaleEffect(isPressing ? 0.95 : (isSelected ? 1.02 : 1.0))
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressing)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressing) { _, state, _ in state = true }
+                .onEnded { _ in selectionFeedback.selectionChanged() }
+        )
+        .onAppear { selectionFeedback.prepare() }
         .task(id: note.drawingData) {
             thumbnail = await makeThumbnail(from: note.drawingData)
         }
