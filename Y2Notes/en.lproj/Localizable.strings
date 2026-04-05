@@ -291,6 +291,7 @@
 "CommandPalette.Placeholder"      = "Search actions…";
 "CommandPalette.ClearSearch"      = "Clear search";
 "CommandPalette.NoResults"        = "No matching actions";
+"CommandPalette.TryDifferent"     = "Try different keywords";
 
 /* ── Open Source Credits ──────────────────────────────────────── */
 
@@ -299,3 +300,46 @@
 "Credits.InspirationHeader"       = "Projects That Inspired Us";
 "Credits.PatternsHeader"          = "Design Patterns Adopted";
 "Credits.Footer"                  = "We gratefully acknowledge these projects and the wider open-source community.";
+
+/* ── Tool Expansion ──────────────────────────────────────────── */
+
+"ToolExpansion.PenType"           = "Pen Type";
+"ToolExpansion.Width"             = "Stroke Width";
+"ToolExpansion.Opacity"           = "Opacity";
+"ToolExpansion.EraserWidth"       = "Eraser Width";
+"ToolExpansion.RecentColor"       = "Recent color";
+
+/* ── Widget Editor ───────────────────────────────────────────── */
+
+"WidgetEditor.AddItem"            = "Add Item";
+"WidgetEditor.AddItemHint"        = "Adds a new checklist item";
+"WidgetEditor.ItemChecked"        = "Checked";
+"WidgetEditor.ItemUnchecked"      = "Unchecked";
+"WidgetEditor.ToggleHint"         = "Toggles item completion";
+"WidgetEditor.Priority"           = "Priority: ";
+"WidgetEditor.ResetHint"          = "Resets progress to zero";
+"WidgetEditor.CompleteHint"       = "Sets progress to the goal";
+
+/* ── Bookmarks ───────────────────────────────────────────────── */
+
+"Bookmarks.Title"                 = "Bookmarks";
+"Bookmarks.NoBookmarks"           = "No Bookmarks";
+"Bookmarks.EmptyHint"             = "Tap the bookmark icon on any page to save it here.";
+"Bookmarks.RecentPages"           = "Recent Pages";
+"Bookmarks.NoHistory"             = "No history yet";
+"Bookmarks.Delete"                = "Delete";
+"Bookmarks.ChangeColor"           = "Change color tag";
+"Bookmarks.ColorHint"             = "Cycles through available bookmark colors";
+"Bookmarks.NavigateHint"          = "Navigates to this bookmarked page";
+
+/* ── Theme Picker ────────────────────────────────────────────── */
+
+"ThemePicker.Title"               = "Theme";
+"ThemePicker.AutoSchedule"        = "Auto Schedule";
+"ThemePicker.Day"                 = "Day";
+"ThemePicker.Night"               = "Night";
+
+/* ── Floating Toolbar ────────────────────────────────────────── */
+
+"ToolExpansion.TapToExpand"       = "Tap to expand tool options";
+"ToolExpansion.TapToActivate"     = "Tap to activate tool";
