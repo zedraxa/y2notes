@@ -243,7 +243,7 @@ struct FloatingToolbarCapsule: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
     }
 
     // MARK: - Tier 1 Tool Button
@@ -270,6 +270,10 @@ struct FloatingToolbarCapsule: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tool.displayName)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .accessibilityHint(isActive
+            ? NSLocalizedString("ToolExpansion.TapToExpand", comment: "Tap to expand tool options")
+            : NSLocalizedString("ToolExpansion.TapToActivate", comment: "Tap to activate tool"))
     }
 
     // MARK: - Inspector Group

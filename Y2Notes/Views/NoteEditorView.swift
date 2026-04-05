@@ -2360,6 +2360,20 @@ struct CanvasView: UIViewRepresentable {
             ambientEngine.updateLayout(containerBounds: uiView.bounds)
         }
 
+        // Sync ambient environment engine — activate/deactivate as the
+        // selected scene changes.  The engine owns rain-streak / grain /
+        // warm-wash CALayers and the looping ambient soundscape.
+        let ambientEngine = context.coordinator.ambientEngine
+        if let scene = activeAmbientScene {
+            if ambientEngine.activeScene != scene {
+                // Scene changed (or was nil) — (re-)activate with the new scene.
+                ambientEngine.activate(scene, on: uiView.layer, toolStore: toolStoreForFade ?? DrawingToolStore())
+            }
+            ambientEngine.updateLayout(containerBounds: uiView.bounds)
+        } else if ambientEngine.activeScene != nil {
+            ambientEngine.deactivate(toolStore: toolStoreForFade ?? DrawingToolStore())
+        }
+
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
             engine.syncLayerFrames()
@@ -2459,6 +2473,7 @@ struct CanvasView: UIViewRepresentable {
         var microInteractionEngine: MicroInteractionEngine { effects.microInteractionEngine }
         var snapAlignEffectEngine: SnapAlignEffectEngine { effects.snapAlignEffectEngine }
         var interactionFeedback: InteractionFeedbackEngine { effects.interactionFeedbackEngine }
+
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
