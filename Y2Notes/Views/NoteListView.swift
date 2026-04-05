@@ -34,6 +34,9 @@ struct NoteListView: View {
     @State private var showNotebookWizard = false
     @State private var notesPendingDeletion: IndexSet?
 
+    private let sortFeedback   = UISelectionFeedbackGenerator()
+    private let deleteFeedback = UINotificationFeedbackGenerator()
+
     // Filtered + sorted projection of the store.
     private var displayedNotes: [Note] {
         let source = searchText.isEmpty
@@ -157,6 +160,7 @@ struct NoteListView: View {
         Menu {
             ForEach(NoteSortOrder.allCases, id: \.self) { order in
                 Button {
+                    sortFeedback.selectionChanged()
                     sortOrder = order
                 } label: {
                     if sortOrder == order {
@@ -177,38 +181,11 @@ struct NoteListView: View {
     @ViewBuilder
     private var emptyOverlay: some View {
         if !searchText.isEmpty {
-            VStack(spacing: 12) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.secondary)
-                Text("No notes match \"\(searchText)\"")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+            EmptySearchStateView(query: searchText)
+        } else if noteStore.notes.isEmpty {
+            EmptyLibraryStateView {
+                showNoteCreationSheet = true
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(uiColor: .systemGroupedBackground))
-        } else {
-            VStack(spacing: 16) {
-                Image(systemName: "note.text.badge.plus")
-                    .font(.system(size: 56, weight: .ultraLight))
-                    .foregroundStyle(.secondary)
-                Text("No Notes Yet")
-                    .font(.title2.weight(.medium))
-                Text("Create your first note to get started.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 260)
-                Button {
-                    quickNote()
-                } label: {
-                    Label("Create a Note", systemImage: "square.and.pencil")
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(uiColor: .systemGroupedBackground))
         }
     }
 
@@ -222,8 +199,93 @@ struct NoteListView: View {
     /// `onDelete` passes offsets into `displayedNotes` (filtered/sorted), so we map to IDs
     /// before handing off to the store to avoid index mismatch.
     private func deleteDisplayedNotes(at offsets: IndexSet) {
+        deleteFeedback.notificationOccurred(.warning)
         let ids = offsets.map { displayedNotes[$0].id }
         noteStore.deleteNotes(ids: ids)
+    }
+}
+
+// MARK: - Empty: no search results
+
+private struct EmptySearchStateView: View {
+    let query: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
+            Text("No notes match \"\(query)\"")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemGroupedBackground))
+    }
+}
+
+// MARK: - Empty: no notes at all
+
+private struct EmptyLibraryStateView: View {
+    let onCreateNote: () -> Void
+
+    @State private var iconScale: CGFloat = 0.5
+    @State private var iconOpacity: Double = 0
+    @State private var textOpacity: Double = 0
+    @State private var buttonScale: CGFloat = 0.8
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "pencil.and.scribble")
+                .font(.system(size: 64, weight: .ultraLight))
+                .foregroundStyle(.secondary)
+                .scaleEffect(iconScale)
+                .opacity(iconOpacity)
+
+            VStack(spacing: 8) {
+                Text("No Notes Yet")
+                    .font(.title2.bold())
+                    .foregroundStyle(Color(uiColor: .label))
+                Text("Tap the button below to create your first note.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
+            .opacity(textOpacity)
+
+            Button {
+                onCreateNote()
+            } label: {
+                Label("Create a Note", systemImage: "doc.badge.plus")
+                    .font(.headline)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.accentColor, in: Capsule())
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .scaleEffect(buttonScale)
+            .opacity(textOpacity)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemGroupedBackground))
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1)) {
+                iconScale = 1.0
+                iconOpacity = 1.0
+            }
+            withAnimation(.easeOut(duration: 0.35).delay(0.3)) {
+                textOpacity = 1.0
+            }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.4)) {
+                buttonScale = 1.0
+            }
+        }
     }
 }
 
@@ -233,6 +295,7 @@ private struct NoteRowView: View {
     let note: Note
 
     @State private var thumbnail: UIImage?
+    @State private var isLoadingThumbnail = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -250,7 +313,9 @@ private struct NoteRowView: View {
         .padding(.vertical, 4)
         // Re-generate the thumbnail whenever the drawing data changes.
         .task(id: note.drawingData) {
+            isLoadingThumbnail = true
             thumbnail = await makeThumbnail(from: note.drawingData)
+            isLoadingThumbnail = false
         }
     }
 
@@ -270,6 +335,10 @@ private struct NoteRowView: View {
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .transition(.opacity.animation(.easeIn(duration: 0.2)))
+            } else if isLoadingThumbnail {
+                ShimmerView()
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 Image(systemName: "pencil.and.scribble")
@@ -302,5 +371,39 @@ private struct NoteRowView: View {
                             targetHeight / renderRect.height) * 0.5
             return drawing.image(from: renderRect, scale: scale)
         }.value
+    }
+}
+
+// MARK: - Shimmer skeleton view
+
+/// A horizontal shimmer animation used as a loading placeholder.
+private struct ShimmerView: View {
+    @State private var phase: CGFloat = -1
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color(uiColor: .systemFill), location: 0),
+                            .init(color: Color(uiColor: .tertiarySystemFill).opacity(0.6), location: 0.4),
+                            .init(color: Color(uiColor: .systemFill), location: 1)
+                        ],
+                        startPoint: .init(x: phase, y: 0.5),
+                        endPoint: .init(x: phase + 1, y: 0.5)
+                    )
+                )
+                .frame(width: w)
+        }
+        .onAppear {
+            withAnimation(
+                .linear(duration: 1.2)
+                .repeatForever(autoreverses: false)
+            ) {
+                phase = 1
+            }
+        }
     }
 }

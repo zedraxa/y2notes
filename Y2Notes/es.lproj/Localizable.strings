@@ -261,3 +261,40 @@
 "VersionHistory.Manual"           = "Manual";
 "VersionHistory.PreRestore"       = "Pre-restauración";
 "VersionHistory.Backup"           = "Copia de seguridad";
+
+/* ── General ──────────────────────────────────────────────────── */
+
+"General.Done"                    = "Listo";
+"General.Cancel"                  = "Cancelar";
+
+/* ── Writing Insights ─────────────────────────────────────────── */
+
+"Insights.Title"                  = "Estadísticas de escritura";
+"Insights.TotalNotes"             = "Total de notas";
+"Insights.TotalPages"             = "Total de páginas";
+"Insights.TotalWords"             = "Total de palabras";
+"Insights.Notebooks"              = "Cuadernos";
+"Insights.AvgPages"               = "Págs. promedio / nota";
+"Insights.AvgWords"               = "Palabras promedio / nota";
+"Insights.Streaks"                = "Rachas de escritura";
+"Insights.CurrentStreak"          = "Racha actual";
+"Insights.LongestStreak"          = "Racha más larga";
+"Insights.Activity"               = "Actividad (últimos 90 días)";
+"Insights.ActivitySubtitle"       = "Cada cuadro representa un día — más oscuro significa más ediciones.";
+"Insights.PerNotebook"            = "Por cuaderno";
+"Insights.NoNotebooks"            = "Aún no hay cuadernos. Crea uno para ver estadísticas.";
+
+/* ── Command Palette ──────────────────────────────────────────── */
+
+"CommandPalette.Title"            = "Acciones rápidas";
+"CommandPalette.Placeholder"      = "Buscar acciones…";
+"CommandPalette.ClearSearch"      = "Borrar búsqueda";
+"CommandPalette.NoResults"        = "Sin acciones coincidentes";
+
+/* ── Open Source Credits ──────────────────────────────────────── */
+
+"Credits.Title"                   = "Inspiraciones de código abierto";
+"Credits.Intro"                   = "Y2Notes está construido completamente con frameworks nativos de Apple. No se incluyen bibliotecas de terceros. Los siguientes proyectos y patrones de código abierto inspiraron funciones y decisiones de diseño.";
+"Credits.InspirationHeader"       = "Proyectos que nos inspiraron";
+"Credits.PatternsHeader"          = "Patrones de diseño adoptados";
+"Credits.Footer"                  = "Agradecemos a estos proyectos y a la comunidad de código abierto.";

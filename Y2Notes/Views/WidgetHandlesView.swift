@@ -4,8 +4,11 @@ import SwiftUI
 
 /// Actions dispatched from the widget action bar.
 enum WidgetAction {
+    case edit
     case duplicate
     case toggleLock
+    case bringForward
+    case sendBack
     case delete
 }
 
@@ -20,6 +23,13 @@ struct WidgetHandlesView: View {
     var body: some View {
         HStack(spacing: 4) {
             actionButton(
+                icon: "pencil",
+                label: "Edit"
+            ) { onAction(.edit) }
+
+            actionSeparator
+
+            actionButton(
                 icon: "plus.square.on.square",
                 label: "Copy"
             ) { onAction(.duplicate) }
@@ -28,6 +38,16 @@ struct WidgetHandlesView: View {
                 icon: widget.isLocked ? "lock.fill" : "lock.open",
                 label: widget.isLocked ? "Unlock" : "Lock"
             ) { onAction(.toggleLock) }
+
+            actionButton(
+                icon: "square.3.layers.3d.top.filled",
+                label: "Forward"
+            ) { onAction(.bringForward) }
+
+            actionButton(
+                icon: "square.3.layers.3d.bottom.filled",
+                label: "Back"
+            ) { onAction(.sendBack) }
 
             actionSeparator
 
