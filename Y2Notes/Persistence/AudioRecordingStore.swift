@@ -126,6 +126,9 @@ final class AudioRecordingStore: ObservableObject {
     /// Metering timer for audio level visualisation during recording (~10 Hz).
     private var meteringTimer: Timer?
 
+    /// Tracks whether the audio session has been configured to avoid redundant setup.
+    private var isAudioSessionConfigured = false
+
     /// The storage manager handles file layout, autosave, recovery, and compression.
     private let storageManager = AudioStorageManager.shared
 
@@ -195,10 +198,12 @@ final class AudioRecordingStore: ObservableObject {
     // MARK: - Audio Session Configuration
 
     private func configureAudioSession() {
+        guard !isAudioSessionConfigured else { return }
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true)
+            isAudioSessionConfigured = true
         } catch {
             print("[AudioRecordingStore] Failed to configure AVAudioSession: \(error)")
         }
