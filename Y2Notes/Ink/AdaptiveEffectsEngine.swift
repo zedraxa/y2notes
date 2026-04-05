@@ -60,6 +60,10 @@ enum EffectIntensity: Int, Comparable, CaseIterable {
 
     /// Whether study-mode feedback effects (heading glow, checklist pulse) should run.
     var allowsStudyMode: Bool { self >= .reduced }
+
+    /// Whether interaction feedback visuals (flash, scale pulse, border highlight) should run.
+    /// Haptic feedback is unaffected — it always fires.
+    var allowsInteractionFeedback: Bool { self >= .reduced }
 }
 
 // MARK: - Adaptive Effects Engine
@@ -114,6 +118,11 @@ final class AdaptiveEffectsEngine: ObservableObject {
         didSet { reevaluate() }
     }
 
+    /// Current thermal state of the device.  Updated via notification.
+    private var thermalState: ProcessInfo.ThermalState = .nominal {
+        didSet { reevaluate() }
+    }
+
     // MARK: - Thresholds
 
     private enum Thresholds {
@@ -138,20 +147,30 @@ final class AdaptiveEffectsEngine: ObservableObject {
         /// Smoothing factor for exponential moving average (0–1).
         /// Lower = smoother / slower to react.
         static let velocitySmoothingAlpha: Double = 0.3
+
+        /// Thermal state at which effects begin reducing.
+        /// `.fair` means the device is warm but not throttling yet.
+        static let thermalReduceState: ProcessInfo.ThermalState = .fair
+
+        /// Thermal state at which effects go minimal.
+        /// `.serious` means the device is approaching throttling.
+        static let thermalMinimalState: ProcessInfo.ThermalState = .serious
     }
 
     // MARK: - Stroke Timing
 
     private var lastStrokeTimestamp: CFTimeInterval = 0
 
-    // MARK: - Low Power Mode Observation
+    // MARK: - Low Power Mode & Thermal State Observation
 
     private var powerStateObserver: NSObjectProtocol?
+    private var thermalStateObserver: NSObjectProtocol?
 
     // MARK: - Init
 
     init() {
         isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+        thermalState = ProcessInfo.processInfo.thermalState
 
         powerStateObserver = NotificationCenter.default.addObserver(
             forName: .NSProcessInfoPowerStateDidChange,
@@ -162,10 +181,23 @@ final class AdaptiveEffectsEngine: ObservableObject {
                 self?.isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
             }
         }
+
+        thermalStateObserver = NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.thermalState = ProcessInfo.processInfo.thermalState
+            }
+        }
     }
 
     deinit {
         if let observer = powerStateObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = thermalStateObserver {
             NotificationCenter.default.removeObserver(observer)
         }
     }
@@ -202,34 +234,42 @@ final class AdaptiveEffectsEngine: ObservableObject {
     /// Recomputes `intensity` from all current signals.
     ///
     /// Priority order (highest priority wins lowest intensity):
-    /// 1. Low-power mode
-    /// 2. Extreme zoom-out
-    /// 3. Very fast writing
-    /// 4. Large notebook / complex page
-    /// 5. Moderate zoom-out or fast writing
+    /// 1. Thermal state (device overheating)
+    /// 2. Low-power mode
+    /// 3. Extreme zoom-out
+    /// 4. Very fast writing
+    /// 5. Large notebook / complex page
+    /// 6. Moderate zoom-out or fast writing
     private func reevaluate() {
         var proposed: EffectIntensity = .full
 
-        // 1. Low-power mode — at least `.reduced`
+        // 1. Thermal state — highest priority; critical thermal → minimal
+        if thermalState.rawValue >= Thresholds.thermalMinimalState.rawValue {
+            proposed = min(proposed, .minimal)
+        } else if thermalState.rawValue >= Thresholds.thermalReduceState.rawValue {
+            proposed = min(proposed, .reduced)
+        }
+
+        // 2. Low-power mode — at least `.reduced`
         if isLowPowerMode {
             proposed = min(proposed, .reduced)
         }
 
-        // 2. Extreme zoom-out → minimal
+        // 3. Extreme zoom-out → minimal
         if zoomScale < Thresholds.zoomOutMinimal {
             proposed = min(proposed, .minimal)
         } else if zoomScale < Thresholds.zoomOutCutoff {
             proposed = min(proposed, .reduced)
         }
 
-        // 3. Writing velocity
+        // 4. Writing velocity
         if smoothedStrokeRate > Thresholds.veryFastWritingRate {
             proposed = min(proposed, .minimal)
         } else if smoothedStrokeRate > Thresholds.fastWritingRate {
             proposed = min(proposed, .reduced)
         }
 
-        // 4. Notebook complexity
+        // 5. Notebook complexity
         if pageCount > Thresholds.largeNotebookPages
             && currentPageStrokeCount > Thresholds.complexPageStrokes {
             proposed = min(proposed, .minimal)

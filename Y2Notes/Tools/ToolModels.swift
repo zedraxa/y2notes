@@ -65,6 +65,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
 // MARK: - Eraser Mode
 
 /// Whether the eraser removes individual pixels or entire strokes.
+/// Derived from the active `EraserSubType` — do not store this separately.
 enum EraserMode: String, CaseIterable, Codable {
     case bitmap
     case vector
@@ -80,6 +81,99 @@ enum EraserMode: String, CaseIterable, Codable {
         switch self {
         case .bitmap: return .bitmap
         case .vector: return .vector
+        }
+    }
+}
+
+// MARK: - Eraser Sub-Type
+
+/// Nuanced eraser personality that controls the erasing behaviour, default tip
+/// size, and cursor ring appearance.  Pixel-mode sub-types differ in tip size;
+/// vector-mode sub-types differ in their hit-area / semantic intent.
+enum EraserSubType: String, CaseIterable, Codable {
+    /// Tiny pixel eraser — ideal for fine-detail corrections (8 pt).
+    case precise
+    /// Standard pixel eraser — everyday general-purpose use (20 pt).
+    case standard
+    /// Wide chisel pixel eraser — sweeps away large ink areas quickly (44 pt).
+    case chisel
+    /// Full-stroke vector eraser — removes an entire PencilKit stroke on contact.
+    case stroke
+    /// Smart vector eraser — vector removal with an enlarged visual hit-area
+    /// cursor to make it easy to target nearby strokes (40 pt cursor).
+    case smart
+
+    // MARK: Display
+
+    var displayName: String {
+        switch self {
+        case .precise:  return "Precise"
+        case .standard: return "Standard"
+        case .chisel:   return "Chisel"
+        case .stroke:   return "Stroke"
+        case .smart:    return "Smart"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .precise:  return "eraser"
+        case .standard: return "eraser.fill"
+        case .chisel:   return "rectangle.and.pencil.and.ellipsis"
+        case .stroke:   return "scribble.variable"
+        case .smart:    return "wand.and.sparkles"
+        }
+    }
+
+    // MARK: Behaviour
+
+    /// The underlying PencilKit eraser mode this sub-type uses.
+    var eraserMode: EraserMode {
+        switch self {
+        case .precise, .standard, .chisel: return .bitmap
+        case .stroke, .smart:              return .vector
+        }
+    }
+
+    /// Tip width in points — used both to construct `PKEraserTool` (bitmap modes
+    /// only; vector mode ignores width) and to size the cursor ring overlay.
+    var defaultWidth: CGFloat {
+        switch self {
+        case .precise:  return 8
+        case .standard: return 20
+        case .chisel:   return 44
+        case .stroke:   return 20
+        case .smart:    return 40
+        }
+    }
+
+    /// Minimum adjustable width for this sub-type.
+    var minWidth: CGFloat {
+        switch self {
+        case .precise:  return 4
+        case .standard: return 8
+        case .chisel:   return 20
+        case .stroke:   return 10
+        case .smart:    return 20
+        }
+    }
+
+    /// Maximum adjustable width for this sub-type.
+    var maxWidth: CGFloat {
+        switch self {
+        case .precise:  return 16
+        case .standard: return 40
+        case .chisel:   return 80
+        case .stroke:   return 40
+        case .smart:    return 80
+        }
+    }
+
+    /// True for sub-types where a user-adjustable width slider makes sense.
+    var supportsWidthAdjustment: Bool {
+        switch self {
+        case .precise, .standard, .chisel: return true
+        case .stroke, .smart:              return false
         }
     }
 }
