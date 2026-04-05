@@ -296,8 +296,9 @@ struct ParticlePhysics: Equatable {
     /// How much writing velocity widens the particle emission cone.
     ///
     /// At zero nib velocity the emission uses its base cone.  As the nib
-    /// moves faster the cone widens by up to this many radians.  Gives
-    /// fast strokes a wider, more energetic spray.  Default 0 (no velocity influence).
+    /// moves faster (up to `VelocityThicknessParams.velocityCeiling`)
+    /// the cone widens by up to this many radians.  Gives fast strokes
+    /// a wider, more energetic spray.  Default 0 (no velocity influence).
     var velocitySpawnSpread: CGFloat = 0
 
     // ── Derived helpers ─────────────────────────────────────────────────
@@ -316,20 +317,47 @@ struct ParticlePhysics: Equatable {
 
     // MARK: Named presets
 
+    /// Mid-flame physics — the main visible orange body of the fire.
     static let firePhysics = ParticlePhysics(
-        gravity: -120,        // flames rise
+        gravity: -110,        // flames rise (slightly less than core)
         wind: 0,
-        turbulence: 35,       // flickering
-        drag: 0.92,
+        turbulence: 50,       // more organic flickering
+        drag: 0.90,
         bounceOffBounds: false,
         bounciness: 0,
-        spinRange: 2.0,
+        spinRange: 1.8,
         fadeOut: true,
         mass: 0.6,            // light — flames are buoyant
         attractorStrength: 0.15, // gentle inward pull keeps flames near the nib
         noiseFrequency: 8.0,  // rapid flicker noise
         noiseAmplitude: 12.0, // moderate displacement for realistic flicker
         velocitySpawnSpread: .pi / 6  // fast strokes fan flames outward
+    )
+
+    /// Core-flame physics — the bright inner column, hottest and fastest rising.
+    static let fireCorePhysics = ParticlePhysics(
+        gravity: -190,        // hottest core shoots upward fastest
+        wind: 0,
+        turbulence: 22,       // tight columnar spread
+        drag: 0.95,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.0,
+        fadeOut: true
+    )
+
+    /// Ember physics — occasional bright sparks that scatter outward then fall.
+    /// Embers are launched upward by initial velocity; positive gravity decelerates
+    /// them and then pulls them downward — net result: rise then fall trajectory.
+    static let fireEmberPhysics = ParticlePhysics(
+        gravity: 55,          // embers rise on initial velocity then fall with gravity
+        wind: 0,
+        turbulence: 70,       // chaotic outward scatter
+        drag: 0.80,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 4.5,
+        fadeOut: true
     )
 
     static let sparklePhysics = ParticlePhysics(
@@ -477,42 +505,6 @@ struct ParticlePhysics: Equatable {
         velocitySpawnSpread: .pi / 3  // fast strokes create wide splatter
     )
 
-    // MARK: Distinct per-layer presets
-
-    /// Core flame layer — high-velocity rising particles with noise modulation.
-    static let fireCorePhysics = ParticlePhysics(
-        gravity: -140,        // flames rise strongly
-        wind: 0,
-        turbulence: 30,       // natural flicker
-        drag: 0.91,
-        bounceOffBounds: false,
-        bounciness: 0,
-        spinRange: 1.8,
-        fadeOut: true,
-        mass: 0.8,            // lighter → gravity amplified less, rises faster
-        attractorStrength: 0.10,
-        noiseFrequency: 2.5,  // rapid noise bursts for flame dancing
-        noiseAmplitude: 12,
-        velocitySpawnSpread: .pi / 8  // fast strokes fan flames slightly outward
-    )
-
-    /// Ember / mid-flame layer — slower, wider spread with gentle oscillation.
-    static let fireEmberPhysics = ParticlePhysics(
-        gravity: -55,         // embers rise, but slower than core
-        wind: 4,              // slight lateral drift
-        turbulence: 55,       // wide chaotic scatter
-        drag: 0.89,
-        bounceOffBounds: false,
-        bounciness: 0,
-        spinRange: 3.5,
-        fadeOut: true,
-        mass: 1.2,            // heavier embers pulled back by gravity sooner
-        attractorStrength: -0.2,
-        noiseFrequency: 1.8,
-        noiseAmplitude: 18,
-        velocitySpawnSpread: .pi / 5  // wider spray for fast strokes
-    )
-
     /// Sheen core layer — rising diamond particles with rapid hue cycling.
     static let sheenCorePhysics = ParticlePhysics(
         gravity: -18,         // core diamonds float upward
@@ -546,6 +538,7 @@ struct ParticlePhysics: Equatable {
         noiseFrequency: 1.5,
         noiseAmplitude: 20,
         velocitySpawnSpread: .pi / 4  // wide dust cloud on fast strokes
+    )
     )
 }
 

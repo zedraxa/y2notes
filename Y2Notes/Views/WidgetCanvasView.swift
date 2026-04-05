@@ -23,7 +23,12 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - Public State
 
-    var widgets: [NoteWidget] = [] { didSet { if !renderingPaused { setNeedsDisplay() } } }
+    var widgets: [NoteWidget] = [] {
+        didSet {
+            if !renderingPaused { setNeedsDisplay() }
+            detectCompletionTransitions()
+        }
+    }
     var selectedWidgetID: UUID? { didSet { setNeedsDisplay() } }
     var renderingPaused: Bool = false
 
@@ -32,6 +37,19 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
     var onSelectionChanged: ((UUID?) -> Void)?
     var onWidgetTransformed: ((NoteWidget) -> Void)?
     var onWidgetsChanged: (([NoteWidget]) -> Void)?
+
+    /// Fired when a checklist widget transitions to all-items-checked.
+    /// Parameters: (widget ID, widget centre point in canvas coordinates).
+    var onChecklistCompleted: ((UUID, CGPoint) -> Void)?
+    /// Fired when a progress-tracker widget reaches its goal (current ≥ total).
+    /// Parameters: (widget ID, widget centre point in canvas coordinates).
+    var onTimerCompleted: ((UUID, CGPoint) -> Void)?
+
+    /// Tracks which checklist widgets were already complete on the last
+    /// update, so we only fire the callback on the *transition* to complete.
+    private var previouslyCompletedChecklists: Set<UUID> = []
+    /// Same for progress trackers.
+    private var previouslyCompletedTrackers: Set<UUID> = []
 
     // MARK: - Private State
 
@@ -1011,5 +1029,41 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
     func updateWidgets(for pageWidgets: [NoteWidget]) {
         self.widgets = pageWidgets
         setNeedsDisplay()
+    }
+
+    // MARK: - Completion Detection
+
+    /// Detects checklist/progress-tracker completion transitions and fires
+    /// the appropriate callbacks.  Only fires on the *first* observation of
+    /// a widget becoming complete (not on every update while it stays complete).
+    private func detectCompletionTransitions() {
+        var nowCompleteChecklists = Set<UUID>()
+        var nowCompleteTrackers = Set<UUID>()
+
+        for widget in widgets {
+            let center = widget.frame.position
+
+            switch widget.payload {
+            case .checklist(_, let items):
+                if !items.isEmpty && items.allSatisfy({ $0.isChecked }) {
+                    nowCompleteChecklists.insert(widget.id)
+                    if !previouslyCompletedChecklists.contains(widget.id) {
+                        onChecklistCompleted?(widget.id, center)
+                    }
+                }
+            case .progressTracker(_, let current, let total):
+                if total > 0 && current >= total {
+                    nowCompleteTrackers.insert(widget.id)
+                    if !previouslyCompletedTrackers.contains(widget.id) {
+                        onTimerCompleted?(widget.id, center)
+                    }
+                }
+            default:
+                break
+            }
+        }
+
+        previouslyCompletedChecklists = nowCompleteChecklists
+        previouslyCompletedTrackers = nowCompleteTrackers
     }
 }

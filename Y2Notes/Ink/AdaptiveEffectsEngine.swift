@@ -167,6 +167,7 @@ final class AdaptiveEffectsEngine: ObservableObject {
     // MARK: - Low Power Mode Observation
 
     private var powerStateObserver: NSObjectProtocol?
+    private var thermalStateObserver: NSObjectProtocol?
 
     // MARK: - Init
 
@@ -210,6 +211,9 @@ final class AdaptiveEffectsEngine: ObservableObject {
             NotificationCenter.default.removeObserver(observer)
         }
         if let observer = powerStateObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = thermalStateObserver {
             NotificationCenter.default.removeObserver(observer)
         }
     }

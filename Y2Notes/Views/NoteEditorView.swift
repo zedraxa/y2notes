@@ -1810,6 +1810,14 @@ struct CanvasView: UIViewRepresentable {
         widgetCanvas.onWidgetsChanged = { widgets in
             context.coordinator.handleWidgetsChanged(widgets)
         }
+        // Study mode: fire checklist completion animation.
+        widgetCanvas.onChecklistCompleted = { _, center in
+            context.coordinator.studyModeEngine.checklistComplete(at: center)
+        }
+        // Study mode: fire timer/progress completion animation.
+        widgetCanvas.onTimerCompleted = { _, _ in
+            context.coordinator.studyModeEngine.timerComplete()
+        }
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
         container.addSubview(widgetCanvas)
@@ -1883,9 +1891,7 @@ struct CanvasView: UIViewRepresentable {
         engine.attach(to: container)
         context.coordinator.effectEngine = engine
 
-        // ── Interactive two-finger page pan (replaces discrete swipe) ─────────
-        // Two-finger pan follows the user's fingers in real time for a tactile
-        // page-turn feel. Requires two touches to avoid conflict with drawing.
+
         let pagePan = UIPanGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handlePagePan(_:))
@@ -2047,11 +2053,13 @@ struct CanvasView: UIViewRepresentable {
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
-        // Sync adaptive effects engine with current note complexity.
-        context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
-        // Keep coordinator page state in sync for interactive gesture decisions.
+        // Sync page boundary info so the page-pan gesture can reject out-of-range drags.
         context.coordinator.coordinatorPageIndex = pageIndex
         context.coordinator.coordinatorPageCount = pageCount
+
+        // Sync adaptive effects engine with current note complexity.
+        context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
+
         // Propagate current intensity to canvas sub-views (coordinator
         // handles its own sub-engines automatically via Combine).
         let intensity = context.coordinator.adaptiveEffectsEngine.intensity

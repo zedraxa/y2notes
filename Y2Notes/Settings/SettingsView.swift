@@ -23,6 +23,7 @@ struct SettingsView: View {
                 appearanceSection
                 documentDefaultsSection
                 toolPreferencesSection
+                effectsSection
                 accessibilitySection
                 aboutSection
                 resetSection
@@ -176,6 +177,26 @@ struct SettingsView: View {
             .accessibilityLabel("Pencil-only drawing. When enabled, finger input pans and zooms instead of drawing.")
         } header: {
             Text("Tool Preferences")
+        }
+    }
+
+    // MARK: - Ink Effects
+
+    private var effectsSection: some View {
+        Section {
+            Toggle(isOn: $toolStore.isMagicModeActive) {
+                Label("Magic Mode", systemImage: "sparkles")
+            }
+            .accessibilityLabel("Magic Mode. Adds writing particles, keyword glow, and underline highlight animation.")
+
+            Toggle(isOn: $toolStore.isStudyModeActive) {
+                Label("Study Mode", systemImage: "graduationcap")
+            }
+            .accessibilityLabel("Study Mode. Adds heading glow, checklist completion animation, and timer pulse.")
+        } header: {
+            Text("Ink Effects")
+        } footer: {
+            Text("Magic Mode adds subtle sparkle particles while writing. Study Mode provides satisfying feedback for headings, completed checklists, and timers.")
         }
     }
 
