@@ -390,3 +390,6 @@
 "TextStyle.BorderColour"          = "Color de borde";
 "TextStyle.Thickness"             = "Grosor";
 "TextStyle.Corners"               = "Esquinas";
+
+// MARK: - Editor Actions
+"Editor.StraightenLine"           = "Enderezar línea";

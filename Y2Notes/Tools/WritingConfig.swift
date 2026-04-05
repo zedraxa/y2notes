@@ -230,6 +230,22 @@ enum WritingConfig {
     /// Opacity the toolbar restores to after drawing ends.
     static let toolbarFullOpacity: Double = 1.0
 
+    // MARK: - Hold-to-Straighten
+
+    /// Duration (seconds) the pen must be held still at the end of a stroke
+    /// for the stroke to be automatically replaced with a clean straight line.
+    /// Matches Apple Notes' "draw and hold" timing.
+    static let holdToStraightenDelay: TimeInterval = 0.8
+
+    /// Minimum stroke length (points in canvas coordinates) required before
+    /// hold-to-straighten activates. Short taps and dots are left untouched.
+    static let holdToStraightenMinLength: CGFloat = 15
+
+    /// Maximum number of control points used when rebuilding a stroke as a
+    /// straight line. Capped to keep the point cloud lightweight; PencilKit
+    /// interpolates between control points, so 40 is more than sufficient.
+    static let holdToStraightenMaxPoints: Int = 40
+
     // MARK: - Transition Effects
 
     /// Duration of the crossfade animation when switching between tabs.

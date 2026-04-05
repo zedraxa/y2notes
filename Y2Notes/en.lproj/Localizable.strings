@@ -391,3 +391,6 @@
 "TextStyle.BorderColour"          = "Border Colour";
 "TextStyle.Thickness"             = "Thickness";
 "TextStyle.Corners"               = "Corners";
+
+// MARK: - Editor Actions
+"Editor.StraightenLine"           = "Straighten Line";
