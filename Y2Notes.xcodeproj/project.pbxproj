@@ -121,6 +121,11 @@
 		AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000142 /* ReduceMotionObserver.swift */; };
 		AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000144 /* EffectsCoordinator.swift */; };
 		AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000146 /* WritingEffectsPipeline.swift */; };
+		AA0001000000000000000149 /* WritingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* WritingInsights.swift */; };
+		AA000100000000000000014B /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014A /* QuickAction.swift */; };
+		AA000100000000000000014D /* WritingInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014C /* WritingInsightsView.swift */; };
+		AA000100000000000000014F /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014E /* CommandPaletteView.swift */; };
+		AA0001000000000000000151 /* OpenSourceCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000150 /* OpenSourceCreditsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -184,6 +189,11 @@
 		AA0001000000000000000142 /* ReduceMotionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReduceMotionObserver.swift; sourceTree = "<group>"; };
 		AA0001000000000000000144 /* EffectsCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectsCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000146 /* WritingEffectsPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectsPipeline.swift; sourceTree = "<group>"; };
+		AA0001000000000000000148 /* WritingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsights.swift; sourceTree = "<group>"; };
+		AA000100000000000000014A /* QuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAction.swift; sourceTree = "<group>"; };
+		AA000100000000000000014C /* WritingInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsightsView.swift; sourceTree = "<group>"; };
+		AA000100000000000000014E /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000150 /* OpenSourceCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSourceCreditsView.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -313,6 +323,8 @@
 				AA0001000000000000000120 /* SnapshotModel.swift */,
 				AA0001000000000000000126 /* WidgetModel.swift */,
 				AA000100000000000000012E /* PageRegion.swift */,
+				AA0001000000000000000148 /* WritingInsights.swift */,
+				AA000100000000000000014A /* QuickAction.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -360,6 +372,8 @@
 				AA0001000000000000000128 /* WidgetCanvasView.swift */,
 				AA000100000000000000012A /* WidgetHandlesView.swift */,
 				AA000100000000000000012C /* WidgetPickerView.swift */,
+				AA000100000000000000014C /* WritingInsightsView.swift */,
+				AA000100000000000000014E /* CommandPaletteView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -470,6 +484,7 @@
 				AA00010000000000000000A7 /* AppSettingsStore.swift */,
 				AA00010000000000000000A9 /* SettingsView.swift */,
 				AA00010000000000000000AB /* DiagnosticsView.swift */,
+				AA0001000000000000000150 /* OpenSourceCreditsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -679,6 +694,11 @@
 				AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */,
 				AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */,
 				AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */,
+				AA0001000000000000000149 /* WritingInsights.swift in Sources */,
+				AA000100000000000000014B /* QuickAction.swift in Sources */,
+				AA000100000000000000014D /* WritingInsightsView.swift in Sources */,
+				AA000100000000000000014F /* CommandPaletteView.swift in Sources */,
+				AA0001000000000000000151 /* OpenSourceCreditsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

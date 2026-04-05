@@ -16,6 +16,8 @@ struct SettingsView: View {
 
     @State private var showDiagnostics = false
     @State private var showResetConfirmation = false
+    @State private var showWritingInsights = false
+    @State private var showOpenSourceCredits = false
 
     var body: some View {
         NavigationStack {
@@ -24,6 +26,7 @@ struct SettingsView: View {
                 documentDefaultsSection
                 toolPreferencesSection
                 accessibilitySection
+                insightsSection
                 aboutSection
             }
             .navigationTitle("Settings")
@@ -34,6 +37,12 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showDiagnostics) {
                 DiagnosticsView()
+            }
+            .sheet(isPresented: $showWritingInsights) {
+                WritingInsightsView()
+            }
+            .sheet(isPresented: $showOpenSourceCredits) {
+                OpenSourceCreditsView()
             }
             .confirmationDialog(
                 "Reset All Settings",
@@ -190,6 +199,23 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Insights
+
+    private var insightsSection: some View {
+        Section {
+            Button {
+                showWritingInsights = true
+            } label: {
+                Label("Writing Insights", systemImage: "chart.bar.xaxis")
+            }
+            .accessibilityLabel("Open writing insights dashboard")
+        } header: {
+            Text("Insights")
+        } footer: {
+            Text("View writing statistics, streaks, and activity inspired by open-source analytics tools.")
+        }
+    }
+
     // MARK: - About & Support
 
     private var aboutSection: some View {
@@ -208,6 +234,13 @@ struct SettingsView: View {
                 Label("Diagnostics & Support", systemImage: "wrench.and.screwdriver")
             }
             .accessibilityLabel("Open diagnostics and support")
+
+            Button {
+                showOpenSourceCredits = true
+            } label: {
+                Label("Open Source Inspirations", systemImage: "heart.text.square")
+            }
+            .accessibilityLabel("View open source inspirations and credits")
 
             Button(role: .destructive) {
                 showResetConfirmation = true
