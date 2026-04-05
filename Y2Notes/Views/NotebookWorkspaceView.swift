@@ -116,7 +116,7 @@ struct NotebookWorkspaceView: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 36, weight: .thin))
                 .foregroundStyle(.tertiary)
-            Text(""\(tab.displayName)" was deleted")
+            Text("\"\(tab.displayName)\" was deleted")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
