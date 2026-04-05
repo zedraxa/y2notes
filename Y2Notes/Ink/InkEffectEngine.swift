@@ -312,9 +312,21 @@ final class InkEffectEngine {
 
     // MARK: - Private: Fire (multi-layer physics-driven)
 
+    private enum FireTuning {
+        /// Hard cap on fire particles used when computing the per-tier budget.
+        /// Keeps fire feeling visually dense regardless of tier ceiling.
+        static let maxParticles: Int = 60
+        /// Fraction of the budget emitted by the bright inner core flame.
+        static let coreBudgetFraction: Float = 0.28
+        /// Fraction of the budget emitted by the main orange mid-flame body.
+        static let midBudgetFraction: Float = 0.62
+        /// Fraction of the budget emitted by rare ember sparks (sum = 1.00).
+        static let emberBudgetFraction: Float = 0.10
+    }
+
     private func setupFireEmitter(color: UIColor) {
         // Calculate the per-layer budget once so cell fractions correctly sum to ≤ 1×budget.
-        let budget = Float(min(tier.maxParticles, 60))
+        let budget = Float(min(tier.maxParticles, FireTuning.maxParticles))
         emitterLayer.emitterShape = .point
         emitterLayer.emitterSize  = CGSize(width: 4, height: 4)
         emitterLayer.isHidden     = false
@@ -331,7 +343,7 @@ final class InkEffectEngine {
     private func makeCoreFlameCell(budget: Float) -> CAEmitterCell {
         let physics = ParticlePhysics.fireCorePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = budget * 0.28
+        cell.birthRate         = budget * FireTuning.coreBudgetFraction
         cell.lifetime          = 0.28
         cell.lifetimeRange     = 0.12
         cell.velocity          = 95
@@ -358,7 +370,7 @@ final class InkEffectEngine {
     private func makeMidFlameCell(color: UIColor, budget: Float) -> CAEmitterCell {
         let physics = ParticlePhysics.firePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = budget * 0.62
+        cell.birthRate         = budget * FireTuning.midBudgetFraction
         cell.lifetime          = 0.50
         cell.lifetimeRange     = 0.25
         cell.velocity          = 68
@@ -384,7 +396,7 @@ final class InkEffectEngine {
     private func makeFireEmberCell(budget: Float) -> CAEmitterCell {
         let physics = ParticlePhysics.fireEmberPhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = budget * 0.10  // rare
+        cell.birthRate         = budget * FireTuning.emberBudgetFraction  // rare
         cell.lifetime          = 0.75
         cell.lifetimeRange     = 0.30
         cell.velocity          = 60
