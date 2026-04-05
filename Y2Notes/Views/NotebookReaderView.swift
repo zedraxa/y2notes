@@ -977,7 +977,7 @@ struct NotebookReaderView: View {
                                     Circle()
                                         .fill(section.colorTag.color)
                                         .frame(width: 7, height: 7)
-                                        .accessibilityLabel("\(section.colorTag.rawValue) colour indicator")
+                                        .accessibilityLabel("\(section.colorTag.rawValue) color indicator")
                                         .accessibilityHidden(section.colorTag == .none)
                                     Text(section.name)
                                         .font(.subheadline)

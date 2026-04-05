@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - Section color tag
 
-/// Named colour options for section tabs. Stored as a raw String for forward compatibility.
+/// Named color options for section tabs. Stored as a raw String for forward compatibility.
 enum SectionColorTag: String, CaseIterable, Codable {
     case none   = "none"
     case red    = "red"
@@ -13,7 +13,7 @@ enum SectionColorTag: String, CaseIterable, Codable {
     case purple = "purple"
 }
 
-// MARK: - SectionColorTag SwiftUI colour
+// MARK: - SectionColorTag SwiftUI color
 
 extension SectionColorTag {
     var color: Color {
@@ -61,7 +61,7 @@ struct NotebookSection: Identifiable, Codable, Hashable {
     /// Default template ID applied to new pages added to this section.
     /// Falls back to `"builtin.blank"` if empty.
     var defaultTemplateID: String
-    /// Optional colour tag shown in section tabs. `.none` falls back to the app accent colour.
+    /// Optional color tag shown in section tabs. `.none` falls back to the app accent color.
     var colorTag: SectionColorTag
     var createdAt: Date
     var modifiedAt: Date
