@@ -1,6 +1,45 @@
 import Foundation
 import UniformTypeIdentifiers
 
+// MARK: - Sort order
+
+/// The order in which imported documents are displayed in the library.
+enum DocumentSortOrder: String, CaseIterable, Identifiable {
+    case nameAscending    = "name_asc"
+    case nameDescending   = "name_desc"
+    case dateImported     = "date_imported"
+    case lastOpened       = "last_opened"
+    case type             = "type"
+    case sizeDescending   = "size_desc"
+    case favoritesFirst   = "favorites_first"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .nameAscending:  return "Name (A–Z)"
+        case .nameDescending: return "Name (Z–A)"
+        case .dateImported:   return "Date Imported"
+        case .lastOpened:     return "Last Opened"
+        case .type:           return "File Type"
+        case .sizeDescending: return "Largest First"
+        case .favoritesFirst: return "Favorites First"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .nameAscending:  return "a.circle"
+        case .nameDescending: return "z.circle"
+        case .dateImported:   return "clock"
+        case .lastOpened:     return "eye"
+        case .type:           return "doc"
+        case .sizeDescending: return "arrow.down.circle"
+        case .favoritesFirst: return "star"
+        }
+    }
+}
+
 // MARK: - Supported document types
 
 /// The types of external documents that Y2Notes can import for annotation.
@@ -90,19 +129,58 @@ struct ImportedDocument: Identifiable, Codable, Hashable {
     var documentType: ImportedDocumentType
     /// File name (not full path) of the stored copy inside `ImportedDocs/`.
     var storedFileName: String
+    /// File size in bytes captured at import time. 0 when unknown.
+    var fileSize: Int64
+    /// Timestamp of the most recent time the document was opened for viewing.
+    var lastOpenedAt: Date?
+    /// Whether the user has starred this document as a favourite.
+    var isFavorited: Bool
 
     init(
         id: UUID = UUID(),
         displayName: String,
         documentType: ImportedDocumentType,
         storedFileName: String,
-        importedAt: Date = Date()
+        importedAt: Date = Date(),
+        fileSize: Int64 = 0,
+        lastOpenedAt: Date? = nil,
+        isFavorited: Bool = false
     ) {
         self.id             = id
         self.displayName    = displayName
         self.documentType   = documentType
         self.storedFileName = storedFileName
         self.importedAt     = importedAt
+        self.fileSize       = fileSize
+        self.lastOpenedAt   = lastOpenedAt
+        self.isFavorited    = isFavorited
+    }
+
+    // MARK: - Codable — tolerant decoder for legacy records without new fields
+
+    enum CodingKeys: String, CodingKey {
+        case id, displayName, importedAt, documentType, storedFileName
+        case fileSize, lastOpenedAt, isFavorited
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id             = try c.decode(UUID.self,                   forKey: .id)
+        displayName    = try c.decode(String.self,                 forKey: .displayName)
+        importedAt     = try c.decode(Date.self,                   forKey: .importedAt)
+        documentType   = try c.decode(ImportedDocumentType.self,   forKey: .documentType)
+        storedFileName = try c.decode(String.self,                 forKey: .storedFileName)
+        fileSize       = try c.decodeIfPresent(Int64.self,         forKey: .fileSize)       ?? 0
+        lastOpenedAt   = try c.decodeIfPresent(Date.self,          forKey: .lastOpenedAt)
+        isFavorited    = try c.decodeIfPresent(Bool.self,          forKey: .isFavorited)    ?? false
+    }
+
+    // MARK: - Formatted helpers
+
+    /// A human-readable file size string (e.g. "2.4 MB").  Returns "–" when size is 0.
+    var formattedFileSize: String {
+        guard fileSize > 0 else { return "–" }
+        return ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
     }
 
     // MARK: Hashable — identity only

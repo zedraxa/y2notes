@@ -295,10 +295,10 @@ struct NoteEditorView: View {
             .fileImporter(
                 isPresented: $showDocumentImporter,
                 allowedContentTypes: ImportedDocumentType.allUTTypes,
-                allowsMultipleSelection: false
+                allowsMultipleSelection: true
             ) { result in
-                if case .success(let urls) = result, let url = urls.first {
-                    documentStore.importDocument(from: url)
+                if case .success(let urls) = result {
+                    documentStore.importDocuments(from: urls)
                 }
             }
     }

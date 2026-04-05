@@ -647,10 +647,11 @@ struct NoteGridView: View {
         .fileImporter(
             isPresented: $showDocImporter,
             allowedContentTypes: ImportedDocumentType.allUTTypes,
-            allowsMultipleSelection: false
+            allowsMultipleSelection: true
         ) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                if let doc = documentStore.importDocument(from: url) {
+            if case .success(let urls) = result {
+                let imported = documentStore.importDocuments(from: urls)
+                if let doc = imported.first {
                     tabSession.openTab(
                         .document(id: doc.id),
                         displayName: doc.displayName,
