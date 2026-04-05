@@ -1864,6 +1864,9 @@ struct CanvasView: UIViewRepresentable {
         engine.attach(to: container)
         context.coordinator.effectEngine = engine
 
+        // Attach writing effects pipeline overlay above the canvas.
+        context.coordinator.effects.writingEffectsPipeline.attach(to: canvas)
+
         // ── Page gestures (two-finger swipe + three-finger pinch) ─────────
         // Two-finger swipe left/right to navigate pages — avoids conflict
         // with Apple Pencil drawing (single touch) and canvas zoom (pinch).
@@ -2035,44 +2038,37 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
         // Sync adaptive effects engine with current note complexity.
-        context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
-        // Propagate intensity to sub-engines.
-        let intensity = context.coordinator.adaptiveEffectsEngine.intensity
-        context.coordinator.pageTransitionEngine.effectIntensity = intensity
-        context.coordinator.focusModeEngine.effectIntensity = intensity
-        context.coordinator.ambientEngine.effectIntensity = intensity
-        context.coordinator.magicModeEngine.effectIntensity = intensity
-        context.coordinator.studyModeEngine.effectIntensity = intensity
-        // Propagate to canvas views that own their own micro/snap engines.
-        context.coordinator.shapeCanvas?.effectIntensity = intensity
-        context.coordinator.attachmentCanvas?.effectIntensity = intensity
-        context.coordinator.widgetCanvas?.effectIntensity = intensity
+        context.coordinator.effects.adaptiveEngine.pageCount = pageCount
+        // Propagate intensity to all sub-engines and canvas views.
+        let intensity = context.coordinator.effects.adaptiveEngine.intensity
+        context.coordinator.effects.distribute(
+            intensity: intensity,
+            shapeCanvas: context.coordinator.shapeCanvas,
+            attachmentCanvas: context.coordinator.attachmentCanvas,
+            widgetCanvas: context.coordinator.widgetCanvas
+        )
+        // StickerCanvasView is propagated separately because EffectsCoordinator.distribute
+        // accepts the original three drawing-layer canvases; stickers are on a later overlay.
+        context.coordinator.stickerCanvas?.effectIntensity = intensity
 
         // Sync magic mode engine — activate/deactivate when toggle changes.
-        let magicEngine = context.coordinator.magicModeEngine
-        if isMagicModeActive && !magicEngine.isActive {
-            magicEngine.activate(on: uiView.layer)
-        } else if !isMagicModeActive && magicEngine.isActive {
-            magicEngine.deactivate()
-        }
+        context.coordinator.effects.setMagicMode(active: isMagicModeActive, on: uiView.layer)
         // Keep emitter frame in sync when the canvas resizes (rotation, multitasking).
-        if magicEngine.isActive {
-            magicEngine.updateLayout(containerBounds: uiView.bounds)
+        if context.coordinator.effects.magicModeEngine.isActive {
+            context.coordinator.effects.updateLayout(containerBounds: uiView.bounds)
         }
 
         // Sync study mode engine — activate/deactivate when toggle changes.
-        let studyEngine = context.coordinator.studyModeEngine
-        if isStudyModeActive && !studyEngine.isActive {
-            studyEngine.activate(on: uiView.layer)
-        } else if !isStudyModeActive && studyEngine.isActive {
-            studyEngine.deactivate()
-        }
+        context.coordinator.effects.setStudyMode(active: isStudyModeActive, on: uiView.layer)
 
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
             engine.syncLayerFrames()
             engine.configure(fx: activeFX, color: fxColor)
         }
+
+        // Sync writing effects pipeline colour with the active ink colour.
+        context.coordinator.effects.writingEffectsPipeline.configure(config: .default, color: fxColor)
     }
 
     // MARK: - Ruling line color helper
@@ -2135,24 +2131,16 @@ struct CanvasView: UIViewRepresentable {
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
 
-        /// Page transition engine for physical page-turn effects.
-        let pageTransitionEngine = PageTransitionEngine()
+        /// Unified effects coordinator — owns all sub-engines and wires intensity automatically.
+        let effects = EffectsCoordinator()
 
-        /// Focus mode ambient effect engine.
-        let focusModeEngine = FocusModeEngine()
-
-        /// Ambient environment scene engine (rain / lo-fi / night grain).
-        let ambientEngine = AmbientEnvironmentEngine()
-
-        /// Magic mode engine — writing particles, keyword glow, highlight.
-        let magicModeEngine = MagicModeEngine()
-
-        /// Study mode engine — heading glow, checklist pulse, timer pulse.
-        let studyModeEngine = StudyModeEngine()
-
-        /// Adaptive effects engine — evaluates context signals and sets
-        /// intensity for all effect subsystems.
-        let adaptiveEffectsEngine = AdaptiveEffectsEngine()
+        // Backward-compatible accessors so all existing call sites continue to compile.
+        var pageTransitionEngine: PageTransitionEngine { effects.pageTransitionEngine }
+        var focusModeEngine: FocusModeEngine { effects.focusModeEngine }
+        var ambientEngine: AmbientEnvironmentEngine { effects.ambientEngine }
+        var magicModeEngine: MagicModeEngine { effects.magicModeEngine }
+        var studyModeEngine: StudyModeEngine { effects.studyModeEngine }
+        var adaptiveEffectsEngine: AdaptiveEffectsEngine { effects.adaptiveEngine }
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
@@ -2272,6 +2260,10 @@ struct CanvasView: UIViewRepresentable {
             self.onPinchToOverview = onPinchToOverview
         }
 
+        deinit {
+            effects.writingEffectsPipeline.detach()
+        }
+
         // MARK: - Page gesture handlers
 
         /// Two-finger swipe handler for page navigation.
@@ -2362,21 +2354,22 @@ struct CanvasView: UIViewRepresentable {
             if let inkTool = canvasView.tool as? PKInkingTool {
                 barrelRollBaseWidth = inkTool.width
             }
-            // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
             // At stroke-begin the new stroke hasn't been committed to the drawing
             // yet, so we use the viewport center as a reasonable start point.
             // The next onStrokeUpdated call will snap the emitter to the real nib.
+            let strokeStartCenter = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+            // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
             if let engine = effectEngine {
-                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-                engine.onStrokeBegan(at: center)
+                engine.onStrokeBegan(at: strokeStartCenter)
             }
             // Notify magic mode engine of stroke start for writing particles.
             if magicModeEngine.isActive,
                let inkTool = canvasView.tool as? PKInkingTool {
-                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-                let vp = viewportPoint(from: center, in: canvasView)
+                let vp = viewportPoint(from: strokeStartCenter, in: canvasView)
                 magicModeEngine.strokeBegan(at: vp, inkColor: inkTool.color)
             }
+            // Notify writing effects pipeline of stroke start.
+            effects.writingEffectsPipeline.onStrokeBegan(at: strokeStartCenter)
             // Auto-fade toolbar using config constants
             fadeTask?.cancel()
             fadeTask = Task { @MainActor [weak self] in
@@ -2424,6 +2417,8 @@ struct CanvasView: UIViewRepresentable {
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
+            // Notify writing effects pipeline of stroke end.
+            effects.writingEffectsPipeline.onStrokeEnded()
             // Notify magic mode engine of stroke end — fires keyword glow and
             // optional underline highlight.
             if magicModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
@@ -2676,6 +2671,15 @@ struct CanvasView: UIViewRepresentable {
                     )
                     magicModeEngine.strokeMoved(to: vp)
                 }
+            }
+
+            // Update writing effects pipeline with latest nib position.
+            if let lastPoint = canvasView.drawing.strokes.last?.path.last {
+                let vp = viewportPoint(
+                    from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                    in: canvasView
+                )
+                effects.writingEffectsPipeline.onStrokeUpdated(at: vp)
             }
 
             // Report undo/redo availability directly from the canvas's undo manager.
