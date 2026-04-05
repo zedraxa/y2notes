@@ -1927,7 +1927,7 @@ struct CanvasView: UIViewRepresentable {
         let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: ps))
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
-        pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
+        pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor, material: paperMaterial)
         pageBackground.grainIntensity = paperMaterial.grainIntensity
         pageBackground.rulingTint   = paperMaterial.rulingTint
         pageBackground.isUserInteractionEnabled = false

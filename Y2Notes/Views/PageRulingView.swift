@@ -177,10 +177,12 @@ final class PageBackgroundView: UIView {
         ctx.strokePath()
 
         // Left margin line — the traditional pink/red vertical line that
-        // marks the writing margin on physical ruled notebooks.
+        // marks the writing margin on physical ruled notebooks.  Uses the
+        // material's accent tint (sepia for craft, slate for recycled, etc.)
+        // so the margin feels native to the paper surface.
         let marginX = rect.minX + leftMarginOffset
         if marginX < rect.maxX {
-            ctx.setStrokeColor(UIColor.systemRed.withAlphaComponent(0.22).cgColor)
+            ctx.setStrokeColor(accentLineColor(alpha: 0.22).cgColor)
             ctx.setLineWidth(0.75)
             ctx.move(to: CGPoint(x: marginX, y: rect.minY))
             ctx.addLine(to: CGPoint(x: marginX, y: rect.maxY))

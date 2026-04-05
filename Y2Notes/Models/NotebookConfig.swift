@@ -188,28 +188,20 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
 
     /// Graduated grain intensity (0.0 = no grain, 1.0 = full grain).
     /// Used by `PageBackgroundView` to render multi-octave paper tooth noise.
-    /// Replaces the former Boolean `hasGrainTexture`.
+    /// `PageBackgroundView.drawGrain` multiplies this by 0.045 to produce the
+    /// final alpha, so values in the 0–1 range yield subtle but visible grain.
     var grainIntensity: Double {
         switch self {
+        case .textured: return 1.00
         case .craft:    return 0.70
         case .recycled: return 0.50
-        case .textured: return 1.00
+        case .premium:  return 0.20
         default:        return 0.00
         }
     }
 
     /// `true` when the material carries any grain texture (convenience wrapper).
     var hasGrainTexture: Bool { grainIntensity > 0 }
-
-    /// Optional tint applied to accent ruling elements (margin lines, Cornell
-    /// separators).  `nil` means use the default contrasting `lineColor`.
-    var rulingTint: UIColor? {
-        switch self {
-        case .craft:    return UIColor(red: 0.52, green: 0.36, blue: 0.18, alpha: 1.0)
-        case .recycled: return UIColor(red: 0.44, green: 0.44, blue: 0.36, alpha: 1.0)
-        default:        return nil
-        }
-    }
 
     // MARK: Ruling line colour hooks
 
@@ -230,15 +222,4 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    /// Noise grain intensity fed to `PageBackgroundView.grainIntensity`.
-    /// `0.0` means no grain overlay; values in [0.04, 0.08] produce a
-    /// perceptible but non-distracting paper tooth effect.
-    var grainIntensity: Double {
-        switch self {
-        case .textured: return 0.075
-        case .craft:    return 0.060
-        case .recycled: return 0.045
-        default:        return 0.0
-        }
-    }
 }
