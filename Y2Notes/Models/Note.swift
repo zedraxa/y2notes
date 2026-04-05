@@ -335,8 +335,8 @@ struct Note: Identifiable, Codable, Hashable {
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
         tags          = try c.decodeIfPresent([String].self,          forKey: .tags)       ?? []
         colorLabel    = try c.decodeIfPresent(NoteColorLabel.self,    forKey: .colorLabel)
-        linkedPDFID      = try c.decodeIfPresent(UUID.self, forKey: .linkedPDFID)
-        linkedDocumentID = try c.decodeIfPresent(UUID.self, forKey: .linkedDocumentID)
+        linkedPDFID      = try c.decodeIfPresent(UUID.self,           forKey: .linkedPDFID)
+        linkedDocumentID = try c.decodeIfPresent(UUID.self,           forKey: .linkedDocumentID)
     }
 
     func encode(to encoder: Encoder) throws {
