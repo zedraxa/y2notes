@@ -274,6 +274,8 @@ struct ParticlePhysics: Equatable {
     )
 
     /// Ember physics — occasional bright sparks that scatter outward then fall.
+    /// Embers are launched upward by initial velocity; positive gravity decelerates
+    /// them and then pulls them downward — net result: rise then fall trajectory.
     static let fireEmberPhysics = ParticlePhysics(
         gravity: 55,          // embers rise on initial velocity then fall with gravity
         wind: 0,

@@ -329,7 +329,7 @@ final class InkEffectEngine {
     private func makeCoreFlameCell() -> CAEmitterCell {
         let physics = ParticlePhysics.fireCorePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.35
+        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.28
         cell.lifetime          = 0.28
         cell.lifetimeRange     = 0.12
         cell.velocity          = 95
@@ -356,7 +356,7 @@ final class InkEffectEngine {
     private func makeMidFlameCell(color: UIColor) -> CAEmitterCell {
         let physics = ParticlePhysics.firePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.70
+        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.62
         cell.lifetime          = 0.50
         cell.lifetimeRange     = 0.25
         cell.velocity          = 68
@@ -371,13 +371,7 @@ final class InkEffectEngine {
         cell.alphaSpeed        = -1.8
         cell.spin              = 0.6
         cell.spinRange         = physics.spinRange
-        // Bias user hue strongly toward fire orange-red
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let fr = min(1.0, r * 0.35 + 0.72)
-        let fg = min(1.0, g * 0.25 + 0.22)
-        let fb = max(0.0, b * 0.08)
-        cell.color             = UIColor(red: fr, green: fg, blue: fb, alpha: 0.90).cgColor
+        cell.color             = fireMidFlameColor(from: color).cgColor
         cell.redRange          = 0.16
         cell.greenRange        = 0.18
         cell.contents          = circleCGImage(diameter: 14)
@@ -666,27 +660,40 @@ final class InkEffectEngine {
     /// Updates only the mid-flame cell colour on fire ink-colour change,
     /// preserving the fixed core (yellow-white) and ember (deep orange) colours.
     private func recolourFireEmitter(color: UIColor) {
-        guard var cells = emitterLayer.emitterCells, cells.count >= 2 else { return }
+        guard var cells = emitterLayer.emitterCells, cells.count >= 3 else { return }
         // Cell index 1 = mid flame (the only cell that uses user colour)
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let fr = min(1.0, r * 0.35 + 0.72)
-        let fg = min(1.0, g * 0.25 + 0.22)
-        let fb = max(0.0, b * 0.08)
-        cells[1].color = UIColor(red: fr, green: fg, blue: fb, alpha: 0.90).cgColor
+        cells[1].color = fireMidFlameColor(from: color).cgColor
         emitterLayer.emitterCells = cells
         configureFireGlow(color: color)
     }
 
-    /// Configures the fire glow gradient colours from the user's ink colour
-    /// biased toward warm amber-orange fire hues.
-    private func configureFireGlow(color: UIColor) {
+    /// Derives the mid-flame particle colour: user hue strongly biased toward fire orange-red.
+    private func fireMidFlameColor(from color: UIColor) -> UIColor {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: nil)
-        let gr = min(1.0, r * 0.25 + 0.88)
-        let gg = min(1.0, g * 0.20 + 0.32)
-        let gb = max(0.0, b * 0.06)
-        let glowColor = UIColor(red: gr, green: gg, blue: gb, alpha: 0.32)
+        return UIColor(
+            red:   min(1.0, r * 0.35 + 0.72),
+            green: min(1.0, g * 0.25 + 0.22),
+            blue:  max(0.0, b * 0.08),
+            alpha: 0.90
+        )
+    }
+
+    /// Derives the fire glow ambient colour: user hue biased toward warm amber.
+    private func fireGlowAmbientColor(from color: UIColor) -> UIColor {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: nil)
+        return UIColor(
+            red:   min(1.0, r * 0.25 + 0.88),
+            green: min(1.0, g * 0.20 + 0.32),
+            blue:  max(0.0, b * 0.06),
+            alpha: 0.32
+        )
+    }
+
+    /// Configures the fire glow gradient colours from the user's ink colour.
+    private func configureFireGlow(color: UIColor) {
+        let glowColor = fireGlowAmbientColor(from: color)
         fireGlowLayer.colors = [glowColor.cgColor, UIColor.clear.cgColor]
         fireGlowLayer.locations = [0.0, 1.0]
     }
