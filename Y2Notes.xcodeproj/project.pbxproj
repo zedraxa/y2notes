@@ -197,6 +197,7 @@
 		AA00010000000000000000B9 /* GoogleDriveSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncEngine.swift; sourceTree = "<group>"; };
 		AA00010000000000000000BA /* GoogleDriveOfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveOfflineQueue.swift; sourceTree = "<group>"; };
 		AA00010000000000000000BB /* GoogleDriveSyncStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncStatusView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000148 /* GoogleDriveFileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveFileBrowserView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000C7 /* NoteCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteCreationSheet.swift; sourceTree = "<group>"; };
 		AA00010000000000000000C9 /* StudyStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyStatsView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000CB /* ImportedDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedDocument.swift; sourceTree = "<group>"; };
@@ -491,6 +492,7 @@
 				AA00010000000000000000B9 /* GoogleDriveSyncEngine.swift */,
 				AA00010000000000000000BA /* GoogleDriveOfflineQueue.swift */,
 				AA00010000000000000000BB /* GoogleDriveSyncStatusView.swift */,
+				AA0001000000000000000148 /* GoogleDriveFileBrowserView.swift */,
 			);
 			path = GoogleDrive;
 			sourceTree = "<group>";
@@ -624,6 +626,7 @@
 				AA00010000000000000000BF /* GoogleDriveSyncEngine.swift in Sources */,
 				AA00010000000000000000C0 /* GoogleDriveOfflineQueue.swift in Sources */,
 				AA00010000000000000000C1 /* GoogleDriveSyncStatusView.swift in Sources */,
+				AA0001000000000000000149 /* GoogleDriveFileBrowserView.swift in Sources */,
 				AA00010000000000000000C8 /* NoteCreationSheet.swift in Sources */,
 				AA00010000000000000000CA /* StudyStatsView.swift in Sources */,
 				AA00010000000000000000CE /* ImportedDocument.swift in Sources */,
