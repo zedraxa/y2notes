@@ -258,11 +258,15 @@ struct FloatingToolbarCapsule: View {
                     .font(.system(size: 15, weight: isActive ? .semibold : .regular))
                     .frame(width: 34, height: 30)
                     .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                    .scaleEffect(isActive ? 1.12 : 1.0)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isActive)
 
                 // Active indicator dot
                 Circle()
                     .fill(isActive ? colorDot(for: tool) : Color.clear)
                     .frame(width: 5, height: 5)
+                    .scaleEffect(isActive ? 1.0 : 0.01)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.65), value: isActive)
             }
         }
         .buttonStyle(.plain)

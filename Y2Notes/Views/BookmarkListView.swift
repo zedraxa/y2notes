@@ -168,6 +168,8 @@ struct RecentLocationsView: View {
     let onJump: (NavigationAnchor) -> Void
     @Environment(\.dismiss) private var dismiss
 
+    @State private var rowsRevealed = false
+
     var body: some View {
         let recents = navigationStore.recentLocations(for: notebook.id)
         VStack(alignment: .leading, spacing: 0) {
@@ -186,7 +188,7 @@ struct RecentLocationsView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(recents) { entry in
+                        ForEach(Array(recents.enumerated()), id: \.element.id) { index, entry in
                             Button {
                                 onJump(entry.anchor)
                                 dismiss()
@@ -211,6 +213,13 @@ struct RecentLocationsView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .opacity(rowsRevealed ? 1 : 0)
+                            .offset(x: rowsRevealed ? 0 : -8)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.8)
+                                    .delay(Double(index) * 0.04),
+                                value: rowsRevealed
+                            )
 
                             if entry.id != recents.last?.id {
                                 Divider().padding(.leading, 40)
@@ -219,6 +228,7 @@ struct RecentLocationsView: View {
                     }
                 }
                 .frame(maxHeight: 300)
+                .onAppear { rowsRevealed = true }
             }
         }
         .frame(minWidth: 220)
