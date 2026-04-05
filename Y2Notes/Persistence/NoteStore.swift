@@ -205,6 +205,104 @@ final class NoteStore: ObservableObject {
         return note
     }
 
+    /// Creates a companion note for an imported PDF record and returns it.
+    ///
+    /// The note is pre-titled with the PDF's title and has `linkedPDFID` set so the editor
+    /// can surface a quick-open action for the source file.
+    @discardableResult
+    func addNote(forPDF record: PDFNoteRecord) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [.blank]
+        )
+        let note = Note(
+            title: record.title,
+            pdfFilename: pdfFilename,
+            linkedPDFID: record.id
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    /// Creates a companion note for an imported document and returns it.
+    ///
+    /// The note is pre-titled with the document's display name and has `linkedDocumentID` set
+    /// so the editor can surface a quick-open action for the source file.
+    @discardableResult
+    func addNote(forDocument doc: ImportedDocument) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [.blank]
+        )
+        let note = Note(
+            title: doc.displayName,
+            pdfFilename: pdfFilename,
+            linkedDocumentID: doc.id
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    // MARK: - Import-linked note queries
+
+    /// Returns all notes that are linked to the given PDF record.
+    func notes(forPDF pdfID: UUID) -> [Note] {
+        notes.filter { $0.linkedPDFID == pdfID }
+    }
+
+    /// Returns all notes that are linked to the given imported document.
+    func notes(forDocument docID: UUID) -> [Note] {
+        notes.filter { $0.linkedDocumentID == docID }
+    }
+
+    /// Returns all notes that have any linked import (PDF or Document).
+    var importLinkedNotes: [Note] {
+        notes.filter { $0.linkedPDFID != nil || $0.linkedDocumentID != nil }
+    }
+
+    /// Returns true if a companion note already exists for the given PDF.
+    func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
+        notes.contains { $0.linkedPDFID == pdfID }
+    }
+
+    /// Returns true if a companion note already exists for the given document.
+    func hasCompanionNote(forDocument docID: UUID) -> Bool {
+        notes.contains { $0.linkedDocumentID == docID }
+    }
+
+    /// Removes the companion-note link from a note without deleting the note itself.
+    func unlinkCompanionNote(id: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == id }) else { return }
+        notes[idx].linkedPDFID = nil
+        notes[idx].linkedDocumentID = nil
+        save()
+    }
+
+    /// Returns all import-linked notes whose source PDF/document is no longer present.
+    /// The caller must supply the set of live PDF and document IDs.
+    func orphanedImportNotes(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) -> [Note] {
+        notes.filter {
+            if let pdfID = $0.linkedPDFID { return !livePDFIDs.contains(pdfID) }
+            if let docID = $0.linkedDocumentID { return !liveDocumentIDs.contains(docID) }
+            return false
+        }
+    }
+
+    /// Removes companion-note links from notes whose source is no longer present.
+    func removeOrphanedImportLinks(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) {
+        let orphans = orphanedImportNotes(livePDFIDs: livePDFIDs, liveDocumentIDs: liveDocumentIDs)
+        for orphan in orphans {
+            guard let idx = notes.firstIndex(where: { $0.id == orphan.id }) else { continue }
+            notes[idx].linkedPDFID = nil
+            notes[idx].linkedDocumentID = nil
+        }
+        if !orphans.isEmpty { save() }
+    }
+
     func deleteNotes(at offsets: IndexSet) {
         for i in offsets {
             createPreDestructiveSnapshot(for: notes[i].id)
@@ -371,6 +469,21 @@ final class NoteStore: ObservableObject {
         }
         guard pageIndex >= 0 && pageIndex < notes[idx].widgetLayers.count else { return }
         notes[idx].widgetLayers[pageIndex] = widgets.isEmpty ? nil : widgets
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
+    }
+
+    /// Updates the text objects for a specific page.
+    func updateTextObjects(for noteID: UUID, pageIndex: Int, textObjects: [TextObject]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure textLayers array is sized to match pages
+        while notes[idx].textLayers.count < notes[idx].pages.count {
+            notes[idx].textLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].textLayers.count else { return }
+        notes[idx].textLayers[pageIndex] = textObjects.isEmpty ? nil : textObjects
         notes[idx].modifiedAt = Date()
         isDirty = true
         dirtyPages[noteID, default: []].insert(pageIndex)
@@ -645,6 +758,66 @@ final class NoteStore: ObservableObject {
         notes.filter { $0.isFavorited }.sorted { $0.modifiedAt > $1.modifiedAt }
     }
 
+    /// All notes that are linked to a PDF or imported document (companion notes).
+    var importLinkedNotes: [Note] {
+        notes.filter { $0.linkedPDFID != nil || $0.linkedDocumentID != nil }
+            .sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    // MARK: - Companion notes (PDF / Document)
+
+    /// Creates a new companion note linked to a PDF record.
+    @discardableResult
+    func addNote(forPDF pdfID: UUID, title: String) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1, backgroundColor: .white, pageTypes: [.blank]
+        )
+        let note = Note(
+            title: title,
+            pdfFilename: pdfFilename,
+            linkedPDFID: pdfID
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    /// Creates a new companion note linked to an imported document.
+    @discardableResult
+    func addNote(forDocument documentID: UUID, title: String) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1, backgroundColor: .white, pageTypes: [.blank]
+        )
+        let note = Note(
+            title: title,
+            pdfFilename: pdfFilename,
+            linkedDocumentID: documentID
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    /// Notes linked to a specific PDF record.
+    func notes(forPDF pdfID: UUID) -> [Note] {
+        notes.filter { $0.linkedPDFID == pdfID }.sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    /// Notes linked to a specific imported document.
+    func notes(forDocument documentID: UUID) -> [Note] {
+        notes.filter { $0.linkedDocumentID == documentID }.sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    /// Whether a companion note already exists for the given PDF record.
+    func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
+        notes.contains { $0.linkedPDFID == pdfID }
+    }
+
+    /// Whether a companion note already exists for the given imported document.
+    func hasCompanionNote(forDocument documentID: UUID) -> Bool {
+        notes.contains { $0.linkedDocumentID == documentID }
+    }
+
     // MARK: - Page ordering
 
     /// Pages belonging to a section, sorted by `sortOrder` (then `modifiedAt` as tiebreaker).
@@ -788,7 +961,8 @@ final class NoteStore: ObservableObject {
     func addSection(
         toNotebook notebookID: UUID,
         name: String,
-        defaultTemplateID: String = "builtin.blank"
+        defaultTemplateID: String = "builtin.blank",
+        colorTag: SectionColorTag = .none
     ) -> NotebookSection {
         let nextOrder = nextSectionSortOrder(forNotebook: notebookID)
         let section = NotebookSection(
@@ -796,7 +970,8 @@ final class NoteStore: ObservableObject {
             name: name,
             kind: .section,
             sortOrder: nextOrder,
-            defaultTemplateID: defaultTemplateID
+            defaultTemplateID: defaultTemplateID,
+            colorTag: colorTag
         )
         sections.append(section)
         save()
@@ -872,23 +1047,27 @@ final class NoteStore: ObservableObject {
     @discardableResult
     func addNotebook(
         name: String,
+        description: String = "",
         cover: NotebookCover = .ocean,
         pageType: PageType = .ruled,
         pageSize: PageSize = .letter,
         orientation: PageOrientation = .portrait,
         defaultTheme: AppTheme? = nil,
         paperMaterial: PaperMaterial = .standard,
-        customCoverData: Data? = nil
+        customCoverData: Data? = nil,
+        coverTexture: CoverTexture = .smooth
     ) -> Notebook {
         let nb = Notebook(
             name: name,
+            description: description,
             cover: cover,
             pageType: pageType,
             pageSize: pageSize,
             orientation: orientation,
             defaultTheme: defaultTheme,
             paperMaterial: paperMaterial,
-            customCoverData: customCoverData
+            customCoverData: customCoverData,
+            coverTexture: coverTexture
         )
         notebooks.insert(nb, at: 0)
         save()
@@ -926,9 +1105,23 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    func updateNotebookDescription(id: UUID, description: String) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].description = description
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
     func updateNotebookCover(id: UUID, cover: NotebookCover) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
         notebooks[idx].cover = cover
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    func updateNotebookTexture(id: UUID, texture: CoverTexture) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].coverTexture = texture
         notebooks[idx].modifiedAt = Date()
         save()
     }
@@ -1116,7 +1309,52 @@ final class NoteStore: ObservableObject {
         isDirty = true
     }
 
-    // MARK: - On-device handwriting OCR
+    // MARK: - Tags & color label
+
+    /// Replaces the entire tag array for a note.
+    /// Each tag is lowercased and whitespace-trimmed before saving.
+    func updateTags(for noteID: UUID, tags: [String]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].tags = tags
+            .map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        isDirty = true
+    }
+
+    /// Adds a single tag to a note if it is not already present.
+    func addTag(_ tag: String, to noteID: UUID) {
+        let normalised = tag.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalised.isEmpty,
+              let idx = notes.firstIndex(where: { $0.id == noteID }),
+              !notes[idx].tags.contains(normalised) else { return }
+        notes[idx].tags.append(normalised)
+        isDirty = true
+    }
+
+    /// Removes a single tag from a note.
+    func removeTag(_ tag: String, from noteID: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].tags.removeAll { $0 == tag }
+        isDirty = true
+    }
+
+    /// Sets or clears the colour label on a note.
+    func updateColorLabel(for noteID: UUID, colorLabel: NoteColorLabel?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].colorLabel = colorLabel
+        isDirty = true
+    }
+
+    /// All unique, sorted tags across every note in the store.
+    var allTags: [String] {
+        let flat = notes.flatMap { $0.tags }
+        return Array(Set(flat)).sorted()
+    }
+
+    /// All notes that carry the given tag.
+    func notes(withTag tag: String) -> [Note] {
+        notes.filter { $0.tags.contains(tag) }
+    }
 
     /// Schedules a Vision OCR pass on all pages of the note 4 seconds after the last
     /// drawing change.  Calling this method resets the timer so rapid drawing strokes

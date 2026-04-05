@@ -217,7 +217,30 @@
 "Creation.NewNote"                = "New Note";
 "Creation.NoteTitle"              = "Note Title";
 "Creation.Template"               = "Template";
+"Creation.Templates"              = "Templates";
 "Creation.Create"                 = "Create";
+
+/* ── Notebook Info ─────────────────────────────────────────────── */
+
+"NotebookInfo.Title"              = "Notebook Info";
+"NotebookInfo.Statistics"         = "Statistics";
+"NotebookInfo.TotalPages"        = "Total Pages";
+"NotebookInfo.Notes"              = "Notes";
+"NotebookInfo.Sections"           = "Sections";
+"NotebookInfo.Created"            = "Created";
+"NotebookInfo.LastModified"       = "Last Modified";
+"NotebookInfo.Configuration"      = "Configuration";
+"NotebookInfo.PageType"           = "Page Type";
+"NotebookInfo.PageSize"           = "Page Size";
+"NotebookInfo.Orientation"        = "Orientation";
+"NotebookInfo.Material"           = "Paper Material";
+"NotebookInfo.Texture"            = "Cover Texture";
+"NotebookInfo.Theme"              = "Default Theme";
+"NotebookInfo.SectionsBreakdown"  = "Sections";
+"NotebookInfo.Lock"               = "Lock Notebook";
+"NotebookInfo.Unlock"             = "Unlock Notebook";
+"NotebookInfo.Locked"             = "Locked";
+"NotebookInfo.Duplicate"          = "Duplicate Notebook";
 
 /* ── Search ────────────────────────────────────────────────────── */
 
@@ -262,3 +285,168 @@
 "VersionHistory.Manual"           = "Manual";
 "VersionHistory.PreRestore"       = "Pre-restore";
 "VersionHistory.Backup"           = "Backup";
+
+/* ── General ──────────────────────────────────────────────────── */
+
+"General.Done"                    = "Done";
+"General.Cancel"                  = "Cancel";
+
+/* ── Writing Insights ─────────────────────────────────────────── */
+
+"Insights.Title"                  = "Writing Insights";
+"Insights.TotalNotes"             = "Total Notes";
+"Insights.TotalPages"             = "Total Pages";
+"Insights.TotalWords"             = "Total Words";
+"Insights.Notebooks"              = "Notebooks";
+"Insights.AvgPages"               = "Avg Pages / Note";
+"Insights.AvgWords"               = "Avg Words / Note";
+"Insights.Streaks"                = "Writing Streaks";
+"Insights.CurrentStreak"          = "Current Streak";
+"Insights.LongestStreak"          = "Longest Streak";
+"Insights.Activity"               = "Activity (Last 90 Days)";
+"Insights.ActivitySubtitle"       = "Each square represents one day — darker means more edits.";
+"Insights.PerNotebook"            = "Per Notebook";
+"Insights.NoNotebooks"            = "No notebooks yet. Create one to see per-notebook stats.";
+
+/* ── Command Palette ──────────────────────────────────────────── */
+
+"CommandPalette.Title"            = "Quick Actions";
+"CommandPalette.Placeholder"      = "Search actions…";
+"CommandPalette.ClearSearch"      = "Clear search";
+"CommandPalette.NoResults"        = "No matching actions";
+"CommandPalette.TryDifferent"     = "Try different keywords";
+
+/* ── Open Source Credits ──────────────────────────────────────── */
+
+"Credits.Title"                   = "Open Source Inspirations";
+"Credits.Intro"                   = "Y2Notes is built entirely with Apple-native frameworks. No third-party libraries are bundled. The following open-source projects and patterns inspired features and design decisions.";
+"Credits.InspirationHeader"       = "Projects That Inspired Us";
+"Credits.PatternsHeader"          = "Design Patterns Adopted";
+"Credits.Footer"                  = "We gratefully acknowledge these projects and the wider open-source community.";
+
+/* ── Document Import ──────────────────────────────────────────── */
+
+"Documents.Title"                 = "Documents";
+"Documents.ImportDocument"        = "Import Document";
+"Documents.NoDocuments"           = "No Documents";
+"Documents.NoDocumentsSubtitle"   = "Import PDFs, images, Word files, ePubs, or presentations to view and annotate them.";
+"Documents.NoResults"             = "No Results";
+"Documents.SortDocuments"         = "Sort documents";
+"Documents.Rename"                = "Rename Document";
+"Documents.Share"                 = "Share";
+"Documents.Delete"                = "Delete";
+"Documents.AddFavorite"           = "Add to Favorites";
+"Documents.RemoveFavorite"        = "Remove Favorite";
+"Documents.GridView"              = "Switch to grid view";
+"Documents.ListView"              = "Switch to list view";
+
+/* ── Companion Notes ──────────────────────────────────────────── */
+
+"Companion.CreateNote"            = "Create Companion Note";
+"Companion.OpenNote"              = "Open Companion Note";
+"Companion.LinkedTo"              = "Linked to %@";
+"Companion.LinkedToImport"        = "Linked to import";
+"Companion.OpenLinked"            = "Open linked import";
+
+/* ── Import Notes ─────────────────────────────────────────────── */
+
+"ImportNotes.Title"               = "Import Notes";
+"ImportNotes.Empty"               = "No Import Notes Yet";
+"ImportNotes.EmptySubtitle"       = "Create a companion note from a PDF or document viewer to see it here.";
+
+/* ── Tool Expansion ──────────────────────────────────────────── */
+
+"ToolExpansion.PenType"           = "Pen Type";
+"ToolExpansion.Width"             = "Stroke Width";
+"ToolExpansion.Opacity"           = "Opacity";
+"ToolExpansion.EraserWidth"       = "Eraser Width";
+"ToolExpansion.RecentColor"       = "Recent color";
+
+/* ── Widget Editor ───────────────────────────────────────────── */
+
+"WidgetEditor.AddItem"            = "Add Item";
+"WidgetEditor.AddItemHint"        = "Adds a new checklist item";
+"WidgetEditor.ItemChecked"        = "Checked";
+"WidgetEditor.ItemUnchecked"      = "Unchecked";
+"WidgetEditor.ToggleHint"         = "Toggles item completion";
+"WidgetEditor.Priority"           = "Priority: ";
+"WidgetEditor.ResetHint"          = "Resets progress to zero";
+"WidgetEditor.CompleteHint"       = "Sets progress to the goal";
+
+/* ── Bookmarks ───────────────────────────────────────────────── */
+
+"Bookmarks.Title"                 = "Bookmarks";
+"Bookmarks.NoBookmarks"           = "No Bookmarks";
+"Bookmarks.EmptyHint"             = "Tap the bookmark icon on any page to save it here.";
+"Bookmarks.RecentPages"           = "Recent Pages";
+"Bookmarks.NoHistory"             = "No history yet";
+"Bookmarks.Delete"                = "Delete";
+"Bookmarks.ChangeColor"           = "Change color tag";
+"Bookmarks.ColorHint"             = "Cycles through available bookmark colors";
+"Bookmarks.NavigateHint"          = "Navigates to this bookmarked page";
+
+/* ── Theme Picker ────────────────────────────────────────────── */
+
+"ThemePicker.Title"               = "Theme";
+"ThemePicker.AutoSchedule"        = "Auto Schedule";
+"ThemePicker.Day"                 = "Day";
+"ThemePicker.Night"               = "Night";
+
+/* ── Floating Toolbar ────────────────────────────────────────── */
+
+"ToolExpansion.TapToExpand"       = "Tap to expand tool options";
+"ToolExpansion.TapToActivate"     = "Tap to activate tool";
+"ToolExpansion.LongPressToExpand" = "Long-press to expand toolbar";
+"ToolExpansion.Pixel"             = "Pixel";
+"ToolExpansion.Stroke"            = "Stroke";
+
+/* ── Import Notes ─────────────────────────────────────────────── */
+
+"Import.SidebarTitle"             = "Import Notes";
+"Import.CompanionNote"            = "Companion Note";
+"Import.OpenCompanionNote"        = "Open Companion Note";
+"Import.CreateCompanionNote"      = "Create Companion Note";
+"Import.LinkedTo"                 = "Linked to: %@";
+"Import.TapToOpen"                = "Tap to open";
+"Import.SourceDeleted"            = "Source file was deleted";
+"Import.NoImportNotes"            = "No Import Notes";
+"Import.NoImportNotesSubtitle"    = "Import a PDF or document to create a companion note.";
+"Import.SortModified"             = "Last Modified";
+"Import.SortCreated"              = "Date Created";
+"Import.SortName"                 = "Name";
+"Import.SortBy"                   = "Sort By";
+"Import.FilterAll"                = "All";
+"Import.FilterPDFs"               = "PDFs";
+"Import.FilterDocuments"          = "Documents";
+"Import.FilterBy"                 = "Filter";
+"Import.SortAndFilter"            = "Sort and Filter";
+"Import.Unlink"                   = "Unlink";
+"Import.UnlinkTitle"              = "Unlink Companion Note?";
+"Import.UnlinkMessage"            = "The note will remain in your library but will no longer be linked to this file.";
+"Import.CleanUpOrphans"           = "Remove %lld Orphaned Note(s)";
+"Import.CleanUpOrphansTitle"      = "Remove Orphaned Notes?";
+"Import.CleanUpOrphansMessage"    = "These notes are linked to files that have been deleted. The notes themselves will not be deleted.";
+"Import.CleanUpOrphansConfirm"    = "Remove Links";
+"Import.HasCompanionNote"         = "Has companion note";
+
+/* ── Text Style Editor ────────────────────────────────────────── */
+
+"TextStyle.Title"                 = "Text Style";
+"TextStyle.Font"                  = "Font";
+"TextStyle.Bold"                  = "Bold";
+"TextStyle.Size"                  = "Size";
+"TextStyle.Colour"                = "Colour";
+"TextStyle.Align"                 = "Align";
+"TextStyle.Background"            = "Background";
+"TextStyle.Fill"                  = "Fill";
+"TextStyle.Border"                = "Border";
+"TextStyle.BorderColour"          = "Border Colour";
+"TextStyle.Thickness"             = "Thickness";
+"TextStyle.Corners"               = "Corners";
+
+/* ── Scribble-to-Delete ───────────────────────────────────────── */
+
+"Editor.ScratchDelete.UndoAction" = "Scratch Delete";
+
+// MARK: - Editor Actions
+"Editor.StraightenLine"           = "Straighten Line";

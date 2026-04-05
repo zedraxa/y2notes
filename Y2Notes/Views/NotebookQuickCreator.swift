@@ -11,9 +11,11 @@ struct NotebookQuickCreator: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
+    @State private var description: String = ""
     @State private var cover: NotebookCover = .ocean
     @State private var useCustomCover: Bool = false
     @State private var customCoverData: Data?
+    @State private var coverTexture: CoverTexture = .smooth
     @State private var pageType: PageType = .blank
     @State private var pageSize: PageSize = .a4
     @State private var orientation: PageOrientation = .portrait
@@ -22,6 +24,8 @@ struct NotebookQuickCreator: View {
 
     @State private var pickerItem: PhotosPickerItem?
     @State private var isCreating = false
+    @State private var creatorAppeared = false
+    @State private var selectedTemplate: NotebookTemplate?
 
     @FocusState private var isNameFocused: Bool
 
@@ -30,12 +34,18 @@ struct NotebookQuickCreator: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                templateStrip
+
                 coverPreview
-                    .padding(.top, 20)
+                    .padding(.top, 4)
 
                 nameField
 
+                descriptionField
+
                 coverStrip
+
+                textureStrip
 
                 quickSettings
 
@@ -57,6 +67,71 @@ struct NotebookQuickCreator: View {
                 useCustomCover = true
             }
         }
+    }
+
+    // MARK: - Template Strip
+
+    private var templateStrip: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(NSLocalizedString("Creation.Templates", comment: ""))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 2)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(NotebookTemplate.allCases) { tmpl in
+                        templateChip(tmpl)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(.top, 16)
+    }
+
+    private func templateChip(_ tmpl: NotebookTemplate) -> some View {
+        let selected = selectedTemplate == tmpl
+        return Button {
+            applyTemplate(tmpl)
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: tmpl.systemImage)
+                    .font(.system(size: 18))
+                    .frame(width: 44, height: 32)
+                Text(tmpl.displayName)
+                    .font(.caption2.weight(selected ? .semibold : .regular))
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(selected
+                          ? Color.accentColor.opacity(0.12)
+                          : Color(.secondarySystemGroupedBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5)
+                    )
+            )
+            .foregroundStyle(selected ? Color.accentColor : .primary)
+        }
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: selected)
+        .accessibilityLabel(tmpl.displayName)
+        .accessibilityHint(tmpl.subtitle)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func applyTemplate(_ tmpl: NotebookTemplate) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            selectedTemplate = tmpl
+            pageType = tmpl.pageType
+            paperMaterial = tmpl.paperMaterial
+            cover = tmpl.suggestedCover
+            coverTexture = tmpl.suggestedTexture
+            useCustomCover = false
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     // MARK: - Zone 1: Live Cover Preview
@@ -83,16 +158,30 @@ struct NotebookQuickCreator: View {
             .frame(width: 140, height: 196)
             .clipShape(RoundedRectangle(cornerRadius: 14))
 
-            // Spine highlight
-            RoundedRectangle(cornerRadius: 14)
-                .fill(
-                    LinearGradient(
-                        colors: [.white.opacity(0.28), .clear],
-                        startPoint: .leading,
-                        endPoint: .init(x: 0.14, y: 0)
+            // Texture overlay
+            CoverTextureOverlay(
+                texture: coverTexture,
+                size: CGSize(width: 140, height: 196)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+
+            // Spine highlight with stitching
+            ZStack {
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.28), .black.opacity(0.04), .clear],
+                            startPoint: .leading,
+                            endPoint: .init(x: 0.14, y: 0)
+                        )
                     )
-                )
-                .frame(width: 140, height: 196)
+                    .frame(width: 140, height: 196)
+
+                CoverSpineStitching(height: 196, dotCount: 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 2)
+                    .frame(width: 140, height: 196)
+            }
 
             // Book icon
             Image(systemName: "book.closed.fill")
@@ -100,7 +189,17 @@ struct NotebookQuickCreator: View {
                 .foregroundStyle(.white.opacity(0.50))
                 .frame(width: 140, height: 196)
 
-            // Live title
+            // Embossed title (top center)
+            if !name.isEmpty {
+                VStack {
+                    CoverEmbossedTitle(text: name, maxWidth: 116)
+                        .padding(.top, 24)
+                    Spacer()
+                }
+                .frame(width: 140, height: 196)
+            }
+
+            // Live title (bottom)
             if !name.isEmpty {
                 Text(name)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -114,6 +213,7 @@ struct NotebookQuickCreator: View {
         .shadow(color: .black.opacity(0.28), radius: 18, x: -3, y: 8)
         .scaleEffect(isCreating ? 0.95 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: cover)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: coverTexture)
         .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isCreating)
     }
 
@@ -152,6 +252,23 @@ struct NotebookQuickCreator: View {
             .accessibilityLabel("Notebook name")
     }
 
+    // MARK: - Zone 2b: Description Field
+
+    private var descriptionField: some View {
+        TextField("Add a description…", text: $description, axis: .vertical)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .lineLimit(2...4)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+            .accessibilityLabel("Notebook description")
+    }
+
     // MARK: - Zone 3: Cover Strip
 
     private var coverStrip: some View {
@@ -163,8 +280,15 @@ struct NotebookQuickCreator: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(NotebookCover.allCases, id: \.self) { c in
+                    ForEach(Array(NotebookCover.allCases.enumerated()), id: \.element) { index, c in
                         quickCoverSwatch(c)
+                            .opacity(creatorAppeared ? 1 : 0)
+                            .scaleEffect(creatorAppeared ? 1.0 : 0.7)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.75)
+                                    .delay(Double(index) * 0.04),
+                                value: creatorAppeared
+                            )
                     }
 
                     // Custom photo button
@@ -232,6 +356,63 @@ struct NotebookQuickCreator: View {
         .scaleEffect(useCustomCover ? 1.1 : 1.0)
         .animation(.spring(response: 0.25, dampingFraction: 0.7), value: useCustomCover)
         .accessibilityLabel("Custom photo cover")
+    }
+
+    // MARK: - Zone 3b: Texture Strip
+
+    private var textureStrip: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Texture")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 2)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(CoverTexture.allCases.enumerated()), id: \.element) { index, tex in
+                        textureChip(tex)
+                            .opacity(creatorAppeared ? 1 : 0)
+                            .offset(x: creatorAppeared ? 0 : -8)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.8)
+                                    .delay(Double(index) * 0.04),
+                                value: creatorAppeared
+                            )
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    private func textureChip(_ tex: CoverTexture) -> some View {
+        let selected = coverTexture == tex
+        return Button {
+            coverTexture = tex
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: tex.systemImage)
+                    .font(.caption)
+                Text(tex.displayName)
+                    .font(.caption.weight(selected ? .semibold : .regular))
+            }
+            .padding(.vertical, 7)
+            .padding(.horizontal, 12)
+            .background(
+                Capsule()
+                    .fill(selected
+                          ? Color.accentColor.opacity(0.12)
+                          : Color(.secondarySystemGroupedBackground))
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5)
+                    )
+            )
+            .foregroundStyle(selected ? Color.accentColor : .primary)
+        }
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: selected)
+        .accessibilityLabel(tex.displayName)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     // MARK: - Zone 4: Quick Settings
@@ -463,13 +644,15 @@ struct NotebookQuickCreator: View {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let nb = noteStore.addNotebook(
             name: trimmed.isEmpty ? "Untitled" : trimmed,
+            description: description.trimmingCharacters(in: .whitespacesAndNewlines),
             cover: cover,
             pageType: pageType,
             pageSize: pageSize,
             orientation: orientation,
             defaultTheme: defaultTheme,
             paperMaterial: paperMaterial,
-            customCoverData: useCustomCover ? customCoverData : nil
+            customCoverData: useCustomCover ? customCoverData : nil,
+            coverTexture: coverTexture
         )
 
         // Auto-create the first page so the notebook opens ready to write
@@ -552,6 +735,76 @@ private struct PageTypeMiniCanvas: View {
                     p.move(to: .init(x: 0, y: y))
                     p.addLine(to: .init(x: size.width, y: y))
                     context.stroke(p, with: lineColor, lineWidth: 0.6)
+                }
+
+            case .cornell:
+                let count = 4
+                let spacing = size.height / CGFloat(count + 1)
+                let headerY = size.height * 0.25
+                let cueX = size.width * 0.30
+                let summaryY = size.height * 0.82
+                for i in 1...count {
+                    let y = headerY + spacing * CGFloat(i)
+                    if y >= summaryY { break }
+                    var p = Path()
+                    p.move(to: .init(x: 0, y: y))
+                    p.addLine(to: .init(x: size.width, y: y))
+                    context.stroke(p, with: lineColor, lineWidth: 0.6)
+                }
+                let accent = GraphicsContext.Shading.color(
+                    Color(uiColor: .secondaryLabel).opacity(0.50)
+                )
+                var hLine = Path()
+                hLine.move(to: .init(x: 0, y: headerY))
+                hLine.addLine(to: .init(x: size.width, y: headerY))
+                context.stroke(hLine, with: accent, lineWidth: 0.8)
+                var vLine = Path()
+                vLine.move(to: .init(x: cueX, y: headerY))
+                vLine.addLine(to: .init(x: cueX, y: summaryY))
+                context.stroke(vLine, with: accent, lineWidth: 0.8)
+                var sLine = Path()
+                sLine.move(to: .init(x: 0, y: summaryY))
+                sLine.addLine(to: .init(x: size.width, y: summaryY))
+                context.stroke(sLine, with: accent, lineWidth: 0.8)
+
+            case .hexagonal:
+                let r: CGFloat = 7
+                let w = r * sqrt(3.0)
+                let cols = Int(ceil(size.width / w)) + 2
+                let rows = Int(ceil(size.height / (r * 1.5))) + 2
+                for col in -1..<cols {
+                    let cx = CGFloat(col) * w + w * 0.5
+                    let offset: CGFloat = (col % 2 == 0) ? 0 : r
+                    for row in -1..<rows {
+                        let cy = CGFloat(row) * r * 1.5 + offset
+                        var hexPath = Path()
+                        let fa = (-30.0) * Double.pi / 180.0
+                        hexPath.move(to: CGPoint(x: cx + r * CGFloat(cos(fa)), y: cy + r * CGFloat(sin(fa))))
+                        for i in 1...5 {
+                            let a = (60.0 * Double(i) - 30.0) * .pi / 180.0
+                            hexPath.addLine(to: CGPoint(x: cx + r * CGFloat(cos(a)), y: cy + r * CGFloat(sin(a))))
+                        }
+                        hexPath.closeSubpath()
+                        context.stroke(hexPath, with: lineColor, lineWidth: 0.5)
+                    }
+                }
+
+            case .music:
+                let staffSpacing: CGFloat = 3
+                let groupGap: CGFloat = 8
+                let linesPerGroup = 5
+                let period = CGFloat(linesPerGroup - 1) * staffSpacing + groupGap
+                var groupTop: CGFloat = groupGap * 0.5
+                while groupTop < size.height {
+                    for i in 0..<linesPerGroup {
+                        let y = groupTop + CGFloat(i) * staffSpacing
+                        if y > size.height { break }
+                        var p = Path()
+                        p.move(to: .init(x: 0, y: y))
+                        p.addLine(to: .init(x: size.width, y: y))
+                        context.stroke(p, with: lineColor, lineWidth: 0.6)
+                    }
+                    groupTop += period
                 }
             }
         }

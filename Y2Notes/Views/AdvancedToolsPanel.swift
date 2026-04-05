@@ -46,6 +46,10 @@ struct AdvancedToolsPanel: View {
                     strokeSection
                     sectionDivider
                     colorSection
+                    if toolStore.activeTool == .pen {
+                        sectionDivider
+                        penCharacterSection
+                    }
                     if toolStore.activeTool == .eraser {
                         sectionDivider
                         eraserSection
@@ -351,27 +355,156 @@ struct AdvancedToolsPanel: View {
         UIColor(red: 0.40, green: 0.80, blue: 0.40, alpha: 1),
     ]
 
-    // MARK: - Eraser Section
+    // MARK: - Pen Character Section
 
-    private var eraserSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("Eraser Mode")
-            HStack(spacing: 8) {
-                ForEach(EraserMode.allCases, id: \.rawValue) { mode in
-                    let isSelected = toolStore.eraserMode == mode
-                    Button {
-                        toolStore.eraserMode = mode
-                    } label: {
-                        Text(mode.displayName)
-                            .font(.subheadline.weight(isSelected ? .semibold : .regular))
+    private var penCharacterSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeader("Pen Character")
+
+            // Sub-type grid
+            VStack(alignment: .leading, spacing: 6) {
+                sectionSubLabel("Type")
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+                    spacing: 8
+                ) {
+                    ForEach(PenSubType.allCases) { sub in
+                        let isSelected = toolStore.activePenSubType == sub
+                        Button {
+                            toolStore.activePenSubType = sub
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: sub.systemImage)
+                                    .font(.system(size: 16, weight: isSelected ? .semibold : .regular))
+                                    .frame(height: 20)
+                                Text(sub.displayName)
+                                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                            }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+                            .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(
+                                        isSelected ? Color.accentColor.opacity(0.4) : Color.clear,
+                                        lineWidth: 1.5
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(sub.displayName): \(sub.tagline)")
+                    }
+                }
+
+                // Tagline for the selected sub-type
+                Text(toolStore.activePenSubType.tagline)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
+
+            // Pressure curve selector
+            VStack(alignment: .leading, spacing: 6) {
+                sectionSubLabel("Pressure Response")
+                HStack(spacing: 6) {
+                    ForEach(PressureCurvePreset.allCases, id: \.rawValue) { curve in
+                        let isActive = toolStore.activePenSubType.pressureCurvePreset == curve
+                        Button {
+                            // Pressure curve is intrinsic to the sub-type in this model;
+                            // tapping switches to the nearest sub-type that uses this curve.
+                        } label: {
+                            VStack(spacing: 2) {
+                                Text(curve.displayName)
+                                    .font(.system(size: 11, weight: isActive ? .semibold : .regular))
+                                Text(curve.curveExponent == 0 ? "—" : String(format: "%.1f", curve.curveExponent))
+                                    .font(.system(size: 9).monospacedDigit())
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .background(isActive ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(true)   // read-only indicator — driven by sub-type
+                    }
+                }
+                Text("Determined by pen type — shown for reference.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(16)
+    }
+
+    // MARK: - Eraser Section
+
+    private var eraserSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Eraser Type")
+
+            // 3-column sub-type grid
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+                spacing: 8
+            ) {
+                ForEach(EraserSubType.allCases, id: \.rawValue) { sub in
+                    let isSelected = toolStore.eraserSubType == sub
+                    Button {
+                        toolStore.eraserSubType = sub
+                    } label: {
+                        VStack(spacing: 5) {
+                            Image(systemName: sub.systemImage)
+                                .font(.system(size: 18))
+                                .frame(height: 22)
+                            Text(sub.displayName)
+                                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                     }
                     .buttonStyle(.plain)
                 }
+            }
+
+            // Width slider — pixel modes only
+            if toolStore.eraserSubType.supportsWidthAdjustment {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Tip Size")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(Int(toolStore.eraserWidth)) pt")
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(
+                        value: $toolStore.eraserWidth,
+                        in: toolStore.eraserSubType.minWidth...toolStore.eraserSubType.maxWidth,
+                        step: 1
+                    )
+                    .accentColor(.orange)
+                }
+            }
+
+            // Mode badge (derived from sub-type)
+            HStack(spacing: 6) {
+                Image(systemName: toolStore.eraserMode == .bitmap ? "dot.square" : "scribble")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(toolStore.eraserMode.displayName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
             }
         }
         .padding(16)

@@ -12,8 +12,11 @@ struct OnboardingView: View {
     @EnvironmentObject var settingsStore: AppSettingsStore
 
     @State private var currentPage = 0
+    @State private var textAppeared = false
 
     private let pageCount = 4
+    private let pageFeedback = UIImpactFeedbackGenerator(style: .light)
+    private let selectionFeedback = UISelectionFeedbackGenerator()
 
     var body: some View {
         ZStack {
@@ -29,6 +32,9 @@ struct OnboardingView: View {
                     readyPage.tag(3)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: currentPage) { _, _ in
+                    pageFeedback.impactOccurred()
+                }
 
                 // Custom page indicator + navigation
                 bottomBar
@@ -37,6 +43,7 @@ struct OnboardingView: View {
             }
         }
         .interactiveDismissDisabled()
+        .onAppear { textAppeared = true }
     }
 
     // MARK: - Pages
@@ -44,19 +51,23 @@ struct OnboardingView: View {
     private var welcomePage: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "pencil.and.scribble")
-                .font(.system(size: 80))
-                .foregroundStyle(.white)
+            OnboardingIconView(systemName: "pencil.and.scribble", isActive: currentPage == 0)
                 .accessibilityHidden(true)
             Text("Welcome to Y2Notes")
                 .font(.largeTitle.bold())
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
+                .opacity(textAppeared ? 1 : 0)
+                .offset(y: textAppeared ? 0 : 10)
+                .animation(.easeOut(duration: 0.4).delay(0.3), value: textAppeared)
             Text("A note-taking app built for iPad and Apple Pencil. Write, draw, and study — all in one place.")
                 .font(.title3)
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+                .opacity(textAppeared ? 1 : 0)
+                .offset(y: textAppeared ? 0 : 10)
+                .animation(.easeOut(duration: 0.4).delay(0.5), value: textAppeared)
             Spacer()
         }
         .accessibilityElement(children: .combine)
@@ -66,9 +77,7 @@ struct OnboardingView: View {
     private var pencilPage: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "applepencil.and.scribble")
-                .font(.system(size: 80))
-                .foregroundStyle(.white)
+            OnboardingIconView(systemName: "applepencil.and.scribble", isActive: currentPage == 1)
                 .accessibilityHidden(true)
             Text("Apple Pencil Ready")
                 .font(.largeTitle.bold())
@@ -87,7 +96,8 @@ struct OnboardingView: View {
             .tint(.white.opacity(0.6))
             .padding(.horizontal, 60)
             .padding(.top, 12)
-            .accessibilityLabel("Pencil-only drawing. When enabled, finger input pans and zooms instead of drawing.")
+            .accessibilityLabel("Pencil-only drawing")
+            .accessibilityHint("When enabled, finger input pans and zooms instead of drawing. You can change this later in Settings.")
 
             Spacer()
         }
@@ -96,9 +106,7 @@ struct OnboardingView: View {
     private var themePage: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "paintpalette.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.white)
+            OnboardingIconView(systemName: "paintpalette.fill", isActive: currentPage == 2)
                 .accessibilityHidden(true)
             Text("Choose Your Theme")
                 .font(.largeTitle.bold())
@@ -111,8 +119,15 @@ struct OnboardingView: View {
                 .padding(.horizontal, 40)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 16)], spacing: 16) {
-                ForEach(AppTheme.allCases) { theme in
+                ForEach(Array(AppTheme.allCases.enumerated()), id: \.element) { index, theme in
                     themeCard(theme)
+                        .opacity(currentPage == 2 ? 1 : 0.5)
+                        .scaleEffect(currentPage == 2 ? 1.0 : 0.9)
+                        .animation(
+                            .spring(response: 0.35, dampingFraction: 0.75)
+                                .delay(Double(index) * 0.06),
+                            value: currentPage
+                        )
                 }
             }
             .padding(.horizontal, 40)
@@ -124,9 +139,7 @@ struct OnboardingView: View {
     private var readyPage: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.white)
+            OnboardingIconView(systemName: "checkmark.seal.fill", isActive: currentPage == 3)
                 .accessibilityHidden(true)
             Text("You're All Set")
                 .font(.largeTitle.bold())
@@ -147,9 +160,12 @@ struct OnboardingView: View {
 
     private func themeCard(_ theme: AppTheme) -> some View {
         let def = theme.definition
-        let isSelected = themeStore.selectedTheme == theme
+        let isSelected = themeStore.effectiveTheme == theme
         return Button {
-            themeStore.select(theme)
+            selectionFeedback.selectionChanged()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                themeStore.select(theme)
+            }
         } label: {
             VStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 10)
@@ -159,6 +175,9 @@ struct OnboardingView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(isSelected ? Color.white : Color.clear, lineWidth: 3)
                     )
+                    .shadow(color: isSelected ? .white.opacity(0.4) : .clear, radius: 6)
+                    .scaleEffect(isSelected ? 1.05 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
                 Text(theme.displayName)
                     .font(.caption.bold())
                     .foregroundStyle(.white)
@@ -170,25 +189,39 @@ struct OnboardingView: View {
 
     private var bottomBar: some View {
         HStack {
-            // Skip button (hidden on last page)
-            if currentPage < pageCount - 1 {
+            // Back / Skip button
+            if currentPage == 0 {
                 Button("Skip") {
+                    pageFeedback.impactOccurred()
                     completeOnboarding()
                 }
                 .foregroundStyle(.white.opacity(0.7))
                 .accessibilityLabel("Skip onboarding")
+            } else if currentPage < pageCount - 1 {
+                Button {
+                    withAnimation { currentPage -= 1 }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.caption.bold())
+                        Text("Back")
+                    }
+                }
+                .foregroundStyle(.white.opacity(0.7))
+                .accessibilityLabel("Go to previous page")
             } else {
                 Spacer().frame(width: 60)
             }
 
             Spacer()
 
-            // Page dots
-            HStack(spacing: 8) {
+            // Animated pill page dots
+            HStack(spacing: 6) {
                 ForEach(0..<pageCount, id: \.self) { index in
-                    Circle()
+                    Capsule()
                         .fill(index == currentPage ? Color.white : Color.white.opacity(0.4))
-                        .frame(width: 8, height: 8)
+                        .frame(width: index == currentPage ? 20 : 8, height: 8)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: currentPage)
                 }
             }
             .accessibilityHidden(true)
@@ -198,6 +231,7 @@ struct OnboardingView: View {
             // Next / Get Started button
             if currentPage < pageCount - 1 {
                 Button {
+                    pageFeedback.impactOccurred()
                     withAnimation { currentPage += 1 }
                 } label: {
                     Text("Next")
@@ -207,6 +241,8 @@ struct OnboardingView: View {
                 .accessibilityLabel("Next page")
             } else {
                 Button {
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
                     completeOnboarding()
                 } label: {
                     Text("Get Started")
@@ -239,5 +275,38 @@ struct OnboardingView: View {
 
     private func completeOnboarding() {
         settingsStore.hasCompletedOnboarding = true
+    }
+}
+
+// MARK: - Animated onboarding icon
+
+/// Shows a large SF Symbol that bounces in with a spring animation when `isActive` becomes true.
+private struct OnboardingIconView: View {
+    let systemName: String
+    let isActive: Bool
+
+    @State private var appeared = false
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 80))
+            .foregroundStyle(.white)
+            .scaleEffect(appeared ? 1.0 : 0.4)
+            .opacity(appeared ? 1.0 : 0)
+            .onChange(of: isActive) { _, active in
+                if active {
+                    appeared = false
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.65)) {
+                        appeared = true
+                    }
+                }
+            }
+            .onAppear {
+                if isActive {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.65).delay(0.15)) {
+                        appeared = true
+                    }
+                }
+            }
     }
 }

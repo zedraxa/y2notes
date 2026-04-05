@@ -45,6 +45,11 @@ struct FloatingToolbarCapsule: View {
     /// so tapping the "previous ink" button returns to it.
     @State private var previousInkTool: DrawingTool = .pen
 
+    // MARK: - Haptics
+
+    private let toolSwitchFeedback = UIImpactFeedbackGenerator(style: .light)
+    private let modeToggleFeedback = UIImpactFeedbackGenerator(style: .medium)
+
     // MARK: - Tier 1 Tools
 
     /// The 5 tools shown in Tier 1. The first slot shows the "active ink" tool
@@ -58,6 +63,7 @@ struct FloatingToolbarCapsule: View {
     var body: some View {
         tier1Content
             .animation(.spring(response: 0.25, dampingFraction: 0.85), value: toolStore.hasActiveSelection)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toolStore.isToolbarMinimized)
             .onChange(of: toolStore.activeTool) { oldTool, newTool in
                 if oldTool.isInking {
                     previousInkTool = oldTool
@@ -74,6 +80,26 @@ struct FloatingToolbarCapsule: View {
                     InkEffectPickerView(inkStore: inkStore)
                 }
             }
+            .background { toolSwitchKeyboardShortcuts }
+    }
+
+    // MARK: - Tool-Switch Keyboard Shortcuts
+
+    /// Hidden buttons that respond to Cmd+1…8 for switching tools via the keyboard.
+    @ViewBuilder
+    private var toolSwitchKeyboardShortcuts: some View {
+        let tools: [DrawingTool] = [.pen, .pencil, .highlighter, .fountainPen, .eraser, .lasso, .shape, .sticker]
+        ForEach(Array(tools.enumerated()), id: \.offset) { index, tool in
+            Button("") {
+                toolSwitchFeedback.impactOccurred()
+                toolStore.activeTool = tool
+            }
+            .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     // MARK: - Tier 1 Content (Standard vs Selection)
@@ -94,18 +120,24 @@ struct FloatingToolbarCapsule: View {
         }
     }
 
-    /// The normal drawing toolbar: Tier 2 expansion + Tier 1 capsule.
+    /// Switches between the compact minimized stub and the full drawing toolbar.
     @ViewBuilder
     private var standardToolbar: some View {
-        VStack(spacing: 4) {
-            // Tier 2 — contextual expansion above the capsule
-            tier2Expansion
+        if toolStore.isToolbarMinimized {
+            minimizedCapsule
+                .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
+        } else {
+            VStack(spacing: 4) {
+                // Tier 2 — contextual expansion above the capsule
+                tier2Expansion
 
-            // Recording expansion — quality picker + recordings link
-            recordingExpansion
+                // Recording expansion — quality picker + recordings link
+                recordingExpansion
 
-            // Tier 1 — always-present capsule
-            tier1Capsule
+                // Tier 1 — always-present capsule
+                tier1Capsule
+            }
+            .transition(.scale(scale: 0.95, anchor: .bottom).combined(with: .opacity))
         }
     }
 
@@ -179,6 +211,9 @@ struct FloatingToolbarCapsule: View {
             // Widget
             widgetButton
 
+            // Text
+            textToolButton
+
             // Focus mode
             focusModeButton
 
@@ -231,11 +266,116 @@ struct FloatingToolbarCapsule: View {
                 tier1Separator
                 inspectorGroup
             }
+
+            // Separator before collapse button is always present
+            tier1Separator
+
+            // Minimize — collapse toolbar to a compact pill
+            minimizeButton
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Minimize Button
+
+    /// Collapses the toolbar to a compact stub. Long-press or the expand button restores it.
+    @ViewBuilder
+    private var minimizeButton: some View {
+        Button {
+            toolSwitchFeedback.impactOccurred(intensity: 0.3)
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                toolStore.isToolbarMinimized = true
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .medium))
+                .frame(width: 26, height: 28)
+                .foregroundStyle(Color(uiColor: .tertiaryLabel))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Minimize toolbar")
+    }
+
+    // MARK: - Minimized Capsule
+
+    /// Compact stub rendered when `toolStore.isToolbarMinimized` is true.
+    /// Shows the active tool colour, undo/redo, and an expand button.
+    @ViewBuilder
+    private var minimizedCapsule: some View {
+        HStack(spacing: 4) {
+            // Active-tool icon tinted with the current ink colour
+            Image(systemName: activeInkTool.systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .foregroundStyle(Color(uiColor: toolStore.activeColor))
+
+            tier1Separator
+
+            // Undo
+            Button {
+                onUndo?()
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .foregroundStyle(canUndo
+                                     ? Color(uiColor: .label)
+                                     : Color(uiColor: .tertiaryLabel))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canUndo)
+            .keyboardShortcut("z", modifiers: .command)
+
+            // Redo
+            Button {
+                onRedo?()
+            } label: {
+                Image(systemName: "arrow.uturn.forward")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .foregroundStyle(canRedo
+                                     ? Color(uiColor: .label)
+                                     : Color(uiColor: .tertiaryLabel))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canRedo)
+            .keyboardShortcut("z", modifiers: [.command, .shift])
+
+            tier1Separator
+
+            // Expand
+            Button {
+                toolSwitchFeedback.impactOccurred(intensity: 0.5)
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.isToolbarMinimized = false
+                }
+            } label: {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 11, weight: .medium))
+                    .frame(width: 26, height: 28)
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Expand toolbar")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.ultraThinMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    modeToggleFeedback.impactOccurred()
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        toolStore.isToolbarMinimized = false
+                    }
+                }
+        )
+        .accessibilityHint(NSLocalizedString("ToolExpansion.LongPressToExpand",
+                                             comment: "Long-press to expand minimized toolbar"))
     }
 
     // MARK: - Tier 1 Tool Button
@@ -253,15 +393,31 @@ struct FloatingToolbarCapsule: View {
                     .font(.system(size: 15, weight: isActive ? .semibold : .regular))
                     .frame(width: 34, height: 30)
                     .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                    .scaleEffect(isActive ? 1.12 : 1.0)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isActive)
 
                 // Active indicator dot
                 Circle()
                     .fill(isActive ? colorDot(for: tool) : Color.clear)
                     .frame(width: 5, height: 5)
+                    .scaleEffect(isActive ? 1.0 : 0.01)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.65), value: isActive)
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tool.displayName)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .accessibilityHint(isActive
+            ? NSLocalizedString("ToolExpansion.TapToExpand", comment: "Tap to expand tool options")
+            : NSLocalizedString("ToolExpansion.TapToActivate", comment: "Tap to activate tool"))
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.6)
+                .onEnded { _ in
+                    guard onOpenInspector != nil else { return }
+                    modeToggleFeedback.impactOccurred()
+                    onOpenInspector?()
+                }
+        )
     }
 
     // MARK: - Inspector Group
@@ -365,11 +521,40 @@ struct FloatingToolbarCapsule: View {
         .accessibilityLabel("Widget")
     }
 
+    // MARK: - Text Tool Button
+
+    @ViewBuilder
+    private var textToolButton: some View {
+        let isActive = toolStore.activeTool == .text
+        Button {
+            if isActive {
+                toolStore.activeTool = .pen
+            } else {
+                toolStore.activeTool = .text
+            }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "character.cursor.ibeam")
+                    .font(.system(size: 15, weight: isActive ? .semibold : .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(isActive ? Color.accentColor : Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Text")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
     // MARK: - Focus Mode Button
 
     @ViewBuilder
     private var focusModeButton: some View {
         Button {
+            modeToggleFeedback.impactOccurred()
             toolStore.isFocusModeActive.toggle()
         } label: {
             VStack(spacing: 2) {
@@ -402,6 +587,7 @@ struct FloatingToolbarCapsule: View {
         Button {
             if toolStore.activeAmbientScene != nil {
                 // If active, tap deactivates.
+                modeToggleFeedback.impactOccurred()
                 toolStore.activeAmbientScene = nil
             } else {
                 showAmbientPicker = true
@@ -436,6 +622,7 @@ struct FloatingToolbarCapsule: View {
         VStack(spacing: 0) {
             ForEach(AmbientScene.allCases) { scene in
                 Button {
+                    modeToggleFeedback.impactOccurred()
                     toolStore.activeAmbientScene = scene
                     showAmbientPicker = false
                 } label: {
@@ -463,8 +650,33 @@ struct FloatingToolbarCapsule: View {
                     Divider().padding(.leading, 48)
                 }
             }
+
+            Divider()
+
+            // Sound toggle row.
+            Button {
+                toolStore.isAmbientSoundEnabled.toggle()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: toolStore.isAmbientSoundEnabled
+                          ? "speaker.wave.2" : "speaker.slash")
+                        .font(.system(size: 16))
+                        .frame(width: 24)
+                        .foregroundStyle(toolStore.isAmbientSoundEnabled
+                                         ? Color.accentColor
+                                         : Color(uiColor: .secondaryLabel))
+                    Text("Sound")
+                        .font(.subheadline)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color(uiColor: .label))
         }
-        .frame(width: 160)
+        .frame(width: 180)
         .padding(.vertical, 4)
     }
 
@@ -473,6 +685,7 @@ struct FloatingToolbarCapsule: View {
     @ViewBuilder
     private var magicModeButton: some View {
         Button {
+            modeToggleFeedback.impactOccurred()
             toolStore.isMagicModeActive.toggle()
         } label: {
             VStack(spacing: 2) {
@@ -501,6 +714,7 @@ struct FloatingToolbarCapsule: View {
     @ViewBuilder
     private var studyModeButton: some View {
         Button {
+            modeToggleFeedback.impactOccurred()
             toolStore.isStudyModeActive.toggle()
         } label: {
             VStack(spacing: 2) {
@@ -582,6 +796,7 @@ struct FloatingToolbarCapsule: View {
     private func handleToolTap(_ tool: DrawingTool) {
         if toolStore.activeTool == tool {
             // Already active — toggle Tier 2 expansion
+            toolSwitchFeedback.impactOccurred(intensity: 0.5)
             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                 if expandedTool == tool {
                     expandedTool = nil
@@ -591,6 +806,7 @@ struct FloatingToolbarCapsule: View {
             }
         } else {
             // Switch tool
+            toolSwitchFeedback.impactOccurred()
             toolStore.activeTool = tool
             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                 expandedTool = nil

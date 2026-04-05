@@ -72,7 +72,7 @@ struct NotebookWorkspaceView: View {
     @ViewBuilder
     private func notebookContent(id: UUID, tab: TabSession) -> some View {
         if let notebook = noteStore.notebooks.first(where: { $0.id == id }) {
-            NotebookReaderView(notebook: notebook)
+            NotebookReaderView(notebook: notebook, tabID: tab.id)
         } else {
             deletedContentPlaceholder(tab: tab)
         }
@@ -81,7 +81,7 @@ struct NotebookWorkspaceView: View {
     @ViewBuilder
     private func noteContent(id: UUID, tab: TabSession) -> some View {
         if let note = noteStore.notes.first(where: { $0.id == id }) {
-            NoteEditorView(note: note)
+            NoteEditorView(note: note, tab: tab)
         } else {
             deletedContentPlaceholder(tab: tab)
         }
@@ -90,7 +90,9 @@ struct NotebookWorkspaceView: View {
     @ViewBuilder
     private func pdfContent(id: UUID, tab: TabSession) -> some View {
         if let record = pdfStore.records.first(where: { $0.id == id }) {
-            PDFViewerView(record: record)
+            PDFViewerView(record: record, tab: tab, onOpenCompanionNote: { noteID in
+                openCompanionNote(noteID)
+            })
         } else {
             deletedContentPlaceholder(tab: tab)
         }
@@ -101,11 +103,24 @@ struct NotebookWorkspaceView: View {
         if let doc = documentStore.documents.first(where: { $0.id == id }) {
             DocumentViewerView(
                 document: doc,
-                fileURL: documentStore.storedURL(for: doc)
+                fileURL: documentStore.storedURL(for: doc),
+                onOpenCompanionNote: { noteID in
+                    openCompanionNote(noteID)
+                }
             )
         } else {
             deletedContentPlaceholder(tab: tab)
         }
+    }
+
+    /// Opens a companion note in a new tab.
+    private func openCompanionNote(_ noteID: UUID) {
+        guard let note = noteStore.notes.first(where: { $0.id == noteID }) else { return }
+        workspace.openTab(
+            .note(id: noteID),
+            displayName: note.title.isEmpty ? "Untitled Note" : note.title,
+            accentColor: [0.45, 0.45, 0.5]
+        )
     }
 
     // MARK: - Deleted Content

@@ -23,8 +23,13 @@ struct NoteEditorView: View {
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var documentStore: DocumentStore
     @EnvironmentObject var stickerStore: StickerStore
+    @EnvironmentObject var pdfStore: PDFStore
     @Environment(\.undoManager) private var undoManager
+    @Environment(TabWorkspaceStore.self) private var workspace
     let note: Note
+    /// The tab ID for state sync. `nil` when opened as a standalone editor
+    /// (e.g. from a widget or deep link) rather than inside the tab workspace.
+    let tabID: UUID?
 
     @State private var titleText: String
     @State private var canUndo = false
@@ -78,16 +83,28 @@ struct NoteEditorView: View {
 
     /// Whether the version history sheet is visible.
     @State private var showVersionHistory = false
+    @State private var showUnlinkConfirm = false
 
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
+    /// Set to `true` immediately before navigating to a freshly created page
+    /// so the canvas plays its paper-settle reveal animation.  Reset shortly
+    /// after to avoid replaying the animation on subsequent re-renders.
+    @State private var isNewPageJustAdded = false
+
+    /// Widget being edited in the inline editor sheet.
+    @State private var widgetToEdit: NoteWidget?
+
     private let searchService = SearchService()
 
-    init(note: Note) {
+    init(note: Note, tab: TabSession? = nil) {
         self.note = note
+        self.tabID = tab?.id
         _titleText = State(initialValue: note.title)
         _typedTextContent = State(initialValue: note.typedText)
+        _currentPageIndex = State(initialValue: tab?.pageIndex ?? 0)
+        _showAdvancedPanel = State(initialValue: tab?.showAdvancedPanel ?? false)
     }
 
     // MARK: - Notebook context
@@ -119,7 +136,7 @@ struct NoteEditorView: View {
     // MARK: - Effective theme
 
     private var effectiveTheme: AppTheme {
-        note.themeOverride ?? themeStore.selectedTheme
+        note.themeOverride ?? themeStore.effectiveTheme
     }
 
     private var effectiveDefinition: ThemeDefinition {
@@ -162,6 +179,17 @@ struct NoteEditorView: View {
             .onDisappear {
                 toolStore.currentPaperMaterial = .standard
             }
+            // Sync tab navigation state back to the workspace store on every change.
+            .onChange(of: currentPageIndex) { _, newIndex in
+                if let id = tabID {
+                    workspace.updateTabState(id, pageIndex: newIndex)
+                }
+            }
+            .onChange(of: showAdvancedPanel) { _, isOpen in
+                if let id = tabID {
+                    workspace.updateTabState(id, showAdvancedPanel: isOpen)
+                }
+            }
             .onChange(of: toolStore.isFocusModeActive) { _, isActive in
                 // Toolbar opacity is driven directly by the SwiftUI toolbarOpacity
                 // binding.  The paper glow (CALayer) is handled here via the
@@ -198,14 +226,18 @@ struct NoteEditorView: View {
             }
             .onReceive(noteStore.$saveState) { state in
                 if state == .saved {
-                    showSavedBadge = true
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        showSavedBadge = true
+                    }
                     let now = Date()
                     badgeShownAt = now
                     // Each rapid save updates `badgeShownAt`; only the last scheduled
                     // callback will actually hide the badge, avoiding premature dismissal.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                         if badgeShownAt == now {
-                            showSavedBadge = false
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                showSavedBadge = false
+                            }
                         }
                     }
                 }
@@ -213,6 +245,10 @@ struct NoteEditorView: View {
             .onDisappear {
                 flushTextNow()
                 toolStore.currentPaperMaterial = .standard
+                // Persist tab state when leaving this editor tab.
+                if let id = tabID {
+                    workspace.updateTabState(id, pageIndex: currentPageIndex, showAdvancedPanel: showAdvancedPanel)
+                }
                 // Reset focus mode on editor tear-down so state doesn't leak.
                 if toolStore.isFocusModeActive {
                     toolStore.isFocusModeActive = false
@@ -256,13 +292,24 @@ struct NoteEditorView: View {
                 }
                 .presentationDetents([.medium])
             }
+            .sheet(item: $widgetToEdit) { widget in
+                WidgetEditorView(widget: widget) { updated in
+                    let pageIdx = currentPageIndex
+                    var widgets = note.widgets(forPage: pageIdx)
+                    if let idx = widgets.firstIndex(where: { $0.id == updated.id }) {
+                        widgets[idx] = updated
+                        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
             .fileImporter(
                 isPresented: $showDocumentImporter,
                 allowedContentTypes: ImportedDocumentType.allUTTypes,
-                allowsMultipleSelection: false
+                allowsMultipleSelection: true
             ) { result in
-                if case .success(let urls) = result, let url = urls.first {
-                    documentStore.importDocument(from: url)
+                if case .success(let urls) = result {
+                    documentStore.importDocuments(from: urls)
                 }
             }
     }
@@ -280,10 +327,13 @@ struct NoteEditorView: View {
         }
     }
 
-    /// Primary VStack: title, contrast banner, find bar, canvas or text layer, page bar.
+    /// Primary VStack: title, linked-import banner, contrast banner, find bar, canvas or text layer, page bar.
     private var mainContentStack: some View {
         VStack(spacing: 0) {
             titleField
+            if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                linkedImportBanner
+            }
             if effectiveDefinition.canvasIsDark && !isTextMode {
                 contrastBanner
             }
@@ -316,7 +366,7 @@ struct NoteEditorView: View {
             drawingData: currentPageData,
             backgroundColor: canvasBackgroundColor,
             defaultInkColor: effectiveDefinition.contrastingInkColor,
-            currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
+            currentTool: toolStore.pkTool,
             isShapeToolActive: toolStore.activeTool == .shape,
             activeShapeType: toolStore.activeShapeType,
             shapeColor: toolStore.activeColor,
@@ -326,7 +376,7 @@ struct NoteEditorView: View {
             pageType: effectivePageType(forPage: safePageIndex),
             paperMaterial: effectivePaperMaterial,
             activeFX: inkStore.resolvedFX,
-            fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
+            fxColor: toolStore.activeColor,
             pageIndex: safePageIndex,
             onDrawingChanged: { data in
                 noteStore.updateDrawing(for: note.id, pageIndex: safePageIndex, data: data)
@@ -339,19 +389,20 @@ struct NoteEditorView: View {
                 canRedo = canRedoVal
             },
             onPageSwipe: { direction in
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                    if direction > 0 {
-                        if currentPageIndex >= note.pageCount - 1 {
-                            // Swipe past last page → auto-create new page
-                            if let newIndex = noteStore.addPage(to: note.id) {
-                                currentPageIndex = newIndex
-                            }
-                        } else {
-                            currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                // No SwiftUI animation here: the CA snap in PageTransitionEngine
+                // already handled the visual.  State changes instantly so the
+                // new page content is ready when the snap animation reveals it.
+                if direction > 0 {
+                    if currentPageIndex >= note.pageCount - 1 {
+                        // Swipe past last page → auto-create new page
+                        if let newIndex = noteStore.addPage(to: note.id) {
+                            currentPageIndex = newIndex
                         }
                     } else {
-                        currentPageIndex = max(0, currentPageIndex - 1)
+                        currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
                     }
+                } else {
+                    currentPageIndex = max(0, currentPageIndex - 1)
                 }
             },
             onPinchToOverview: {
@@ -376,6 +427,7 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
                         toolStore.activeWidgetSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
@@ -392,6 +444,7 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
                         toolStore.activeAttachmentSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
@@ -407,6 +460,7 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeAttachmentSelection = nil
                         toolStore.activeWidgetSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
@@ -415,19 +469,44 @@ struct NoteEditorView: View {
                 guard let asset = stickerStore.asset(for: id) else { return nil }
                 return stickerStore.image(for: asset)
             },
+            isTextToolActive: toolStore.activeTool == .text,
+            currentPageTextObjects: note.textObjects(forPage: safePageIndex),
+            onTextObjectsChanged: { textObjects in
+                noteStore.updateTextObjects(for: note.id, pageIndex: safePageIndex, textObjects: textObjects)
+            },
+            onTextObjectSelectionChanged: { textObjectID in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeTextObjectSelection = textObjectID
+                    // Clear other selections when a text object is selected
+                    if textObjectID != nil {
+                        toolStore.activeShapeSelection = nil
+                        toolStore.activeStickerSelection = nil
+                        toolStore.activeAttachmentSelection = nil
+                        toolStore.activeWidgetSelection = nil
+                        toolStore.hasActiveSelection = false
+                    }
+                }
+            },
+            onPlaceTextObject: { point in
+                placeTextObject(at: point)
+            },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
-            isStudyModeActive: toolStore.isStudyModeActive
+            isStudyModeActive: toolStore.isStudyModeActive,
+            activeAmbientScene: toolStore.activeAmbientScene,
+            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled,
+            isNewPage: isNewPageJustAdded
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
-        // Cross-fade transition between pages: SwiftUI animates the opacity
-        // removal of the old canvas and insertion of the new one via .id().
+        // Cross-fade transition between pages: only animates when SwiftUI drives
+        // the change (e.g. navigation-bar buttons) because those wrap the state
+        // update in `withAnimation`.  Gesture-triggered changes skip this — the
+        // CA spring in PageTransitionEngine already handled the visual.
         .transition(.opacity)
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
         .padding(.horizontal, 1)
-        .animation(.easeInOut(duration: 0.22), value: safePageIndex)
     }
 
     /// Floating toolbar capsule — bottom-center, above page navigation bar.
@@ -519,6 +598,24 @@ struct NoteEditorView: View {
             .padding(.top, 60)
             .zIndex(0.75)
         }
+
+        // Text object action bar
+        if toolStore.hasActiveTextObjectSelection,
+           let selectedID = toolStore.activeTextObjectSelection,
+           let selectedTextObject = note.textObjects(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+            VStack {
+                TextObjectHandlesView(
+                    textObject: selectedTextObject,
+                    onAction: { action in
+                        handleTextObjectAction(action, for: selectedID)
+                    }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                Spacer()
+            }
+            .padding(.top, 60)
+            .zIndex(0.8)
+        }
     }
 
     /// Advanced tools inspector — slides in from the right.
@@ -591,9 +688,20 @@ struct NoteEditorView: View {
         }
         .accessibilityLabel("Import document")
 
+        // Open the PDF or document that this note was created for, if any.
+        if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+            Button {
+                openLinkedImport()
+            } label: {
+                Image(systemName: "doc.viewfinder")
+            }
+            .accessibilityLabel("Open linked document")
+        }
+
         // Draw ↔ Type mode toggle.
         // "keyboard" switches to text mode; "pencil" returns to drawing mode.
         Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             flushTextNow()
             isTextMode.toggle()
         } label: {
@@ -630,7 +738,7 @@ struct NoteEditorView: View {
             } label: {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
             }
-            .accessibilityLabel("Reset zoom to 100%")
+            .accessibilityLabel("Fit page to screen")
 
             Button {
                 undoManager?.undo()
@@ -716,6 +824,12 @@ struct NoteEditorView: View {
             widget = NoteWidget.makeCalloutBox(at: center)
         case .referenceCard:
             widget = NoteWidget.makeReferenceCard(at: center)
+        case .stickyNote:
+            widget = NoteWidget.makeStickyNote(at: center)
+        case .flashcard:
+            widget = NoteWidget.makeFlashcard(at: center)
+        case .progressTracker:
+            widget = NoteWidget.makeProgressTracker(at: center)
         }
         widget.zIndex = maxZ + 1
 
@@ -728,6 +842,47 @@ struct NoteEditorView: View {
             toolStore.activeShapeSelection = nil
             toolStore.activeStickerSelection = nil
             toolStore.activeAttachmentSelection = nil
+            toolStore.activeTextObjectSelection = nil
+            toolStore.hasActiveSelection = false
+        }
+    }
+
+    // MARK: - Text Object Placement
+
+    /// Places a new empty text box anchored at the given page-coordinate point.
+    private func placeTextObject(at tapPoint: CGPoint) {
+        let pageIdx = currentPageIndex
+        var objects = note.textObjects(forPage: pageIdx)
+
+        // Enforce per-page limit
+        guard objects.count < TextObjectConstants.maxTextObjectsPerPage else { return }
+
+        let maxZ = objects.map(\.zIndex).max() ?? 0
+        let size = TextObjectConstants.defaultSize
+        // Centre the box on the tap point
+        let origin = CGPoint(x: tapPoint.x - size.width / 2, y: tapPoint.y - size.height / 2)
+        let frame = CGRect(origin: origin, size: size)
+
+        let obj = TextObject(
+            frame: frame,
+            fontSize: toolStore.activeTextFontSize,
+            fontFamily: toolStore.activeTextFontFamily,
+            isBold: toolStore.activeTextBold,
+            textColor: .label,
+            alignment: toolStore.activeTextAlignment,
+            zIndex: maxZ + 1
+        )
+
+        objects.append(obj)
+        noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: objects)
+
+        // Auto-select so the user can immediately start editing
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            toolStore.activeTextObjectSelection = obj.id
+            toolStore.activeShapeSelection = nil
+            toolStore.activeStickerSelection = nil
+            toolStore.activeAttachmentSelection = nil
+            toolStore.activeWidgetSelection = nil
             toolStore.hasActiveSelection = false
         }
     }
@@ -829,6 +984,9 @@ struct NoteEditorView: View {
         guard let idx = widgets.firstIndex(where: { $0.id == widgetID }) else { return }
 
         switch action {
+        case .edit:
+            widgetToEdit = widgets[idx]
+
         case .duplicate:
             let source = widgets[idx]
             let copy = NoteWidget(
@@ -851,12 +1009,117 @@ struct NoteEditorView: View {
         case .toggleLock:
             widgets[idx].isLocked.toggle()
 
+        case .bringForward:
+            let maxZ = widgets.map(\.zIndex).max() ?? 0
+            if widgets[idx].zIndex < maxZ {
+                widgets[idx].zIndex += 1
+            }
+
+        case .sendBack:
+            let minZ = widgets.map(\.zIndex).min() ?? 0
+            if widgets[idx].zIndex > minZ {
+                widgets[idx].zIndex -= 1
+            }
+
         case .delete:
             widgets.remove(at: idx)
             toolStore.activeWidgetSelection = nil
         }
 
         noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+    }
+
+    /// Handles actions from the text object action bar.
+    private func handleTextObjectAction(_ action: TextObjectAction, for textObjectID: UUID) {
+        let pageIdx = currentPageIndex
+        var textObjects = note.textObjects(forPage: pageIdx)
+        guard let idx = textObjects.firstIndex(where: { $0.id == textObjectID }) else { return }
+
+        switch action {
+        case .duplicate:
+            let source = textObjects[idx]
+            let copy = TextObject(
+                content: source.content,
+                frame: source.frame.offsetBy(dx: 20, dy: 20),
+                fontSize: source.fontSize,
+                fontFamily: source.fontFamily,
+                isBold: source.isBold,
+                textColor: source.textColor,
+                backgroundColor: source.backgroundColor,
+                alignment: source.textAlignment,
+                rotation: source.rotation,
+                opacity: source.opacity,
+                zIndex: (textObjects.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false,
+                borderRadius: source.borderRadius,
+                borderColor: source.borderColor,
+                borderWidth: source.borderWidth
+            )
+            textObjects.append(copy)
+            toolStore.activeTextObjectSelection = copy.id
+
+        case .delete:
+            textObjects.remove(at: idx)
+            toolStore.activeTextObjectSelection = nil
+
+        case .toggleLock:
+            textObjects[idx].isLocked.toggle()
+
+        case .bringToFront:
+            let maxZ = textObjects.map(\.zIndex).max() ?? 0
+            textObjects[idx].zIndex = maxZ + 1
+
+        case .sendToBack:
+            let minZ = textObjects.map(\.zIndex).min() ?? 0
+            textObjects[idx].zIndex = minZ - 1
+
+        case .updateFontSize(let size):
+            textObjects[idx].fontSize = size
+
+        case .updateFontFamily(let family):
+            textObjects[idx].fontFamily = family
+
+        case .toggleBold:
+            textObjects[idx].isBold.toggle()
+
+        case .updateAlignment(let alignment):
+            switch alignment {
+            case .center: textObjects[idx].alignmentRaw = 1
+            case .right:  textObjects[idx].alignmentRaw = 2
+            default:      textObjects[idx].alignmentRaw = 0
+            }
+
+        case .updateTextColor(let color):
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            textObjects[idx].textColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+
+        case .updateBackgroundColor(let color):
+            if let bg = color {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                bg.getRed(&r, green: &g, blue: &b, alpha: &a)
+                textObjects[idx].backgroundColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+            } else {
+                textObjects[idx].backgroundColorComponents = nil
+            }
+
+        case .updateBorderRadius(let radius):
+            textObjects[idx].borderRadius = radius
+
+        case .updateBorderColor(let color):
+            if let bc = color {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                bc.getRed(&r, green: &g, blue: &b, alpha: &a)
+                textObjects[idx].borderColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+            } else {
+                textObjects[idx].borderColorComponents = nil
+            }
+
+        case .updateBorderWidth(let width):
+            textObjects[idx].borderWidth = width
+        }
+
+        noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: textObjects)
     }
 
     // MARK: - Background blend helper
@@ -996,7 +1259,6 @@ struct NoteEditorView: View {
         [
             ("White",       .white),
             ("Cream",       UIColor(red: 0.99, green: 0.97, blue: 0.93, alpha: 1)),
-            ("Parchment",   UIColor(red: 0.96, green: 0.94, blue: 0.87, alpha: 1)),
             ("Pale Yellow",  UIColor(red: 1.00, green: 0.99, blue: 0.88, alpha: 1)),
             ("Pale Blue",    UIColor(red: 0.93, green: 0.96, blue: 1.00, alpha: 1)),
             ("Pale Green",   UIColor(red: 0.93, green: 0.99, blue: 0.93, alpha: 1)),
@@ -1021,6 +1283,58 @@ struct NoteEditorView: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(uiColor: effectiveDefinition.canvasBackground).opacity(0.8))
+    }
+
+    // MARK: - Linked import banner
+
+    /// Shows a tappable banner when this note is a companion to a PDF or imported document.
+    private var linkedImportBanner: some View {
+        Button(action: openLinkedImport) {
+            HStack(spacing: 6) {
+                Image(systemName: "paperclip")
+                    .font(.caption2)
+                Text(linkedImportLabel)
+                    .font(.caption2)
+                Spacer()
+                Image(systemName: "arrow.up.forward")
+                    .font(.caption2)
+            }
+            .foregroundStyle(.accentColor)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(Color.accentColor.opacity(0.08))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open linked import")
+    }
+
+    private var linkedImportLabel: String {
+        if let pdfID = note.linkedPDFID,
+           let rec = pdfStore.records.first(where: { $0.id == pdfID }) {
+            return "Linked to \(rec.title)"
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return "Linked to \(doc.displayName)"
+        }
+        return "Linked to import"
+    }
+
+    private func openLinkedImport() {
+        if let pdfID = note.linkedPDFID {
+            workspace.openTab(
+                .pdf(id: pdfID),
+                displayName: pdfStore.records.first(where: { $0.id == pdfID })?.title ?? "PDF",
+                accentColor: [0.85, 0.25, 0.25]
+            )
+        } else if let docID = note.linkedDocumentID,
+                  let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            workspace.openTab(
+                .document(id: docID),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
+        }
     }
 
     // MARK: - Focus Mode Overlay
@@ -1099,6 +1413,7 @@ struct NoteEditorView: View {
             Image(systemName: "checkmark.circle")
                 .foregroundStyle(.secondary)
                 .font(.caption)
+                .transition(.scale(scale: 0.5).combined(with: .opacity))
                 .accessibilityLabel("Saved")
         default:
             EmptyView()
@@ -1110,9 +1425,120 @@ struct NoteEditorView: View {
         canRedo = undoManager?.canRedo ?? false
     }
 
-    // MARK: - Selection Actions
+    /// Opens the PDF or document that this note was created to accompany.
+    ///
+    /// If the linked import no longer exists (e.g. user deleted it), the action is a no-op.
+    private func openLinkedImport() {
+        if let pdfID = note.linkedPDFID,
+           let record = pdfStore.records.first(where: { $0.id == pdfID }) {
+            workspace.openTab(
+                .pdf(id: record.id),
+                displayName: record.title,
+                accentColor: [0.8, 0.3, 0.3]
+            )
+        } else if let docID = note.linkedDocumentID,
+                  let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            workspace.openTab(
+                .document(id: doc.id),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
+        }
+    }
 
-    /// Handles selection toolbar actions by dispatching standard edit commands
+    // MARK: - Linked Import Banner
+
+    /// Tappable banner shown below the title when this note is linked to an imported document.
+    /// Shows the source file name and type; tapping opens the linked file in its viewer tab.
+    private var linkedImportBanner: some View {
+        HStack(spacing: 8) {
+            Button(action: openLinkedImport) {
+                HStack(spacing: 8) {
+                    Image(systemName: linkedImportIcon)
+                        .font(.subheadline)
+                        .foregroundStyle(.accentColor)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(
+                            format: NSLocalizedString("Import.LinkedTo", comment: ""),
+                            linkedImportTitle
+                        ))
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                        Text(linkedImportSubtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "arrow.up.forward.square")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(
+                format: NSLocalizedString("Import.LinkedTo", comment: ""),
+                linkedImportTitle
+            ))
+
+            Button {
+                showUnlinkConfirm = true
+            } label: {
+                Image(systemName: "link.badge.minus")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+                    .padding(.leading, 4)
+                    .padding(.trailing, 16)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("Import.Unlink", comment: ""))
+        }
+        .background(Color.accentColor.opacity(0.08))
+        .alert(
+            NSLocalizedString("Import.UnlinkTitle", comment: ""),
+            isPresented: $showUnlinkConfirm
+        ) {
+            Button(NSLocalizedString("Import.Unlink", comment: ""), role: .destructive) {
+                noteStore.unlinkCompanionNote(id: note.id)
+            }
+            Button(NSLocalizedString("Common.Cancel", comment: ""), role: .cancel) {}
+        } message: {
+            Text(NSLocalizedString("Import.UnlinkMessage", comment: ""))
+        }
+    }
+
+    private var linkedImportIcon: String {
+        if note.linkedPDFID != nil { return "doc.richtext" }
+        return "doc"
+    }
+
+    private var linkedImportTitle: String {
+        if let pdfID = note.linkedPDFID,
+           let record = pdfStore.records.first(where: { $0.id == pdfID }) {
+            return record.title
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return doc.displayName
+        }
+        return NSLocalizedString("Import.SourceDeleted", comment: "")
+    }
+
+    private var linkedImportSubtitle: String {
+        if note.linkedPDFID != nil {
+            if pdfStore.records.first(where: { $0.id == note.linkedPDFID }) != nil {
+                return "PDF Document — " + NSLocalizedString("Import.TapToOpen", comment: "")
+            }
+            return NSLocalizedString("Import.SourceDeleted", comment: "")
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return "\(doc.documentType.displayName) — " + NSLocalizedString("Import.TapToOpen", comment: "")
+        }
+        return NSLocalizedString("Import.SourceDeleted", comment: "")
+    }
+
+    // MARK: - Selection Actions
     /// to the canvas's responder chain. PencilKit's built-in lasso selection
     /// supports cut/copy/paste/delete through the standard UIResponder actions.
     private func handleSelectionAction(_ action: SelectionAction) {
@@ -1452,8 +1878,17 @@ struct NoteEditorView: View {
             // Add page
             Button {
                 if let newIndex = noteStore.addPage(to: note.id) {
+                    isNewPageJustAdded = true
                     withAnimation(.easeInOut(duration: 0.25)) {
                         currentPageIndex = newIndex
+                    }
+                    // Reset the flag after the CA reveal animation completes.
+                    // The delay (0.55 s) intentionally exceeds the SwiftUI navigation
+                    // animation (0.25 s) to ensure the new CanvasView is fully
+                    // displayed before the flag resets, preventing a double-reveal
+                    // if SwiftUI re-renders during the transition.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                        isNewPageJustAdded = false
                     }
                 }
             } label: {
@@ -1575,6 +2010,17 @@ struct CanvasView: UIViewRepresentable {
     /// Image provider for rendering sticker assets.
     var stickerImageProvider: ((String) -> UIImage?)?
 
+    /// Whether the text tool is active (text canvas overlay intercepts touches).
+    var isTextToolActive: Bool = false
+    /// Text objects for the current page.
+    var currentPageTextObjects: [TextObject] = []
+    /// Callback to persist text object changes.
+    var onTextObjectsChanged: (([TextObject]) -> Void)?
+    /// Callback when text object selection changes.
+    var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+    /// Called when the user taps an empty area while the text tool is active.
+    var onPlaceTextObject: ((CGPoint) -> Void)?
+
     /// Total number of pages in the note, used for adaptive effects complexity signals.
     var pageCount: Int = 1
 
@@ -1582,6 +2028,14 @@ struct CanvasView: UIViewRepresentable {
     var isMagicModeActive: Bool = false
     /// Whether Study Mode is active (heading glow, checklist pulse, timer pulse).
     var isStudyModeActive: Bool = false
+    /// The currently active ambient environment scene, or `nil` when inactive.
+    var activeAmbientScene: AmbientScene?
+    /// Whether ambient soundscapes are enabled.
+    var isAmbientSoundEnabled: Bool = true
+
+    /// When `true`, `makeUIView` plays a paper-settle reveal animation on the
+    /// container layer to celebrate the addition of a brand-new blank page.
+    var isNewPage: Bool = false
 
     // MARK: - Page dimensions
 
@@ -1613,7 +2067,9 @@ struct CanvasView: UIViewRepresentable {
         editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - begin")
 
         let container = UIView()
-        container.backgroundColor = backgroundColor
+        // The container is the "desk surface" — it shows around the page when
+        // zoomed out.  The paper colour is rendered by PageBackgroundView instead.
+        container.backgroundColor = Self.deskSurfaceColor
 
         // ── Page background (ruling + paper tint, sits behind the canvas) ──────
         // Frame-based layout sized to the fixed page dimensions so the ruling
@@ -1623,8 +2079,20 @@ struct CanvasView: UIViewRepresentable {
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
-        pageBackground.showGrain    = paperMaterial.hasGrainTexture
+        pageBackground.grainIntensity = paperMaterial.grainIntensity
+        pageBackground.rulingTint   = paperMaterial.rulingTint
         pageBackground.isUserInteractionEnabled = false
+
+        // Give the page a soft drop-shadow so it looks like a physical sheet
+        // resting on the desk surface.  An explicit shadow path avoids the
+        // expensive offscreen-composite pass that Core Animation would otherwise
+        // need for a view with a non-opaque background.
+        pageBackground.layer.shadowColor   = UIColor.black.cgColor
+        pageBackground.layer.shadowOpacity = 0.18
+        pageBackground.layer.shadowRadius  = 12
+        pageBackground.layer.shadowOffset  = CGSize(width: 0, height: 3)
+        pageBackground.layer.shadowPath    =
+            UIBezierPath(rect: CGRect(origin: .zero, size: ps)).cgPath
 
         container.addSubview(pageBackground)
         context.coordinator.pageBackground = pageBackground
@@ -1668,7 +2136,8 @@ struct CanvasView: UIViewRepresentable {
         let canvas = PKCanvasView()
         canvas.delegate = context.coordinator
         canvas.drawingPolicy = drawingPolicy
-        canvas.alwaysBounceVertical = true
+        canvas.alwaysBounceVertical   = true
+        canvas.alwaysBounceHorizontal = true
         // Canvas is transparent so the page background shows through.
         canvas.backgroundColor = .clear
         canvas.tool = currentTool
@@ -1781,6 +2250,14 @@ struct CanvasView: UIViewRepresentable {
         widgetCanvas.onWidgetsChanged = { widgets in
             context.coordinator.handleWidgetsChanged(widgets)
         }
+        // Study mode: fire checklist completion animation.
+        widgetCanvas.onChecklistCompleted = { _, center in
+            context.coordinator.studyModeEngine.checklistComplete(at: center)
+        }
+        // Study mode: fire timer/progress completion animation.
+        widgetCanvas.onTimerCompleted = { _, _ in
+            context.coordinator.studyModeEngine.timerComplete()
+        }
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
         container.addSubview(widgetCanvas)
@@ -1791,6 +2268,60 @@ struct CanvasView: UIViewRepresentable {
             widgetCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         context.coordinator.widgetCanvas = widgetCanvas
+
+        // ── Sticker canvas (draggable sticker overlays) ──────────────────────
+        let stickerCanvas = StickerCanvasView(frame: .zero)
+        stickerCanvas.translatesAutoresizingMaskIntoConstraints = false
+        stickerCanvas.stickers = currentPageStickers
+        stickerCanvas.imageProvider = stickerImageProvider
+        stickerCanvas.onStickerTransformed = { sticker in
+            context.coordinator.handleStickerTransformed(sticker)
+        }
+        stickerCanvas.onStickerDeleted = { stickerID in
+            context.coordinator.handleStickerDeleted(stickerID)
+        }
+        stickerCanvas.onSelectionChanged = { stickerID in
+            context.coordinator.handleStickerSelectionChanged(stickerID)
+        }
+        context.coordinator.onStickersChanged = onStickersChanged
+        context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
+        container.addSubview(stickerCanvas)
+        NSLayoutConstraint.activate([
+            stickerCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            stickerCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stickerCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stickerCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.stickerCanvas = stickerCanvas
+
+        // ── Text object canvas (anchored text boxes layer) ───────────────────
+        let textCanvas = TextCanvasView(frame: .zero)
+        textCanvas.translatesAutoresizingMaskIntoConstraints = false
+        textCanvas.isTextToolActive = isTextToolActive
+        textCanvas.textObjects = currentPageTextObjects
+        textCanvas.onSelectionChanged = { textObjectID in
+            context.coordinator.onTextObjectSelectionChanged?(textObjectID)
+        }
+        textCanvas.onTextObjectsChanged = { textObjects in
+            context.coordinator.handleTextObjectsChanged(textObjects)
+        }
+        textCanvas.onPlaceTextObject = { point in
+            context.coordinator.onPlaceTextObject?(point)
+        }
+        textCanvas.onTextObjectTransformed = { textObject in
+            context.coordinator.handleTextObjectTransformed(textObject)
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onPlaceTextObject = onPlaceTextObject
+        container.addSubview(textCanvas)
+        NSLayoutConstraint.activate([
+            textCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            textCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            textCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            textCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.textCanvas = textCanvas
 
         // ── Shape object canvas (editable shapes layer) ──────────────────────
         let shapeCanvas = ShapeCanvasView(frame: .zero)
@@ -1815,29 +2346,6 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.shapeCanvas = shapeCanvas
 
-        // ── Sticker canvas overlay ─────────────────────────────────────────
-        let stickerCanvas = StickerCanvasView(frame: .zero)
-        stickerCanvas.translatesAutoresizingMaskIntoConstraints = false
-        stickerCanvas.stickers = currentPageStickers
-        stickerCanvas.imageProvider = stickerImageProvider
-        stickerCanvas.onStickerTransformed = { sticker in
-            context.coordinator.handleStickerTransformed(sticker)
-        }
-        stickerCanvas.onStickerDeleted = { stickerID in
-            context.coordinator.handleStickerDeleted(stickerID)
-        }
-        stickerCanvas.onStickerSelected = { stickerID in
-            context.coordinator.handleStickerSelectionChanged(stickerID)
-        }
-        container.addSubview(stickerCanvas)
-        NSLayoutConstraint.activate([
-            stickerCanvas.topAnchor.constraint(equalTo: container.topAnchor),
-            stickerCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stickerCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stickerCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-        context.coordinator.stickerCanvas = stickerCanvas
-
         // ── Hover overlay (non-interactive, floats above the canvas) ─────────
         let hoverOverlay = PencilHoverOverlayView(frame: .zero)
         hoverOverlay.translatesAutoresizingMaskIntoConstraints = false
@@ -1851,6 +2359,19 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.hoverOverlay = hoverOverlay
 
+        // ── Eraser cursor overlay (non-interactive, shows ring sized to eraser width) ──
+        let eraserCursor = EraserCursorOverlay(frame: .zero)
+        eraserCursor.translatesAutoresizingMaskIntoConstraints = false
+        eraserCursor.isUserInteractionEnabled = false
+        canvas.addSubview(eraserCursor)
+        NSLayoutConstraint.activate([
+            eraserCursor.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
+            eraserCursor.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
+            eraserCursor.topAnchor.constraint(equalTo: canvas.topAnchor),
+            eraserCursor.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
+        ])
+        context.coordinator.eraserCursorOverlay = eraserCursor
+
         // ── Apple Pencil interaction coordinator ─────────────────────────────
         let pencilCoordinator = PencilInteractionCoordinator()
         pencilCoordinator.delegate = context.coordinator
@@ -1858,33 +2379,52 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
 
+        // ── Scratch-to-delete gesture recognizer ─────────────────────────────
+        // ScribbleDeleteRecognizer is a fully passive observer: it never cancels
+        // or prevents PKCanvasView's own drawing recognizer.  When a rapid
+        // back-and-forth pencil motion is detected, the matching ink strokes are
+        // removed via deleteScratchStrokes(in:).  The deletion is dispatched
+        // asynchronously to guarantee PKCanvasView has committed the stroke before
+        // we modify canvas.drawing.
+        let scratchRecognizer = ScribbleDeleteRecognizer()
+        scratchRecognizer.onScratchDetected = { [weak coordinator = context.coordinator] viewportRect in
+            DispatchQueue.main.async {
+                coordinator?.deleteScratchStrokes(in: viewportRect)
+            }
+        }
+        canvas.addGestureRecognizer(scratchRecognizer)
+        context.coordinator.scratchDeleteRecognizer = scratchRecognizer
+
+        // Pre-warm all haptic generators for interaction feedback (AGENT-23).
+        context.coordinator.interactionFeedback.prepareAll()
+
         // ── Ink effect engine (fire / sparkle / glitch / ripple) ────────────
         let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
         engine.configure(fx: activeFX, color: fxColor)
         engine.attach(to: container)
         context.coordinator.effectEngine = engine
 
-        // Attach writing effects pipeline overlay above the canvas.
-        context.coordinator.effects.writingEffectsPipeline.attach(to: canvas)
-
-        // ── Page gestures (two-finger swipe + three-finger pinch) ─────────
-        // Two-finger swipe left/right to navigate pages — avoids conflict
-        // with Apple Pencil drawing (single touch) and canvas zoom (pinch).
-        let swipeLeft = UISwipeGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handlePageSwipe(_:))
+        // ── Writing Effects Pipeline (glow, neon, trail, taper, pooling) ───
+        context.coordinator.writingPipeline.attach(to: container)
+        context.coordinator.writingPipeline.configure(
+            config: toolStoreForFade?.writingEffectConfig ?? .default,
+            color: toolStoreForFade?.activeColor ?? .black
         )
-        swipeLeft.direction = .left
-        swipeLeft.numberOfTouchesRequired = 2
-        container.addGestureRecognizer(swipeLeft)
 
-        let swipeRight = UISwipeGestureRecognizer(
+        // ── Page gestures (two-finger pan + three-finger pinch) ──────────────
+        // Two-finger horizontal pan navigates pages.  Using a pan recogniser
+        // (instead of a swipe) allows the page to follow the finger in real-time,
+        // giving the physical "book page" feel.  A horizontal-dominance check in
+        // the handler prevents accidental fires during canvas pan/zoom.
+        let pagePan = UIPanGestureRecognizer(
             target: context.coordinator,
-            action: #selector(Coordinator.handlePageSwipe(_:))
+            action: #selector(Coordinator.handlePagePan(_:))
         )
-        swipeRight.direction = .right
-        swipeRight.numberOfTouchesRequired = 2
-        container.addGestureRecognizer(swipeRight)
+        pagePan.minimumNumberOfTouches = 2
+        pagePan.maximumNumberOfTouches = 2
+        pagePan.delegate = context.coordinator
+        container.addGestureRecognizer(pagePan)
+        context.coordinator.pagePanGesture = pagePan
 
         // Pinch-in opens page overview grid.
         // The gesture delegate allows simultaneous recognition with
@@ -1898,10 +2438,8 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.pinchOverviewGesture = pinchOverview
 
         // ── Book feel: page shadow ──────────────────────────────────────────
-        container.layer.shadowColor   = UIColor.black.cgColor
-        container.layer.shadowOpacity = 0.12
-        container.layer.shadowRadius  = 8
-        container.layer.shadowOffset  = CGSize(width: 0, height: 2)
+        // Shadow is on the pageBackground layer (see above) so it follows the
+        // page rather than the full-screen container.
 
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
@@ -1910,8 +2448,23 @@ struct CanvasView: UIViewRepresentable {
         // Become first responder so Apple Pencil is ready immediately.
         DispatchQueue.main.async {
             canvas.becomeFirstResponder()
+            // Set initial zoom so the page width fits the visible canvas exactly.
+            // This ensures the user sees a complete, correctly-proportioned page on
+            // first open regardless of device orientation or screen size.
+            let canvasW = canvas.bounds.width
+            if canvasW > 0 {
+                let fitZoom = canvasW / CanvasView.pageSize.width
+                let clamped = max(canvas.minimumZoomScale,
+                                  min(canvas.maximumZoomScale, fitZoom))
+                canvas.setZoomScale(clamped, animated: false)
+            }
             editorSignposter.endInterval("CanvasSetup", setupState)
             editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - complete")
+        }
+
+        // Play a paper-settle reveal when this canvas represents a newly added page.
+        if isNewPage {
+            PageTransitionEngine.playNewPageReveal(on: container.layer)
         }
 
         return container
@@ -1923,11 +2476,6 @@ struct CanvasView: UIViewRepresentable {
         // Wire up toolbar store reference for auto-fade (idempotent).
         context.coordinator.toolStoreRef = toolStoreForFade
 
-        // Sync container background colour when the theme/material changes.
-        if uiView.backgroundColor != backgroundColor {
-            uiView.backgroundColor = backgroundColor
-        }
-
         // Sync page background (ruling view).
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
@@ -1937,9 +2485,13 @@ struct CanvasView: UIViewRepresentable {
             if bg.pageType != pageType {
                 bg.pageType = pageType
             }
-            let grainWanted = paperMaterial.hasGrainTexture
-            if bg.showGrain != grainWanted {
-                bg.showGrain = grainWanted
+            let wantedIntensity = paperMaterial.grainIntensity
+            if bg.grainIntensity != wantedIntensity {
+                bg.grainIntensity = wantedIntensity
+            }
+            let wantedTint = paperMaterial.rulingTint
+            if bg.rulingTint != wantedTint {
+                bg.rulingTint = wantedTint
             }
             // Re-sync position/scale in case SwiftUI re-rendered while
             // the canvas was scrolled or zoomed.
@@ -1978,6 +2530,14 @@ struct CanvasView: UIViewRepresentable {
             if context.coordinator.lastToolSnapshot != snapshot {
                 canvas.tool = currentTool
                 context.coordinator.lastToolSnapshot = snapshot
+
+                // ── Interaction feedback for tool switch (AGENT-23) ─────
+                if currentTool is PKEraserTool {
+                    context.coordinator.interactionFeedback.play(.eraserEngage, on: canvas.layer)
+                } else {
+                    context.coordinator.interactionFeedback.play(.toolSwitch, on: canvas.layer)
+                    context.coordinator.microInteractionEngine.playToolSwitchMorph(on: canvas.layer)
+                }
             }
         }
         canvas.isUserInteractionEnabled = !isShapeToolActive
@@ -2024,23 +2584,44 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onStickersChanged = onStickersChanged
         context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
 
-        // Zoom reset: animate to 1× when the trigger value flips.
+        // Sync text object canvas.
+        if let textCanvas = context.coordinator.textCanvas {
+            textCanvas.isTextToolActive = isTextToolActive
+            textCanvas.textObjects = currentPageTextObjects
+            textCanvas.selectedTextObjectID = toolStoreForFade?.activeTextObjectSelection
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onPlaceTextObject = onPlaceTextObject
+
+        // Zoom reset: animate to fit-to-width when the trigger value flips.
+        // "Fit to width" is more useful than a fixed 1× scale because it adapts
+        // to the current screen size and orientation.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
             // Dispatch to avoid mutating scroll state mid-layout-pass.
             DispatchQueue.main.async {
-                canvas.setZoomScale(1.0, animated: true)
-                editorLogger.debug("[\(noteID, privacy: .public)] zoom reset to 1×")
+                let canvasW = canvas.bounds.width
+                let fitZoom = canvasW > 0 ? canvasW / CanvasView.pageSize.width : 1.0
+                let clamped = max(canvas.minimumZoomScale,
+                                  min(canvas.maximumZoomScale, fitZoom))
+                canvas.setZoomScale(clamped, animated: true)
+                editorLogger.debug("[\(noteID, privacy: .public)] zoom reset to fit-width (\(clamped, format: .fixed(precision: 2))×)")
             }
         }
 
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
+        // Sync page boundary info so the page-pan gesture can reject out-of-range drags.
+        context.coordinator.coordinatorPageIndex = pageIndex
+        context.coordinator.coordinatorPageCount = pageCount
+
         // Sync adaptive effects engine with current note complexity.
-        context.coordinator.effects.adaptiveEngine.pageCount = pageCount
-        // Propagate intensity to all sub-engines and canvas views.
-        let intensity = context.coordinator.effects.adaptiveEngine.intensity
+        context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
+        // Propagate current intensity to canvas sub-views (coordinator
+        // handles its own sub-engines automatically via Combine).
+        let intensity = context.coordinator.adaptiveEffectsEngine.intensity
         context.coordinator.effects.distribute(
             intensity: intensity,
             shapeCanvas: context.coordinator.shapeCanvas,
@@ -2051,13 +2632,41 @@ struct CanvasView: UIViewRepresentable {
 
         // Sync magic mode engine — activate/deactivate when toggle changes.
         context.coordinator.effects.setMagicMode(active: isMagicModeActive, on: uiView.layer)
-        // Keep emitter frame in sync when the canvas resizes (rotation, multitasking).
-        if context.coordinator.effects.magicModeEngine.isActive {
-            context.coordinator.effects.updateLayout(containerBounds: uiView.bounds)
-        }
-
         // Sync study mode engine — activate/deactivate when toggle changes.
         context.coordinator.effects.setStudyMode(active: isStudyModeActive, on: uiView.layer)
+        // Keep layout-sensitive engines in sync on resize / rotation.
+        context.coordinator.effects.updateLayout(containerBounds: uiView.bounds)
+
+        // Sync ambient environment engine — activate/deactivate/sound when scene changes.
+        let ambientEngine = context.coordinator.ambientEngine
+        ambientEngine.soundEnabled = isAmbientSoundEnabled
+        if let ts = toolStoreForFade {
+            switch (activeAmbientScene, ambientEngine.activeScene) {
+            case let (scene?, current) where current != scene:
+                ambientEngine.activate(scene, on: uiView.layer, toolStore: ts)
+            case (nil, .some):
+                ambientEngine.deactivate(toolStore: ts)
+            default:
+                break
+            }
+        }
+        if ambientEngine.activeScene != nil {
+            ambientEngine.updateLayout(containerBounds: uiView.bounds)
+        }
+
+        // Sync ambient environment engine — activate/deactivate as the
+        // selected scene changes.  The engine owns rain-streak / grain /
+        // warm-wash CALayers and the looping ambient soundscape.
+        let ambientEngine = context.coordinator.ambientEngine
+        if let scene = activeAmbientScene {
+            if ambientEngine.activeScene != scene {
+                // Scene changed (or was nil) — (re-)activate with the new scene.
+                ambientEngine.activate(scene, on: uiView.layer, toolStore: toolStoreForFade ?? DrawingToolStore())
+            }
+            ambientEngine.updateLayout(containerBounds: uiView.bounds)
+        } else if ambientEngine.activeScene != nil {
+            ambientEngine.deactivate(toolStore: toolStoreForFade ?? DrawingToolStore())
+        }
 
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
@@ -2065,8 +2674,11 @@ struct CanvasView: UIViewRepresentable {
             engine.configure(fx: activeFX, color: fxColor)
         }
 
-        // Sync writing effects pipeline colour with the active ink colour.
-        context.coordinator.effects.writingEffectsPipeline.configure(config: .default, color: fxColor)
+        // Sync writing effects pipeline when the pen tool or colour changes.
+        context.coordinator.writingPipeline.configure(
+            config: toolStoreRef?.writingEffectConfig ?? .default,
+            color: toolStoreRef?.activeColor ?? .black
+        )
     }
 
     // MARK: - Ruling line color helper
@@ -2100,6 +2712,17 @@ struct CanvasView: UIViewRepresentable {
             : UIColor.label.withAlphaComponent(0.10)
     }
 
+    // MARK: - Desk surface color
+
+    /// The background color shown outside the page boundaries (the "desk" surface).
+    /// Uses a neutral warm-gray that contrasts with the paper in both light and
+    /// dark appearances, giving the canvas the look of a real page resting on a table.
+    private static let deskSurfaceColor: UIColor = UIColor { tc in
+        tc.userInterfaceStyle == .dark
+            ? UIColor(white: 0.13, alpha: 1)
+            : UIColor(white: 0.86, alpha: 1)
+    }
+
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
@@ -2124,21 +2747,29 @@ struct CanvasView: UIViewRepresentable {
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
         var hoverOverlay: PencilHoverOverlayView?
+        var eraserCursorOverlay: EraserCursorOverlay?
+        /// Passive gesture recognizer that detects scratch-to-delete gestures.
+        var scratchDeleteRecognizer: ScribbleDeleteRecognizer?
         weak var canvasRef: PKCanvasView?
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
 
-        /// Unified effects coordinator — owns all sub-engines and wires intensity automatically.
+        /// Central coordinator that owns and wires all effect sub-engines.
         let effects = EffectsCoordinator()
 
-        // Backward-compatible accessors so all existing call sites continue to compile.
+        // Convenience accessors forwarded to the coordinator.
         var pageTransitionEngine: PageTransitionEngine { effects.pageTransitionEngine }
-        var focusModeEngine: FocusModeEngine { effects.focusModeEngine }
-        var ambientEngine: AmbientEnvironmentEngine { effects.ambientEngine }
-        var magicModeEngine: MagicModeEngine { effects.magicModeEngine }
-        var studyModeEngine: StudyModeEngine { effects.studyModeEngine }
+        var focusModeEngine: FocusModeEngine           { effects.focusModeEngine }
+        var ambientEngine: AmbientEnvironmentEngine    { effects.ambientEngine }
+        var magicModeEngine: MagicModeEngine           { effects.magicModeEngine }
+        var studyModeEngine: StudyModeEngine           { effects.studyModeEngine }
         var adaptiveEffectsEngine: AdaptiveEffectsEngine { effects.adaptiveEngine }
+        var writingPipeline: WritingEffectsPipeline    { effects.writingEffectsPipeline }
+        var microInteractionEngine: MicroInteractionEngine { effects.microInteractionEngine }
+        var snapAlignEffectEngine: SnapAlignEffectEngine { effects.snapAlignEffectEngine }
+        var interactionFeedback: InteractionFeedbackEngine { effects.interactionFeedbackEngine }
+
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
@@ -2185,6 +2816,24 @@ struct CanvasView: UIViewRepresentable {
         /// Callback when sticker selection changes.
         var onStickerSelectionChanged: ((UUID?) -> Void)?
 
+        /// Text object canvas overlay for the current page.
+        weak var textCanvas: TextCanvasView?
+
+        /// Debounce timer for persisting text object changes.
+        private var textDebounceTimer: Timer?
+
+        /// Callback to persist text object changes.
+        var onTextObjectsChanged: (([TextObject]) -> Void)?
+
+        /// Callback when text object selection changes.
+        var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+
+        /// Called when the user taps empty space with the text tool active.
+        var onPlaceTextObject: ((CGPoint) -> Void)?
+
+        /// Callback to propagate text object transform to the view.
+        var onTextObjectTransformed: ((TextObject) -> Void)?
+
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
 
@@ -2194,9 +2843,29 @@ struct CanvasView: UIViewRepresentable {
         /// Pinch gesture recognizer for page overview.
         var pinchOverviewGesture: UIPinchGestureRecognizer?
 
+        /// Two-finger pan gesture recognizer for interactive page navigation.
+        var pagePanGesture: UIPanGestureRecognizer?
+
         /// Minimum scale observed during the current pinch-to-overview gesture.
         /// Tracked during `.changed` because `numberOfTouches` is zero at `.ended`.
         private var pinchOverviewMinScale: CGFloat = 1.0
+
+        // ── Interactive page-drag state ──────────────────────────────────────────
+        /// True while a two-finger horizontal pan is being tracked for page navigation.
+        private var pageIsDragging = false
+        /// Direction locked in at the start of the current page drag.
+        private var pageDragDirection: PageTransitionDirection = .forward
+        /// Current zero-based page index, kept in sync by `updateUIView`.
+        var coordinatorPageIndex: Int = 0
+        /// Total page count, kept in sync by `updateUIView`.
+        var coordinatorPageCount: Int = 1
+
+        /// Light haptic feedback played when a page drag commits.
+        private let pageTurnImpact: UIImpactFeedbackGenerator = {
+            let g = UIImpactFeedbackGenerator(style: .light)
+            g.prepare()
+            return g
+        }()
 
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
@@ -2226,6 +2895,15 @@ struct CanvasView: UIViewRepresentable {
         /// between quick successive strokes.
         private var postStrokeZoomUnlockTimer: Timer?
 
+        /// Timer that fires when the user holds the pen still after drawing a stroke,
+        /// triggering automatic straightening of the last stroke into a clean line.
+        private var holdToStraightenTimer: Timer?
+
+        /// True while `straightenLastStroke` is replacing the canvas drawing so
+        /// `canvasViewDrawingDidChange` does not restart `holdToStraightenTimer`
+        /// on the programmatic change.
+        private var isStraightening = false
+
         /// Tracks Apple Pencil contact timing for palm rejection in `.anyInput` mode.
         let palmGuard = PalmGuardState()
 
@@ -2236,6 +2914,10 @@ struct CanvasView: UIViewRepresentable {
         // scroll offset and zoom scale. Invalidated automatically on dealloc.
         private var contentOffsetObservation: NSKeyValueObservation?
         private var zoomScaleObservation: NSKeyValueObservation?
+
+        /// Tracks whether the last zoom update landed on a detent, so the
+        /// visual micro-bounce fires only on the leading edge (entry, not hold).
+        private var wasOnZoomDetent: Bool = false
 
         // Pre-prepared haptic generator for double-tap pencil delete feedback.
         // Preparing eagerly avoids the latency spike that would occur if the
@@ -2259,32 +2941,128 @@ struct CanvasView: UIViewRepresentable {
         }
 
         deinit {
-            effects.writingEffectsPipeline.detach()
+            // Flush any pending drawing save so strokes are never silently
+            // dropped when the coordinator deallocates (e.g. on page change).
+            flushPendingSave()
+            // Invalidate remaining timers.
+            postStrokeZoomUnlockTimer?.invalidate()
+            shapeDebounceTimer?.invalidate()
+            attachmentDebounceTimer?.invalidate()
+            // KVO observations are invalidated automatically by
+            // NSKeyValueObservation.deinit, but nil them for clarity.
+            contentOffsetObservation?.invalidate()
+            zoomScaleObservation?.invalidate()
         }
 
         // MARK: - Page gesture handlers
 
-        /// Two-finger swipe handler for page navigation.
-        @objc func handlePageSwipe(_ gesture: UISwipeGestureRecognizer) {
-            guard !isDrawing else { return }
+        /// Tuning constants for the two-finger page-pan gesture recogniser.
+        private enum PagePanTuning {
+            /// Minimum horizontal-to-vertical ratio required before the gesture
+            /// is locked in as a horizontal page drag.
+            static let horizontalDominanceRatio: CGFloat = 1.5
+            /// Minimum horizontal displacement (points) before direction is
+            /// locked in — prevents accidental page turns on tiny movements.
+            static let minimumLockInDistance: CGFloat = 8
+            /// Minimum horizontal release velocity (points/second) for a
+            /// reduce-motion fast-swipe to commit a page change.
+            static let reducedMotionCommitVelocity: CGFloat = 400
+        }
 
-            // Play physical page-turn effect on the gesture's container layer.
-            if let container = gesture.view?.layer {
-                let direction: PageTransitionDirection =
-                    gesture.direction == .left ? .forward : .backward
-                let pageWidth = container.bounds.width
-                pageTransitionEngine.playTransition(
-                    on: container,
-                    direction: direction,
-                    pageWidth: pageWidth
-                ) { /* visual cleanup handled internally */ }
-            }
+        /// Two-finger pan handler for interactive page navigation.
+        ///
+        /// The page follows the finger in real-time.  Direction is determined on
+        /// the first update where horizontal motion clearly dominates vertical.
+        /// Backward drags are blocked when already on the first page to prevent
+        /// the container from flying off-screen with no state change to recover it.
+        ///
+        /// `onPageSwipe` is only called inside the snap-completion callback so
+        /// SwiftUI rebuilds the page content *after* the outgoing page has
+        /// finished its animation — eliminating the visual conflict that occurred
+        /// when state and CA animation changed simultaneously.
+        @objc func handlePagePan(_ gesture: UIPanGestureRecognizer) {
+            guard !isDrawing, let view = gesture.view else { return }
 
-            switch gesture.direction {
-            case .left:
-                onPageSwipe?(1)   // Next page
-            case .right:
-                onPageSwipe?(-1)  // Previous page
+            let translation = gesture.translation(in: view)
+            let velocity    = gesture.velocity(in: view)
+            let pageWidth   = view.bounds.width
+
+            switch gesture.state {
+            case .began:
+                // Direction and drag start are deferred until the first `.changed`
+                // event that shows clear horizontal dominance.
+                pageIsDragging = false
+
+            case .changed:
+                if !pageIsDragging {
+                    // Wait until horizontal motion clearly dominates vertical.
+                    guard abs(translation.x) > abs(translation.y) * PagePanTuning.horizontalDominanceRatio,
+                          abs(translation.x) > PagePanTuning.minimumLockInDistance
+                    else { return }
+
+                    let dir: PageTransitionDirection = translation.x < 0 ? .forward : .backward
+
+                    // Block backward drag on the very first page: there's nothing to
+                    // return to, and committing would leave the container off-screen.
+                    if dir == .backward && coordinatorPageIndex == 0 { return }
+
+                    // Reduce-motion: fall through to the simpler cross-fade path.
+                    if pageTransitionEngine.effectIntensity.allowsPageTurnPhysics {
+                        pageDragDirection = dir
+                        pageIsDragging    = true
+                        pageTransitionEngine.beginInteractiveDrag(
+                            on: view,
+                            direction: dir,
+                            pageWidth: pageWidth
+                        )
+                    }
+                }
+
+                if pageIsDragging {
+                    pageTransitionEngine.updateInteractiveDrag(
+                        on: view,
+                        translation: translation.x,
+                        pageWidth: pageWidth
+                    )
+                }
+
+            case .ended:
+                if pageIsDragging {
+                    // Normal mode: spring-snap the interactive drag to completion
+                    // or back to origin.
+                    pageIsDragging = false
+
+                    pageTransitionEngine.finishInteractiveDrag(
+                        on: view,
+                        velocityX: velocity.x,
+                        pageWidth: pageWidth
+                    ) { [weak self] committed in
+                        guard let self, committed else { return }
+                        // Flush any pending drawing save so strokes are
+                        // persisted before the page transition replaces
+                        // the canvas content.
+                        self.flushPendingSave()
+                        self.pageTurnImpact.impactOccurred()
+                        self.pageTurnImpact.prepare()
+                        self.onPageSwipe?(self.pageDragDirection == .forward ? 1 : -1)
+                    }
+                } else if !pageTransitionEngine.effectIntensity.allowsPageTurnPhysics {
+                    // Reduce-motion / low-intensity fallback: treat a fast, clearly
+                    // horizontal release as a swipe and change page immediately.
+                    guard abs(velocity.x) > PagePanTuning.reducedMotionCommitVelocity,
+                          abs(velocity.x) > abs(velocity.y) * PagePanTuning.horizontalDominanceRatio
+                    else { return }
+                    let dir: PageTransitionDirection = velocity.x < 0 ? .forward : .backward
+                    guard !(dir == .backward && coordinatorPageIndex == 0) else { return }
+                    flushPendingSave()
+                    onPageSwipe?(dir == .forward ? 1 : -1)
+                }
+
+            case .cancelled, .failed:
+                guard pageIsDragging else { return }
+                pageIsDragging = false
+                pageTransitionEngine.cancelInteractiveDrag(on: view) {}
+
             default:
                 break
             }
@@ -2311,13 +3089,15 @@ struct CanvasView: UIViewRepresentable {
 
         // MARK: - UIGestureRecognizerDelegate
 
-        /// Allows the page-overview pinch gesture to fire simultaneously with
-        /// PKCanvasView's built-in pinch-to-zoom so normal zoom is not blocked.
+        /// Allows the page-overview pinch and the page-pan to fire simultaneously
+        /// with PKCanvasView's built-in gestures.  The page-pan handler uses a
+        /// horizontal-dominance check to distinguish page turns from canvas scroll.
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
             gestureRecognizer === pinchOverviewGesture
+                || gestureRecognizer === pagePanGesture
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
@@ -2341,33 +3121,42 @@ struct CanvasView: UIViewRepresentable {
             postStrokeZoomUnlockTimer?.invalidate()
             postStrokeZoomUnlockTimer = nil
 
+            // Cancel any pending hold-to-straighten from the previous stroke.
+            holdToStraightenTimer?.invalidate()
+            holdToStraightenTimer = nil
+
             // Lock zoom during writing to prevent accidental zoom drift from
             // multi-touch interference (e.g. palm resting on screen).
             if WritingConfig.lockZoomDuringWriting {
                 strokeStartZoomScale = canvasView.zoomScale
                 canvasView.pinchGestureRecognizer?.isEnabled = false
+                canvasView.isScrollEnabled = false
             }
 
             // Capture base width for barrel-roll modulation at stroke start.
             if let inkTool = canvasView.tool as? PKInkingTool {
                 barrelRollBaseWidth = inkTool.width
             }
+            // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
             // At stroke-begin the new stroke hasn't been committed to the drawing
             // yet, so we use the viewport center as a reasonable start point.
             // The next onStrokeUpdated call will snap the emitter to the real nib.
-            let strokeStartCenter = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-            // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
             if let engine = effectEngine {
-                engine.onStrokeBegan(at: strokeStartCenter)
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                engine.onStrokeBegan(at: center)
+            }
+            // Notify writing effects pipeline of stroke start (taper, pooling, glow).
+            do {
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                writingPipeline.onStrokeBegan(at: center)
             }
             // Notify magic mode engine of stroke start for writing particles.
             if magicModeEngine.isActive,
                let inkTool = canvasView.tool as? PKInkingTool {
-                let vp = viewportPoint(from: strokeStartCenter, in: canvasView)
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                let vp = viewportPoint(from: center, in: canvasView)
                 magicModeEngine.strokeBegan(at: vp, inkColor: inkTool.color)
             }
-            // Notify writing effects pipeline of stroke start.
-            effects.writingEffectsPipeline.onStrokeBegan(at: strokeStartCenter)
             // Auto-fade toolbar using config constants
             fadeTask?.cancel()
             fadeTask = Task { @MainActor [weak self] in
@@ -2383,17 +3172,33 @@ struct CanvasView: UIViewRepresentable {
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
+            // Pen lifted — discard any pending hold-to-straighten.
+            holdToStraightenTimer?.invalidate()
+            holdToStraightenTimer = nil
+            // If barrel-roll modulated the fountain-pen width during this stroke,
+            // the canvas tool is left at the modulated (drifted) width.
+            // Invalidate lastToolSnapshot so updateUIView resets canvas.tool to
+            // the canonical width from DrawingToolStore before the next stroke,
+            // preventing a compounding feedback loop where each stroke starts
+            // wider than the last.
+            if barrelRollBaseWidth != nil {
+                lastToolSnapshot = nil
+            }
             barrelRollBaseWidth = nil
 
-            // Re-enable zoom after a short delay to prevent accidental zoom when
-            // lifting the hand between rapid successive strokes.
+            // Re-enable zoom and scroll after a short delay to prevent
+            // accidental zoom when lifting the hand between rapid successive
+            // strokes.  Guard `isDrawing` in the callback to handle the rare
+            // case where a new stroke begins before the timer fires.
             if WritingConfig.lockZoomDuringWriting {
                 postStrokeZoomUnlockTimer?.invalidate()
                 postStrokeZoomUnlockTimer = Timer.scheduledTimer(
                     withTimeInterval: WritingConfig.postStrokeZoomLockDelay,
                     repeats: false
-                ) { [weak canvasView] _ in
+                ) { [weak self, weak canvasView] _ in
+                    guard let self, !self.isDrawing else { return }
                     canvasView?.pinchGestureRecognizer?.isEnabled = true
+                    canvasView?.isScrollEnabled = true
                 }
                 strokeStartZoomScale = nil
             }
@@ -2415,8 +3220,8 @@ struct CanvasView: UIViewRepresentable {
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
-            // Notify writing effects pipeline of stroke end.
-            effects.writingEffectsPipeline.onStrokeEnded()
+            // Notify writing effects pipeline of stroke end (taper tail, glow fade).
+            writingPipeline.onStrokeEnded()
             // Notify magic mode engine of stroke end — fires keyword glow and
             // optional underline highlight.
             if magicModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
@@ -2584,6 +3389,8 @@ struct CanvasView: UIViewRepresentable {
             }
         }
 
+        // MARK: - Sticker Coordinator
+
         func handleStickersChanged(_ stickers: [StickerInstance]) {
             stickerDebounceTimer?.invalidate()
             stickerDebounceTimer = Timer.scheduledTimer(
@@ -2596,7 +3403,6 @@ struct CanvasView: UIViewRepresentable {
 
         func handleStickerTransformed(_ sticker: StickerInstance) {
             guard let stickerCanvas = stickerCanvas else { return }
-            // Update the in-memory array on the canvas
             if let idx = stickerCanvas.stickers.firstIndex(where: { $0.id == sticker.id }) {
                 stickerCanvas.stickers[idx] = sticker
             }
@@ -2611,6 +3417,28 @@ struct CanvasView: UIViewRepresentable {
 
         func handleStickerSelectionChanged(_ stickerID: UUID?) {
             onStickerSelectionChanged?(stickerID)
+        }
+
+        // MARK: - Text Object Coordinator
+
+        /// Called when a text object is moved, resized, or rotated.
+        func handleTextObjectTransformed(_ textObject: TextObject) {
+            guard var textObjects = textCanvas?.textObjects else { return }
+            if let idx = textObjects.firstIndex(where: { $0.id == textObject.id }) {
+                textObjects[idx] = textObject
+            }
+            handleTextObjectsChanged(textObjects)
+        }
+
+        /// Debounced persistence for text object changes.
+        func handleTextObjectsChanged(_ textObjects: [TextObject]) {
+            textDebounceTimer?.invalidate()
+            textDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: TextObjectConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onTextObjectsChanged?(textObjects)
+            }
         }
 
         // MARK: - Double-tap pencil to delete last stroke
@@ -2639,6 +3467,84 @@ struct CanvasView: UIViewRepresentable {
             deletionImpactGenerator.prepare()
         }
 
+        // MARK: - Scratch-to-delete
+
+        /// Removes every PKStroke whose render bounds intersect the scratch region
+        /// described by `viewportRect` (in the canvas scroll-view's bounds coordinates).
+        ///
+        /// This is called by ``ScribbleDeleteRecognizer`` after it confirms that the
+        /// user drew a rapid back-and-forth scratch gesture.  Because the scratch was
+        /// drawn with the active inking tool it becomes a regular PKStroke — that
+        /// stroke's render bounds lie within `viewportRect`, so it is included in the
+        /// set of strokes to remove alongside any pre-existing strokes it overlaps.
+        ///
+        /// The operation is registered with the canvas's `UndoManager` so it can be
+        /// reversed with a standard Undo gesture or Cmd-Z.
+        func deleteScratchStrokes(in viewportRect: CGRect) {
+            guard let canvas = canvasRef else { return }
+
+            // Expand the hit region slightly to account for stroke width — strokes
+            // are compared by their render bounds, which already includes the ink
+            // radius, but a small inset guards against sub-pixel rounding gaps.
+            let contentRect = self.contentRect(from: viewportRect, in: canvas)
+            let hitRect     = contentRect.insetBy(dx: -10, dy: -10)
+
+            let allStrokes = Array(canvas.drawing.strokes)
+            let remaining  = allStrokes.filter { !$0.renderBounds.intersects(hitRect) }
+
+            // Nothing to delete — either the scratch was over empty space or the
+            // detection fired erroneously.  Bail early without touching undo stack.
+            guard remaining.count < allStrokes.count else { return }
+
+            let oldDrawing = canvas.drawing
+            let newDrawing = PKDrawing(strokes: remaining)
+
+            canvas.undoManager?.registerUndo(withTarget: canvas) { cv in
+                cv.drawing = oldDrawing
+            }
+            canvas.undoManager?.setActionName(
+                NSLocalizedString("Editor.ScratchDelete.UndoAction",
+                                  comment: "Undo action name for scribble-to-delete")
+            )
+
+            canvas.drawing = newDrawing
+
+            // Scale haptic weight with the number of strokes removed: a single
+            // scratch stroke that erases only itself gets a normal impact, while
+            // removing several strokes at once gets a heavier double-impact.
+            let deletedCount = allStrokes.count - remaining.count
+            deletionImpactGenerator.impactOccurred()
+            if deletedCount > 2 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+                    self?.deletionImpactGenerator.impactOccurred()
+                }
+            }
+            deletionImpactGenerator.prepare()
+        }
+
+        /// Converts a rectangle from the canvas scroll-view's **viewport** (bounds)
+        /// coordinate space into the PKDrawing **content** coordinate space.
+        ///
+        /// PKStroke.renderBounds lives in content space; gesture touch locations are
+        /// reported in the scroll-view's bounds space.  The mapping is:
+        ///
+        ///     contentPoint.x = (viewportPoint.x + contentOffset.x) / zoomScale
+        ///
+        /// which is the inverse of `viewportPoint(from:in:)` defined nearby.
+        private func contentRect(from viewportRect: CGRect, in canvasView: PKCanvasView) -> CGRect {
+            let z = canvasView.zoomScale
+            let o = canvasView.contentOffset
+            let origin = CGPoint(
+                x: (viewportRect.minX + o.x) / z,
+                y: (viewportRect.minY + o.y) / z
+            )
+            let size = CGSize(
+                width:  viewportRect.width  / z,
+                height: viewportRect.height / z
+            )
+            return CGRect(origin: origin, size: size)
+        }
+
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             editorSignposter.emitEvent("DrawingChanged")
 
@@ -2659,6 +3565,38 @@ struct CanvasView: UIViewRepresentable {
                 }
             }
 
+            // Feed latest stroke point to the writing effects pipeline (glow, trail, pooling).
+            do {
+                let lastStroke = canvasView.drawing.strokes.last
+                if let lastPoint = lastStroke?.path.last {
+                    let vp = viewportPoint(
+                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                        in: canvasView
+                    )
+                    // Derive inter-point velocity from the stroke path spacing.
+                    // PKStrokePoint.timeOffset is in seconds from the stroke start.
+                    // The fallback represents a moderate hand speed when timing data is unavailable.
+                    let pipelineFallbackVelocity: CGFloat = VelocityThicknessParams.velocityCeiling / 4
+                    let velocity: CGFloat
+                    if let path = lastStroke?.path, path.count >= 2 {
+                        let prev = path[path.count - 2]
+                        let curr = path[path.count - 1]
+                        let dt = curr.timeOffset - prev.timeOffset
+                        if dt > 0 {
+                            let dx = curr.location.x - prev.location.x
+                            let dy = curr.location.y - prev.location.y
+                            velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
+                        } else {
+                            velocity = pipelineFallbackVelocity
+                        }
+                    } else {
+                        velocity = pipelineFallbackVelocity
+                    }
+                    let pressure = lastStroke?.path.last?.force ?? 1.0
+                    writingPipeline.onStrokeUpdated(at: vp, pressure: pressure, velocity: velocity)
+                }
+            }
+
             // Update magic mode particle position while writing.
             if magicModeEngine.isActive {
                 let lastStroke = canvasView.drawing.strokes.last
@@ -2669,15 +3607,6 @@ struct CanvasView: UIViewRepresentable {
                     )
                     magicModeEngine.strokeMoved(to: vp)
                 }
-            }
-
-            // Update writing effects pipeline with latest nib position.
-            if let lastPoint = canvasView.drawing.strokes.last?.path.last {
-                let vp = viewportPoint(
-                    from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
-                    in: canvasView
-                )
-                effects.writingEffectsPipeline.onStrokeUpdated(at: vp)
             }
 
             // Report undo/redo availability directly from the canvas's undo manager.
@@ -2698,6 +3627,22 @@ struct CanvasView: UIViewRepresentable {
                 self?.adaptiveEffectsEngine.reportStrokeChange()
             }
 
+            // Hold-to-straighten: restart the timer on every new drawing change
+            // while the pen is still down. If drawing stops changing (user holds
+            // the pen still), the timer fires and replaces the last stroke with a
+            // clean straight line between its start and end points.
+            if isDrawing, !isStraightening, canvasView.tool is PKInkingTool {
+                holdToStraightenTimer?.invalidate()
+                holdToStraightenTimer = Timer.scheduledTimer(
+                    withTimeInterval: WritingConfig.holdToStraightenDelay,
+                    repeats: false
+                ) { [weak self, weak canvasView] _ in
+                    guard let self, self.isDrawing, let canvasView else { return }
+                    self.holdToStraightenTimer = nil
+                    self.straightenLastStroke(in: canvasView)
+                }
+            }
+
             // Debounce disk writes using config constant.
             debounceTimer?.invalidate()
             debounceTimer = Timer.scheduledTimer(withTimeInterval: WritingConfig.saveDebounceInterval, repeats: false) { [weak self] _ in
@@ -2706,7 +3651,91 @@ struct CanvasView: UIViewRepresentable {
             }
         }
 
+        /// Immediately cancels the pending debounce timer and triggers a
+        /// synchronous save.  Called before page transitions so strokes
+        /// drawn just before a swipe are never silently dropped.
+        func flushPendingSave() {
+            guard debounceTimer != nil else { return }
+            debounceTimer?.invalidate()
+            debounceTimer = nil
+            onSaveRequested()
+        }
+
         // MARK: - Canvas scroll / zoom → background sync
+        // MARK: - Hold-to-Straighten
+
+        /// Replaces the last stroke in `canvasView.drawing` with a clean straight
+        /// line from its first point to its last point, preserving the original
+        /// ink colour, tool type, and per-point pressure/tilt attributes.
+        ///
+        /// Called by `holdToStraightenTimer` when the user holds the pen still
+        /// after drawing without lifting it. The replacement is registered with
+        /// the canvas's own `UndoManager` so it can be reversed with undo.
+        private func straightenLastStroke(in canvasView: PKCanvasView) {
+            let drawing = canvasView.drawing
+            let strokes = Array(drawing.strokes)
+            guard !strokes.isEmpty else { return }
+            let strokeIndex = strokes.count - 1
+            let stroke = strokes[strokeIndex]
+            let path = stroke.path
+            guard path.count >= 2,
+                  let firstPoint = path.first,
+                  let lastPoint  = path.last else { return }
+
+            let dx = lastPoint.location.x - firstPoint.location.x
+            let dy = lastPoint.location.y - firstPoint.location.y
+            let length = sqrt(dx * dx + dy * dy)
+            guard length >= WritingConfig.holdToStraightenMinLength else { return }
+
+            // Build a straight-line path by mapping original point attributes
+            // (size, force, tilt) onto evenly-spaced locations along the new line.
+            // This preserves pressure dynamics while straightening the geometry.
+            let pointCount = max(3, min(path.count, WritingConfig.holdToStraightenMaxPoints))
+            let straightPoints: [PKStrokePoint] = (0 ..< pointCount).map { i in
+                let t = CGFloat(i) / CGFloat(pointCount - 1)
+                let loc = CGPoint(
+                    x: firstPoint.location.x + t * dx,
+                    y: firstPoint.location.y + t * dy
+                )
+                // +0.5 performs nearest-neighbour rounding when mapping the
+                // straight-line position t back to an original path index.
+                let origIdx = min(Int(t * CGFloat(path.count - 1) + 0.5), path.count - 1)
+                let orig = path[origIdx]
+                return PKStrokePoint(
+                    location: loc,
+                    timeOffset: firstPoint.timeOffset + t * (lastPoint.timeOffset - firstPoint.timeOffset),
+                    size: orig.size,
+                    opacity: orig.opacity,
+                    force: orig.force,
+                    azimuth: orig.azimuth,
+                    altitude: orig.altitude
+                )
+            }
+
+            let straightPath   = PKStrokePath(controlPoints: straightPoints, creationDate: path.creationDate)
+            let straightStroke = PKStroke(ink: stroke.ink, path: straightPath,
+                                          transform: stroke.transform, mask: stroke.mask)
+
+            var newStrokes = strokes
+            newStrokes[strokeIndex] = straightStroke
+            let newDrawing = PKDrawing(strokes: newStrokes)
+
+            let oldDrawing = drawing
+            isStraightening = true
+            canvasView.undoManager?.registerUndo(withTarget: canvasView) { cv in
+                cv.drawing = oldDrawing
+            }
+            canvasView.undoManager?.setActionName(
+                NSLocalizedString("Editor.StraightenLine", comment: "Undo action name for hold-to-straighten")
+            )
+            canvasView.drawing = newDrawing
+            isStraightening = false
+
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.prepare()
+            haptic.impactOccurred()
+        }
+
 
         /// Start observing the canvas's contentOffset and zoomScale via KVO so
         /// the page background (ruling) follows zoom and scroll.
@@ -2748,6 +3777,12 @@ struct CanvasView: UIViewRepresentable {
             CATransaction.setDisableActions(true)
             bg.transform = xform
             pdfBackgroundView?.transform = xform
+            // Keep object overlay canvases (shapes, attachments, widgets)
+            // in sync with the PencilKit canvas zoom/scroll so objects
+            // rendered in page-local coordinates don't drift from ink.
+            shapeCanvas?.transform = xform
+            attachmentCanvas?.transform = xform
+            widgetCanvas?.transform = xform
             CATransaction.commit()
         }
 
@@ -2761,6 +3796,14 @@ struct CanvasView: UIViewRepresentable {
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             centerContentDuringZoom(scrollView)
             adaptiveEffectsEngine.zoomScale = scrollView.zoomScale
+            // Zoom detent haptic + visual feedback (AGENT-23).
+            interactionFeedback.updateZoom(scrollView.zoomScale, on: scrollView.layer)
+            // Micro-bounce visual tick on detent entry (short-circuits on first match).
+            let onDetent = InteractionFeedbackEngine.zoomDetents.first(where: { abs(scrollView.zoomScale - $0) < InteractionFeedbackEngine.detentTolerance }) != nil
+            if onDetent && !wasOnZoomDetent {
+                microInteractionEngine.playZoomDetentTick(on: scrollView.layer)
+            }
+            wasOnZoomDetent = onDetent
         }
 
         /// Adjusts content insets so the page stays centered when the scaled
@@ -2796,7 +3839,14 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             // Remember current inking tool before switching to eraser.
             previousInkingTool = canvas.tool
         }
-        canvas.tool = PKEraserTool(.vector)
+        canvas.tool = toolStoreRef?.makeEraserTool() ?? {
+            if #available(iOS 16.4, *) {
+                return PKEraserTool(.bitmap, width: EraserSubType.standard.defaultWidth)
+            }
+            return PKEraserTool(.bitmap)
+        }()
+        // Interaction feedback for eraser engage (AGENT-23).
+        interactionFeedback.play(.eraserEngage, on: canvas.layer)
     }
 
     func pencilDidRequestSwitchToPreviousTool() {
@@ -2808,6 +3858,8 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             // No previous tool recorded — toggle from eraser to default pen.
             canvas.tool = PKInkingTool(.pen, color: .label, width: 2)
         }
+        // Interaction feedback for eraser disengage (AGENT-23).
+        interactionFeedback.play(.eraserDisengage, on: canvas.layer)
     }
 
     // MARK: Contextual palette
@@ -2820,7 +3872,8 @@ extension CanvasView.Coordinator: PencilActionDelegate {
         ContextualPencilPaletteView.show(
             at: windowPoint,
             in: window,
-            canvas: canvas
+            canvas: canvas,
+            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector
         )
     }
 
@@ -2828,10 +3881,20 @@ extension CanvasView.Coordinator: PencilActionDelegate {
 
     func pencilDidRequestUndo() {
         canvasRef?.undoManager?.undo()
+        // Interaction feedback for undo (AGENT-23).
+        if let layer = canvasRef?.layer {
+            interactionFeedback.play(.undo, on: layer)
+            microInteractionEngine.playUndoFlash(in: layer, isUndo: true)
+        }
     }
 
     func pencilDidRequestRedo() {
         canvasRef?.undoManager?.redo()
+        // Interaction feedback for redo (AGENT-23).
+        if let layer = canvasRef?.layer {
+            interactionFeedback.play(.redo, on: layer)
+            microInteractionEngine.playUndoFlash(in: layer, isUndo: false)
+        }
     }
 
     // MARK: Double-tap delete
@@ -2843,7 +3906,35 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Hover preview
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
-        hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+        let isErasing = canvasRef?.tool is PKEraserTool
+        if isErasing {
+            // Show sized eraser ring; hide ghost-nib overlay.
+            let sub   = toolStoreRef?.eraserSubType ?? .standard
+            let width = toolStoreRef?.eraserWidth   ?? sub.defaultWidth
+            eraserCursorOverlay?.update(position: position, subType: sub, eraserWidth: width)
+            hoverOverlay?.update(position: nil, altitude: altitude, azimuth: azimuth)
+        } else {
+            // Sync the ghost-nib appearance with the current tool state on every hover
+            // event.  This is cheap and ensures the nib reflects a colour/width change
+            // made while the pencil was already hovering.
+            if let ts = toolStoreRef {
+                let personality = ts.activePersonality
+                let info = HoverToolInfo(
+                    tool: ts.activeTool,
+                    color: ts.activeColor,
+                    width: CGFloat(ts.activeWidth),
+                    opacity: CGFloat(ts.activeOpacity),
+                    widthMultiplier: CGFloat(personality?.widthMultiplier ?? 1.0),
+                    showsAzimuthLine: personality?.usesTiltShading == true
+                                   || personality?.usesBarrelRoll  == true,
+                    eraserMode: ts.eraserMode
+                )
+                hoverOverlay?.configure(with: info)
+            }
+            // Show ghost-nib; hide eraser ring.
+            hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+            eraserCursorOverlay?.update(position: nil, subType: .standard, eraserWidth: 0)
+        }
     }
 
     // MARK: Barrel-roll fountain pen (Apple Pencil Pro, iOS 17.5+)

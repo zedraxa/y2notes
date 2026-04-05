@@ -34,6 +34,7 @@ enum SearchEntryKind: String, Hashable {
     case audioSession
     case audioTimestamp
     case widgetContent
+    case noteTag
 }
 
 // MARK: - Grouped search result
@@ -72,16 +73,24 @@ enum SearchResultGroup: String, CaseIterable {
 /// - Current-notebook priority: results in the active notebook score higher.
 /// - Anchor-based: every result carries a `NavigationAnchor` for exact page jump.
 ///
-/// **Future-friendly:**
-/// - `SearchEntryKind` is extensible — add `.audioTranscript`, `.tag`, `.widget` later.
-/// - Full-text indexing can be swapped for a Core Data FTS or SQLite FTS5 backend
-///   without changing the public API.
+/// **Search algorithm:**
+/// - Combines Trie-based prefix lookup with BM25 relevance scoring for fast, ranked results.
+/// - Falls back to fuzzy matching (bounded Levenshtein automaton) for typo tolerance.
+/// - Implemented in TrieIndex — no SQLite or Core Data dependency.
 final class SearchIndex {
 
     // MARK: - Internal storage
 
     /// All indexed entries keyed by `id` for O(1) upsert/removal.
     private var entries: [String: SearchableEntry] = [:]
+
+    /// Trie-backed full-text index for O(m) prefix search + BM25 ranking.
+    /// Indexes combined primary+secondary text per entry UUID.
+    private let trie = TrieIndex()
+
+    /// Bidirectional map between trie docIDs and entry keys for O(1) reverse lookup.
+    private var trieDocToEntry: [UUID: String] = [:]
+    private var entryToTrieDoc: [String: UUID] = [:]
 
     /// Timestamp of the last full rebuild — callers can skip rebuild if data hasn't changed.
     private(set) var lastFullRebuild: Date = .distantPast
@@ -105,6 +114,9 @@ final class SearchIndex {
         isRecordingActive: Bool = false
     ) {
         entries.removeAll(keepingCapacity: true)
+        trie.clear()
+        trieDocToEntry.removeAll(keepingCapacity: true)
+        entryToTrieDoc.removeAll(keepingCapacity: true)
 
         // Index notebooks
         for nb in notebooks {
@@ -138,6 +150,9 @@ final class SearchIndex {
         for note in notes {
             indexNote(note)
         }
+
+        // Bulk-load the Trie from all indexed entries after the dictionary is populated.
+        rebuildTrie()
 
         // Index bookmarks
         for bm in bookmarks {
@@ -183,15 +198,36 @@ final class SearchIndex {
     func updateNote(_ note: Note) {
         // Remove old entries for this note
         let prefix = "note-\(note.id.uuidString)"
-        entries = entries.filter { !$0.key.hasPrefix(prefix) }
+        let keysToRemove = entries.keys.filter { $0.hasPrefix(prefix) }
+        for key in keysToRemove {
+            if let docID = entryToTrieDoc[key] {
+                trie.removeDocument(id: docID)
+                trieDocToEntry.removeValue(forKey: docID)
+                entryToTrieDoc.removeValue(forKey: key)
+            }
+            entries.removeValue(forKey: key)
+        }
         // Re-index
         indexNote(note)
+        // Re-populate Trie for the new entries.
+        for (key, entry) in entries where key.hasPrefix(prefix) {
+            let docID = makeTrieDocID(for: key)
+            trie.indexDocument(id: docID, text: entry.primaryText + " " + entry.secondaryText)
+        }
     }
 
     /// Remove all entries for a deleted note.
     func removeNote(_ noteID: UUID) {
         let prefix = "note-\(noteID.uuidString)"
-        entries = entries.filter { !$0.key.hasPrefix(prefix) }
+        let keysToRemove = entries.keys.filter { $0.hasPrefix(prefix) }
+        for key in keysToRemove {
+            if let docID = entryToTrieDoc[key] {
+                trie.removeDocument(id: docID)
+                trieDocToEntry.removeValue(forKey: docID)
+                entryToTrieDoc.removeValue(forKey: key)
+            }
+            entries.removeValue(forKey: key)
+        }
     }
 
     /// Re-index bookmarks (called when NavigationStore changes).
@@ -231,6 +267,11 @@ final class SearchIndex {
 
     /// Searches the index for `query`, with optional current-notebook prioritisation.
     ///
+    /// Uses Trie-backed BM25 scoring for fast, ranked results:
+    /// - Exact prefix hits scored via BM25 (term frequency + inverse document frequency).
+    /// - Fuzzy matches (≤1 Levenshtein edit) given discounted BM25 weight.
+    /// - Current-notebook boost (+30 pts) and exact-prefix bonus (+15 pts) applied on top.
+    ///
     /// - Parameters:
     ///   - query: User-entered search string. Returns [] when blank.
     ///   - currentNotebookID: If set, results in this notebook get a score boost.
@@ -244,27 +285,51 @@ final class SearchIndex {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
+        // --- Phase 1: BM25 ranking from the Trie ---
+        // rankedSearch returns (docID, bm25Score) for entries matching via prefix or fuzzy.
+        let bm25Hits = trie.rankedSearch(trimmed, maxFuzzyDistance: trimmed.count >= 4 ? 1 : 0)
+
+        // Build a lookup from trie docID → (entry, bm25Score).
+        var trieScoreByEntryID: [String: Double] = [:]
+        for hit in bm25Hits {
+            let entryID = trieDocIDToEntryID(hit.id)
+            // Keep the highest BM25 score if multiple trie docs map to the same entry.
+            let existing = trieScoreByEntryID[entryID] ?? 0
+            trieScoreByEntryID[entryID] = max(existing, hit.score)
+        }
+
+        // --- Phase 2: Score assembly and linear-scan fallback ---
+        // For entries that matched via the Trie, use BM25 as the primary score.
+        // For entries where the Trie gave no signal (e.g. very short queries), fall back
+        // to the original substring logic to ensure nothing is missed.
         var results: [UniversalSearchResult] = []
 
-        for (_, entry) in entries {
+        for (entryID, entry) in entries {
             var score = 0
             var matchKinds: Set<SearchEntryKind> = []
             var snippet = ""
 
-            // Primary text match
-            if entry.primaryText.localizedCaseInsensitiveContains(trimmed) {
+            if let bm25 = trieScoreByEntryID[entryID] {
+                // Trie matched: use BM25 scaled to an integer score range comparable
+                // to the legacy base scores (0–150 range).
+                let scaled = Int(bm25 * 50.0)
                 matchKinds.insert(entry.kind)
-                score += baseScore(for: entry.kind)
-                snippet = makeSnippet(in: entry.primaryText, around: trimmed)
-            }
-
-            // Secondary text match
-            if !entry.secondaryText.isEmpty,
-               entry.secondaryText.localizedCaseInsensitiveContains(trimmed) {
-                matchKinds.insert(entry.kind)
-                score += baseScore(for: entry.kind) / 2
-                if snippet.isEmpty {
-                    snippet = makeSnippet(in: entry.secondaryText, around: trimmed)
+                score += scaled + baseScore(for: entry.kind)
+                snippet = makeSnippet(in: entry.primaryText + " " + entry.secondaryText, around: trimmed)
+            } else {
+                // Fallback substring check (handles single-character queries, CJK, etc.)
+                if entry.primaryText.localizedCaseInsensitiveContains(trimmed) {
+                    matchKinds.insert(entry.kind)
+                    score += baseScore(for: entry.kind)
+                    snippet = makeSnippet(in: entry.primaryText, around: trimmed)
+                }
+                if !entry.secondaryText.isEmpty,
+                   entry.secondaryText.localizedCaseInsensitiveContains(trimmed) {
+                    matchKinds.insert(entry.kind)
+                    score += baseScore(for: entry.kind) / 2
+                    if snippet.isEmpty {
+                        snippet = makeSnippet(in: entry.secondaryText, around: trimmed)
+                    }
                 }
             }
 
@@ -370,6 +435,22 @@ final class SearchIndex {
                 kind: .noteOCR,
                 primaryText: note.title,
                 secondaryText: note.ocrText,
+                notebookID: note.notebookID,
+                anchor: note.notebookID.map { nbID in
+                    NavigationAnchor(notebookID: nbID, noteID: note.id, pageIndex: 0)
+                },
+                modifiedAt: note.modifiedAt
+            )
+        }
+
+        // Tags — index each tag so searches for "#lecture" or "lecture" find the note.
+        if !note.tags.isEmpty {
+            let tagText = note.tags.joined(separator: " ")
+            entries["\(baseID)-tags"] = SearchableEntry(
+                id: "\(baseID)-tags",
+                kind: .noteTag,
+                primaryText: note.title,
+                secondaryText: tagText,
                 notebookID: note.notebookID,
                 anchor: note.notebookID.map { nbID in
                     NavigationAnchor(notebookID: nbID, noteID: note.id, pageIndex: 0)
@@ -530,6 +611,7 @@ final class SearchIndex {
         case .audioSession:    return 55
         case .audioTimestamp:  return 30
         case .widgetContent:   return 35
+        case .noteTag:         return 45
         }
     }
 
@@ -540,7 +622,7 @@ final class SearchIndex {
             let itemTexts = items.map(\.text).filter { !$0.isEmpty }
             return ([title] + itemTexts).joined(separator: " ")
 
-        case .quickTable(let title, _, _, let cells):
+        case .quickTable(let title, _, _, let cells, _):
             let cellTexts = cells.map(\.text).filter { !$0.isEmpty }
             return ([title] + cellTexts).joined(separator: " ")
 
@@ -549,6 +631,15 @@ final class SearchIndex {
 
         case .referenceCard(let title, let body):
             return [title, body].filter { !$0.isEmpty }.joined(separator: " ")
+
+        case .stickyNote(let body, _):
+            return body
+
+        case .flashcard(let front, let back, _, _):
+            return [front, back].filter { !$0.isEmpty }.joined(separator: " ")
+
+        case .progressTracker(let title, _, _):
+            return title
         }
     }
 
@@ -579,5 +670,73 @@ final class SearchIndex {
         }
 
         return leading + String(text[range]) + trailing
+    }
+
+    // MARK: - Trie Helpers
+
+    /// Rebuild the Trie from the current `entries` dictionary.
+    /// Called after a full rebuild or bulk import.
+    private func rebuildTrie() {
+        trie.clear()
+        trieDocToEntry.removeAll(keepingCapacity: true)
+        entryToTrieDoc.removeAll(keepingCapacity: true)
+        for (key, entry) in entries {
+            let docID = computeTrieDocID(for: key)
+            trieDocToEntry[docID] = key
+            entryToTrieDoc[key] = docID
+            let text = [entry.primaryText, entry.secondaryText]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            trie.indexDocument(id: docID, text: text)
+        }
+    }
+
+    /// Derives a stable UUID for the Trie from a string entry key using FNV-1a.
+    private func makeTrieDocID(for entryKey: String) -> UUID {
+        let docID = computeTrieDocID(for: entryKey)
+        // Register in bidirectional map so reverse lookup is O(1).
+        if trieDocToEntry[docID] == nil {
+            trieDocToEntry[docID] = entryKey
+            entryToTrieDoc[entryKey] = docID
+        }
+        return docID
+    }
+
+    /// Pure hash computation — no side effects on the bidirectional map.
+    private func computeTrieDocID(for entryKey: String) -> UUID {
+        // Fold the key's UTF-8 bytes into a 128-bit UUID via FNV-1a.
+        var hash0: UInt64 = 14695981039346656037
+        var hash1: UInt64 = 14695981039346656037
+        let bytes = Array(entryKey.utf8)
+        for (i, byte) in bytes.enumerated() {
+            if i % 2 == 0 {
+                hash0 ^= UInt64(byte)
+                hash0 &*= 1099511628211
+            } else {
+                hash1 ^= UInt64(byte)
+                hash1 &*= 1099511628211
+            }
+        }
+        let uuidBytes: [UInt8] = [
+            UInt8((hash0 >> 56) & 0xFF), UInt8((hash0 >> 48) & 0xFF),
+            UInt8((hash0 >> 40) & 0xFF), UInt8((hash0 >> 32) & 0xFF),
+            UInt8((hash0 >> 24) & 0xFF), UInt8((hash0 >> 16) & 0xFF),
+            UInt8((hash0 >>  8) & 0xFF), UInt8( hash0        & 0xFF),
+            UInt8((hash1 >> 56) & 0xFF), UInt8((hash1 >> 48) & 0xFF),
+            UInt8((hash1 >> 40) & 0xFF), UInt8((hash1 >> 32) & 0xFF),
+            UInt8((hash1 >> 24) & 0xFF), UInt8((hash1 >> 16) & 0xFF),
+            UInt8((hash1 >>  8) & 0xFF), UInt8( hash1        & 0xFF),
+        ]
+        return UUID(uuid: (
+            uuidBytes[0],  uuidBytes[1],  uuidBytes[2],  uuidBytes[3],
+            uuidBytes[4],  uuidBytes[5],  uuidBytes[6],  uuidBytes[7],
+            uuidBytes[8],  uuidBytes[9],  uuidBytes[10], uuidBytes[11],
+            uuidBytes[12], uuidBytes[13], uuidBytes[14], uuidBytes[15]
+        ))
+    }
+
+    /// Converts a Trie docID back to the original entry key in O(1) using the bidirectional map.
+    private func trieDocIDToEntryID(_ docID: UUID) -> String {
+        trieDocToEntry[docID] ?? ""
     }
 }

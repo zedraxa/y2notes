@@ -1,4 +1,32 @@
 import Foundation
+import SwiftUI
+
+// MARK: - Section color tag
+
+/// Named color options for section tabs. Stored as a raw String for forward compatibility.
+enum SectionColorTag: String, CaseIterable, Codable {
+    case none   = "none"
+    case red    = "red"
+    case orange = "orange"
+    case teal   = "teal"
+    case blue   = "blue"
+    case purple = "purple"
+}
+
+// MARK: - SectionColorTag SwiftUI color
+
+extension SectionColorTag {
+    var color: Color {
+        switch self {
+        case .none:   return Color.accentColor
+        case .red:    return Color(red: 0.86, green: 0.20, blue: 0.20)
+        case .orange: return Color(red: 0.92, green: 0.50, blue: 0.10)
+        case .teal:   return Color(red: 0.10, green: 0.65, blue: 0.60)
+        case .blue:   return Color(red: 0.12, green: 0.45, blue: 0.90)
+        case .purple: return Color(red: 0.55, green: 0.15, blue: 0.80)
+        }
+    }
+}
 
 // MARK: - Section kind
 
@@ -33,6 +61,10 @@ struct NotebookSection: Identifiable, Codable, Hashable {
     /// Default template ID applied to new pages added to this section.
     /// Falls back to `"builtin.blank"` if empty.
     var defaultTemplateID: String
+    /// Optional color tag shown in section tabs. `.none` falls back to the app accent color.
+    var colorTag: SectionColorTag
+    /// Optional per-section page type override. `nil` = inherit the notebook's `pageType`.
+    var defaultPageType: PageType?
     var createdAt: Date
     var modifiedAt: Date
 
@@ -43,6 +75,8 @@ struct NotebookSection: Identifiable, Codable, Hashable {
         kind: SectionKind = .section,
         sortOrder: Int = 0,
         defaultTemplateID: String = "builtin.blank",
+        colorTag: SectionColorTag = .none,
+        defaultPageType: PageType? = nil,
         createdAt: Date = Date(),
         modifiedAt: Date = Date()
     ) {
@@ -52,6 +86,8 @@ struct NotebookSection: Identifiable, Codable, Hashable {
         self.kind = kind
         self.sortOrder = sortOrder
         self.defaultTemplateID = defaultTemplateID
+        self.colorTag = colorTag
+        self.defaultPageType = defaultPageType
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
     }
@@ -59,7 +95,7 @@ struct NotebookSection: Identifiable, Codable, Hashable {
     // MARK: Codable — decodeIfPresent for new fields to enable smooth schema evolution.
 
     enum CodingKeys: String, CodingKey {
-        case id, notebookID, name, kind, sortOrder, defaultTemplateID, createdAt, modifiedAt
+        case id, notebookID, name, kind, sortOrder, defaultTemplateID, colorTag, defaultPageType, createdAt, modifiedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -69,9 +105,11 @@ struct NotebookSection: Identifiable, Codable, Hashable {
         name              = try c.decode(String.self, forKey: .name)
         createdAt         = try c.decode(Date.self,   forKey: .createdAt)
         modifiedAt        = try c.decode(Date.self,   forKey: .modifiedAt)
-        kind              = try c.decodeIfPresent(SectionKind.self, forKey: .kind)              ?? .section
-        sortOrder         = try c.decodeIfPresent(Int.self,         forKey: .sortOrder)         ?? 0
-        defaultTemplateID = try c.decodeIfPresent(String.self,      forKey: .defaultTemplateID) ?? "builtin.blank"
+        kind              = try c.decodeIfPresent(SectionKind.self,      forKey: .kind)              ?? .section
+        sortOrder         = try c.decodeIfPresent(Int.self,              forKey: .sortOrder)         ?? 0
+        defaultTemplateID = try c.decodeIfPresent(String.self,           forKey: .defaultTemplateID) ?? "builtin.blank"
+        colorTag          = try c.decodeIfPresent(SectionColorTag.self,  forKey: .colorTag)          ?? .none
+        defaultPageType   = try c.decodeIfPresent(PageType.self,         forKey: .defaultPageType)
     }
 
     // MARK: Hashable — identity only so that list selections stay stable while content changes.
