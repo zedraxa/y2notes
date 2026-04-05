@@ -260,6 +260,30 @@ struct ParticlePhysics: Equatable {
         fadeOut: true
     )
 
+    /// Hot core flames — tighter upward cone, faster rise than mid-flame.
+    static let fireCorePhysics = ParticlePhysics(
+        gravity: -150,        // core rises faster than mid-flame
+        wind: 0,
+        turbulence: 20,       // tight column, less chaotic
+        drag: 0.90,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.5,
+        fadeOut: true
+    )
+
+    /// Ember sparks — fall after leaving the flame, chaotic scatter.
+    static let fireEmberPhysics = ParticlePhysics(
+        gravity: 60,          // embers drift downward after launch
+        wind: 0,
+        turbulence: 80,       // very chaotic — embers scatter randomly
+        drag: 0.82,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 5.0,
+        fadeOut: true
+    )
+
     static let sparklePhysics = ParticlePhysics(
         gravity: 40,          // sparks fall lightly
         wind: 0,
@@ -326,10 +350,34 @@ struct ParticlePhysics: Equatable {
         fadeOut: true
     )
 
+    /// Sheen core diamonds — slight rise, moderate scatter.
+    static let sheenCorePhysics = ParticlePhysics(
+        gravity: -18,         // core particles rise gently
+        wind: 0,
+        turbulence: 28,       // moderate — focused iridescent shimmer
+        drag: 0.95,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 2.0,
+        fadeOut: true
+    )
+
+    /// Sheen dust circles — gentle fall, more chaotic than core.
+    static let sheenDustPhysics = ParticlePhysics(
+        gravity: 10,          // dust settles softly downward
+        wind: 0,
+        turbulence: 50,       // more chaotic — micro-glitter scatter
+        drag: 0.90,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 3.0,
+        fadeOut: true
+    )
+
     static let shadowPhysics = ParticlePhysics(
-        gravity: 15,          // smoke sinks slowly
-        wind: 5,              // slight horizontal drift
-        turbulence: 25,       // wispy billowing
+        gravity: -22,         // smoke rises (hot gas is lighter than air)
+        wind: 10,             // sideways drift with the breeze
+        turbulence: 50,       // wispy billowing
         drag: 0.94,
         bounceOffBounds: false,
         bounciness: 0,
