@@ -182,15 +182,16 @@ struct WritingInsightsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// A 13-week (91-day) heatmap grid rendered as colored squares.
+    /// A 13-week (91 days exactly) heatmap grid rendered as colored squares.
     private var heatmapGrid: some View {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let activity = insights.dailyActivity
+        let dayCount = 91
 
         // Build 91 days of data (13 full weeks).
-        let days: [Date] = (0..<91).compactMap { offset in
-            calendar.date(byAdding: .day, value: -(90 - offset), to: today)
+        let days: [Date] = (0..<dayCount).compactMap { offset in
+            calendar.date(byAdding: .day, value: -(dayCount - 1 - offset), to: today)
         }
 
         return LazyVGrid(

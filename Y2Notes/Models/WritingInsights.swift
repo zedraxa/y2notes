@@ -198,12 +198,15 @@ enum WritingInsightsBuilder {
         return (current, longest)
     }
 
+    /// Number of days in the activity heatmap window.
+    private static let activityWindowDays = 90
+
     private static func computeDailyActivity(
         dates: [Date],
         today: Date,
         calendar: Calendar
     ) -> [Date: Int] {
-        guard let windowStart = calendar.date(byAdding: .day, value: -89, to: today) else {
+        guard let windowStart = calendar.date(byAdding: .day, value: -(activityWindowDays - 1), to: today) else {
             return [:]
         }
         var counts: [Date: Int] = [:]
