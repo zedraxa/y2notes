@@ -296,8 +296,11 @@ final class NoteStore: ObservableObject {
     func removeOrphanedImportLinks(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) {
         let orphans = orphanedImportNotes(livePDFIDs: livePDFIDs, liveDocumentIDs: liveDocumentIDs)
         for orphan in orphans {
-            unlinkCompanionNote(id: orphan.id)
+            guard let idx = notes.firstIndex(where: { $0.id == orphan.id }) else { continue }
+            notes[idx].linkedPDFID = nil
+            notes[idx].linkedDocumentID = nil
         }
+        if !orphans.isEmpty { save() }
     }
 
     func deleteNotes(at offsets: IndexSet) {

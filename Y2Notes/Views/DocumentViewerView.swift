@@ -195,7 +195,7 @@ struct DocumentLibraryView: View {
                     DocumentCell(
                         document: doc,
                         isSelected: doc.id == selectedDocumentID,
-                        hasCompanionNote: noteStore.notes(forDocument: doc.id).first != nil
+                        hasCompanionNote: noteStore.hasCompanionNote(forDocument: doc.id)
                     ) {
                         selectedDocumentID = doc.id
                     }
