@@ -67,6 +67,16 @@ struct WidgetFrame: Codable, Equatable {
     }
 }
 
+// MARK: - Checklist Priority
+
+/// Task-level priority for a checklist item.
+enum ChecklistPriority: String, Codable, Equatable, CaseIterable {
+    case none
+    case low
+    case medium
+    case high
+}
+
 // MARK: - Checklist Item
 
 /// A single row in a checklist widget.
@@ -74,11 +84,13 @@ struct ChecklistItem: Codable, Identifiable, Equatable {
     let id: UUID
     var text: String
     var isChecked: Bool
+    var priority: ChecklistPriority
 
-    init(id: UUID = UUID(), text: String = "", isChecked: Bool = false) {
+    init(id: UUID = UUID(), text: String = "", isChecked: Bool = false, priority: ChecklistPriority = .none) {
         self.id = id
         self.text = text
         self.isChecked = isChecked
+        self.priority = priority
     }
 }
 
@@ -125,11 +137,11 @@ enum StickyNoteColor: String, Codable, Equatable, CaseIterable {
 /// Type-specific content carried by a widget.
 enum WidgetPayload: Codable, Equatable {
     case checklist(title: String, items: [ChecklistItem])
-    case quickTable(title: String, columns: Int, rows: Int, cells: [TableCell])
+    case quickTable(title: String, columns: Int, rows: Int, cells: [TableCell], hasHeaderRow: Bool)
     case calloutBox(title: String, body: String, style: CalloutStyle)
     case referenceCard(title: String, body: String)
     case stickyNote(body: String, color: StickyNoteColor)
-    case flashcard(front: String, back: String, isFlipped: Bool)
+    case flashcard(front: String, back: String, isFlipped: Bool, confidenceLevel: Int)
     case progressTracker(title: String, current: Int, total: Int)
 
     // MARK: - Codable
@@ -138,10 +150,10 @@ enum WidgetPayload: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case type
         case title, items
-        case columns, rows, cells
+        case columns, rows, cells, hasHeaderRow
         case body, style
         case color
-        case front, back, isFlipped
+        case front, back, isFlipped, confidenceLevel
         case current, total
     }
 
@@ -163,7 +175,8 @@ enum WidgetPayload: Codable, Equatable {
             let columns = try c.decodeIfPresent(Int.self, forKey: .columns) ?? 2
             let rows = try c.decodeIfPresent(Int.self, forKey: .rows) ?? 3
             let cells = try c.decodeIfPresent([TableCell].self, forKey: .cells) ?? []
-            self = .quickTable(title: title, columns: columns, rows: rows, cells: cells)
+            let hasHeaderRow = try c.decodeIfPresent(Bool.self, forKey: .hasHeaderRow) ?? false
+            self = .quickTable(title: title, columns: columns, rows: rows, cells: cells, hasHeaderRow: hasHeaderRow)
         case .calloutBox:
             let title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
             let body = try c.decodeIfPresent(String.self, forKey: .body) ?? ""
@@ -181,7 +194,8 @@ enum WidgetPayload: Codable, Equatable {
             let front = try c.decodeIfPresent(String.self, forKey: .front) ?? ""
             let back = try c.decodeIfPresent(String.self, forKey: .back) ?? ""
             let isFlipped = try c.decodeIfPresent(Bool.self, forKey: .isFlipped) ?? false
-            self = .flashcard(front: front, back: back, isFlipped: isFlipped)
+            let confidenceLevel = try c.decodeIfPresent(Int.self, forKey: .confidenceLevel) ?? 0
+            self = .flashcard(front: front, back: back, isFlipped: isFlipped, confidenceLevel: confidenceLevel)
         case .progressTracker:
             let title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
             let current = try c.decodeIfPresent(Int.self, forKey: .current) ?? 0
@@ -197,12 +211,13 @@ enum WidgetPayload: Codable, Equatable {
             try c.encode(PayloadType.checklist, forKey: .type)
             try c.encode(title, forKey: .title)
             try c.encode(items, forKey: .items)
-        case .quickTable(let title, let columns, let rows, let cells):
+        case .quickTable(let title, let columns, let rows, let cells, let hasHeaderRow):
             try c.encode(PayloadType.quickTable, forKey: .type)
             try c.encode(title, forKey: .title)
             try c.encode(columns, forKey: .columns)
             try c.encode(rows, forKey: .rows)
             try c.encode(cells, forKey: .cells)
+            try c.encode(hasHeaderRow, forKey: .hasHeaderRow)
         case .calloutBox(let title, let body, let style):
             try c.encode(PayloadType.calloutBox, forKey: .type)
             try c.encode(title, forKey: .title)
@@ -216,11 +231,12 @@ enum WidgetPayload: Codable, Equatable {
             try c.encode(PayloadType.stickyNote, forKey: .type)
             try c.encode(body, forKey: .body)
             try c.encode(color, forKey: .color)
-        case .flashcard(let front, let back, let isFlipped):
+        case .flashcard(let front, let back, let isFlipped, let confidenceLevel):
             try c.encode(PayloadType.flashcard, forKey: .type)
             try c.encode(front, forKey: .front)
             try c.encode(back, forKey: .back)
             try c.encode(isFlipped, forKey: .isFlipped)
+            try c.encode(confidenceLevel, forKey: .confidenceLevel)
         case .progressTracker(let title, let current, let total):
             try c.encode(PayloadType.progressTracker, forKey: .type)
             try c.encode(title, forKey: .title)
@@ -316,7 +332,7 @@ struct NoteWidget: Codable, Identifiable, Equatable {
                 position: position,
                 size: WidgetConstants.defaultTableSize
             ),
-            payload: .quickTable(title: "", columns: columns, rows: rows, cells: cells)
+            payload: .quickTable(title: "", columns: columns, rows: rows, cells: cells, hasHeaderRow: true)
         )
     }
 
@@ -367,7 +383,7 @@ struct NoteWidget: Codable, Identifiable, Equatable {
                 position: position,
                 size: WidgetConstants.defaultFlashcardSize
             ),
-            payload: .flashcard(front: "", back: "", isFlipped: false)
+            payload: .flashcard(front: "", back: "", isFlipped: false, confidenceLevel: 0)
         )
     }
 
@@ -450,4 +466,51 @@ enum WidgetConstants {
     static let defaultProgressTotal: Int = 10
     /// Default border opacity.
     static let borderOpacity: CGFloat = 0.3
+    /// Widget card border line width.
+    static let borderWidth: CGFloat = 1
+}
+
+// MARK: - Display helpers
+
+extension ChecklistPriority {
+    var displayName: String {
+        switch self {
+        case .none:   return "None"
+        case .low:    return "Low"
+        case .medium: return "Medium"
+        case .high:   return "High"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .none:   return "circle"
+        case .low:    return "arrow.down.circle"
+        case .medium: return "equal.circle"
+        case .high:   return "exclamationmark.circle"
+        }
+    }
+}
+
+extension CalloutStyle {
+    var displayName: String {
+        switch self {
+        case .note:      return "Note"
+        case .important: return "Important"
+        case .tip:       return "Tip"
+        case .warning:   return "Warning"
+        }
+    }
+}
+
+extension StickyNoteColor {
+    var displayName: String {
+        switch self {
+        case .yellow: return "Yellow"
+        case .pink:   return "Pink"
+        case .blue:   return "Blue"
+        case .green:  return "Green"
+        case .purple: return "Purple"
+        }
+    }
 }

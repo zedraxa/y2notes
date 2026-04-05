@@ -303,25 +303,29 @@ struct DrawingToolbarView: View {
 
     private var eraserSubPicker: some View {
         HStack(spacing: 6) {
-            Text("Mode:")
+            Text("Type:")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            ForEach(EraserMode.allCases, id: \.rawValue) { mode in
-                let isSelected = toolStore.eraserMode == mode
+            ForEach(EraserSubType.allCases, id: \.rawValue) { sub in
+                let isSelected = toolStore.eraserSubType == sub
                 Button {
-                    toolStore.eraserMode = mode
+                    toolStore.eraserSubType = sub
                 } label: {
-                    Text(mode.displayName)
-                        .font(.caption.weight(isSelected ? .semibold : .regular))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(
-                            isSelected
-                                ? Color.accentColor.opacity(0.15)
-                                : Color(.systemGray5)
-                        )
-                        .clipShape(Capsule())
-                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+                    HStack(spacing: 4) {
+                        Image(systemName: sub.systemImage)
+                            .font(.caption2)
+                        Text(sub.displayName)
+                            .font(.caption.weight(isSelected ? .semibold : .regular))
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(
+                        isSelected
+                            ? Color.accentColor.opacity(0.15)
+                            : Color(.systemGray5)
+                    )
+                    .clipShape(Capsule())
+                    .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
             }

@@ -12,8 +12,11 @@ import UIKit
 struct PDFViewerView: View {
     @EnvironmentObject var pdfStore:  PDFStore
     @EnvironmentObject var toolStore: DrawingToolStore
+    @Environment(TabWorkspaceStore.self) private var workspace
 
     let record: PDFNoteRecord
+    /// The tab ID this viewer is running in, or nil when opened outside the tab workspace.
+    let tabID: UUID?
 
     @State private var currentPage: Int
     @State private var isAnnotating: Bool = true
@@ -25,9 +28,11 @@ struct PDFViewerView: View {
 
     @AppStorage("y2notes.pencilOnlyDrawing") private var pencilOnlyDrawing = false
 
-    init(record: PDFNoteRecord) {
+    init(record: PDFNoteRecord, tab: TabSession? = nil) {
         self.record  = record
-        _currentPage = State(initialValue: record.currentPage)
+        self.tabID   = tab?.id
+        // Prefer the tab's persisted page over the store's record page.
+        _currentPage = State(initialValue: tab?.pageIndex ?? record.currentPage)
     }
 
     // MARK: - Live record from store
@@ -88,6 +93,9 @@ struct PDFViewerView: View {
         }
         .onChange(of: currentPage) { _, page in
             pdfStore.updateCurrentPage(id: record.id, page: page)
+            if let id = tabID {
+                workspace.updateTabState(id, pageIndex: page)
+            }
         }
     }
 

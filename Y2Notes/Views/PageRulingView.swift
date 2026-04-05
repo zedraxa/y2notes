@@ -75,7 +75,15 @@ final class PageBackgroundView: UIView {
     private let gridSpacing:        CGFloat = 24    // points between grid lines
     private let dotRadius:          CGFloat = 1.5   // radius of dot-grid dots
     private let dotSpacing:         CGFloat = 24    // points between dot-grid dots
-    private let marginX:            CGFloat = 56    // left margin line x-position (ruled)
+    /// Blank space at the very top of the page before the first ruling or dot row.
+    /// Mirrors the header margin found on real college-ruled notebooks (~56 pt ≈ 20 mm).
+    private let topMargin:          CGFloat = 56
+    /// Horizontal offset of the left margin line from the page edge, matching
+    /// the standard single-margin position used in physical ruled notebooks.
+    /// The value (80 pt ≈ 28 mm) is fixed because the page width is always the
+    /// device's landscape dimension (~1024–1366 pt), making a proportional
+    /// ~7 % offset equivalent to roughly 28 mm on every supported device.
+    private let leftMarginOffset:   CGFloat = 80
     private let cornellCueX:        CGFloat = 224   // Cornell cue-column separator x
     private let cornellHeaderY:     CGFloat = 56    // Cornell header separator y
     private let cornellSummaryFrac: CGFloat = 0.82  // Cornell summary line as fraction of height
@@ -139,8 +147,13 @@ final class PageBackgroundView: UIView {
             drawGrain(in: ctx, rect: rect)
         }
 
-        // 4. Edge vignette — always drawn to give the page physical depth.
-        drawPageEdgeShadow(in: ctx, rect: rect)
+        // 4. Draw a very subtle border so the page edge is perceptible on
+        //    the desk surface, especially when zoomed out.
+        ctx.saveGState()
+        ctx.setStrokeColor(UIColor.label.withAlphaComponent(0.07).cgColor)
+        ctx.setLineWidth(0.5)
+        ctx.stroke(rect.insetBy(dx: 0.25, dy: 0.25))
+        ctx.restoreGState()
     }
 
     // MARK: - Ruled lines
@@ -150,7 +163,9 @@ final class PageBackgroundView: UIView {
         ctx.setStrokeColor(lineColor.cgColor)
         ctx.setLineWidth(0.5)
 
-        var y = ruledSpacing
+        // Start at the top-margin offset so there is a blank header area
+        // matching the look of real college-ruled paper.
+        var y = topMargin
         while y <= rect.maxY {
             ctx.move(to: CGPoint(x: rect.minX, y: y))
             ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
@@ -158,13 +173,16 @@ final class PageBackgroundView: UIView {
         }
         ctx.strokePath()
 
-        // Left margin accent line
-        let mColor = accentLineColor(alpha: 0.18)
-        ctx.setStrokeColor(mColor.cgColor)
-        ctx.setLineWidth(0.75)
-        ctx.move(to: CGPoint(x: marginX, y: rect.minY))
-        ctx.addLine(to: CGPoint(x: marginX, y: rect.maxY))
-        ctx.strokePath()
+        // Left margin line — the traditional pink/red vertical line that
+        // marks the writing margin on physical ruled notebooks.
+        let marginX = rect.minX + leftMarginOffset
+        if marginX < rect.maxX {
+            ctx.setStrokeColor(UIColor.systemRed.withAlphaComponent(0.22).cgColor)
+            ctx.setLineWidth(0.75)
+            ctx.move(to: CGPoint(x: marginX, y: rect.minY))
+            ctx.addLine(to: CGPoint(x: marginX, y: rect.maxY))
+            ctx.strokePath()
+        }
 
         ctx.restoreGState()
     }
@@ -175,7 +193,9 @@ final class PageBackgroundView: UIView {
         ctx.saveGState()
         ctx.setFillColor(lineColor.cgColor)
 
-        var y = dotSpacing
+        // Start below the top margin so dot rows align with where text would
+        // sit on ruled paper — giving a consistent feel across page types.
+        var y = topMargin
         while y <= rect.maxY {
             var x = dotSpacing
             while x <= rect.maxX {
@@ -399,51 +419,6 @@ final class PageBackgroundView: UIView {
         )!
         cache = image
         return image
-    }
-
-    // MARK: - Edge vignette
-
-    /// Draws a subtle black-gradient vignette along all four page edges to give
-    /// the page physical depth.  Maximum opacity is 6 % — never distracting.
-    private func drawPageEdgeShadow(in ctx: CGContext, rect: CGRect) {
-        let edgeWidth: CGFloat = 22.0
-        let peakAlpha: CGFloat = 0.06
-
-        guard let gradient = CGGradient(
-            colorSpace: CGColorSpaceCreateDeviceRGB(),
-            colorComponents: [0, 0, 0, peakAlpha,   // shadow at edge
-                              0, 0, 0, 0],           // transparent toward centre
-            locations: [0, 1],
-            count: 2
-        ) else { return }
-
-        // Helper: clip to a strip, draw gradient, restore clip.
-        func edgeStrip(clip: CGRect, start: CGPoint, end: CGPoint) {
-            ctx.saveGState()
-            ctx.clip(to: clip)
-            ctx.drawLinearGradient(gradient, start: start, end: end, options: [])
-            ctx.restoreGState()
-        }
-
-        edgeStrip(
-            clip: CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: edgeWidth),
-            start: CGPoint(x: rect.midX, y: rect.minY),
-            end:   CGPoint(x: rect.midX, y: rect.minY + edgeWidth))
-
-        edgeStrip(
-            clip: CGRect(x: rect.minX, y: rect.maxY - edgeWidth, width: rect.width, height: edgeWidth),
-            start: CGPoint(x: rect.midX, y: rect.maxY),
-            end:   CGPoint(x: rect.midX, y: rect.maxY - edgeWidth))
-
-        edgeStrip(
-            clip: CGRect(x: rect.minX, y: rect.minY, width: edgeWidth, height: rect.height),
-            start: CGPoint(x: rect.minX, y: rect.midY),
-            end:   CGPoint(x: rect.minX + edgeWidth, y: rect.midY))
-
-        edgeStrip(
-            clip: CGRect(x: rect.maxX - edgeWidth, y: rect.minY, width: edgeWidth, height: rect.height),
-            start: CGPoint(x: rect.maxX, y: rect.midY),
-            end:   CGPoint(x: rect.maxX - edgeWidth, y: rect.midY))
     }
 
     // MARK: - Accent colour helper
