@@ -788,7 +788,8 @@ final class NoteStore: ObservableObject {
     func addSection(
         toNotebook notebookID: UUID,
         name: String,
-        defaultTemplateID: String = "builtin.blank"
+        defaultTemplateID: String = "builtin.blank",
+        colorTag: SectionColorTag = .none
     ) -> NotebookSection {
         let nextOrder = nextSectionSortOrder(forNotebook: notebookID)
         let section = NotebookSection(
@@ -796,7 +797,8 @@ final class NoteStore: ObservableObject {
             name: name,
             kind: .section,
             sortOrder: nextOrder,
-            defaultTemplateID: defaultTemplateID
+            defaultTemplateID: defaultTemplateID,
+            colorTag: colorTag
         )
         sections.append(section)
         save()
@@ -872,23 +874,27 @@ final class NoteStore: ObservableObject {
     @discardableResult
     func addNotebook(
         name: String,
+        description: String = "",
         cover: NotebookCover = .ocean,
         pageType: PageType = .ruled,
         pageSize: PageSize = .letter,
         orientation: PageOrientation = .portrait,
         defaultTheme: AppTheme? = nil,
         paperMaterial: PaperMaterial = .standard,
-        customCoverData: Data? = nil
+        customCoverData: Data? = nil,
+        coverTexture: CoverTexture = .smooth
     ) -> Notebook {
         let nb = Notebook(
             name: name,
+            description: description,
             cover: cover,
             pageType: pageType,
             pageSize: pageSize,
             orientation: orientation,
             defaultTheme: defaultTheme,
             paperMaterial: paperMaterial,
-            customCoverData: customCoverData
+            customCoverData: customCoverData,
+            coverTexture: coverTexture
         )
         notebooks.insert(nb, at: 0)
         save()
@@ -926,9 +932,23 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    func updateNotebookDescription(id: UUID, description: String) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].description = description
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
     func updateNotebookCover(id: UUID, cover: NotebookCover) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
         notebooks[idx].cover = cover
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    func updateNotebookTexture(id: UUID, texture: CoverTexture) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].coverTexture = texture
         notebooks[idx].modifiedAt = Date()
         save()
     }

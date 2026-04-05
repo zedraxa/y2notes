@@ -24,9 +24,28 @@ final class DrawingToolStore: ObservableObject {
         didSet { UserDefaults.standard.set(activeWidth, forKey: Keys.width) }
     }
 
-    @Published var eraserMode: EraserMode = .bitmap {
-        didSet { UserDefaults.standard.set(eraserMode.rawValue, forKey: Keys.eraserMode) }
+    /// The active eraser personality. Changing this resets `eraserWidth` to the
+    /// sub-type's default so the first interaction always feels right.
+    @Published var eraserSubType: EraserSubType = .standard {
+        didSet {
+            UserDefaults.standard.set(eraserSubType.rawValue, forKey: Keys.eraserSubType)
+            // Snap width to the new sub-type's default when the sub-type changes.
+            if oldValue != eraserSubType {
+                eraserWidth = eraserSubType.defaultWidth
+            }
+        }
     }
+
+    /// Tip width in points for the active eraser sub-type.
+    /// Only meaningful for bitmap (pixel) sub-types; vector sub-types ignore it.
+    @Published var eraserWidth: CGFloat = EraserSubType.standard.defaultWidth {
+        didSet { UserDefaults.standard.set(Double(eraserWidth), forKey: Keys.eraserWidth) }
+    }
+
+    /// Derived eraser mode (bitmap vs. vector) from the active sub-type.
+    /// Retained as a computed property for backward-compatibility with call sites
+    /// that still read `eraserMode`.
+    var eraserMode: EraserMode { eraserSubType.eraserMode }
 
     @Published var activeShapeType: ShapeType = .rectangle {
         didSet { UserDefaults.standard.set(activeShapeType.rawValue, forKey: Keys.shapeType) }
@@ -34,6 +53,12 @@ final class DrawingToolStore: ObservableObject {
 
     @Published var activeOpacity: Double = 1.0 {
         didSet { UserDefaults.standard.set(activeOpacity, forKey: Keys.opacity) }
+    }
+
+    /// The physical character of the pen tool (ballpoint, gel, felt-tip, etc.).
+    /// Only applied when `activeTool == .pen`.  Persisted to UserDefaults.
+    @Published var activePenSubType: PenSubType = .ballpoint {
+        didSet { UserDefaults.standard.set(activePenSubType.rawValue, forKey: Keys.penSubType) }
     }
 
     @Published var recentColors: [UIColor] = []
@@ -150,15 +175,24 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts nil.
     @Published var activeAmbientScene: AmbientScene?
 
+    /// Whether ambient soundscapes are enabled.
+    /// When `false` the `AmbientEnvironmentEngine` plays no audio even if a
+    /// scene is active.  **Not persisted** — defaults to `true`.
+    @Published var isAmbientSoundEnabled: Bool = true
+
     /// Whether "Magic Mode" is active — writing particles, keyword glow,
     /// underline highlight animation.
-    /// **Not persisted** — always starts false (default off).
-    @Published var isMagicModeActive: Bool = false
+    /// Persisted in UserDefaults — default off.
+    @Published var isMagicModeActive: Bool = false {
+        didSet { UserDefaults.standard.set(isMagicModeActive, forKey: Keys.magicModeActive) }
+    }
 
     /// Whether "Study Mode" is active — heading glow, checklist completion
     /// animation, timer completion pulse.
-    /// **Not persisted** — always starts false (default off).
-    @Published var isStudyModeActive: Bool = false
+    /// Persisted in UserDefaults — default off.
+    @Published var isStudyModeActive: Bool = false {
+        didSet { UserDefaults.standard.set(isStudyModeActive, forKey: Keys.studyModeActive) }
+    }
 
     // MARK: - Computed Properties
 
@@ -173,7 +207,10 @@ final class DrawingToolStore: ObservableObject {
     var pkTool: PKTool {
         switch activeTool {
         case .pen:
-            return PKInkingTool(.pen, color: inkColor, width: activeWidth)
+            // Apply the pen sub-type's width multiplier so each character feels
+            // physically distinct (e.g. felt-tip is 1.6× broader by default).
+            let penWidth = activeWidth * Double(activePenSubType.widthMultiplier)
+            return PKInkingTool(.pen, color: inkColor, width: penWidth)
         case .pencil:
             return PKInkingTool(.pencil, color: inkColor, width: activeWidth)
         case .highlighter:
@@ -185,7 +222,7 @@ final class DrawingToolStore: ObservableObject {
                 return PKInkingTool(.pen, color: inkColor, width: activeWidth)
             }
         case .eraser:
-            return PKEraserTool(eraserMode.pkEraserType)
+            return makeEraserTool()
         case .lasso:
             return PKLassoTool()
         case .shape:
@@ -206,6 +243,16 @@ final class DrawingToolStore: ObservableObject {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         activeColor.getRed(&r, green: &g, blue: &b, alpha: &a)
         return UIColor(red: r, green: g, blue: b, alpha: a * CGFloat(multiplier))
+    }
+
+    /// Constructs the `PKEraserTool` for the current sub-type and width.
+    /// Centralises eraser tool construction so callers (pkTool, Pencil delegate)
+    /// always produce an identical result.
+    func makeEraserTool() -> PKEraserTool {
+        if #available(iOS 16.4, *) {
+            return PKEraserTool(eraserSubType.eraserMode.pkEraserType, width: eraserWidth)
+        }
+        return PKEraserTool(eraserSubType.eraserMode.pkEraserType)
     }
 
     /// Convenience: only presets the user has starred.
@@ -231,6 +278,19 @@ final class DrawingToolStore: ObservableObject {
         guard let p = activePersonality else { return }
         let clamped = min(max(activeWidth, Double(p.minWidth)), Double(p.maxWidth))
         if clamped != activeWidth { activeWidth = clamped }
+    }
+
+    /// The `WritingEffectConfig` for the current pen state.
+    ///
+    /// When the active tool is `.pen` the config is derived from `activePenSubType`
+    /// (pressure curve, ink flow, taper, pooling).  For all other tools the
+    /// default config is returned so the pipeline stays dormant.
+    ///
+    /// Pass this to `WritingEffectsPipeline.configure(config:color:)` whenever
+    /// the tool or sub-type changes.
+    var writingEffectConfig: WritingEffectConfig {
+        guard activeTool == .pen else { return .default }
+        return activePenSubType.makeWritingEffectConfig()
     }
 
     // MARK: - Recent Colors
@@ -272,16 +332,20 @@ final class DrawingToolStore: ObservableObject {
             name: resolved.isEmpty ? activeTool.displayName : resolved,
             tool: activeTool,
             color: activeColor,
-            width: activeWidth
+            width: activeWidth,
+            penSubType: activeTool == .pen ? activePenSubType : nil
         )
         presets.append(preset)
     }
 
-    /// Restores the tool, colour, and width from a saved preset.
+    /// Restores the tool, colour, width, and — for pen presets — sub-type from a saved preset.
     func applyPreset(_ preset: ToolPreset) {
         activeTool   = preset.tool
         activeColor  = preset.uiColor
         activeWidth  = preset.width
+        if preset.tool == .pen, let sub = preset.penSubType {
+            activePenSubType = sub
+        }
     }
 
     /// Toggles the favourite star on a preset.
@@ -322,11 +386,16 @@ final class DrawingToolStore: ObservableObject {
         static let colorB     = "y2notes.tool.colorB"
         static let colorA     = "y2notes.tool.colorA"
         static let width      = "y2notes.tool.width"
-        static let eraserMode = "y2notes.tool.eraserMode"
+        static let eraserMode = "y2notes.tool.eraserMode"   // legacy key, no longer written
+        static let eraserSubType = "y2notes.tool.eraserSubType"
+        static let eraserWidth   = "y2notes.tool.eraserWidth"
         static let shapeType  = "y2notes.tool.shapeType"
         static let presets    = "y2notes.tool.presets"
         static let opacity    = "y2notes.tool.opacity"
         static let toolbarMinimized = "y2notes.tool.toolbarMinimized"
+        static let penSubType = "y2notes.tool.penSubType"
+        static let magicModeActive  = "y2notes.tool.magicModeActive"
+        static let studyModeActive  = "y2notes.tool.studyModeActive"
     }
 
     // MARK: - Persistence Helpers
@@ -367,9 +436,19 @@ final class DrawingToolStore: ObservableObject {
         let o = ud.double(forKey: Keys.opacity)
         if o > 0 { activeOpacity = o }
 
-        if let raw = ud.string(forKey: Keys.eraserMode), let mode = EraserMode(rawValue: raw) {
-            eraserMode = mode
+        if let raw = ud.string(forKey: Keys.eraserSubType), let sub = EraserSubType(rawValue: raw) {
+            eraserSubType = sub
+        } else if let raw = ud.string(forKey: Keys.eraserMode) {
+            // Migrate old eraserMode value to the nearest EraserSubType.
+            switch raw {
+            case "vector": eraserSubType = .stroke
+            case "bitmap": eraserSubType = .standard
+            default:       break
+            }
         }
+
+        let ew = ud.double(forKey: Keys.eraserWidth)
+        if ew > 0 { eraserWidth = CGFloat(ew) }
 
         if let raw = ud.string(forKey: Keys.shapeType), let shape = ShapeType(rawValue: raw) {
             activeShapeType = shape
@@ -381,5 +460,13 @@ final class DrawingToolStore: ObservableObject {
         }
 
         isToolbarMinimized = ud.bool(forKey: Keys.toolbarMinimized)
+
+        if let raw = ud.string(forKey: Keys.penSubType), let sub = PenSubType(rawValue: raw) {
+            activePenSubType = sub
+        }
+
+        // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
+        isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)
+        isStudyModeActive = ud.bool(forKey: Keys.studyModeActive)
     }
 }

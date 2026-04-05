@@ -14,7 +14,7 @@ import UIKit
 /// - Hit-tests taps for selection
 /// - Handles pan/resize gestures for manipulation
 /// - Passes through non-shape touches to layers below
-final class ShapeCanvasView: UIView {
+final class ShapeCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - Properties
 

@@ -19,8 +19,12 @@ struct NoteCreationSheet: View {
     @State private var selectedPageType: PageType = .ruled
     @State private var selectedMaterial: PaperMaterial = .standard
 
+    private let selectionFeedback = UIImpactFeedbackGenerator(style: .medium)
+    private let confirmFeedback   = UINotificationFeedbackGenerator()
+
     // Two-column grid for the paper type cards.
     private let columns = [
+        GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12)
     ]
@@ -42,7 +46,12 @@ struct NoteCreationSheet: View {
                                     pageType: pt,
                                     isSelected: selectedPageType == pt
                                 )
-                                .onTapGesture { selectedPageType = pt }
+                                .onTapGesture {
+                                    if selectedPageType != pt {
+                                        selectionFeedback.impactOccurred()
+                                        selectedPageType = pt
+                                    }
+                                }
                             }
                         }
                     }
@@ -60,7 +69,12 @@ struct NoteCreationSheet: View {
                                         material: pm,
                                         isSelected: selectedMaterial == pm
                                     )
-                                    .onTapGesture { selectedMaterial = pm }
+                                    .onTapGesture {
+                                        if selectedMaterial != pm {
+                                            selectionFeedback.impactOccurred(intensity: 0.6)
+                                            selectedMaterial = pm
+                                        }
+                                    }
                                 }
                             }
                             .padding(.horizontal, 4)
@@ -80,6 +94,10 @@ struct NoteCreationSheet: View {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
+                            .transition(.opacity)
+                            .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
+                            .animation(.easeInOut(duration: 0.2), value: selectedPageType)
+                            .animation(.easeInOut(duration: 0.2), value: selectedMaterial)
                     }
                 }
                 .padding(20)
@@ -102,6 +120,7 @@ struct NoteCreationSheet: View {
     }
 
     private func createNote() {
+        confirmFeedback.notificationOccurred(.success)
         let note = noteStore.addNote(
             inNotebook: notebookID,
             pageType: selectedPageType,
@@ -119,6 +138,8 @@ struct NoteCreationSheet: View {
 private struct PaperTypeCard: View {
     let pageType: PageType
     let isSelected: Bool
+
+    @GestureState private var isPressed = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -152,7 +173,13 @@ private struct PaperTypeCard: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(isSelected ? Color.accentColor.opacity(0.06) : Color.clear)
         )
+        .scaleEffect(isPressed ? 0.95 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
+        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in state = true }
+        )
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityLabel("\(pageType.displayName) paper")
     }
@@ -206,6 +233,46 @@ private struct PaperTypeCard: View {
                     )
                     pos += spacing
                 }
+            case .cornell:
+                let cueX: CGFloat = size.width * 0.3
+                let summaryY: CGFloat = size.height * 0.8
+                let dividerColor = Color(uiColor: .secondaryLabel).opacity(0.28)
+                // Cue divider
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: cueX, y: 0)); p.addLine(to: .init(x: cueX, y: summaryY)) },
+                    with: .color(dividerColor), lineWidth: 1.0
+                )
+                // Summary divider
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: 0, y: summaryY)); p.addLine(to: .init(x: size.width, y: summaryY)) },
+                    with: .color(dividerColor), lineWidth: 1.0
+                )
+                // Ruled lines in main area
+                let spacing: CGFloat = 10
+                var y: CGFloat = spacing + 4
+                while y < summaryY {
+                    ctx.stroke(
+                        Path { p in p.move(to: .init(x: cueX + 4, y: y)); p.addLine(to: .init(x: size.width - 4, y: y)) },
+                        with: .color(lineColor), lineWidth: 0.5
+                    )
+                    y += spacing
+                }
+            case .music:
+                let staffLines = 5
+                let lineSpacing: CGFloat = 4
+                let groupSpacing: CGFloat = 18
+                let staffH = CGFloat(staffLines - 1) * lineSpacing
+                var top: CGFloat = groupSpacing
+                while top + staffH < size.height {
+                    for i in 0..<staffLines {
+                        let y = top + CGFloat(i) * lineSpacing
+                        ctx.stroke(
+                            Path { p in p.move(to: .init(x: 6, y: y)); p.addLine(to: .init(x: size.width - 6, y: y)) },
+                            with: .color(lineColor), lineWidth: 0.5
+                        )
+                    }
+                    top += staffH + groupSpacing
+                }
             }
         }
     }
@@ -217,6 +284,8 @@ private struct PaperTypeCard: View {
 private struct MaterialChip: View {
     let material: PaperMaterial
     let isSelected: Bool
+
+    @GestureState private var isPressed = false
 
     var body: some View {
         VStack(spacing: 4) {
@@ -240,7 +309,13 @@ private struct MaterialChip: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 2)
+        .scaleEffect(isPressed ? 0.88 : (isSelected ? 1.06 : 1.0))
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
+        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in state = true }
+        )
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityLabel("\(material.displayName) paper")
     }
@@ -304,6 +379,43 @@ private struct PaperPreview: View {
                         with: .color(lineColor), lineWidth: 0.5
                     )
                     pos += spacing
+                }
+            case .cornell:
+                let cueX: CGFloat = size.width * 0.28
+                let summaryY: CGFloat = size.height * 0.82
+                let dividerColor = Color(uiColor: .secondaryLabel).opacity(0.25)
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: cueX, y: 0)); p.addLine(to: .init(x: cueX, y: summaryY)) },
+                    with: .color(dividerColor), lineWidth: 1.2
+                )
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: 0, y: summaryY)); p.addLine(to: .init(x: size.width, y: summaryY)) },
+                    with: .color(dividerColor), lineWidth: 1.2
+                )
+                let spacing: CGFloat = 16
+                var y: CGFloat = spacing + 8
+                while y < summaryY {
+                    ctx.stroke(
+                        Path { p in p.move(to: .init(x: cueX + 8, y: y)); p.addLine(to: .init(x: size.width - 16, y: y)) },
+                        with: .color(lineColor), lineWidth: 0.6
+                    )
+                    y += spacing
+                }
+            case .music:
+                let staffLines = 5
+                let lineSpacing: CGFloat = 6
+                let groupSpacing: CGFloat = 28
+                let staffH = CGFloat(staffLines - 1) * lineSpacing
+                var top: CGFloat = groupSpacing
+                while top + staffH < size.height {
+                    for i in 0..<staffLines {
+                        let y = top + CGFloat(i) * lineSpacing
+                        ctx.stroke(
+                            Path { p in p.move(to: .init(x: 12, y: y)); p.addLine(to: .init(x: size.width - 12, y: y)) },
+                            with: .color(lineColor), lineWidth: 0.6
+                        )
+                    }
+                    top += staffH + groupSpacing
                 }
             }
         }

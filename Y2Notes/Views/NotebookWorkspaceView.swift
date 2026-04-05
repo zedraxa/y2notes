@@ -72,7 +72,7 @@ struct NotebookWorkspaceView: View {
     @ViewBuilder
     private func notebookContent(id: UUID, tab: TabSession) -> some View {
         if let notebook = noteStore.notebooks.first(where: { $0.id == id }) {
-            NotebookReaderView(notebook: notebook)
+            NotebookReaderView(notebook: notebook, tabID: tab.id)
         } else {
             deletedContentPlaceholder(tab: tab)
         }
@@ -81,7 +81,7 @@ struct NotebookWorkspaceView: View {
     @ViewBuilder
     private func noteContent(id: UUID, tab: TabSession) -> some View {
         if let note = noteStore.notes.first(where: { $0.id == id }) {
-            NoteEditorView(note: note)
+            NoteEditorView(note: note, tab: tab)
         } else {
             deletedContentPlaceholder(tab: tab)
         }
@@ -90,7 +90,7 @@ struct NotebookWorkspaceView: View {
     @ViewBuilder
     private func pdfContent(id: UUID, tab: TabSession) -> some View {
         if let record = pdfStore.records.first(where: { $0.id == id }) {
-            PDFViewerView(record: record)
+            PDFViewerView(record: record, tab: tab)
         } else {
             deletedContentPlaceholder(tab: tab)
         }
