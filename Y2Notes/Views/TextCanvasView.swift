@@ -399,7 +399,7 @@ final class TextCanvasView: UIView {
     // MARK: - Inline Editing
 
     private func beginEditing(_ obj: TextObject) {
-        guard let idx = textObjects.firstIndex(where: { $0.id == obj.id }) else { return }
+        guard textObjects.contains(where: { $0.id == obj.id }) else { return }
 
         // Hide the CATextLayer while editing
         textLayers[obj.id]?.isHidden = true
@@ -421,7 +421,6 @@ final class TextCanvasView: UIView {
 
         editingTextView = tv
         editingObjectID = obj.id
-        _ = idx
     }
 
     private func commitEditing() {
