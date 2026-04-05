@@ -247,7 +247,7 @@ final class NoteStore: ObservableObject {
         return note
     }
 
-
+    func deleteNotes(at offsets: IndexSet) {
         for i in offsets {
             createPreDestructiveSnapshot(for: notes[i].id)
             if let filename = notes[i].pdfFilename {
