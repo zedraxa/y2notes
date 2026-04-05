@@ -574,6 +574,48 @@ private struct PageTypeMiniCanvas: View {
                     p.addLine(to: .init(x: size.width, y: y))
                     context.stroke(p, with: lineColor, lineWidth: 0.6)
                 }
+
+            case .cornell:
+                let cueX = size.width * 0.3
+                let summaryY = size.height * 0.8
+                let divColor = GraphicsContext.Shading.color(
+                    Color(uiColor: .secondaryLabel).opacity(0.5)
+                )
+                var vLine = Path()
+                vLine.move(to: .init(x: cueX, y: 0))
+                vLine.addLine(to: .init(x: cueX, y: summaryY))
+                context.stroke(vLine, with: divColor, lineWidth: 1.0)
+                var hLine = Path()
+                hLine.move(to: .init(x: 0, y: summaryY))
+                hLine.addLine(to: .init(x: size.width, y: summaryY))
+                context.stroke(hLine, with: divColor, lineWidth: 1.0)
+                let rSpacing = size.height / 7
+                for i in 1...5 {
+                    let y = rSpacing * CGFloat(i)
+                    if y < summaryY {
+                        var p = Path()
+                        p.move(to: .init(x: cueX + 4, y: y))
+                        p.addLine(to: .init(x: size.width - 4, y: y))
+                        context.stroke(p, with: lineColor, lineWidth: 0.6)
+                    }
+                }
+
+            case .music:
+                let staffLines = 5
+                let lSpacing: CGFloat = size.height / 16
+                let groupGap: CGFloat = size.height / 5
+                let staffH = CGFloat(staffLines - 1) * lSpacing
+                var top = groupGap * 0.6
+                while top + staffH < size.height {
+                    for i in 0..<staffLines {
+                        let y = top + CGFloat(i) * lSpacing
+                        var p = Path()
+                        p.move(to: .init(x: 6, y: y))
+                        p.addLine(to: .init(x: size.width - 6, y: y))
+                        context.stroke(p, with: lineColor, lineWidth: 0.6)
+                    }
+                    top += staffH + groupGap
+                }
             }
         }
     }
