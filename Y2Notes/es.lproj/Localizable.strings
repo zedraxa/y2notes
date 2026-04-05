@@ -298,3 +298,25 @@
 "Credits.InspirationHeader"       = "Proyectos que nos inspiraron";
 "Credits.PatternsHeader"          = "Patrones de diseño adoptados";
 "Credits.Footer"                  = "Agradecemos a estos proyectos y a la comunidad de código abierto.";
+
+/* ── Audio Recording ──────────────────────────────────────────── */
+
+"Recording.ListTitle"                 = "Grabaciones";
+"Recording.RenameTitle"               = "Renombrar grabación";
+"Recording.RenameField"               = "Título";
+"Recording.RenameMessage"             = "Introduce un nuevo nombre para esta grabación.";
+"Recording.Rename"                    = "Renombrar";
+"Recording.Share"                     = "Compartir";
+"Recording.NowPlaying"               = "Reproduciendo";
+"Recording.Play"                      = "Reproducir";
+"Recording.Pause"                     = "Pausar";
+"Recording.Stop"                      = "Detener";
+"Recording.EmptyTitle"                = "Sin grabaciones";
+"Recording.EmptyHint"                 = "Toca el botón del micrófono en la barra de herramientas para empezar a grabar.";
+"Recording.InProgress"                = "Grabación en curso";
+"Recording.TapToViewList"             = "Toca para ver grabaciones";
+"Recording.PermissionDenied.Title"    = "Acceso al micrófono requerido";
+"Recording.PermissionDenied.Message"  = "Para grabar notas de audio, habilita el acceso al micrófono en Ajustes.";
+"Recording.PermissionDenied.Settings" = "Abrir Ajustes";
+"Recording.StartAccessibility"        = "Iniciar grabación";
+"Recording.StopAccessibility"         = "Detener grabación";

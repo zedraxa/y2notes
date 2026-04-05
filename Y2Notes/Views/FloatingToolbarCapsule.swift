@@ -49,6 +49,7 @@ struct FloatingToolbarCapsule: View {
 
     private let toolSwitchFeedback = UIImpactFeedbackGenerator(style: .light)
     private let modeToggleFeedback = UIImpactFeedbackGenerator(style: .medium)
+    private let selectionFeedback = UISelectionFeedbackGenerator()
 
     // MARK: - Tier 1 Tools
 
@@ -120,26 +121,43 @@ struct FloatingToolbarCapsule: View {
     private var recordingExpansion: some View {
         if showRecordingExpansion, let recordingStore {
             VStack(spacing: 8) {
-                // Quality picker
-                HStack(spacing: 8) {
-                    ForEach(AudioRecordingStore.RecordingQuality.allCases) { quality in
-                        let isSelected = recordingStore.quality == quality
-                        Button {
-                            recordingStore.quality = quality
-                        } label: {
-                            Text(quality.displayName)
-                                .font(.caption.weight(isSelected ? .semibold : .regular))
-                                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(
-                                    isSelected
-                                        ? Color.accentColor.opacity(0.12)
-                                        : Color(uiColor: .systemGray5),
-                                    in: Capsule()
-                                )
+                // Active recording status
+                if toolStore.isRecording {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 6, height: 6)
+                        Text(recordingStore.formattedElapsedTime)
+                            .font(.caption.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(.red)
+                        Spacer()
+                        Text(recordingStore.quality.displayName)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    // Quality picker (only when not recording)
+                    HStack(spacing: 8) {
+                        ForEach(AudioRecordingStore.RecordingQuality.allCases) { quality in
+                            let isSelected = recordingStore.quality == quality
+                            Button {
+                                selectionFeedback.selectionChanged()
+                                recordingStore.quality = quality
+                            } label: {
+                                Text(quality.displayName)
+                                    .font(.caption.weight(isSelected ? .semibold : .regular))
+                                    .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        isSelected
+                                            ? Color.accentColor.opacity(0.12)
+                                            : Color(uiColor: .systemGray5),
+                                        in: Capsule()
+                                    )
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
 
@@ -148,9 +166,13 @@ struct FloatingToolbarCapsule: View {
                     showRecordingExpansion = false
                     toolStore.isRecordingSessionListPresented = true
                 } label: {
-                    Label("Recordings", systemImage: "list.bullet")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.accentColor)
+                    Label {
+                        Text(NSLocalizedString("Recording.ListTitle", comment: ""))
+                    } icon: {
+                        Image(systemName: "list.bullet")
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
             }
@@ -570,6 +592,7 @@ struct FloatingToolbarCapsule: View {
         if toolStore.isRecording {
             // Stop button — pulsing red dot
             Button {
+                modeToggleFeedback.impactOccurred()
                 onStopRecording?()
             } label: {
                 Circle()
@@ -579,7 +602,7 @@ struct FloatingToolbarCapsule: View {
                     .frame(width: 34, height: 34)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Stop recording")
+            .accessibilityLabel(NSLocalizedString("Recording.StopAccessibility", comment: ""))
             .onAppear {
                 withAnimation(
                     .easeInOut(duration: 0.8)
@@ -592,6 +615,7 @@ struct FloatingToolbarCapsule: View {
         } else {
             // Mic button — idle state
             Button {
+                modeToggleFeedback.impactOccurred()
                 onStartRecording?()
             } label: {
                 Image(systemName: "mic.fill")
@@ -600,7 +624,7 @@ struct FloatingToolbarCapsule: View {
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Start recording")
+            .accessibilityLabel(NSLocalizedString("Recording.StartAccessibility", comment: ""))
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.5)
                     .onEnded { _ in

@@ -93,6 +93,12 @@ struct NoteEditorView: View {
     /// Audio recording store — owns AVAudioRecorder lifecycle and session persistence.
     @StateObject private var recordingStore = AudioRecordingStore()
 
+    /// Whether the microphone permission denied alert is showing.
+    @State private var showMicPermissionDeniedAlert = false
+
+    /// Tracks scene phase for audio checkpoint on backgrounding.
+    @Environment(\.scenePhase) private var scenePhase
+
     private let searchService = SearchService()
 
     init(note: Note, tab: TabSession? = nil) {
@@ -265,6 +271,10 @@ struct NoteEditorView: View {
                 if recordingStore.isRecording {
                     stopAudioRecording()
                 }
+                // Stop audio playback when leaving the editor.
+                if recordingStore.isPlaying {
+                    recordingStore.stopPlayback()
+                }
                 noteStore.save()
             }
             .sheet(isPresented: $showCreateFlashcard) {
@@ -321,6 +331,28 @@ struct NoteEditorView: View {
             .sheet(isPresented: $toolStore.isRecordingSessionListPresented) {
                 RecordingSessionListView(recordingStore: recordingStore)
                     .presentationDetents([.medium, .large])
+            }
+            .alert(
+                NSLocalizedString("Recording.PermissionDenied.Title", comment: ""),
+                isPresented: $showMicPermissionDeniedAlert
+            ) {
+                Button(NSLocalizedString("Recording.PermissionDenied.Settings", comment: "")) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button(NSLocalizedString("Common.Cancel", comment: ""), role: .cancel) { }
+            } message: {
+                Text(NSLocalizedString("Recording.PermissionDenied.Message", comment: ""))
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background, recordingStore.isRecording {
+                    recordingStore.checkpoint()
+                }
+                // Stop playback when backgrounding to avoid unexpected audio.
+                if phase == .background, recordingStore.isPlaying {
+                    recordingStore.pausePlayback()
+                }
             }
     }
 
@@ -1190,11 +1222,18 @@ struct NoteEditorView: View {
 
     // MARK: - Audio Recording
 
+    private let recordingFeedback = UINotificationFeedbackGenerator()
+    private let recordingImpact = UIImpactFeedbackGenerator(style: .medium)
+
     /// Starts an audio recording session, requesting microphone permission if needed.
     private func startAudioRecording() {
         AVAudioApplication.requestRecordPermission { granted in
             DispatchQueue.main.async {
-                guard granted else { return }
+                guard granted else {
+                    // Permission denied — show an alert guiding the user to Settings.
+                    self.showMicPermissionDeniedAlert = true
+                    return
+                }
                 let notebookID = note.notebookID ?? note.id
                 recordingStore.startRecording(
                     notebookID: notebookID,
@@ -1203,6 +1242,7 @@ struct NoteEditorView: View {
                 )
                 toolStore.isRecording = true
                 toolStore.activeRecordingSession = recordingStore.activeSession
+                recordingImpact.impactOccurred()
             }
         }
     }
@@ -1212,6 +1252,7 @@ struct NoteEditorView: View {
         recordingStore.stopRecording()
         toolStore.isRecording = false
         toolStore.activeRecordingSession = nil
+        recordingFeedback.notificationOccurred(.success)
     }
 
     // MARK: - Selection Actions
