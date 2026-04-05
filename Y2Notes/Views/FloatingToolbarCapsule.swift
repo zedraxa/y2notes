@@ -338,7 +338,7 @@ struct FloatingToolbarCapsule: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Expand toolbar")
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
