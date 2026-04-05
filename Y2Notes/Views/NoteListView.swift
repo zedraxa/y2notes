@@ -32,6 +32,7 @@ struct NoteListView: View {
     @State private var showThemePicker = false
     @State private var showNoteCreationSheet = false
     @State private var showNotebookWizard = false
+    @State private var notesPendingDeletion: IndexSet?
 
     private let sortFeedback   = UISelectionFeedbackGenerator()
     private let deleteFeedback = UINotificationFeedbackGenerator()
@@ -58,8 +59,11 @@ struct NoteListView: View {
                 NoteRowView(note: note)
                     .tag(note.id)
             }
-            .onDelete(perform: deleteDisplayedNotes)
+            .onDelete { offsets in
+                notesPendingDeletion = offsets
+            }
         }
+        .animation(.default, value: displayedNotes.map(\.id))
         .navigationTitle("Y2Notes")
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search notes")
         .toolbar {
@@ -71,12 +75,14 @@ struct NoteListView: View {
                     } label: {
                         Label("Quick Note", systemImage: "square.and.pencil")
                     }
+                    .keyboardShortcut("n", modifiers: .command)
 
                     Button {
                         showNoteCreationSheet = true
                     } label: {
                         Label("New Note…", systemImage: "doc.badge.plus")
                     }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
 
                     Divider()
 
@@ -89,6 +95,7 @@ struct NoteListView: View {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel("New")
+                .accessibilityHint("Opens a menu to create a new note or notebook")
             }
             ToolbarItem(placement: .navigationBarLeading) {
                 EditButton()
@@ -107,7 +114,30 @@ struct NoteListView: View {
         }
         .overlay {
             if displayedNotes.isEmpty {
-                emptySearchOverlay
+                emptyOverlay
+            }
+        }
+        .confirmationDialog(
+            "Delete Note",
+            isPresented: Binding(
+                get: { notesPendingDeletion != nil },
+                set: { if !$0 { notesPendingDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let offsets = notesPendingDeletion {
+                    deleteDisplayedNotes(at: offsets)
+                }
+                notesPendingDeletion = nil
+            }
+            Button("Cancel", role: .cancel) {
+                notesPendingDeletion = nil
+            }
+        } message: {
+            if let offsets = notesPendingDeletion {
+                let count = offsets.count
+                Text("Are you sure you want to delete \(count) note\(count == 1 ? "" : "s")? This action cannot be undone.")
             }
         }
         .sheet(isPresented: $showThemePicker) {
@@ -149,7 +179,7 @@ struct NoteListView: View {
     // MARK: Empty state
 
     @ViewBuilder
-    private var emptySearchOverlay: some View {
+    private var emptyOverlay: some View {
         if !searchText.isEmpty {
             EmptySearchStateView(query: searchText)
         } else if noteStore.notes.isEmpty {
