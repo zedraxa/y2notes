@@ -1857,6 +1857,19 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.hoverOverlay = hoverOverlay
 
+        // ── Eraser cursor overlay (non-interactive, shows ring sized to eraser width) ──
+        let eraserCursor = EraserCursorOverlay(frame: .zero)
+        eraserCursor.translatesAutoresizingMaskIntoConstraints = false
+        eraserCursor.isUserInteractionEnabled = false
+        canvas.addSubview(eraserCursor)
+        NSLayoutConstraint.activate([
+            eraserCursor.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
+            eraserCursor.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
+            eraserCursor.topAnchor.constraint(equalTo: canvas.topAnchor),
+            eraserCursor.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
+        ])
+        context.coordinator.eraserCursorOverlay = eraserCursor
+
         // ── Apple Pencil interaction coordinator ─────────────────────────────
         let pencilCoordinator = PencilInteractionCoordinator()
         pencilCoordinator.delegate = context.coordinator
@@ -2149,6 +2162,7 @@ struct CanvasView: UIViewRepresentable {
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
         var hoverOverlay: PencilHoverOverlayView?
+        var eraserCursorOverlay: EraserCursorOverlay?
         weak var canvasRef: PKCanvasView?
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
@@ -2876,7 +2890,12 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             // Remember current inking tool before switching to eraser.
             previousInkingTool = canvas.tool
         }
-        canvas.tool = PKEraserTool(toolStoreRef?.eraserMode.pkEraserType ?? .vector)
+        canvas.tool = toolStoreRef?.makeEraserTool() ?? {
+            if #available(iOS 16.4, *) {
+                return PKEraserTool(.bitmap, width: EraserSubType.standard.defaultWidth)
+            }
+            return PKEraserTool(.bitmap)
+        }()
     }
 
     func pencilDidRequestSwitchToPreviousTool() {
@@ -2901,7 +2920,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             at: windowPoint,
             in: window,
             canvas: canvas,
-            eraserType: toolStoreRef?.eraserMode.pkEraserType ?? .vector
+            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector
         )
     }
 
@@ -2924,7 +2943,18 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Hover preview
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
-        hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+        let isErasing = canvasRef?.tool is PKEraserTool
+        if isErasing {
+            // Show sized eraser ring; hide ghost-nib overlay.
+            let sub   = toolStoreRef?.eraserSubType ?? .standard
+            let width = toolStoreRef?.eraserWidth   ?? sub.defaultWidth
+            eraserCursorOverlay?.update(position: position, subType: sub, eraserWidth: width)
+            hoverOverlay?.update(position: nil, altitude: altitude, azimuth: azimuth)
+        } else {
+            // Show ghost-nib; hide eraser ring.
+            hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+            eraserCursorOverlay?.update(position: nil, subType: .standard, eraserWidth: 0)
+        }
     }
 
     // MARK: Barrel-roll fountain pen (Apple Pencil Pro, iOS 17.5+)
