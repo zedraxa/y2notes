@@ -23,6 +23,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var documentStore: DocumentStore
     @EnvironmentObject var stickerStore: StickerStore
+    @EnvironmentObject var pdfStore: PDFStore
     @Environment(\.undoManager) private var undoManager
     @Environment(TabWorkspaceStore.self) private var workspace
     let note: Note
@@ -320,6 +321,9 @@ struct NoteEditorView: View {
     private var mainContentStack: some View {
         VStack(spacing: 0) {
             titleField
+            if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                linkedImportBanner
+            }
             if effectiveDefinition.canvasIsDark && !isTextMode {
                 contrastBanner
             }
@@ -1063,6 +1067,58 @@ struct NoteEditorView: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(uiColor: effectiveDefinition.canvasBackground).opacity(0.8))
+    }
+
+    // MARK: - Linked import banner
+
+    /// Shows a tappable banner when this note is a companion to a PDF or imported document.
+    private var linkedImportBanner: some View {
+        Button(action: openLinkedImport) {
+            HStack(spacing: 6) {
+                Image(systemName: "paperclip")
+                    .font(.caption2)
+                Text(linkedImportLabel)
+                    .font(.caption2)
+                Spacer()
+                Image(systemName: "arrow.up.forward")
+                    .font(.caption2)
+            }
+            .foregroundStyle(.accentColor)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(Color.accentColor.opacity(0.08))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open linked import")
+    }
+
+    private var linkedImportLabel: String {
+        if let pdfID = note.linkedPDFID,
+           let rec = pdfStore.records.first(where: { $0.id == pdfID }) {
+            return "Linked to \(rec.title)"
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return "Linked to \(doc.displayName)"
+        }
+        return "Linked to import"
+    }
+
+    private func openLinkedImport() {
+        if let pdfID = note.linkedPDFID {
+            workspace.openTab(
+                .pdf(id: pdfID),
+                displayName: pdfStore.records.first(where: { $0.id == pdfID })?.title ?? "PDF",
+                accentColor: [0.85, 0.25, 0.25]
+            )
+        } else if let docID = note.linkedDocumentID,
+                  let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            workspace.openTab(
+                .document(id: docID),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
+        }
     }
 
     // MARK: - Focus Mode Overlay

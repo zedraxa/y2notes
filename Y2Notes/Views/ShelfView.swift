@@ -13,6 +13,7 @@ enum LibrarySection: Hashable {
     case notebook(UUID)
     case pdfLibrary
     case documentLibrary
+    case importNotes
 }
 
 // MARK: - Cover gradients (SwiftUI extension on model type)
@@ -101,6 +102,8 @@ struct ShelfView: View {
                 PDFLibraryView(selectedPDFID: $selectedPDFID)
             } else if case .documentLibrary = selectedSection {
                 DocumentLibraryView(selectedDocumentID: $selectedDocumentID)
+            } else if case .importNotes = selectedSection {
+                ImportLinkedNotesView(selectedNoteID: $selectedNoteID)
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
@@ -133,6 +136,9 @@ struct ShelfView: View {
             case .documentLibrary:
                 selectedNoteID = nil
                 selectedPDFID  = nil
+            case .importNotes:
+                selectedPDFID  = nil
+                selectedDocumentID = nil
             case .notebook:
                 // Notebook tabs are already opened in onOpenNotebook
                 selectedPDFID  = nil
@@ -239,6 +245,10 @@ private struct ShelfSidebarView: View {
                 Label("Documents", systemImage: "doc.fill")
                     .tag(LibrarySection.documentLibrary)
                     .badge(documentStore.documents.count)
+
+                Label("Import Notes", systemImage: "paperclip")
+                    .tag(LibrarySection.importNotes)
+                    .badge(noteStore.importLinkedNotes.count)
             }
 
             // ── Study ─────────────────────────────────────────────────────
@@ -507,6 +517,8 @@ struct NoteGridView: View {
             return []
         case .documentLibrary:
             return []
+        case .importNotes:
+            return noteStore.importLinkedNotes
         }
     }
 
@@ -536,6 +548,7 @@ struct NoteGridView: View {
             return noteStore.notebooks.first { $0.id == id }?.name ?? "Notebook"
         case .pdfLibrary:         return "PDF Documents"
         case .documentLibrary:    return "Documents"
+        case .importNotes:        return "Import Notes"
         }
     }
 
@@ -1082,6 +1095,7 @@ struct NoteGridView: View {
         case .notebook:  return "book.closed"
         case .pdfLibrary: return "doc.richtext"
         case .documentLibrary: return "doc.fill"
+        case .importNotes: return "paperclip"
         }
     }
 
@@ -1093,6 +1107,7 @@ struct NoteGridView: View {
         case .notebook:  return "Empty Notebook"
         case .pdfLibrary: return "No PDFs Yet"
         case .documentLibrary: return "No Documents Yet"
+        case .importNotes: return "No Import Notes Yet"
         }
     }
 
@@ -1104,6 +1119,7 @@ struct NoteGridView: View {
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
         case .pdfLibrary: return "Import a PDF document to get started."
         case .documentLibrary: return "Import a document to get started."
+        case .importNotes: return "Create a companion note from a PDF or document viewer."
         }
     }
 }
@@ -1453,6 +1469,11 @@ private struct NoteCardView: View {
                         .foregroundStyle(note.title.isEmpty ? .tertiary : .primary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
+                    if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                        Image(systemName: "paperclip")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                     if note.isFavorited {
                         Image(systemName: "star.fill")
                             .font(.caption2)
@@ -1503,6 +1524,54 @@ private struct NoteCardView: View {
             let scale = max(200 / renderRect.width, 150 / renderRect.height) * 0.5
             return drawing.image(from: renderRect, scale: scale)
         }.value
+    }
+}
+
+// MARK: - Import-linked notes grid
+
+/// A simple grid that shows only notes linked to PDFs or imported documents.
+/// Used when the user selects the "Import Notes" section in the sidebar.
+private struct ImportLinkedNotesView: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @Binding var selectedNoteID: UUID?
+
+    var body: some View {
+        Group {
+            if noteStore.importLinkedNotes.isEmpty {
+                emptyState
+            } else {
+                noteGrid
+            }
+        }
+        .navigationTitle("Import Notes")
+    }
+
+    private var noteGrid: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 220))], spacing: 16) {
+                ForEach(noteStore.importLinkedNotes) { note in
+                    NoteCardView(note: note, isSelected: selectedNoteID == note.id)
+                        .onTapGesture { selectedNoteID = note.id }
+                }
+            }
+            .padding()
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "paperclip")
+                .font(.system(size: 56))
+                .foregroundStyle(.secondary)
+            Text("No Import Notes Yet")
+                .font(.title3.weight(.semibold))
+            Text("Create a companion note from a PDF or document viewer\nto see it here.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -1583,7 +1652,11 @@ private struct NotebookCoverCard: View {
 
 private struct PDFLibraryView: View {
     @EnvironmentObject var pdfStore: PDFStore
+    @EnvironmentObject var noteStore: NoteStore
     @Binding var selectedPDFID: UUID?
+
+    /// Callback invoked with a companion note's ID so the parent can open it in a tab.
+    var onOpenCompanionNote: ((UUID) -> Void)?
 
     @State private var showImporter = false
     @State private var recordToDelete: PDFNoteRecord?
@@ -1602,6 +1675,27 @@ private struct PDFLibraryView: View {
                             PDFCardView(record: record, isSelected: selectedPDFID == record.id)
                                 .onTapGesture { selectedPDFID = record.id }
                                 .contextMenu {
+                                    if noteStore.hasCompanionNote(forPDF: record.id),
+                                       let existing = noteStore.notes(forPDF: record.id).first {
+                                        Button {
+                                            onOpenCompanionNote?(existing.id)
+                                        } label: {
+                                            Label("Open Companion Note", systemImage: "note.text")
+                                        }
+                                    } else {
+                                        Button {
+                                            let note = noteStore.addNote(
+                                                forPDF: record.id,
+                                                title: "\(record.title) — Notes"
+                                            )
+                                            onOpenCompanionNote?(note.id)
+                                        } label: {
+                                            Label("Create Companion Note", systemImage: "note.text.badge.plus")
+                                        }
+                                    }
+
+                                    Divider()
+
                                     Button(role: .destructive) {
                                         recordToDelete  = record
                                         showDeleteConfirm = true

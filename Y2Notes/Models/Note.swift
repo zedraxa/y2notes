@@ -146,6 +146,14 @@ struct Note: Identifiable, Codable, Hashable {
     /// on first open.
     var pdfFilename: String?
 
+    /// The ID of a `PDFNoteRecord` this note is a companion for.
+    /// When non-nil, the note was created from a PDF viewer to annotate alongside the PDF.
+    var linkedPDFID: UUID?
+
+    /// The ID of an `ImportedDocument` this note is a companion for.
+    /// When non-nil, the note was created from a document viewer to annotate alongside the import.
+    var linkedDocumentID: UUID?
+
     /// Keyboard-typed text content for this note.
     /// Empty string = drawing-only note. Used by `SearchService` and the in-document find bar.
     var typedText: String
@@ -181,6 +189,8 @@ struct Note: Identifiable, Codable, Hashable {
         widgetLayers: [[NoteWidget]?] = [],
         expansionRegions: [PageRegion] = [],
         pdfFilename: String? = nil,
+        linkedPDFID: UUID? = nil,
+        linkedDocumentID: UUID? = nil,
         typedText: String = "",
         ocrText: String = ""
     ) {
@@ -205,6 +215,8 @@ struct Note: Identifiable, Codable, Hashable {
         self.widgetLayers = widgetLayers
         self.expansionRegions = expansionRegions
         self.pdfFilename = pdfFilename
+        self.linkedPDFID = linkedPDFID
+        self.linkedDocumentID = linkedDocumentID
         self.typedText = typedText
         self.ocrText = ocrText
     }
@@ -216,6 +228,7 @@ struct Note: Identifiable, Codable, Hashable {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
         case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, expansionRegions, pdfFilename
+        case linkedPDFID, linkedDocumentID
         case typedText, ocrText
     }
 
@@ -251,6 +264,8 @@ struct Note: Identifiable, Codable, Hashable {
         widgetLayers  = try c.decodeIfPresent([[NoteWidget]?].self, forKey: .widgetLayers) ?? []
         expansionRegions = try c.decodeIfPresent([PageRegion].self, forKey: .expansionRegions) ?? []
         pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
+        linkedPDFID      = try c.decodeIfPresent(UUID.self,   forKey: .linkedPDFID)
+        linkedDocumentID = try c.decodeIfPresent(UUID.self,   forKey: .linkedDocumentID)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
     }
@@ -284,6 +299,8 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encode(widgetLayers,             forKey: .widgetLayers)
         try c.encode(expansionRegions,          forKey: .expansionRegions)
         try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
+        try c.encodeIfPresent(linkedPDFID,      forKey: .linkedPDFID)
+        try c.encodeIfPresent(linkedDocumentID, forKey: .linkedDocumentID)
         try c.encode(typedText,     forKey: .typedText)
         try c.encode(ocrText,       forKey: .ocrText)
     }

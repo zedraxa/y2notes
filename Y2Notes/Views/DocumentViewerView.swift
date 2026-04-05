@@ -16,11 +16,19 @@ import QuickLook
 struct DocumentViewerView: View {
 
     @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var noteStore: NoteStore
 
     let document: ImportedDocument
     let fileURL: URL
 
+    /// Callback invoked with the companion note's ID so the parent can open it in a tab.
+    var onOpenCompanionNote: ((UUID) -> Void)?
+
     @State private var showShareSheet = false
+
+    private var companionNote: Note? {
+        noteStore.notes(forDocument: document.id).first
+    }
 
     var body: some View {
         QLPreviewRepresentable(url: fileURL)
@@ -28,7 +36,8 @@ struct DocumentViewerView: View {
             .navigationTitle(document.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    companionNoteButton
                     Button {
                         showShareSheet = true
                     } label: {
@@ -44,6 +53,31 @@ struct DocumentViewerView: View {
             .onAppear {
                 documentStore.updateLastOpened(document)
             }
+    }
+
+    // MARK: - Companion note button
+
+    @ViewBuilder
+    private var companionNoteButton: some View {
+        if let existing = companionNote {
+            Button {
+                onOpenCompanionNote?(existing.id)
+            } label: {
+                Label("Open Companion Note", systemImage: "note.text")
+            }
+            .accessibilityLabel("Open companion note")
+        } else {
+            Button {
+                let note = noteStore.addNote(
+                    forDocument: document.id,
+                    title: "\(document.displayName) — Notes"
+                )
+                onOpenCompanionNote?(note.id)
+            } label: {
+                Label("Create Companion Note", systemImage: "note.text.badge.plus")
+            }
+            .accessibilityLabel("Create companion note")
+        }
     }
 }
 
@@ -100,8 +134,12 @@ private struct QLPreviewRepresentable: UIViewControllerRepresentable {
 struct DocumentLibraryView: View {
 
     @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var noteStore: NoteStore
 
     @Binding var selectedDocumentID: UUID?
+
+    /// Callback invoked with a companion note's ID so the parent can open it in a tab.
+    var onOpenCompanionNote: ((UUID) -> Void)?
 
     @State private var showImporter = false
     @State private var importError: String?
@@ -310,6 +348,25 @@ struct DocumentLibraryView: View {
             documentToRename = doc
         } label: {
             Label("Rename", systemImage: "pencil")
+        }
+
+        if noteStore.hasCompanionNote(forDocument: doc.id),
+           let existing = noteStore.notes(forDocument: doc.id).first {
+            Button {
+                onOpenCompanionNote?(existing.id)
+            } label: {
+                Label("Open Companion Note", systemImage: "note.text")
+            }
+        } else {
+            Button {
+                let note = noteStore.addNote(
+                    forDocument: doc.id,
+                    title: "\(doc.displayName) — Notes"
+                )
+                onOpenCompanionNote?(note.id)
+            } label: {
+                Label("Create Companion Note", systemImage: "note.text.badge.plus")
+            }
         }
 
         Button {
