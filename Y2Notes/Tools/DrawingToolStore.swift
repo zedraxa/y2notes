@@ -315,11 +315,12 @@ final class DrawingToolStore: ObservableObject {
         presets.append(preset)
     }
 
-    /// Restores the tool, colour, and width from a saved preset.
+    /// Restores the tool, colour, width, and opacity from a saved preset.
     func applyPreset(_ preset: ToolPreset) {
         activeTool   = preset.tool
         activeColor  = preset.uiColor
         activeWidth  = preset.width
+        activeOpacity = preset.opacity
     }
 
     /// Toggles the favourite star on a preset.

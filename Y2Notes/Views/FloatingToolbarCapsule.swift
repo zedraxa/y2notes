@@ -63,6 +63,7 @@ struct FloatingToolbarCapsule: View {
     var body: some View {
         tier1Content
             .animation(.spring(response: 0.25, dampingFraction: 0.85), value: toolStore.hasActiveSelection)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toolStore.isToolbarMinimized)
             .onChange(of: toolStore.activeTool) { oldTool, newTool in
                 if oldTool.isInking {
                     previousInkTool = oldTool
@@ -99,18 +100,24 @@ struct FloatingToolbarCapsule: View {
         }
     }
 
-    /// The normal drawing toolbar: Tier 2 expansion + Tier 1 capsule.
+    /// Switches between the compact minimized stub and the full drawing toolbar.
     @ViewBuilder
     private var standardToolbar: some View {
-        VStack(spacing: 4) {
-            // Tier 2 — contextual expansion above the capsule
-            tier2Expansion
+        if toolStore.isToolbarMinimized {
+            minimizedCapsule
+                .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
+        } else {
+            VStack(spacing: 4) {
+                // Tier 2 — contextual expansion above the capsule
+                tier2Expansion
 
-            // Recording expansion — quality picker + recordings link
-            recordingExpansion
+                // Recording expansion — quality picker + recordings link
+                recordingExpansion
 
-            // Tier 1 — always-present capsule
-            tier1Capsule
+                // Tier 1 — always-present capsule
+                tier1Capsule
+            }
+            .transition(.scale(scale: 0.95, anchor: .bottom).combined(with: .opacity))
         }
     }
 
@@ -235,9 +242,103 @@ struct FloatingToolbarCapsule: View {
             if onOpenInspector != nil || inkStore != nil {
                 tier1Separator
                 inspectorGroup
+                tier1Separator
+            } else {
+                tier1Separator
             }
+
+            // Minimize — collapse toolbar to a compact pill
+            minimizeButton
         }
         .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.ultraThinMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Minimize Button
+
+    /// Collapses the toolbar to a compact stub. Long-press or the expand button restores it.
+    @ViewBuilder
+    private var minimizeButton: some View {
+        Button {
+            toolSwitchFeedback.impactOccurred(intensity: 0.3)
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                toolStore.isToolbarMinimized = true
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .medium))
+                .frame(width: 26, height: 28)
+                .foregroundStyle(Color(uiColor: .tertiaryLabel))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Minimize toolbar")
+    }
+
+    // MARK: - Minimized Capsule
+
+    /// Compact stub rendered when `toolStore.isToolbarMinimized` is true.
+    /// Shows the active tool colour, undo/redo, and an expand button.
+    @ViewBuilder
+    private var minimizedCapsule: some View {
+        HStack(spacing: 4) {
+            // Active-tool icon tinted with the current ink colour
+            Image(systemName: activeInkTool.systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .foregroundStyle(Color(uiColor: toolStore.activeColor))
+
+            tier1Separator
+
+            // Undo
+            Button {
+                onUndo?()
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .foregroundStyle(canUndo
+                                     ? Color(uiColor: .label)
+                                     : Color(uiColor: .tertiaryLabel))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canUndo)
+            .keyboardShortcut("z", modifiers: .command)
+
+            // Redo
+            Button {
+                onRedo?()
+            } label: {
+                Image(systemName: "arrow.uturn.forward")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .foregroundStyle(canRedo
+                                     ? Color(uiColor: .label)
+                                     : Color(uiColor: .tertiaryLabel))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canRedo)
+            .keyboardShortcut("z", modifiers: [.command, .shift])
+
+            tier1Separator
+
+            // Expand
+            Button {
+                toolSwitchFeedback.impactOccurred(intensity: 0.5)
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.isToolbarMinimized = false
+                }
+            } label: {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 11, weight: .medium))
+                    .frame(width: 26, height: 28)
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Expand toolbar")
+        }
+        .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
@@ -267,6 +368,13 @@ struct FloatingToolbarCapsule: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tool.displayName)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.6)
+                .onEnded { _ in
+                    modeToggleFeedback.impactOccurred()
+                    onOpenInspector?()
+                }
+        )
     }
 
     // MARK: - Inspector Group
