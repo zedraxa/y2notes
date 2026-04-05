@@ -24,6 +24,8 @@ struct NotebookQuickCreator: View {
 
     @State private var pickerItem: PhotosPickerItem?
     @State private var isCreating = false
+    @State private var creatorAppeared = false
+    @State private var selectedTemplate: NotebookTemplate?
 
     @FocusState private var isNameFocused: Bool
 
@@ -32,8 +34,10 @@ struct NotebookQuickCreator: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                templateStrip
+
                 coverPreview
-                    .padding(.top, 20)
+                    .padding(.top, 4)
 
                 nameField
 
@@ -63,6 +67,71 @@ struct NotebookQuickCreator: View {
                 useCustomCover = true
             }
         }
+    }
+
+    // MARK: - Template Strip
+
+    private var templateStrip: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(NSLocalizedString("Creation.Templates", comment: ""))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 2)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(NotebookTemplate.allCases) { tmpl in
+                        templateChip(tmpl)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(.top, 16)
+    }
+
+    private func templateChip(_ tmpl: NotebookTemplate) -> some View {
+        let selected = selectedTemplate == tmpl
+        return Button {
+            applyTemplate(tmpl)
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: tmpl.systemImage)
+                    .font(.system(size: 18))
+                    .frame(width: 44, height: 32)
+                Text(tmpl.displayName)
+                    .font(.caption2.weight(selected ? .semibold : .regular))
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(selected
+                          ? Color.accentColor.opacity(0.12)
+                          : Color(.secondarySystemGroupedBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5)
+                    )
+            )
+            .foregroundStyle(selected ? Color.accentColor : .primary)
+        }
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: selected)
+        .accessibilityLabel(tmpl.displayName)
+        .accessibilityHint(tmpl.subtitle)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func applyTemplate(_ tmpl: NotebookTemplate) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            selectedTemplate = tmpl
+            pageType = tmpl.pageType
+            paperMaterial = tmpl.paperMaterial
+            cover = tmpl.suggestedCover
+            coverTexture = tmpl.suggestedTexture
+            useCustomCover = false
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     // MARK: - Zone 1: Live Cover Preview
@@ -211,8 +280,15 @@ struct NotebookQuickCreator: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(NotebookCover.allCases, id: \.self) { c in
+                    ForEach(Array(NotebookCover.allCases.enumerated()), id: \.element) { index, c in
                         quickCoverSwatch(c)
+                            .opacity(creatorAppeared ? 1 : 0)
+                            .scaleEffect(creatorAppeared ? 1.0 : 0.7)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.75)
+                                    .delay(Double(index) * 0.04),
+                                value: creatorAppeared
+                            )
                     }
 
                     // Custom photo button
@@ -293,8 +369,15 @@ struct NotebookQuickCreator: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(CoverTexture.allCases) { tex in
+                    ForEach(Array(CoverTexture.allCases.enumerated()), id: \.element) { index, tex in
                         textureChip(tex)
+                            .opacity(creatorAppeared ? 1 : 0)
+                            .offset(x: creatorAppeared ? 0 : -8)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.8)
+                                    .delay(Double(index) * 0.04),
+                                value: creatorAppeared
+                            )
                     }
                 }
                 .padding(.vertical, 2)

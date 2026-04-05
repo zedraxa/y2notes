@@ -302,8 +302,8 @@ final class StickerCanvasView: UIView {
             initialPosition = stickers[idx].position
             snapAlignEngine.prepareHaptics()
 
-            // Physics: soft shadow + keep overlay tracking
-            microEngine.playSoftShadow(on: interactionLayer, dragDirection: .zero)
+            // Physics: momentum shadow at drag start
+            microEngine.playMomentumShadow(on: interactionLayer, velocity: .zero)
         case .changed:
             let current = gesture.location(in: self)
             let dx = current.x - panStart.x
@@ -324,32 +324,35 @@ final class StickerCanvasView: UIView {
             }
 
             // Snap & align visual/haptic feedback
+            let wasSnapped = snappedX || snappedY
             snapAlignEngine.playSnapFeedback(
                 on: layer, snappedX: snappedX, snappedY: snappedY
             )
+            if wasSnapped {
+                microEngine.playSnapBounce(on: interactionLayer)
+            }
 
             stickers[idx].position = newPos
             setNeedsDisplay()
 
-            // Physics: update shadow direction + track overlay
+            // Physics: velocity-depth shadow + track overlay
             let vel = gesture.velocity(in: self)
-            let mag = max(hypot(vel.x, vel.y), 1.0)
-            let dir = CGPoint(x: vel.x / mag, y: vel.y / mag)
-            microEngine.playSoftShadow(on: interactionLayer, dragDirection: dir)
+            microEngine.playMomentumShadow(on: interactionLayer, velocity: vel)
             let rect = stickerBoundingRect(stickers[idx])
             microEngine.showInteractionLayer(interactionLayer, for: rect)
 
         case .ended, .cancelled:
-            // Physics: inertia nudge + release bounce
+            // Physics: velocity-scaled inertia + release bounce
             let vel = gesture.velocity(in: self)
-            let decayFactor: CGFloat = 0.12
+            let speed = hypot(vel.x, vel.y)
+            let decayFactor = MicroInteractionEngine.inertiaDecay(for: speed)
             let inertiaX = vel.x * decayFactor
             let inertiaY = vel.y * decayFactor
             if abs(inertiaX) > 1 || abs(inertiaY) > 1 {
                 stickers[idx].position.x += inertiaX
                 stickers[idx].position.y += inertiaY
             }
-            microEngine.resetSoftShadow(on: interactionLayer)
+            microEngine.resetMomentumShadow(on: interactionLayer)
             microEngine.playReleaseBounce(on: interactionLayer)
             setNeedsDisplay()
 

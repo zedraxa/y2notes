@@ -66,10 +66,12 @@ struct CommandPaletteView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(NSLocalizedString("CommandPalette.ClearSearch", comment: ""))
+                .transition(.scale.combined(with: .opacity))
             }
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: query.isEmpty)
     }
 
     // MARK: - Results
@@ -108,6 +110,7 @@ struct CommandPaletteView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: filteredActions.map(\.id))
             }
         }
     }

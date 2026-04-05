@@ -217,7 +217,30 @@
 "Creation.NewNote"                = "New Note";
 "Creation.NoteTitle"              = "Note Title";
 "Creation.Template"               = "Template";
+"Creation.Templates"              = "Templates";
 "Creation.Create"                 = "Create";
+
+/* ── Notebook Info ─────────────────────────────────────────────── */
+
+"NotebookInfo.Title"              = "Notebook Info";
+"NotebookInfo.Statistics"         = "Statistics";
+"NotebookInfo.TotalPages"        = "Total Pages";
+"NotebookInfo.Notes"              = "Notes";
+"NotebookInfo.Sections"           = "Sections";
+"NotebookInfo.Created"            = "Created";
+"NotebookInfo.LastModified"       = "Last Modified";
+"NotebookInfo.Configuration"      = "Configuration";
+"NotebookInfo.PageType"           = "Page Type";
+"NotebookInfo.PageSize"           = "Page Size";
+"NotebookInfo.Orientation"        = "Orientation";
+"NotebookInfo.Material"           = "Paper Material";
+"NotebookInfo.Texture"            = "Cover Texture";
+"NotebookInfo.Theme"              = "Default Theme";
+"NotebookInfo.SectionsBreakdown"  = "Sections";
+"NotebookInfo.Lock"               = "Lock Notebook";
+"NotebookInfo.Unlock"             = "Unlock Notebook";
+"NotebookInfo.Locked"             = "Locked";
+"NotebookInfo.Duplicate"          = "Duplicate Notebook";
 
 /* ── Search ────────────────────────────────────────────────────── */
 
@@ -420,3 +443,10 @@
 "TextStyle.BorderColour"          = "Border Colour";
 "TextStyle.Thickness"             = "Thickness";
 "TextStyle.Corners"               = "Corners";
+
+/* ── Scribble-to-Delete ───────────────────────────────────────── */
+
+"Editor.ScratchDelete.UndoAction" = "Scratch Delete";
+
+// MARK: - Editor Actions
+"Editor.StraightenLine"           = "Straighten Line";

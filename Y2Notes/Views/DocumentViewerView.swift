@@ -143,6 +143,8 @@ struct DocumentLibraryView: View {
 
     @State private var showImporter = false
     @State private var importError: String?
+    @State private var docsAppeared = false
+    @State private var emptyAppeared = false
     @State private var sortOrder: DocumentSortOrder = .dateImported
     @State private var searchQuery = ""
     @State private var isGridLayout = true
@@ -394,21 +396,65 @@ struct DocumentLibraryView: View {
             Image(systemName: "doc.badge.plus")
                 .font(.system(size: 56))
                 .foregroundStyle(.secondary)
+                .scaleEffect(emptyAppeared ? 1.0 : 0.5)
+                .opacity(emptyAppeared ? 1 : 0)
+                .animation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.05), value: emptyAppeared)
             Text("No Documents")
                 .font(.title3.weight(.semibold))
+                .opacity(emptyAppeared ? 1 : 0)
+                .offset(y: emptyAppeared ? 0 : 10)
+                .animation(.easeOut(duration: 0.35).delay(0.15), value: emptyAppeared)
             Text("Import PDFs, images, Word files, ePubs,\nor presentations to view and annotate them.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .opacity(emptyAppeared ? 1 : 0)
+                .offset(y: emptyAppeared ? 0 : 8)
+                .animation(.easeOut(duration: 0.35).delay(0.25), value: emptyAppeared)
             Button {
                 showImporter = true
             } label: {
                 Label("Import Document", systemImage: "plus")
             }
             .buttonStyle(.bordered)
+            .scaleEffect(emptyAppeared ? 1.0 : 0.85)
+            .opacity(emptyAppeared ? 1 : 0)
+            .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.35), value: emptyAppeared)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { emptyAppeared = true }
+    }
+
+    private var documentGrid: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160, maximum: 200))], spacing: 16) {
+                ForEach(Array(documentStore.documents.enumerated()), id: \.element.id) { index, doc in
+                    DocumentCell(document: doc, isSelected: doc.id == selectedDocumentID) {
+                        selectedDocumentID = doc.id
+                    }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                documentStore.delete(doc)
+                                if selectedDocumentID == doc.id { selectedDocumentID = nil }
+                            }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .opacity(docsAppeared ? 1 : 0)
+                    .offset(y: docsAppeared ? 0 : 14)
+                    .animation(
+                        .spring(response: 0.35, dampingFraction: 0.82)
+                            .delay(Double(index) * 0.04),
+                        value: docsAppeared
+                    )
+                }
+            }
+            .padding()
+            .onAppear { docsAppeared = true }
+        }
     }
 
     private var noResultsState: some View {

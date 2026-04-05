@@ -123,6 +123,7 @@
 		AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000144 /* EffectsCoordinator.swift */; };
 		AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000146 /* WritingEffectsPipeline.swift */; };
 		AA0001000000000000000149 /* EraserCursorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* EraserCursorOverlay.swift */; };
+		AA0001000000000000000167 /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */; };
 		AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014A /* InteractionFeedbackEngine.swift */; };
 		AA0001000000000000000155 /* WritingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000154 /* WritingInsights.swift */; };
 		AA0001000000000000000157 /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000156 /* QuickAction.swift */; };
@@ -130,6 +131,7 @@
 		AA000100000000000000015B /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015A /* CommandPaletteView.swift */; };
 		AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015C /* OpenSourceCreditsView.swift */; };
 		AA000100000000000000015F /* CoverTextureOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015E /* CoverTextureOverlay.swift */; };
+		AA0001000000000000000171 /* NotebookInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000170 /* NotebookInfoView.swift */; };
 		AA0001000000000000000161 /* TextObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000160 /* TextObject.swift */; };
 		AA0001000000000000000163 /* TextCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000162 /* TextCanvasView.swift */; };
 		AA0001000000000000000165 /* TextObjectHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000164 /* TextObjectHandlesView.swift */; };
@@ -202,6 +204,7 @@
 		AA0001000000000000000144 /* EffectsCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectsCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000146 /* WritingEffectsPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectsPipeline.swift; sourceTree = "<group>"; };
 		AA0001000000000000000148 /* EraserCursorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraserCursorOverlay.swift; sourceTree = "<group>"; };
+		AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
 		AA000100000000000000014A /* InteractionFeedbackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionFeedbackEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000154 /* WritingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsights.swift; sourceTree = "<group>"; };
 		AA0001000000000000000156 /* QuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAction.swift; sourceTree = "<group>"; };
@@ -209,6 +212,7 @@
 		AA000100000000000000015A /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015C /* OpenSourceCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSourceCreditsView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015E /* CoverTextureOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverTextureOverlay.swift; sourceTree = "<group>"; };
+		AA0001000000000000000170 /* NotebookInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookInfoView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000160 /* TextObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextObject.swift; sourceTree = "<group>"; };
 		AA0001000000000000000162 /* TextCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextCanvasView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000164 /* TextObjectHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextObjectHandlesView.swift; sourceTree = "<group>"; };
@@ -369,6 +373,7 @@
 				AA00010000000000000000DA /* NotebookQuickCreator.swift */,
 				AA00010000000000000000D9 /* NotebookReaderView.swift */,
 				AA000100000000000000015E /* CoverTextureOverlay.swift */,
+				AA0001000000000000000170 /* NotebookInfoView.swift */,
 				AA000100000000000000008A /* LibrarySearchView.swift */,
 				AA0001000000000000000102 /* UniversalSearchView.swift */,
 				AA000100000000000000008B /* StudySetListView.swift */,
@@ -440,6 +445,7 @@
 				AA0001000000000000000054 /* PencilHoverOverlayView.swift */,
 				AA0001000000000000000055 /* ContextualPencilPaletteView.swift */,
 				AA0001000000000000000148 /* EraserCursorOverlay.swift */,
+				AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */,
 			);
 			path = PencilKit;
 			sourceTree = "<group>";
@@ -637,6 +643,7 @@
 				AA00010000000000000000DB /* NotebookQuickCreator.swift in Sources */,
 				AA00010000000000000000D8 /* NotebookReaderView.swift in Sources */,
 				AA000100000000000000015F /* CoverTextureOverlay.swift in Sources */,
+			AA0001000000000000000171 /* NotebookInfoView.swift in Sources */,
 				AA000100000000000000016B /* TrieIndex.swift in Sources */,
 				AA000100000000000000016D /* InsightsAnalytics.swift in Sources */,
 				AA000100000000000000016F /* ColorScience.swift in Sources */,
@@ -657,6 +664,7 @@
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
 				AA0001000000000000000149 /* EraserCursorOverlay.swift in Sources */,
+				AA0001000000000000000167 /* ScribbleDeleteRecognizer.swift in Sources */,
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
 				AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */,

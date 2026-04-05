@@ -18,6 +18,7 @@ struct NoteCreationSheet: View {
 
     @State private var selectedPageType: PageType = .ruled
     @State private var selectedMaterial: PaperMaterial = .standard
+    @State private var gridAppeared = false
 
     private let selectionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let confirmFeedback   = UINotificationFeedbackGenerator()
@@ -42,7 +43,7 @@ struct NoteCreationSheet: View {
                             .padding(.horizontal, 4)
 
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(PageType.allCases) { pt in
+                            ForEach(Array(PageType.allCases.enumerated()), id: \.element) { index, pt in
                                 PaperTypeCard(
                                     pageType: pt,
                                     isSelected: selectedPageType == pt
@@ -50,9 +51,18 @@ struct NoteCreationSheet: View {
                                 .onTapGesture {
                                     if selectedPageType != pt {
                                         selectionFeedback.impactOccurred()
-                                        selectedPageType = pt
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            selectedPageType = pt
+                                        }
                                     }
                                 }
+                                .opacity(gridAppeared ? 1 : 0)
+                                .offset(y: gridAppeared ? 0 : 16)
+                                .animation(
+                                    .spring(response: 0.4, dampingFraction: 0.8)
+                                        .delay(Double(index) * 0.06),
+                                    value: gridAppeared
+                                )
                             }
                         }
                     }
@@ -65,7 +75,7 @@ struct NoteCreationSheet: View {
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
-                                ForEach(PaperMaterial.allCases) { pm in
+                                ForEach(Array(PaperMaterial.allCases.enumerated()), id: \.element) { index, pm in
                                     MaterialChip(
                                         material: pm,
                                         isSelected: selectedMaterial == pm
@@ -73,9 +83,18 @@ struct NoteCreationSheet: View {
                                     .onTapGesture {
                                         if selectedMaterial != pm {
                                             selectionFeedback.impactOccurred(intensity: 0.6)
-                                            selectedMaterial = pm
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                selectedMaterial = pm
+                                            }
                                         }
                                     }
+                                    .opacity(gridAppeared ? 1 : 0)
+                                    .offset(y: gridAppeared ? 0 : 8)
+                                    .animation(
+                                        .spring(response: 0.35, dampingFraction: 0.8)
+                                            .delay(Double(index) * 0.04),
+                                        value: gridAppeared
+                                    )
                                 }
                             }
                             .padding(.horizontal, 4)
@@ -96,12 +115,12 @@ struct NoteCreationSheet: View {
                                     .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
                             .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.98)),
+                                insertion: .opacity.combined(with: .scale(scale: 0.97)),
                                 removal: .opacity
                             ))
                             .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
-                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedPageType)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedMaterial)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedPageType)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedMaterial)
                     }
                 }
                 .padding(20)
@@ -124,6 +143,7 @@ struct NoteCreationSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .onAppear { gridAppeared = true }
     }
 
     private func createNote() {

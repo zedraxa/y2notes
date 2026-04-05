@@ -915,8 +915,8 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
             activeHandle = handleAt(point: panStart, for: widgets[idx])
             snapAlignEngine.prepareHaptics()
 
-            // Physics: soft shadow on drag start
-            microEngine.playSoftShadow(on: interactionLayer, dragDirection: .zero)
+            // Physics: momentum shadow at drag start (zero velocity = resting depth)
+            microEngine.playMomentumShadow(on: interactionLayer, velocity: .zero)
 
         case .changed:
             guard let initial = initialFrame else { return }
@@ -978,16 +978,18 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
                 }
 
                 // Snap & align visual/haptic feedback
+                let wasSnapped = snappedX || snappedY
                 snapAlignEngine.playSnapFeedback(
                     on: layer, snappedX: snappedX, snappedY: snappedY
                 )
+                if wasSnapped {
+                    microEngine.playSnapBounce(on: interactionLayer)
+                }
                 widgets[idx].frame.position = newPos
 
-                // Physics: update shadow direction
+                // Physics: velocity-depth shadow
                 let vel = gesture.velocity(in: self)
-                let mag = max(hypot(vel.x, vel.y), 1.0)
-                let dir = CGPoint(x: vel.x / mag, y: vel.y / mag)
-                microEngine.playSoftShadow(on: interactionLayer, dragDirection: dir)
+                microEngine.playMomentumShadow(on: interactionLayer, velocity: vel)
             }
             setNeedsDisplay()
 
@@ -996,10 +998,11 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
             microEngine.showInteractionLayer(interactionLayer, for: rect)
 
         case .ended, .cancelled:
-            // Physics: inertia + release bounce
+            // Physics: velocity-scaled inertia nudge + release bounce
             if activeHandle == nil {
                 let vel = gesture.velocity(in: self)
-                let decayFactor: CGFloat = 0.12
+                let speed = hypot(vel.x, vel.y)
+                let decayFactor = MicroInteractionEngine.inertiaDecay(for: speed)
                 let inertiaX = vel.x * decayFactor
                 let inertiaY = vel.y * decayFactor
                 if abs(inertiaX) > 1 || abs(inertiaY) > 1 {
@@ -1007,7 +1010,7 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
                     widgets[idx].frame.position.y += inertiaY
                 }
             }
-            microEngine.resetSoftShadow(on: interactionLayer)
+            microEngine.resetMomentumShadow(on: interactionLayer)
             microEngine.playReleaseBounce(on: interactionLayer)
             setNeedsDisplay()
 

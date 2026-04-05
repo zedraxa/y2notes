@@ -22,7 +22,6 @@ struct NoteEditorView: View {
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var documentStore: DocumentStore
-    @EnvironmentObject var pdfStore: PDFStore
     @EnvironmentObject var stickerStore: StickerStore
     @EnvironmentObject var pdfStore: PDFStore
     @Environment(\.undoManager) private var undoManager
@@ -2326,6 +2325,22 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
 
+        // ── Scratch-to-delete gesture recognizer ─────────────────────────────
+        // ScribbleDeleteRecognizer is a fully passive observer: it never cancels
+        // or prevents PKCanvasView's own drawing recognizer.  When a rapid
+        // back-and-forth pencil motion is detected, the matching ink strokes are
+        // removed via deleteScratchStrokes(in:).  The deletion is dispatched
+        // asynchronously to guarantee PKCanvasView has committed the stroke before
+        // we modify canvas.drawing.
+        let scratchRecognizer = ScribbleDeleteRecognizer()
+        scratchRecognizer.onScratchDetected = { [weak coordinator = context.coordinator] viewportRect in
+            DispatchQueue.main.async {
+                coordinator?.deleteScratchStrokes(in: viewportRect)
+            }
+        }
+        canvas.addGestureRecognizer(scratchRecognizer)
+        context.coordinator.scratchDeleteRecognizer = scratchRecognizer
+
         // Pre-warm all haptic generators for interaction feedback (AGENT-23).
         context.coordinator.interactionFeedback.prepareAll()
 
@@ -2467,6 +2482,7 @@ struct CanvasView: UIViewRepresentable {
                     context.coordinator.interactionFeedback.play(.eraserEngage, on: canvas.layer)
                 } else {
                     context.coordinator.interactionFeedback.play(.toolSwitch, on: canvas.layer)
+                    context.coordinator.microInteractionEngine.playToolSwitchMorph(on: canvas.layer)
                 }
             }
         }
@@ -2668,6 +2684,8 @@ struct CanvasView: UIViewRepresentable {
         var pencilCoordinator: PencilInteractionCoordinator?
         var hoverOverlay: PencilHoverOverlayView?
         var eraserCursorOverlay: EraserCursorOverlay?
+        /// Passive gesture recognizer that detects scratch-to-delete gestures.
+        var scratchDeleteRecognizer: ScribbleDeleteRecognizer?
         weak var canvasRef: PKCanvasView?
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
@@ -2801,6 +2819,15 @@ struct CanvasView: UIViewRepresentable {
         /// between quick successive strokes.
         private var postStrokeZoomUnlockTimer: Timer?
 
+        /// Timer that fires when the user holds the pen still after drawing a stroke,
+        /// triggering automatic straightening of the last stroke into a clean line.
+        private var holdToStraightenTimer: Timer?
+
+        /// True while `straightenLastStroke` is replacing the canvas drawing so
+        /// `canvasViewDrawingDidChange` does not restart `holdToStraightenTimer`
+        /// on the programmatic change.
+        private var isStraightening = false
+
         /// Tracks Apple Pencil contact timing for palm rejection in `.anyInput` mode.
         let palmGuard = PalmGuardState()
 
@@ -2811,6 +2838,10 @@ struct CanvasView: UIViewRepresentable {
         // scroll offset and zoom scale. Invalidated automatically on dealloc.
         private var contentOffsetObservation: NSKeyValueObservation?
         private var zoomScaleObservation: NSKeyValueObservation?
+
+        /// Tracks whether the last zoom update landed on a detent, so the
+        /// visual micro-bounce fires only on the leading edge (entry, not hold).
+        private var wasOnZoomDetent: Bool = false
 
         // Pre-prepared haptic generator for double-tap pencil delete feedback.
         // Preparing eagerly avoids the latency spike that would occur if the
@@ -3014,6 +3045,10 @@ struct CanvasView: UIViewRepresentable {
             postStrokeZoomUnlockTimer?.invalidate()
             postStrokeZoomUnlockTimer = nil
 
+            // Cancel any pending hold-to-straighten from the previous stroke.
+            holdToStraightenTimer?.invalidate()
+            holdToStraightenTimer = nil
+
             // Lock zoom during writing to prevent accidental zoom drift from
             // multi-touch interference (e.g. palm resting on screen).
             if WritingConfig.lockZoomDuringWriting {
@@ -3061,6 +3096,9 @@ struct CanvasView: UIViewRepresentable {
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
+            // Pen lifted — discard any pending hold-to-straighten.
+            holdToStraightenTimer?.invalidate()
+            holdToStraightenTimer = nil
             // If barrel-roll modulated the fountain-pen width during this stroke,
             // the canvas tool is left at the modulated (drifted) width.
             // Invalidate lastToolSnapshot so updateUIView resets canvas.tool to
@@ -3323,6 +3361,84 @@ struct CanvasView: UIViewRepresentable {
             deletionImpactGenerator.prepare()
         }
 
+        // MARK: - Scratch-to-delete
+
+        /// Removes every PKStroke whose render bounds intersect the scratch region
+        /// described by `viewportRect` (in the canvas scroll-view's bounds coordinates).
+        ///
+        /// This is called by ``ScribbleDeleteRecognizer`` after it confirms that the
+        /// user drew a rapid back-and-forth scratch gesture.  Because the scratch was
+        /// drawn with the active inking tool it becomes a regular PKStroke — that
+        /// stroke's render bounds lie within `viewportRect`, so it is included in the
+        /// set of strokes to remove alongside any pre-existing strokes it overlaps.
+        ///
+        /// The operation is registered with the canvas's `UndoManager` so it can be
+        /// reversed with a standard Undo gesture or Cmd-Z.
+        func deleteScratchStrokes(in viewportRect: CGRect) {
+            guard let canvas = canvasRef else { return }
+
+            // Expand the hit region slightly to account for stroke width — strokes
+            // are compared by their render bounds, which already includes the ink
+            // radius, but a small inset guards against sub-pixel rounding gaps.
+            let contentRect = self.contentRect(from: viewportRect, in: canvas)
+            let hitRect     = contentRect.insetBy(dx: -10, dy: -10)
+
+            let allStrokes = Array(canvas.drawing.strokes)
+            let remaining  = allStrokes.filter { !$0.renderBounds.intersects(hitRect) }
+
+            // Nothing to delete — either the scratch was over empty space or the
+            // detection fired erroneously.  Bail early without touching undo stack.
+            guard remaining.count < allStrokes.count else { return }
+
+            let oldDrawing = canvas.drawing
+            let newDrawing = PKDrawing(strokes: remaining)
+
+            canvas.undoManager?.registerUndo(withTarget: canvas) { cv in
+                cv.drawing = oldDrawing
+            }
+            canvas.undoManager?.setActionName(
+                NSLocalizedString("Editor.ScratchDelete.UndoAction",
+                                  comment: "Undo action name for scribble-to-delete")
+            )
+
+            canvas.drawing = newDrawing
+
+            // Scale haptic weight with the number of strokes removed: a single
+            // scratch stroke that erases only itself gets a normal impact, while
+            // removing several strokes at once gets a heavier double-impact.
+            let deletedCount = allStrokes.count - remaining.count
+            deletionImpactGenerator.impactOccurred()
+            if deletedCount > 2 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+                    self?.deletionImpactGenerator.impactOccurred()
+                }
+            }
+            deletionImpactGenerator.prepare()
+        }
+
+        /// Converts a rectangle from the canvas scroll-view's **viewport** (bounds)
+        /// coordinate space into the PKDrawing **content** coordinate space.
+        ///
+        /// PKStroke.renderBounds lives in content space; gesture touch locations are
+        /// reported in the scroll-view's bounds space.  The mapping is:
+        ///
+        ///     contentPoint.x = (viewportPoint.x + contentOffset.x) / zoomScale
+        ///
+        /// which is the inverse of `viewportPoint(from:in:)` defined nearby.
+        private func contentRect(from viewportRect: CGRect, in canvasView: PKCanvasView) -> CGRect {
+            let z = canvasView.zoomScale
+            let o = canvasView.contentOffset
+            let origin = CGPoint(
+                x: (viewportRect.minX + o.x) / z,
+                y: (viewportRect.minY + o.y) / z
+            )
+            let size = CGSize(
+                width:  viewportRect.width  / z,
+                height: viewportRect.height / z
+            )
+            return CGRect(origin: origin, size: size)
+        }
+
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             editorSignposter.emitEvent("DrawingChanged")
 
@@ -3405,6 +3521,22 @@ struct CanvasView: UIViewRepresentable {
                 self?.adaptiveEffectsEngine.reportStrokeChange()
             }
 
+            // Hold-to-straighten: restart the timer on every new drawing change
+            // while the pen is still down. If drawing stops changing (user holds
+            // the pen still), the timer fires and replaces the last stroke with a
+            // clean straight line between its start and end points.
+            if isDrawing, !isStraightening, canvasView.tool is PKInkingTool {
+                holdToStraightenTimer?.invalidate()
+                holdToStraightenTimer = Timer.scheduledTimer(
+                    withTimeInterval: WritingConfig.holdToStraightenDelay,
+                    repeats: false
+                ) { [weak self, weak canvasView] _ in
+                    guard let self, self.isDrawing, let canvasView else { return }
+                    self.holdToStraightenTimer = nil
+                    self.straightenLastStroke(in: canvasView)
+                }
+            }
+
             // Debounce disk writes using config constant.
             debounceTimer?.invalidate()
             debounceTimer = Timer.scheduledTimer(withTimeInterval: WritingConfig.saveDebounceInterval, repeats: false) { [weak self] _ in
@@ -3424,6 +3556,80 @@ struct CanvasView: UIViewRepresentable {
         }
 
         // MARK: - Canvas scroll / zoom → background sync
+        // MARK: - Hold-to-Straighten
+
+        /// Replaces the last stroke in `canvasView.drawing` with a clean straight
+        /// line from its first point to its last point, preserving the original
+        /// ink colour, tool type, and per-point pressure/tilt attributes.
+        ///
+        /// Called by `holdToStraightenTimer` when the user holds the pen still
+        /// after drawing without lifting it. The replacement is registered with
+        /// the canvas's own `UndoManager` so it can be reversed with undo.
+        private func straightenLastStroke(in canvasView: PKCanvasView) {
+            let drawing = canvasView.drawing
+            let strokes = Array(drawing.strokes)
+            guard !strokes.isEmpty else { return }
+            let strokeIndex = strokes.count - 1
+            let stroke = strokes[strokeIndex]
+            let path = stroke.path
+            guard path.count >= 2,
+                  let firstPoint = path.first,
+                  let lastPoint  = path.last else { return }
+
+            let dx = lastPoint.location.x - firstPoint.location.x
+            let dy = lastPoint.location.y - firstPoint.location.y
+            let length = sqrt(dx * dx + dy * dy)
+            guard length >= WritingConfig.holdToStraightenMinLength else { return }
+
+            // Build a straight-line path by mapping original point attributes
+            // (size, force, tilt) onto evenly-spaced locations along the new line.
+            // This preserves pressure dynamics while straightening the geometry.
+            let pointCount = max(3, min(path.count, WritingConfig.holdToStraightenMaxPoints))
+            let straightPoints: [PKStrokePoint] = (0 ..< pointCount).map { i in
+                let t = CGFloat(i) / CGFloat(pointCount - 1)
+                let loc = CGPoint(
+                    x: firstPoint.location.x + t * dx,
+                    y: firstPoint.location.y + t * dy
+                )
+                // +0.5 performs nearest-neighbour rounding when mapping the
+                // straight-line position t back to an original path index.
+                let origIdx = min(Int(t * CGFloat(path.count - 1) + 0.5), path.count - 1)
+                let orig = path[origIdx]
+                return PKStrokePoint(
+                    location: loc,
+                    timeOffset: firstPoint.timeOffset + t * (lastPoint.timeOffset - firstPoint.timeOffset),
+                    size: orig.size,
+                    opacity: orig.opacity,
+                    force: orig.force,
+                    azimuth: orig.azimuth,
+                    altitude: orig.altitude
+                )
+            }
+
+            let straightPath   = PKStrokePath(controlPoints: straightPoints, creationDate: path.creationDate)
+            let straightStroke = PKStroke(ink: stroke.ink, path: straightPath,
+                                          transform: stroke.transform, mask: stroke.mask)
+
+            var newStrokes = strokes
+            newStrokes[strokeIndex] = straightStroke
+            let newDrawing = PKDrawing(strokes: newStrokes)
+
+            let oldDrawing = drawing
+            isStraightening = true
+            canvasView.undoManager?.registerUndo(withTarget: canvasView) { cv in
+                cv.drawing = oldDrawing
+            }
+            canvasView.undoManager?.setActionName(
+                NSLocalizedString("Editor.StraightenLine", comment: "Undo action name for hold-to-straighten")
+            )
+            canvasView.drawing = newDrawing
+            isStraightening = false
+
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.prepare()
+            haptic.impactOccurred()
+        }
+
 
         /// Start observing the canvas's contentOffset and zoomScale via KVO so
         /// the page background (ruling) follows zoom and scroll.
@@ -3486,6 +3692,12 @@ struct CanvasView: UIViewRepresentable {
             adaptiveEffectsEngine.zoomScale = scrollView.zoomScale
             // Zoom detent haptic + visual feedback (AGENT-23).
             interactionFeedback.updateZoom(scrollView.zoomScale, on: scrollView.layer)
+            // Micro-bounce visual tick on detent entry (short-circuits on first match).
+            let onDetent = InteractionFeedbackEngine.zoomDetents.first(where: { abs(scrollView.zoomScale - $0) < InteractionFeedbackEngine.detentTolerance }) != nil
+            if onDetent && !wasOnZoomDetent {
+                microInteractionEngine.playZoomDetentTick(on: scrollView.layer)
+            }
+            wasOnZoomDetent = onDetent
         }
 
         /// Adjusts content insets so the page stays centered when the scaled

@@ -12,6 +12,7 @@ struct OnboardingView: View {
     @EnvironmentObject var settingsStore: AppSettingsStore
 
     @State private var currentPage = 0
+    @State private var textAppeared = false
 
     private let pageCount = 4
     private let pageFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -42,6 +43,7 @@ struct OnboardingView: View {
             }
         }
         .interactiveDismissDisabled()
+        .onAppear { textAppeared = true }
     }
 
     // MARK: - Pages
@@ -55,11 +57,17 @@ struct OnboardingView: View {
                 .font(.largeTitle.bold())
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
+                .opacity(textAppeared ? 1 : 0)
+                .offset(y: textAppeared ? 0 : 10)
+                .animation(.easeOut(duration: 0.4).delay(0.3), value: textAppeared)
             Text("A note-taking app built for iPad and Apple Pencil. Write, draw, and study — all in one place.")
                 .font(.title3)
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+                .opacity(textAppeared ? 1 : 0)
+                .offset(y: textAppeared ? 0 : 10)
+                .animation(.easeOut(duration: 0.4).delay(0.5), value: textAppeared)
             Spacer()
         }
         .accessibilityElement(children: .combine)
@@ -111,8 +119,15 @@ struct OnboardingView: View {
                 .padding(.horizontal, 40)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 16)], spacing: 16) {
-                ForEach(AppTheme.allCases) { theme in
+                ForEach(Array(AppTheme.allCases.enumerated()), id: \.element) { index, theme in
                     themeCard(theme)
+                        .opacity(currentPage == 2 ? 1 : 0.5)
+                        .scaleEffect(currentPage == 2 ? 1.0 : 0.9)
+                        .animation(
+                            .spring(response: 0.35, dampingFraction: 0.75)
+                                .delay(Double(index) * 0.06),
+                            value: currentPage
+                        )
                 }
             }
             .padding(.horizontal, 40)

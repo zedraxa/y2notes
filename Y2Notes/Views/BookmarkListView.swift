@@ -29,17 +29,19 @@ struct BookmarkListView: View {
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, bookmark in
                         bookmarkRow(bookmark)
                             .opacity(rowsAppeared ? 1 : 0)
-                            .offset(y: rowsAppeared ? 0 : 8)
+                            .offset(y: rowsAppeared ? 0 : 12)
                             .animation(
                                 .spring(response: 0.35, dampingFraction: 0.8)
-                                .delay(Double(index) * 0.05),
+                                    .delay(Double(index) * 0.05),
                                 value: rowsAppeared
                             )
                     }
                     .onDelete { offsets in
                         let allBookmarks = navigationStore.bookmarks(for: notebook.id)
-                        for offset in offsets {
-                            navigationStore.removeBookmark(id: allBookmarks[offset].id)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            for offset in offsets {
+                                navigationStore.removeBookmark(id: allBookmarks[offset].id)
+                            }
                         }
                     }
                 }
@@ -70,6 +72,7 @@ struct BookmarkListView: View {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(color(for: bookmark.colorTag))
                     .frame(width: 6, height: 36)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: bookmark.colorTag)
 
                 VStack(alignment: .leading, spacing: 2) {
                     let displayLabel = bookmark.label.isEmpty
@@ -112,7 +115,9 @@ struct BookmarkListView: View {
                 let allColors = BookmarkColor.allCases
                 if let idx = allColors.firstIndex(of: bookmark.colorTag) {
                     let next = allColors[(idx + 1) % allColors.count]
-                    navigationStore.updateBookmarkColor(id: bookmark.id, colorTag: next)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        navigationStore.updateBookmarkColor(id: bookmark.id, colorTag: next)
+                    }
                 }
             } label: {
                 Label(NSLocalizedString("Bookmarks.ChangeColor", comment: ""), systemImage: "paintpalette")
@@ -167,6 +172,8 @@ struct RecentLocationsView: View {
     let onJump: (NavigationAnchor) -> Void
     @Environment(\.dismiss) private var dismiss
 
+    @State private var rowsRevealed = false
+
     var body: some View {
         let recents = navigationStore.recentLocations(for: notebook.id)
         VStack(alignment: .leading, spacing: 0) {
@@ -185,7 +192,7 @@ struct RecentLocationsView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(recents) { entry in
+                        ForEach(Array(recents.enumerated()), id: \.element.id) { index, entry in
                             Button {
                                 onJump(entry.anchor)
                                 dismiss()
@@ -210,6 +217,13 @@ struct RecentLocationsView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .opacity(rowsRevealed ? 1 : 0)
+                            .offset(x: rowsRevealed ? 0 : -8)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.8)
+                                    .delay(Double(index) * 0.04),
+                                value: rowsRevealed
+                            )
 
                             if entry.id != recents.last?.id {
                                 Divider().padding(.leading, 40)
@@ -218,6 +232,7 @@ struct RecentLocationsView: View {
                     }
                 }
                 .frame(maxHeight: 300)
+                .onAppear { rowsRevealed = true }
             }
         }
         .frame(minWidth: 220)

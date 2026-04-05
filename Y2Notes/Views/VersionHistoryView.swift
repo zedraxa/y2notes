@@ -17,6 +17,7 @@ struct VersionHistoryView: View {
     @State private var restoreMode: RestoreMode = .entireNote
     @State private var showRestoredToast = false
     @State private var restoredTimestamp: String = ""
+    @State private var rowsAppeared = false
 
     enum RestoreMode {
         case entireNote
@@ -47,7 +48,10 @@ struct VersionHistoryView: View {
                 }
             }
         }
-        .onAppear { loadSnapshots() }
+        .onAppear {
+            loadSnapshots()
+            rowsAppeared = true
+        }
     }
 
     // MARK: - Subviews
@@ -57,20 +61,29 @@ struct VersionHistoryView: View {
             Image(systemName: "clock.arrow.circlepath")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
+                .scaleEffect(rowsAppeared ? 1 : 0.5)
+                .opacity(rowsAppeared ? 1 : 0)
+                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: rowsAppeared)
             Text("No Version History")
                 .font(.headline)
+                .opacity(rowsAppeared ? 1 : 0)
+                .offset(y: rowsAppeared ? 0 : 8)
+                .animation(.easeOut(duration: 0.35).delay(0.1), value: rowsAppeared)
             Text("Versions are saved automatically as you edit. Check back after making changes.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+                .opacity(rowsAppeared ? 1 : 0)
+                .offset(y: rowsAppeared ? 0 : 8)
+                .animation(.easeOut(duration: 0.35).delay(0.2), value: rowsAppeared)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var snapshotList: some View {
         List {
-            ForEach(snapshots) { snapshot in
+            ForEach(Array(snapshots.enumerated()), id: \.element.id) { index, snapshot in
                 SnapshotRow(snapshot: snapshot)
                     .contentShape(Rectangle())
                     .onTapGesture { selectedSnapshot = snapshot }
@@ -85,6 +98,13 @@ struct VersionHistoryView: View {
                         }
                         .tint(.orange)
                     }
+                    .opacity(rowsAppeared ? 1 : 0)
+                    .offset(y: rowsAppeared ? 0 : 12)
+                    .animation(
+                        .spring(response: 0.35, dampingFraction: 0.8)
+                            .delay(Double(index) * 0.05),
+                        value: rowsAppeared
+                    )
             }
         }
         .listStyle(.plain)
