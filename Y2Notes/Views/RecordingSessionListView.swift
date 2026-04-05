@@ -242,10 +242,10 @@ struct RecordingSessionListView: View {
                         // Page events appear in orange, stroke/other events in gray.
                         // Rendered between track and fill so the red fill overlaps played marks.
                         if !playingEvents.isEmpty && recordingStore.playbackDuration > 0 {
-                            let duration = recordingStore.playbackDuration
+                            let inverseDuration = 1.0 / recordingStore.playbackDuration
                             Canvas { context, size in
                                 for event in playingEvents {
-                                    let x = size.width * (event.offset / duration)
+                                    let x = size.width * (event.offset * inverseDuration)
                                     let color: Color = event.kind == .page
                                         ? Color.orange.opacity(0.85)
                                         : Color(uiColor: .systemGray2).opacity(0.7)
