@@ -76,7 +76,6 @@ final class StudyModeEngine {
 
     // MARK: - State
 
-    private let reduceMotion: Bool
     private(set) var isActive: Bool = false
 
     /// Current adaptive effect intensity.  Updated by the owning view.
@@ -85,14 +84,10 @@ final class StudyModeEngine {
     /// Container layer where overlay effects are added.
     private weak var containerLayer: CALayer?
 
-    init() {
-        reduceMotion = UIAccessibility.isReduceMotionEnabled
-    }
-
     // MARK: - Computed Helpers
 
     private var shouldSuppressAnimations: Bool {
-        reduceMotion || !effectIntensity.allowsStudyMode
+        ReduceMotionObserver.shared.isEnabled || !effectIntensity.allowsStudyMode
     }
 
     // MARK: - Activate / Deactivate

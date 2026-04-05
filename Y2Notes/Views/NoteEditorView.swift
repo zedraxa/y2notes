@@ -1976,37 +1976,22 @@ struct CanvasView: UIViewRepresentable {
 
         // Sync adaptive effects engine with current note complexity.
         context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
-        // Propagate intensity to sub-engines.
+        // Propagate current intensity to canvas sub-views (coordinator
+        // handles its own sub-engines automatically via Combine).
         let intensity = context.coordinator.adaptiveEffectsEngine.intensity
-        context.coordinator.pageTransitionEngine.effectIntensity = intensity
-        context.coordinator.focusModeEngine.effectIntensity = intensity
-        context.coordinator.ambientEngine.effectIntensity = intensity
-        context.coordinator.magicModeEngine.effectIntensity = intensity
-        context.coordinator.studyModeEngine.effectIntensity = intensity
-        // Propagate to canvas views that own their own micro/snap engines.
-        context.coordinator.shapeCanvas?.effectIntensity = intensity
-        context.coordinator.attachmentCanvas?.effectIntensity = intensity
-        context.coordinator.widgetCanvas?.effectIntensity = intensity
+        context.coordinator.effects.distribute(
+            intensity: intensity,
+            shapeCanvas: context.coordinator.shapeCanvas,
+            attachmentCanvas: context.coordinator.attachmentCanvas,
+            widgetCanvas: context.coordinator.widgetCanvas
+        )
 
         // Sync magic mode engine — activate/deactivate when toggle changes.
-        let magicEngine = context.coordinator.magicModeEngine
-        if isMagicModeActive && !magicEngine.isActive {
-            magicEngine.activate(on: uiView.layer)
-        } else if !isMagicModeActive && magicEngine.isActive {
-            magicEngine.deactivate()
-        }
-        // Keep emitter frame in sync when the canvas resizes (rotation, multitasking).
-        if magicEngine.isActive {
-            magicEngine.updateLayout(containerBounds: uiView.bounds)
-        }
-
+        context.coordinator.effects.setMagicMode(active: isMagicModeActive, on: uiView.layer)
         // Sync study mode engine — activate/deactivate when toggle changes.
-        let studyEngine = context.coordinator.studyModeEngine
-        if isStudyModeActive && !studyEngine.isActive {
-            studyEngine.activate(on: uiView.layer)
-        } else if !isStudyModeActive && studyEngine.isActive {
-            studyEngine.deactivate()
-        }
+        context.coordinator.effects.setStudyMode(active: isStudyModeActive, on: uiView.layer)
+        // Keep layout-sensitive engines in sync on resize / rotation.
+        context.coordinator.effects.updateLayout(containerBounds: uiView.bounds)
 
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
@@ -2075,24 +2060,16 @@ struct CanvasView: UIViewRepresentable {
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
 
-        /// Page transition engine for physical page-turn effects.
-        let pageTransitionEngine = PageTransitionEngine()
+        /// Central coordinator that owns and wires all effect sub-engines.
+        let effects = EffectsCoordinator()
 
-        /// Focus mode ambient effect engine.
-        let focusModeEngine = FocusModeEngine()
-
-        /// Ambient environment scene engine (rain / lo-fi / night grain).
-        let ambientEngine = AmbientEnvironmentEngine()
-
-        /// Magic mode engine — writing particles, keyword glow, highlight.
-        let magicModeEngine = MagicModeEngine()
-
-        /// Study mode engine — heading glow, checklist pulse, timer pulse.
-        let studyModeEngine = StudyModeEngine()
-
-        /// Adaptive effects engine — evaluates context signals and sets
-        /// intensity for all effect subsystems.
-        let adaptiveEffectsEngine = AdaptiveEffectsEngine()
+        // Convenience accessors forwarded to the coordinator.
+        var pageTransitionEngine: PageTransitionEngine { effects.pageTransitionEngine }
+        var focusModeEngine: FocusModeEngine           { effects.focusModeEngine }
+        var ambientEngine: AmbientEnvironmentEngine    { effects.ambientEngine }
+        var magicModeEngine: MagicModeEngine           { effects.magicModeEngine }
+        var studyModeEngine: StudyModeEngine           { effects.studyModeEngine }
+        var adaptiveEffectsEngine: AdaptiveEffectsEngine { effects.adaptiveEngine }
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
