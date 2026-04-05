@@ -1536,12 +1536,11 @@ struct NoteGridView: View {
         case .allNotes:  return "No Notes Yet"
         case .recents:   return "No Recent Notes"
         case .favorites: return "No Favorites Yet"
-        case .importNotes: return "No Import Notes"
+        case .importNotes: return "No Import Notes Yet"
         case .notebook:  return "Empty Notebook"
-        case .tag(let t): return "No Notes Tagged with "#\(t)""
+        case .tag(let t): return "No Notes Tagged with \"#\(t)\""
         case .pdfLibrary: return "No PDFs Yet"
         case .documentLibrary: return "No Documents Yet"
-        case .importNotes: return "No Import Notes Yet"
         }
     }
 
