@@ -242,10 +242,10 @@ struct FloatingToolbarCapsule: View {
             if onOpenInspector != nil || inkStore != nil {
                 tier1Separator
                 inspectorGroup
-                tier1Separator
-            } else {
-                tier1Separator
             }
+
+            // Separator before collapse button is always present
+            tier1Separator
 
             // Minimize — collapse toolbar to a compact pill
             minimizeButton
@@ -371,6 +371,7 @@ struct FloatingToolbarCapsule: View {
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.6)
                 .onEnded { _ in
+                    guard onOpenInspector != nil else { return }
                     modeToggleFeedback.impactOccurred()
                     onOpenInspector?()
                 }
