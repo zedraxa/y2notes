@@ -316,7 +316,7 @@ struct NoteEditorView: View {
             drawingData: currentPageData,
             backgroundColor: canvasBackgroundColor,
             defaultInkColor: effectiveDefinition.contrastingInkColor,
-            currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
+            currentTool: toolStore.pkTool,
             isShapeToolActive: toolStore.activeTool == .shape,
             activeShapeType: toolStore.activeShapeType,
             shapeColor: toolStore.activeColor,
@@ -326,7 +326,7 @@ struct NoteEditorView: View {
             pageType: effectivePageType(forPage: safePageIndex),
             paperMaterial: effectivePaperMaterial,
             activeFX: inkStore.resolvedFX,
-            fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
+            fxColor: toolStore.activeColor,
             pageIndex: safePageIndex,
             onDrawingChanged: { data in
                 noteStore.updateDrawing(for: note.id, pageIndex: safePageIndex, data: data)
