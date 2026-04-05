@@ -987,7 +987,6 @@ struct NoteEditorView: View {
         [
             ("White",       .white),
             ("Cream",       UIColor(red: 0.99, green: 0.97, blue: 0.93, alpha: 1)),
-            ("Parchment",   UIColor(red: 0.96, green: 0.94, blue: 0.87, alpha: 1)),
             ("Pale Yellow",  UIColor(red: 1.00, green: 0.99, blue: 0.88, alpha: 1)),
             ("Pale Blue",    UIColor(red: 0.93, green: 0.96, blue: 1.00, alpha: 1)),
             ("Pale Green",   UIColor(red: 0.93, green: 0.99, blue: 0.93, alpha: 1)),
@@ -1609,7 +1608,7 @@ struct CanvasView: UIViewRepresentable {
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
-        pageBackground.showGrain    = paperMaterial.hasGrainTexture
+        pageBackground.grainIntensity = paperMaterial.grainIntensity
         pageBackground.isUserInteractionEnabled = false
 
         container.addSubview(pageBackground)
@@ -1893,9 +1892,9 @@ struct CanvasView: UIViewRepresentable {
             if bg.pageType != pageType {
                 bg.pageType = pageType
             }
-            let grainWanted = paperMaterial.hasGrainTexture
-            if bg.showGrain != grainWanted {
-                bg.showGrain = grainWanted
+            let grainWanted = paperMaterial.grainIntensity
+            if bg.grainIntensity != grainWanted {
+                bg.grainIntensity = grainWanted
             }
             // Re-sync position/scale in case SwiftUI re-rendered while
             // the canvas was scrolled or zoomed.

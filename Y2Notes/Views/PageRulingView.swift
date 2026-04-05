@@ -5,8 +5,10 @@ import UIKit
 /// A non-interactive `UIView` that renders the page background for a note canvas:
 ///
 /// - Fills with the notebook's paper material tint colour.
-/// - Draws the page type ruling (ruled lines, dot grid, or square grid) on top.
-/// - Optionally renders a very faint noise grain for textured paper materials.
+/// - Draws the page type ruling (ruled lines, dot grid, square grid, Cornell
+///   layout, or music staves) on top.
+/// - Optionally renders a noise grain overlay whose intensity varies by paper
+///   material, suggesting paper tooth without impacting drawing performance.
 ///
 /// This view is inserted **behind** `PKCanvasView` inside the canvas container
 /// so that PencilKit strokes sit on top of the ruling. The canvas itself is set
@@ -14,7 +16,7 @@ import UIKit
 ///
 /// Performance notes:
 /// - `draw(_:)` is called once during layout; `setNeedsDisplay()` is triggered
-///   only when properties change (background color, page type, or grain flag).
+///   only when properties change (background color, page type, or grain value).
 /// - Grain is rendered via a cached `CGImage` tiled from a small noise stamp.
 /// - All drawing uses `CGContext` primitives — no CALayer animations or
 ///   UIKit-hierarchy overhead.
@@ -37,9 +39,15 @@ final class PageBackgroundView: UIView {
         didSet { if lineColor != oldValue { setNeedsDisplay() } }
     }
 
-    /// When `true`, a very faint noise grain is overlaid to suggest paper tooth.
-    var showGrain: Bool = false {
-        didSet { if showGrain != oldValue { grainImage = nil; setNeedsDisplay() } }
+    /// Grain overlay alpha. 0 = no grain, higher = more visible paper tooth.
+    /// Backed by `PaperMaterial.grainIntensity`.
+    var grainIntensity: Double = 0 {
+        didSet {
+            if grainIntensity != oldValue {
+                grainImage = nil
+                setNeedsDisplay()
+            }
+        }
     }
 
     // MARK: - Geometry constants
@@ -49,10 +57,19 @@ final class PageBackgroundView: UIView {
     private let dotRadius:    CGFloat  = 1.5  // radius of dot-grid dots
     private let dotSpacing:   CGFloat  = 24   // points between dot-grid dots
 
+    // Cornell layout constants
+    private let cornellCueWidth: CGFloat    = 72   // left cue column width
+    private let cornellSummaryHeight: CGFloat = 64  // bottom summary band height
+
+    // Music staff constants
+    private let staffLineCount: Int     = 5
+    private let staffLineSpacing: CGFloat = 8
+    private let staffGroupSpacing: CGFloat = 48  // space between staff groups
+
     // MARK: - Grain cache
 
     /// Small (64×64) noise image tiled across the surface.  Cached and
-    /// invalidated only when `showGrain` changes.
+    /// invalidated only when `grainIntensity` changes.
     private var grainImage: CGImage?
 
     // MARK: - Init
@@ -90,10 +107,14 @@ final class PageBackgroundView: UIView {
             drawDotGrid(in: ctx, rect: rect)
         case .grid:
             drawSquareGrid(in: ctx, rect: rect)
+        case .cornell:
+            drawCornellRuling(in: ctx, rect: rect)
+        case .music:
+            drawMusicStaves(in: ctx, rect: rect)
         }
 
         // 3. Overlay grain if requested.
-        if showGrain {
+        if grainIntensity > 0 {
             drawGrain(in: ctx, rect: rect)
         }
     }
@@ -165,13 +186,70 @@ final class PageBackgroundView: UIView {
         ctx.restoreGState()
     }
 
+    // MARK: - Cornell ruling
+
+    /// Draws a Cornell notes layout: vertical cue column on the left,
+    /// horizontal summary band at the bottom, and ruled lines in the main area.
+    private func drawCornellRuling(in ctx: CGContext, rect: CGRect) {
+        ctx.saveGState()
+        let dividerColor = lineColor.withAlphaComponent(lineColor.cgColor.alpha * 1.5)
+
+        // Cue column divider (thick vertical line)
+        ctx.setStrokeColor(dividerColor.cgColor)
+        ctx.setLineWidth(1.0)
+        ctx.move(to: CGPoint(x: cornellCueWidth, y: 0))
+        ctx.addLine(to: CGPoint(x: cornellCueWidth, y: rect.maxY - cornellSummaryHeight))
+        ctx.strokePath()
+
+        // Summary band divider (thick horizontal line)
+        ctx.move(to: CGPoint(x: 0, y: rect.maxY - cornellSummaryHeight))
+        ctx.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - cornellSummaryHeight))
+        ctx.strokePath()
+
+        // Ruled lines in the main note-taking area (right of cue, above summary)
+        ctx.setStrokeColor(lineColor.cgColor)
+        ctx.setLineWidth(0.5)
+        var y = ruledSpacing
+        while y < rect.maxY - cornellSummaryHeight {
+            ctx.move(to: CGPoint(x: cornellCueWidth + 8, y: y))
+            ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
+            y += ruledSpacing
+        }
+        ctx.strokePath()
+
+        ctx.restoreGState()
+    }
+
+    // MARK: - Music staves
+
+    /// Draws repeating five-line staff groups for music notation.
+    private func drawMusicStaves(in ctx: CGContext, rect: CGRect) {
+        ctx.saveGState()
+        ctx.setStrokeColor(lineColor.cgColor)
+        ctx.setLineWidth(0.5)
+
+        let staffHeight = CGFloat(staffLineCount - 1) * staffLineSpacing
+        var groupTop = staffGroupSpacing
+
+        while groupTop + staffHeight <= rect.maxY {
+            for i in 0..<staffLineCount {
+                let y = groupTop + CGFloat(i) * staffLineSpacing
+                ctx.move(to: CGPoint(x: 16, y: y))
+                ctx.addLine(to: CGPoint(x: rect.maxX - 16, y: y))
+            }
+            groupTop += staffHeight + staffGroupSpacing
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
     // MARK: - Grain overlay
 
     private func drawGrain(in ctx: CGContext, rect: CGRect) {
         let stamp = grainStamp()
         let stampSize: CGFloat = 64
         ctx.saveGState()
-        ctx.setAlpha(0.04)     // very faint — just suggests texture
+        ctx.setAlpha(CGFloat(grainIntensity))
         let cols = Int(ceil(rect.width  / stampSize)) + 1
         let rows = Int(ceil(rect.height / stampSize)) + 1
         for row in 0..<rows {

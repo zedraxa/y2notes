@@ -190,6 +190,8 @@ enum NotePDFGenerator {
         case .ruled: drawRuledLines(ctx: ctx, rect: rect, color: lineColor)
         case .dot:   drawDotGrid(ctx: ctx, rect: rect, color: lineColor)
         case .grid:  drawSquareGrid(ctx: ctx, rect: rect, color: lineColor)
+        case .cornell: drawCornellRuling(ctx: ctx, rect: rect, color: lineColor)
+        case .music:   drawMusicStaves(ctx: ctx, rect: rect, color: lineColor)
         }
     }
 
@@ -286,6 +288,55 @@ enum NotePDFGenerator {
             ctx.move(to: CGPoint(x: x, y: rect.minY))
             ctx.addLine(to: CGPoint(x: x, y: rect.maxY))
             x += 24
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    private static func drawCornellRuling(ctx: CGContext, rect: CGRect, color: UIColor) {
+        ctx.saveGState()
+        let cueWidth: CGFloat = 72
+        let summaryHeight: CGFloat = 64
+        let dividerColor = color.withAlphaComponent(color.cgColor.alpha * 1.5)
+
+        ctx.setStrokeColor(dividerColor.cgColor)
+        ctx.setLineWidth(1.0)
+        ctx.move(to: CGPoint(x: cueWidth, y: 0))
+        ctx.addLine(to: CGPoint(x: cueWidth, y: rect.maxY - summaryHeight))
+        ctx.strokePath()
+
+        ctx.move(to: CGPoint(x: 0, y: rect.maxY - summaryHeight))
+        ctx.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - summaryHeight))
+        ctx.strokePath()
+
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(0.5)
+        var y: CGFloat = 28
+        while y < rect.maxY - summaryHeight {
+            ctx.move(to: CGPoint(x: cueWidth + 8, y: y))
+            ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
+            y += 28
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    private static func drawMusicStaves(ctx: CGContext, rect: CGRect, color: UIColor) {
+        ctx.saveGState()
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(0.5)
+        let staffLineCount = 5
+        let staffLineSpacing: CGFloat = 8
+        let staffGroupSpacing: CGFloat = 48
+        let staffHeight = CGFloat(staffLineCount - 1) * staffLineSpacing
+        var groupTop: CGFloat = staffGroupSpacing
+        while groupTop + staffHeight <= rect.maxY {
+            for i in 0..<staffLineCount {
+                let y = groupTop + CGFloat(i) * staffLineSpacing
+                ctx.move(to: CGPoint(x: 16, y: y))
+                ctx.addLine(to: CGPoint(x: rect.maxX - 16, y: y))
+            }
+            groupTop += staffHeight + staffGroupSpacing
         }
         ctx.strokePath()
         ctx.restoreGState()
