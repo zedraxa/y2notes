@@ -63,6 +63,7 @@ final class EffectsCoordinator {
     /// Centralized haptic + visual feedback for UI interactions.
     let interactionFeedbackEngine = InteractionFeedbackEngine()
 
+
     // MARK: - Private
 
     private var cancellables: Set<AnyCancellable> = []

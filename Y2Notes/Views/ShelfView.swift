@@ -978,15 +978,16 @@ struct NoteGridView: View {
 
                         if !collapsedSections.contains(nbSection.id) {
                             if sectionNotes.isEmpty {
-                                HStack {
-                                    Spacer()
+                                VStack(spacing: 8) {
+                                    Image(systemName: "doc.text")
+                                        .font(.system(size: 28, weight: .ultraLight))
+                                        .foregroundStyle(.quaternary)
                                     Text("No notes in this section")
                                         .font(.callout)
                                         .foregroundStyle(.tertiary)
-                                    Spacer()
                                 }
-                                .padding(.vertical, 16)
-                                .padding(.horizontal, 20)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                             } else {
                                 LazyVGrid(columns: columns, spacing: 16) {
