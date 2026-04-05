@@ -144,6 +144,57 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts false.
     @Published var isWidgetPickerPresented: Bool = false
 
+    // MARK: - Text Object State
+
+    /// The ID of the currently selected text object on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeTextObjectSelection: UUID?
+
+    /// Convenience: true when any text object is selected.
+    var hasActiveTextObjectSelection: Bool { activeTextObjectSelection != nil }
+
+    /// Convenience: true when the text tool is the active tool.
+    var isTextToolActive: Bool { activeTool == .text }
+
+    /// Default font size for newly placed text objects (persisted).
+    @Published var activeTextFontSize: CGFloat = 16 {
+        didSet { UserDefaults.standard.set(Double(activeTextFontSize), forKey: Keys.textFontSize) }
+    }
+
+    /// Default text alignment for newly placed text objects (persisted).
+    /// 0 = left, 1 = center, 2 = right.
+    @Published var activeTextAlignmentRaw: Int = 0 {
+        didSet { UserDefaults.standard.set(activeTextAlignmentRaw, forKey: Keys.textAlignment) }
+    }
+
+    /// Resolved text alignment.
+    var activeTextAlignment: NSTextAlignment {
+        get {
+            switch activeTextAlignmentRaw {
+            case 1:  return .center
+            case 2:  return .right
+            default: return .left
+            }
+        }
+        set {
+            switch newValue {
+            case .center: activeTextAlignmentRaw = 1
+            case .right:  activeTextAlignmentRaw = 2
+            default:      activeTextAlignmentRaw = 0
+            }
+        }
+    }
+
+    /// Default font family for newly placed text objects (persisted).
+    @Published var activeTextFontFamily: TextFontFamily = .system {
+        didSet { UserDefaults.standard.set(activeTextFontFamily.rawValue, forKey: Keys.textFontFamily) }
+    }
+
+    /// Default bold state for newly placed text objects (persisted).
+    @Published var activeTextBold: Bool = false {
+        didSet { UserDefaults.standard.set(activeTextBold, forKey: Keys.textBold) }
+    }
+
     // MARK: - Recording State
 
     /// Whether an audio recording is currently in progress.
@@ -237,6 +288,10 @@ final class DrawingToolStore: ObservableObject {
             return PKInkingTool(.pen, color: inkColor, width: activeWidth)
         case .sticker:
             // The sticker overlay handles interaction; canvas uses lasso as fallback
+            // so accidental touches don't create ink strokes.
+            return PKLassoTool()
+        case .text:
+            // The text canvas overlay handles interaction; canvas uses lasso as fallback
             // so accidental touches don't create ink strokes.
             return PKLassoTool()
         }
@@ -405,6 +460,10 @@ final class DrawingToolStore: ObservableObject {
         static let penSubType = "y2notes.tool.penSubType"
         static let magicModeActive  = "y2notes.tool.magicModeActive"
         static let studyModeActive  = "y2notes.tool.studyModeActive"
+        static let textFontSize     = "y2notes.tool.textFontSize"
+        static let textAlignment    = "y2notes.tool.textAlignment"
+        static let textFontFamily   = "y2notes.tool.textFontFamily"
+        static let textBold         = "y2notes.tool.textBold"
         static let recentColors = "y2notes.tool.recentColors"
 
         /// Per-tool width: "y2notes.tool.width.pen", "y2notes.tool.width.pencil", etc.
@@ -525,6 +584,20 @@ final class DrawingToolStore: ObservableObject {
         // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
         isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)
         isStudyModeActive = ud.bool(forKey: Keys.studyModeActive)
+
+        // Text tool defaults.
+        let tf = ud.double(forKey: Keys.textFontSize)
+        if tf > 0 { activeTextFontSize = CGFloat(tf) }
+        if ud.object(forKey: Keys.textAlignment) != nil {
+            activeTextAlignmentRaw = ud.integer(forKey: Keys.textAlignment)
+        }
+        if let raw = ud.string(forKey: Keys.textFontFamily),
+           let family = TextFontFamily(rawValue: raw) {
+            activeTextFontFamily = family
+        }
+        if ud.object(forKey: Keys.textBold) != nil {
+            activeTextBold = ud.bool(forKey: Keys.textBold)
+        }
 
         // Recent colours — stored as flat [r0,g0,b0, r1,g1,b1, …].
         if let components = ud.array(forKey: Keys.recentColors) as? [Double], components.count >= 3 {

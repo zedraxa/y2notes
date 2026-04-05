@@ -24,6 +24,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var documentStore: DocumentStore
     @EnvironmentObject var pdfStore: PDFStore
     @EnvironmentObject var stickerStore: StickerStore
+    @EnvironmentObject var pdfStore: PDFStore
     @Environment(\.undoManager) private var undoManager
     @Environment(TabWorkspaceStore.self) private var workspace
     let note: Note
@@ -87,6 +88,11 @@ struct NoteEditorView: View {
 
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
+
+    /// Set to `true` immediately before navigating to a freshly created page
+    /// so the canvas plays its paper-settle reveal animation.  Reset shortly
+    /// after to avoid replaying the animation on subsequent re-renders.
+    @State private var isNewPageJustAdded = false
 
     /// Widget being edited in the inline editor sheet.
     @State private var widgetToEdit: NoteWidget?
@@ -221,14 +227,18 @@ struct NoteEditorView: View {
             }
             .onReceive(noteStore.$saveState) { state in
                 if state == .saved {
-                    showSavedBadge = true
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        showSavedBadge = true
+                    }
                     let now = Date()
                     badgeShownAt = now
                     // Each rapid save updates `badgeShownAt`; only the last scheduled
                     // callback will actually hide the badge, avoiding premature dismissal.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                         if badgeShownAt == now {
-                            showSavedBadge = false
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                showSavedBadge = false
+                            }
                         }
                     }
                 }
@@ -297,10 +307,10 @@ struct NoteEditorView: View {
             .fileImporter(
                 isPresented: $showDocumentImporter,
                 allowedContentTypes: ImportedDocumentType.allUTTypes,
-                allowsMultipleSelection: false
+                allowsMultipleSelection: true
             ) { result in
-                if case .success(let urls) = result, let url = urls.first {
-                    documentStore.importDocument(from: url)
+                if case .success(let urls) = result {
+                    documentStore.importDocuments(from: urls)
                 }
             }
     }
@@ -418,6 +428,7 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
                         toolStore.activeWidgetSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
@@ -434,15 +445,38 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
                         toolStore.activeAttachmentSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
+            },
+            isTextToolActive: toolStore.activeTool == .text,
+            currentPageTextObjects: note.textObjects(forPage: safePageIndex),
+            onTextObjectsChanged: { textObjects in
+                noteStore.updateTextObjects(for: note.id, pageIndex: safePageIndex, textObjects: textObjects)
+            },
+            onTextObjectSelectionChanged: { textObjectID in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeTextObjectSelection = textObjectID
+                    // Clear other selections when a text object is selected
+                    if textObjectID != nil {
+                        toolStore.activeShapeSelection = nil
+                        toolStore.activeStickerSelection = nil
+                        toolStore.activeAttachmentSelection = nil
+                        toolStore.activeWidgetSelection = nil
+                        toolStore.hasActiveSelection = false
+                    }
+                }
+            },
+            onPlaceTextObject: { point in
+                placeTextObject(at: point)
             },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
             isStudyModeActive: toolStore.isStudyModeActive,
             activeAmbientScene: toolStore.activeAmbientScene,
-            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled
+            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled,
+            isNewPage: isNewPageJustAdded
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
@@ -545,6 +579,24 @@ struct NoteEditorView: View {
             .padding(.top, 60)
             .zIndex(0.75)
         }
+
+        // Text object action bar
+        if toolStore.hasActiveTextObjectSelection,
+           let selectedID = toolStore.activeTextObjectSelection,
+           let selectedTextObject = note.textObjects(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+            VStack {
+                TextObjectHandlesView(
+                    textObject: selectedTextObject,
+                    onAction: { action in
+                        handleTextObjectAction(action, for: selectedID)
+                    }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                Spacer()
+            }
+            .padding(.top, 60)
+            .zIndex(0.8)
+        }
     }
 
     /// Advanced tools inspector — slides in from the right.
@@ -630,6 +682,7 @@ struct NoteEditorView: View {
         // Draw ↔ Type mode toggle.
         // "keyboard" switches to text mode; "pencil" returns to drawing mode.
         Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             flushTextNow()
             isTextMode.toggle()
         } label: {
@@ -770,6 +823,47 @@ struct NoteEditorView: View {
             toolStore.activeShapeSelection = nil
             toolStore.activeStickerSelection = nil
             toolStore.activeAttachmentSelection = nil
+            toolStore.activeTextObjectSelection = nil
+            toolStore.hasActiveSelection = false
+        }
+    }
+
+    // MARK: - Text Object Placement
+
+    /// Places a new empty text box anchored at the given page-coordinate point.
+    private func placeTextObject(at tapPoint: CGPoint) {
+        let pageIdx = currentPageIndex
+        var objects = note.textObjects(forPage: pageIdx)
+
+        // Enforce per-page limit
+        guard objects.count < TextObjectConstants.maxTextObjectsPerPage else { return }
+
+        let maxZ = objects.map(\.zIndex).max() ?? 0
+        let size = TextObjectConstants.defaultSize
+        // Centre the box on the tap point
+        let origin = CGPoint(x: tapPoint.x - size.width / 2, y: tapPoint.y - size.height / 2)
+        let frame = CGRect(origin: origin, size: size)
+
+        let obj = TextObject(
+            frame: frame,
+            fontSize: toolStore.activeTextFontSize,
+            fontFamily: toolStore.activeTextFontFamily,
+            isBold: toolStore.activeTextBold,
+            textColor: .label,
+            alignment: toolStore.activeTextAlignment,
+            zIndex: maxZ + 1
+        )
+
+        objects.append(obj)
+        noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: objects)
+
+        // Auto-select so the user can immediately start editing
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            toolStore.activeTextObjectSelection = obj.id
+            toolStore.activeShapeSelection = nil
+            toolStore.activeStickerSelection = nil
+            toolStore.activeAttachmentSelection = nil
+            toolStore.activeWidgetSelection = nil
             toolStore.hasActiveSelection = false
         }
     }
@@ -914,6 +1008,99 @@ struct NoteEditorView: View {
         }
 
         noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+    }
+
+    /// Handles actions from the text object action bar.
+    private func handleTextObjectAction(_ action: TextObjectAction, for textObjectID: UUID) {
+        let pageIdx = currentPageIndex
+        var textObjects = note.textObjects(forPage: pageIdx)
+        guard let idx = textObjects.firstIndex(where: { $0.id == textObjectID }) else { return }
+
+        switch action {
+        case .duplicate:
+            let source = textObjects[idx]
+            let copy = TextObject(
+                content: source.content,
+                frame: source.frame.offsetBy(dx: 20, dy: 20),
+                fontSize: source.fontSize,
+                fontFamily: source.fontFamily,
+                isBold: source.isBold,
+                textColor: source.textColor,
+                backgroundColor: source.backgroundColor,
+                alignment: source.textAlignment,
+                rotation: source.rotation,
+                opacity: source.opacity,
+                zIndex: (textObjects.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false,
+                borderRadius: source.borderRadius,
+                borderColor: source.borderColor,
+                borderWidth: source.borderWidth
+            )
+            textObjects.append(copy)
+            toolStore.activeTextObjectSelection = copy.id
+
+        case .delete:
+            textObjects.remove(at: idx)
+            toolStore.activeTextObjectSelection = nil
+
+        case .toggleLock:
+            textObjects[idx].isLocked.toggle()
+
+        case .bringToFront:
+            let maxZ = textObjects.map(\.zIndex).max() ?? 0
+            textObjects[idx].zIndex = maxZ + 1
+
+        case .sendToBack:
+            let minZ = textObjects.map(\.zIndex).min() ?? 0
+            textObjects[idx].zIndex = minZ - 1
+
+        case .updateFontSize(let size):
+            textObjects[idx].fontSize = size
+
+        case .updateFontFamily(let family):
+            textObjects[idx].fontFamily = family
+
+        case .toggleBold:
+            textObjects[idx].isBold.toggle()
+
+        case .updateAlignment(let alignment):
+            switch alignment {
+            case .center: textObjects[idx].alignmentRaw = 1
+            case .right:  textObjects[idx].alignmentRaw = 2
+            default:      textObjects[idx].alignmentRaw = 0
+            }
+
+        case .updateTextColor(let color):
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            textObjects[idx].textColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+
+        case .updateBackgroundColor(let color):
+            if let bg = color {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                bg.getRed(&r, green: &g, blue: &b, alpha: &a)
+                textObjects[idx].backgroundColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+            } else {
+                textObjects[idx].backgroundColorComponents = nil
+            }
+
+        case .updateBorderRadius(let radius):
+            textObjects[idx].borderRadius = radius
+
+        case .updateBorderColor(let color):
+            if let bc = color {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                bc.getRed(&r, green: &g, blue: &b, alpha: &a)
+                textObjects[idx].borderColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+            } else {
+                textObjects[idx].borderColorComponents = nil
+            }
+
+        case .updateBorderWidth(let width):
+            textObjects[idx].borderWidth = width
+        }
+
+        noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: textObjects)
     }
 
     // MARK: - Background blend helper
@@ -1079,6 +1266,58 @@ struct NoteEditorView: View {
         .background(Color(uiColor: effectiveDefinition.canvasBackground).opacity(0.8))
     }
 
+    // MARK: - Linked import banner
+
+    /// Shows a tappable banner when this note is a companion to a PDF or imported document.
+    private var linkedImportBanner: some View {
+        Button(action: openLinkedImport) {
+            HStack(spacing: 6) {
+                Image(systemName: "paperclip")
+                    .font(.caption2)
+                Text(linkedImportLabel)
+                    .font(.caption2)
+                Spacer()
+                Image(systemName: "arrow.up.forward")
+                    .font(.caption2)
+            }
+            .foregroundStyle(.accentColor)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(Color.accentColor.opacity(0.08))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open linked import")
+    }
+
+    private var linkedImportLabel: String {
+        if let pdfID = note.linkedPDFID,
+           let rec = pdfStore.records.first(where: { $0.id == pdfID }) {
+            return "Linked to \(rec.title)"
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return "Linked to \(doc.displayName)"
+        }
+        return "Linked to import"
+    }
+
+    private func openLinkedImport() {
+        if let pdfID = note.linkedPDFID {
+            workspace.openTab(
+                .pdf(id: pdfID),
+                displayName: pdfStore.records.first(where: { $0.id == pdfID })?.title ?? "PDF",
+                accentColor: [0.85, 0.25, 0.25]
+            )
+        } else if let docID = note.linkedDocumentID,
+                  let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            workspace.openTab(
+                .document(id: docID),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
+        }
+    }
+
     // MARK: - Focus Mode Overlay
 
     /// Full-screen SwiftUI overlay combining background dimming and a radial
@@ -1155,6 +1394,7 @@ struct NoteEditorView: View {
             Image(systemName: "checkmark.circle")
                 .foregroundStyle(.secondary)
                 .font(.caption)
+                .transition(.scale(scale: 0.5).combined(with: .opacity))
                 .accessibilityLabel("Saved")
         default:
             EmptyView()
@@ -1619,8 +1859,17 @@ struct NoteEditorView: View {
             // Add page
             Button {
                 if let newIndex = noteStore.addPage(to: note.id) {
+                    isNewPageJustAdded = true
                     withAnimation(.easeInOut(duration: 0.25)) {
                         currentPageIndex = newIndex
+                    }
+                    // Reset the flag after the CA reveal animation completes.
+                    // The delay (0.55 s) intentionally exceeds the SwiftUI navigation
+                    // animation (0.25 s) to ensure the new CanvasView is fully
+                    // displayed before the flag resets, preventing a double-reveal
+                    // if SwiftUI re-renders during the transition.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                        isNewPageJustAdded = false
                     }
                 }
             } label: {
@@ -1733,6 +1982,17 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Whether the text tool is active (text canvas overlay intercepts touches).
+    var isTextToolActive: Bool = false
+    /// Text objects for the current page.
+    var currentPageTextObjects: [TextObject] = []
+    /// Callback to persist text object changes.
+    var onTextObjectsChanged: (([TextObject]) -> Void)?
+    /// Callback when text object selection changes.
+    var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+    /// Called when the user taps an empty area while the text tool is active.
+    var onPlaceTextObject: ((CGPoint) -> Void)?
+
     /// Total number of pages in the note, used for adaptive effects complexity signals.
     var pageCount: Int = 1
 
@@ -1744,6 +2004,10 @@ struct CanvasView: UIViewRepresentable {
     var activeAmbientScene: AmbientScene?
     /// Whether ambient soundscapes are enabled.
     var isAmbientSoundEnabled: Bool = true
+
+    /// When `true`, `makeUIView` plays a paper-settle reveal animation on the
+    /// container layer to celebrate the addition of a brand-new blank page.
+    var isNewPage: Bool = false
 
     // MARK: - Page dimensions
 
@@ -1788,6 +2052,7 @@ struct CanvasView: UIViewRepresentable {
         pageBackground.pageType     = pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
         pageBackground.grainIntensity = paperMaterial.grainIntensity
+        pageBackground.rulingTint   = paperMaterial.rulingTint
         pageBackground.isUserInteractionEnabled = false
 
         // Give the page a soft drop-shadow so it looks like a physical sheet
@@ -1976,6 +2241,35 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.widgetCanvas = widgetCanvas
 
+        // ── Text object canvas (anchored text boxes layer) ───────────────────
+        let textCanvas = TextCanvasView(frame: .zero)
+        textCanvas.translatesAutoresizingMaskIntoConstraints = false
+        textCanvas.isTextToolActive = isTextToolActive
+        textCanvas.textObjects = currentPageTextObjects
+        textCanvas.onSelectionChanged = { textObjectID in
+            context.coordinator.onTextObjectSelectionChanged?(textObjectID)
+        }
+        textCanvas.onTextObjectsChanged = { textObjects in
+            context.coordinator.handleTextObjectsChanged(textObjects)
+        }
+        textCanvas.onPlaceTextObject = { point in
+            context.coordinator.onPlaceTextObject?(point)
+        }
+        textCanvas.onTextObjectTransformed = { textObject in
+            context.coordinator.handleTextObjectTransformed(textObject)
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onPlaceTextObject = onPlaceTextObject
+        container.addSubview(textCanvas)
+        NSLayoutConstraint.activate([
+            textCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            textCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            textCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            textCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.textCanvas = textCanvas
+
         // ── Shape object canvas (editable shapes layer) ──────────────────────
         let shapeCanvas = ShapeCanvasView(frame: .zero)
         shapeCanvas.translatesAutoresizingMaskIntoConstraints = false
@@ -2099,6 +2393,11 @@ struct CanvasView: UIViewRepresentable {
             editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - complete")
         }
 
+        // Play a paper-settle reveal when this canvas represents a newly added page.
+        if isNewPage {
+            PageTransitionEngine.playNewPageReveal(on: container.layer)
+        }
+
         return container
     }
 
@@ -2117,9 +2416,13 @@ struct CanvasView: UIViewRepresentable {
             if bg.pageType != pageType {
                 bg.pageType = pageType
             }
-            let grainWanted = paperMaterial.grainIntensity
-            if bg.grainIntensity != grainWanted {
-                bg.grainIntensity = grainWanted
+            let wantedIntensity = paperMaterial.grainIntensity
+            if bg.grainIntensity != wantedIntensity {
+                bg.grainIntensity = wantedIntensity
+            }
+            let wantedTint = paperMaterial.rulingTint
+            if bg.rulingTint != wantedTint {
+                bg.rulingTint = wantedTint
             }
             // Re-sync position/scale in case SwiftUI re-rendered while
             // the canvas was scrolled or zoomed.
@@ -2201,6 +2504,16 @@ struct CanvasView: UIViewRepresentable {
         }
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
+
+        // Sync text object canvas.
+        if let textCanvas = context.coordinator.textCanvas {
+            textCanvas.isTextToolActive = isTextToolActive
+            textCanvas.textObjects = currentPageTextObjects
+            textCanvas.selectedTextObjectID = toolStoreForFade?.activeTextObjectSelection
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onPlaceTextObject = onPlaceTextObject
 
         // Zoom reset: animate to fit-to-width when the trigger value flips.
         // "Fit to width" is more useful than a fixed 1× scale because it adapts
@@ -2408,6 +2721,24 @@ struct CanvasView: UIViewRepresentable {
 
         /// Callback when widget selection changes.
         var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+        /// Text object canvas overlay for the current page.
+        weak var textCanvas: TextCanvasView?
+
+        /// Debounce timer for persisting text object changes.
+        private var textDebounceTimer: Timer?
+
+        /// Callback to persist text object changes.
+        var onTextObjectsChanged: (([TextObject]) -> Void)?
+
+        /// Callback when text object selection changes.
+        var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+
+        /// Called when the user taps empty space with the text tool active.
+        var onPlaceTextObject: ((CGPoint) -> Void)?
+
+        /// Callback to propagate text object transform to the view.
+        var onTextObjectTransformed: ((TextObject) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
@@ -2941,6 +3272,28 @@ struct CanvasView: UIViewRepresentable {
                 repeats: false
             ) { [weak self] _ in
                 self?.onWidgetsChanged?(widgets)
+            }
+        }
+
+        // MARK: - Text Object Coordinator
+
+        /// Called when a text object is moved, resized, or rotated.
+        func handleTextObjectTransformed(_ textObject: TextObject) {
+            guard var textObjects = textCanvas?.textObjects else { return }
+            if let idx = textObjects.firstIndex(where: { $0.id == textObject.id }) {
+                textObjects[idx] = textObject
+            }
+            handleTextObjectsChanged(textObjects)
+        }
+
+        /// Debounced persistence for text object changes.
+        func handleTextObjectsChanged(_ textObjects: [TextObject]) {
+            textDebounceTimer?.invalidate()
+            textDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: TextObjectConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onTextObjectsChanged?(textObjects)
             }
         }
 

@@ -13,11 +13,15 @@ struct PDFViewerView: View {
     @EnvironmentObject var pdfStore:  PDFStore
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var toolStore: DrawingToolStore
+    @EnvironmentObject var noteStore: NoteStore
     @Environment(TabWorkspaceStore.self) private var workspace
 
     let record: PDFNoteRecord
     /// The tab ID this viewer is running in, or nil when opened outside the tab workspace.
     let tabID: UUID?
+
+    /// Callback invoked with the companion note's ID so the parent can open it in a tab.
+    var onOpenCompanionNote: ((UUID) -> Void)?
 
     @State private var currentPage: Int
     @State private var isAnnotating: Bool = true
@@ -29,9 +33,10 @@ struct PDFViewerView: View {
 
     @AppStorage("y2notes.pencilOnlyDrawing") private var pencilOnlyDrawing = false
 
-    init(record: PDFNoteRecord, tab: TabSession? = nil) {
+    init(record: PDFNoteRecord, tab: TabSession? = nil, onOpenCompanionNote: ((UUID) -> Void)? = nil) {
         self.record  = record
         self.tabID   = tab?.id
+        self.onOpenCompanionNote = onOpenCompanionNote
         // Prefer the tab's persisted page over the store's record page.
         _currentPage = State(initialValue: tab?.pageIndex ?? record.currentPage)
     }
@@ -186,6 +191,35 @@ struct PDFViewerView: View {
             Image(systemName: "square.and.arrow.up")
         }
         .accessibilityLabel("Share options")
+    }
+
+    // MARK: - Companion note
+
+    private var companionNote: Note? {
+        noteStore.notes(forPDF: record.id).first
+    }
+
+    @ViewBuilder
+    private var companionNoteButton: some View {
+        if let existing = companionNote {
+            Button {
+                onOpenCompanionNote?(existing.id)
+            } label: {
+                Image(systemName: "note.text")
+            }
+            .accessibilityLabel("Open companion note")
+        } else {
+            Button {
+                let note = noteStore.addNote(
+                    forPDF: record.id,
+                    title: "\(liveRecord.title) — Notes"
+                )
+                onOpenCompanionNote?(note.id)
+            } label: {
+                Image(systemName: "note.text.badge.plus")
+            }
+            .accessibilityLabel("Create companion note")
+        }
     }
 
     // MARK: - Page navigation bar
