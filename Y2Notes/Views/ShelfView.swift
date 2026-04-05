@@ -515,6 +515,7 @@ private struct NotebookSidebarRow: View {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 9))
                             .foregroundStyle(.orange)
+                            .accessibilityLabel("Locked")
                     }
                 }
                 HStack(spacing: 6) {
