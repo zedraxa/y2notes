@@ -763,7 +763,7 @@ final class NoteExporter {
                     y += cbSize + 4 * drawingScale
                 }
 
-            case .quickTable(let title, let columns, let rows, let cells):
+            case .quickTable(let title, let columns, let rows, let cells, _):
                 var y = exportRect.minY + pad
                 if !title.isEmpty {
                     let textRect = CGRect(x: exportRect.minX + pad, y: y,

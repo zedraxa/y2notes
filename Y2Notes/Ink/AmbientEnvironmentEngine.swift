@@ -1,6 +1,6 @@
-import AVFoundation
 import UIKit
 import QuartzCore
+import AVFoundation
 
 // MARK: - Ambient Scene
 
@@ -134,59 +134,64 @@ final class AmbientEnvironmentEngine {
         static let reducedMotionDuration: CFTimeInterval = 0.0
 
         // ── Sound ─────────────────────────────────────────────────
-        /// Master volume for ambient soundscapes (0–1).
-        /// Intentionally low so audio stays in the background.
-        static let soundVolume: Float = 0.30
-
-        /// Volume multiplier applied when `effectIntensity` is `.reduced`.
-        static let soundReducedMultiplier: Float = 0.55
-
-        /// Volume fade-out duration when a scene is deactivated (seconds).
-        static let soundFadeDuration: TimeInterval = 0.8
-
-        /// Timer tick interval used when fading audio volume out (seconds).
-        static let soundFadeStepInterval: TimeInterval = 0.05
-
-        /// Bundle audio file names — one per scene.  Files may be absent
-        /// (e.g. in a build that ships without audio assets); the engine
-        /// gracefully skips playback when a resource cannot be found.
-        static let rainSoundName:  String = "ambient_rain"
-        static let lofiSoundName:  String = "ambient_lofi"
-        static let nightSoundName: String = "ambient_night"
-
-        /// Audio file extensions tried in order when resolving a scene's
-        /// sound asset from the bundle.
-        static let soundExtensions: [String] = ["m4a", "mp3", "wav", "caf", "aiff"]
+        /// Peak output volume for the rain soundscape (0–1).
+        static let rainSoundVolume:  Float = 0.14
+        /// Peak output volume for the lo-fi soundscape (0–1).
+        static let lofiSoundVolume:  Float = 0.09
+        /// Peak output volume for the night soundscape (0–1).
+        static let nightSoundVolume: Float = 0.07
+        /// LFO frequency used to add gentle lo-fi tremolo (Hz).
+        static let lofiLFOFrequency: Float = 0.10
+        /// Steps used for the volume fade-in / fade-out timer.
+        static let soundFadeSteps:   Int   = 20
+        /// Sample rate of the synthesised audio (Hz).
+        static let sampleRate:       Double = 44_100
+        /// Pre-computed lo-fi LFO phase increment per audio sample (radians).
+        /// = 2π × lofiLFOFrequency / sampleRate
+        static let lofiLFOIncrement: Float = Float(
+            2.0 * Double.pi * Double(lofiLFOFrequency) / sampleRate
+        )
     }
 
     // MARK: - State
 
-    private let reduceMotion: Bool
     private(set) var activeScene: AmbientScene?
 
     /// Container holding all ambient sublayers — removed on deactivate.
     private weak var ambientContainer: CALayer?
 
-    /// Looping audio player for the active scene's soundscape.
-    /// `nil` when no scene is active or when the audio asset is absent from
-    /// the bundle (the engine degrades gracefully to visuals-only).
-    private var audioPlayer: AVAudioPlayer?
-
-    /// A repeating timer used to smoothly fade the audio volume to zero on
-    /// deactivation, then stop the player once silence is reached.
-    private var fadeTimer: Timer?
-
-    init() {
-        reduceMotion = UIAccessibility.isReduceMotionEnabled
+    /// Current adaptive effect intensity.  Updated by the owning view.
+    var effectIntensity: EffectIntensity = .full {
+        didSet {
+            guard oldValue != effectIntensity, let scene = activeScene else { return }
+            // Adjust live volume when intensity changes while a scene is active.
+            let target = resolvedSoundVolume(for: scene)
+            audioEngine?.mainMixerNode.outputVolume = target
+        }
     }
 
-    /// Current adaptive effect intensity.  Updated by the owning view.
-    var effectIntensity: EffectIntensity = .full
+    // MARK: - Sound state
+
+    /// `true` when the user has not muted ambient sound.
+    var soundEnabled: Bool = true {
+        didSet {
+            guard oldValue != soundEnabled else { return }
+            if soundEnabled, let scene = activeScene {
+                startAudio(for: scene)
+            } else if !soundEnabled {
+                stopAudio(immediate: true)
+            }
+        }
+    }
+
+    private var audioEngine:     AVAudioEngine?
+    private var audioSourceNode: AVAudioSourceNode?
+    private var volumeFadeTimer: Timer?
 
     // MARK: - Transition Duration
 
     private var fadeDuration: CFTimeInterval {
-        reduceMotion ? Tuning.reducedMotionDuration
+        ReduceMotionObserver.shared.isEnabled ? Tuning.reducedMotionDuration
         : (effectIntensity.allowsAmbientAnimations ? Tuning.transitionDuration
            : Tuning.reducedMotionDuration)
     }
@@ -231,8 +236,10 @@ final class AmbientEnvironmentEngine {
         // Fade in.
         animateOpacity(of: group, to: 1.0)
 
-        // Start looping soundscape for this scene.
-        startAudio(for: scene)
+        // Start synthesised soundscape.
+        if soundEnabled {
+            startAudio(for: scene)
+        }
 
         // Subtle toolbar dimming for immersion.
         toolStore.toolbarOpacity = 0.45
@@ -252,9 +259,7 @@ final class AmbientEnvironmentEngine {
             container.removeFromSuperlayer()
         }
 
-        // Fade audio out smoothly before stopping.
-        stopAudio(fade: true)
-
+        stopAudio(immediate: false)
         toolStore.toolbarOpacity = 1.0
     }
 
@@ -273,7 +278,160 @@ final class AmbientEnvironmentEngine {
         ambientContainer?.removeFromSuperlayer()
         ambientContainer = nil
         activeScene = nil
-        stopAudio(fade: false)
+        stopAudio(immediate: true)
+    }
+
+    // MARK: - Rain Study Scene
+
+    // MARK: - Ambient Sound Engine
+
+    /// Starts the scene-specific synthesised soundscape with a smooth fade-in.
+    private func startAudio(for scene: AmbientScene) {
+        stopAudio(immediate: true)
+
+        // Configure audio session to mix with other app audio (music, etc.).
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+        try? session.setActive(true)
+
+        let engine = AVAudioEngine()
+        let sampleRate = Tuning.sampleRate
+        guard let format = AVAudioFormat(
+            standardFormatWithSampleRate: sampleRate,
+            channels: 1
+        ) else { return }
+
+        // Capture mutable noise state by reference via a helper class so the
+        // render closure (which runs on the real-time audio thread) never touches
+        // `self` — avoiding any potential data races.
+        let noiseState = NoiseState()
+        let capturedScene = scene
+
+        let sourceNode = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList in
+            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            guard let bufPtr = ablPointer.first.map({ UnsafeMutableBufferPointer<Float>($0) }) else {
+                return noErr
+            }
+            for i in 0..<Int(frameCount) {
+                let sample: Float
+                switch capturedScene {
+                case .rainStudy:
+                    sample = noiseState.pinkNoise()
+                case .lofiLight:
+                    // Pink noise with gentle LFO tremolo for lo-fi warmth.
+                    let lfoValue = 0.85 + 0.15 * sinf(noiseState.lfoPhase)
+                    noiseState.lfoPhase += Tuning.lofiLFOIncrement
+                    if noiseState.lfoPhase > Float(2.0 * Double.pi) {
+                        noiseState.lfoPhase -= Float(2.0 * Double.pi)
+                    }
+                    sample = noiseState.pinkNoise() * lfoValue
+                case .nightGrain:
+                    // Brown noise — deeper, bass-heavy for late-night atmosphere.
+                    sample = noiseState.brownNoise()
+                }
+                bufPtr[i] = sample
+            }
+            return noErr
+        }
+
+        engine.attach(sourceNode)
+        engine.connect(sourceNode, to: engine.mainMixerNode, format: format)
+        // Start at zero; fade in below.
+        engine.mainMixerNode.outputVolume = 0
+
+        do {
+            try engine.start()
+        } catch {
+            return
+        }
+
+        self.audioEngine     = engine
+        self.audioSourceNode = sourceNode
+
+        // Fade volume in over the scene transition duration.
+        fadeVolume(to: resolvedSoundVolume(for: scene), steps: Tuning.soundFadeSteps,
+                   interval: Tuning.transitionDuration / Double(Tuning.soundFadeSteps))
+    }
+
+    /// Stops the soundscape with an optional fade-out.
+    private func stopAudio(immediate: Bool) {
+        volumeFadeTimer?.invalidate()
+        volumeFadeTimer = nil
+
+        guard let engine = audioEngine else { return }
+
+        if immediate {
+            engine.stop()
+            audioEngine     = nil
+            audioSourceNode = nil
+        } else {
+            // Fade out then stop.
+            let startVolume = engine.mainMixerNode.outputVolume
+            let steps       = Tuning.soundFadeSteps
+            let interval    = Tuning.transitionDuration / Double(steps)
+            let delta       = startVolume / Float(steps)
+            var step        = 0
+            let t = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) {
+                [weak self, weak engine] timer in
+                guard let engine else { timer.invalidate(); return }
+                step += 1
+                engine.mainMixerNode.outputVolume = max(0, startVolume - delta * Float(step))
+                if step >= steps {
+                    timer.invalidate()
+                    engine.stop()
+                    self?.audioEngine     = nil
+                    self?.audioSourceNode = nil
+                }
+            }
+            RunLoop.main.add(t, forMode: .common)
+            volumeFadeTimer = t
+        }
+    }
+
+    /// Smoothly ramps the mixer's output volume to `target` over `steps` timer ticks.
+    private func fadeVolume(to target: Float, steps: Int, interval: TimeInterval) {
+        volumeFadeTimer?.invalidate()
+        volumeFadeTimer = nil
+
+        guard let engine = audioEngine else { return }
+        let startVolume = engine.mainMixerNode.outputVolume
+        let delta       = (target - startVolume) / Float(steps)
+        var step        = 0
+
+        let t = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) {
+            [weak self, weak engine] timer in
+            guard let engine else { timer.invalidate(); return }
+            step += 1
+            engine.mainMixerNode.outputVolume = startVolume + delta * Float(step)
+            if step >= steps {
+                timer.invalidate()
+                self?.volumeFadeTimer = nil
+                engine.mainMixerNode.outputVolume = target
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        volumeFadeTimer = t
+    }
+
+    /// Returns the effective peak volume for a scene, scaled by intensity and power mode.
+    private func resolvedSoundVolume(for scene: AmbientScene) -> Float {
+        let base: Float
+        switch scene {
+        case .rainStudy:  base = Tuning.rainSoundVolume
+        case .lofiLight:  base = Tuning.lofiSoundVolume
+        case .nightGrain: base = Tuning.nightSoundVolume
+        }
+        var vol = base
+        switch effectIntensity {
+        case .full:    break
+        case .reduced: vol *= 0.6
+        case .minimal: return 0
+        }
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            // Halve volume in Low Power Mode to reduce audio processing load.
+            vol *= 0.5
+        }
+        return vol
     }
 
     // MARK: - Rain Study Scene
@@ -305,7 +463,7 @@ final class AmbientEnvironmentEngine {
             streak.cornerRadius = Tuning.rainStreakWidth / 2
             group.addSublayer(streak)
 
-            if !reduceMotion && effectIntensity.allowsAmbientAnimations {
+            if !ReduceMotionObserver.shared.isEnabled && effectIntensity.allowsAmbientAnimations {
                 let drift = CABasicAnimation(keyPath: "position.y")
                 drift.fromValue = -h / 2
                 drift.toValue = bounds.height + h / 2
@@ -332,7 +490,7 @@ final class AmbientEnvironmentEngine {
         group.addSublayer(wash)
 
         // 2. Slow brightness pulse.
-        if !reduceMotion && effectIntensity.allowsAmbientAnimations {
+        if !ReduceMotionObserver.shared.isEnabled && effectIntensity.allowsAmbientAnimations {
             let pulse = CABasicAnimation(keyPath: "opacity")
             pulse.fromValue = Tuning.lofiWashOpacity - Tuning.lofiPulseAmplitude
             pulse.toValue   = Tuning.lofiWashOpacity + Tuning.lofiPulseAmplitude
@@ -364,7 +522,7 @@ final class AmbientEnvironmentEngine {
         group.addSublayer(grain)
 
         // 3. Slow parallax drift on the grain layer.
-        if !reduceMotion && effectIntensity.allowsAmbientAnimations {
+        if !ReduceMotionObserver.shared.isEnabled && effectIntensity.allowsAmbientAnimations {
             let driftX = CABasicAnimation(keyPath: "position.x")
             driftX.fromValue = grain.position.x
             driftX.toValue   = grain.position.x + Tuning.nightGrainDriftSpeed * CGFloat(Tuning.nightGrainDriftDuration)
@@ -446,126 +604,6 @@ final class AmbientEnvironmentEngine {
         return layer
     }
 
-    // MARK: - Sound Playback
-
-    /// Starts looping audio for the given scene.
-    ///
-    /// Uses `AVAudioSession.Category.ambient` so the soundscape mixes with
-    /// the user's own music / podcasts and does not interrupt other apps.
-    /// Audio is silenced entirely when `effectIntensity` is `.minimal` (e.g.
-    /// very high writing velocity or low-power mode override) and reduced in
-    /// volume at `.reduced` intensity.
-    private func startAudio(for scene: AmbientScene) {
-        // Determine the target volume; skip playback at minimal intensity.
-        let targetVolume = resolvedSoundVolume
-        guard targetVolume > 0 else { return }
-
-        // Resolve bundle resource name for the scene.
-        let resourceName: String
-        switch scene {
-        case .rainStudy:  resourceName = Tuning.rainSoundName
-        case .lofiLight:  resourceName = Tuning.lofiSoundName
-        case .nightGrain: resourceName = Tuning.nightSoundName
-        }
-
-        // Look up the audio file in the main bundle.  Supported extensions
-        // are tried in order; the first match wins.
-        var audioURL: URL?
-        for ext in Tuning.soundExtensions {
-            if let url = Bundle.main.url(forResource: resourceName, withExtension: ext) {
-                audioURL = url
-                break
-            }
-        }
-        guard let url = audioURL else {
-            // Audio asset not present in bundle — degrade gracefully to
-            // visuals-only.  This is expected in builds without audio assets.
-            return
-        }
-
-        do {
-            // Configure AVAudioSession to use the ambient category so that:
-            // • the soundscape mixes with background music / media apps, and
-            // • playback respects the hardware ringer/silent switch.
-            try AVAudioSession.sharedInstance().setCategory(
-                .ambient,
-                mode: .default,
-                options: []
-            )
-            try AVAudioSession.sharedInstance().setActive(true)
-
-            let player = try AVAudioPlayer(contentsOf: url)
-            player.numberOfLoops = -1  // Loop indefinitely.
-            player.volume = targetVolume
-            player.prepareToPlay()
-            player.play()
-            audioPlayer = player
-        } catch {
-            // Failed to initialise — proceed without audio.
-            audioPlayer = nil
-        }
-    }
-
-    /// Stops the active audio player, optionally fading the volume to zero
-    /// first so the cut-off isn't abrupt.
-    private func stopAudio(fade: Bool) {
-        // Cancel any in-flight fade.
-        fadeTimer?.invalidate()
-        fadeTimer = nil
-
-        guard let player = audioPlayer else { return }
-
-        if fade && player.isPlaying {
-            // Gradually reduce volume in small steps over `soundFadeDuration`.
-            let stepInterval = Tuning.soundFadeStepInterval
-            let steps = max(1, Int(Tuning.soundFadeDuration / stepInterval))
-            let volumeStep = player.volume / Float(steps)
-
-            // Explicitly schedule on RunLoop.main so the timer fires reliably
-            // regardless of which thread this method is called from.
-            let timer = Timer(
-                timeInterval: stepInterval,
-                repeats: true
-            ) { [weak self, weak player] timer in
-                guard let player else {
-                    timer.invalidate()
-                    self?.fadeTimer = nil
-                    return
-                }
-                player.volume = max(0, player.volume - volumeStep)
-                if player.volume <= 0 {
-                    timer.invalidate()
-                    self?.fadeTimer = nil
-                    self?.finaliseStop(player: player)
-                }
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            fadeTimer = timer
-        } else {
-            finaliseStop(player: player)
-        }
-    }
-
-    /// Stops `player` and clears the `audioPlayer` reference.
-    private func finaliseStop(player: AVAudioPlayer) {
-        player.stop()
-        audioPlayer = nil
-    }
-
-    /// Volume for the current effect intensity, also considering low power
-    /// mode — halves the master volume when the device is in low-power mode.
-    private var resolvedSoundVolume: Float {
-        let lowPowerMultiplier: Float = ProcessInfo.processInfo.isLowPowerModeEnabled ? 0.5 : 1.0
-        switch effectIntensity {
-        case .minimal:
-            return 0
-        case .reduced:
-            return Tuning.soundVolume * Tuning.soundReducedMultiplier * lowPowerMultiplier
-        case .full:
-            return Tuning.soundVolume * lowPowerMultiplier
-        }
-    }
-
     // MARK: - Vignette Factory
 
     private func makeVignette(bounds: CGRect, opacity: Float) -> CAGradientLayer {
@@ -608,5 +646,54 @@ final class AmbientEnvironmentEngine {
         } else {
             layer.add(anim, forKey: "ambientFade")
         }
+    }
+}
+
+// MARK: - NoiseState
+
+/// Mutable noise generator state passed into the real-time audio render closure.
+/// Using a reference type avoids capturing `self` (AmbientEnvironmentEngine) from the
+/// render callback, which would introduce a retain cycle and potential data race.
+private final class NoiseState {
+    // Pink-noise filter coefficients (Paul Kellet's algorithm).
+    var b0: Float = 0, b1: Float = 0, b2: Float = 0
+    var b3: Float = 0, b4: Float = 0, b5: Float = 0
+    // Brown-noise integrator.
+    var bnLastOut: Float = 0
+    // Lo-fi LFO phase (radians).
+    var lfoPhase: Float = 0
+    // LCG PRNG state — fast, lock-free, suitable for audio thread.
+    var lcgState: UInt32 = 2_463_534_242
+
+    /// Returns the next pink-noise sample in the approximate range ±0.5.
+    ///
+    /// Uses Paul Kellet's pink-noise IIR filter (3rd-order Yule-Walker approximation).
+    /// The six filter coefficients (0.99886…) are the pole locations that shape the
+    /// spectrum to approximate a −3 dB/octave roll-off characteristic of pink noise.
+    @inline(__always)
+    func pinkNoise() -> Float {
+        let white = lcgFloat()
+        b0 = 0.99886 * b0 + white * 0.0555179
+        b1 = 0.99332 * b1 + white * 0.0750759
+        b2 = 0.96900 * b2 + white * 0.1538520
+        b3 = 0.86650 * b3 + white * 0.3104856
+        b4 = 0.55000 * b4 + white * 0.5329522
+        b5 = -0.7616 * b5 - white * 0.0168980
+        return (b0 + b1 + b2 + b3 + b4 + b5 + white * 0.5362) * 0.11
+    }
+
+    /// Returns the next brown-noise sample (deeper, bass-heavy).
+    @inline(__always)
+    func brownNoise() -> Float {
+        let white = lcgFloat()
+        bnLastOut = (bnLastOut + 0.02 * white) / 1.02
+        return bnLastOut * 3.5
+    }
+
+    /// Returns a uniform random Float in [-1, 1] using an LCG PRNG.
+    @inline(__always)
+    private func lcgFloat() -> Float {
+        lcgState = lcgState &* 1_664_525 &+ 1_013_904_223
+        return (Float(lcgState) / Float(UInt32.max)) * 2.0 - 1.0
     }
 }
