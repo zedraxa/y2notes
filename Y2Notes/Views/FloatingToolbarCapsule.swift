@@ -179,6 +179,9 @@ struct FloatingToolbarCapsule: View {
             // Widget
             widgetButton
 
+            // Text
+            textToolButton
+
             // Focus mode
             focusModeButton
 
@@ -363,6 +366,34 @@ struct FloatingToolbarCapsule: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Widget")
+    }
+
+    // MARK: - Text Tool Button
+
+    @ViewBuilder
+    private var textToolButton: some View {
+        let isActive = toolStore.activeTool == .text
+        Button {
+            if isActive {
+                toolStore.activeTool = .pen
+            } else {
+                toolStore.activeTool = .text
+            }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "character.cursor.ibeam")
+                    .font(.system(size: 15, weight: isActive ? .semibold : .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(isActive ? Color.accentColor : Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Text")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     // MARK: - Focus Mode Button

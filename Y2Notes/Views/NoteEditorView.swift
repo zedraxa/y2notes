@@ -397,6 +397,27 @@ struct NoteEditorView: View {
                     }
                 }
             },
+            isTextToolActive: toolStore.activeTool == .text,
+            currentPageTextObjects: note.textObjects(forPage: safePageIndex),
+            onTextObjectsChanged: { textObjects in
+                noteStore.updateTextObjects(for: note.id, pageIndex: safePageIndex, textObjects: textObjects)
+            },
+            onTextObjectSelectionChanged: { textObjectID in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeTextObjectSelection = textObjectID
+                    // Clear other selections when a text object is selected
+                    if textObjectID != nil {
+                        toolStore.activeShapeSelection = nil
+                        toolStore.activeStickerSelection = nil
+                        toolStore.activeAttachmentSelection = nil
+                        toolStore.activeWidgetSelection = nil
+                        toolStore.hasActiveSelection = false
+                    }
+                }
+            },
+            onPlaceTextObject: { point in
+                placeTextObject(at: point)
+            },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
             isStudyModeActive: toolStore.isStudyModeActive
@@ -717,6 +738,43 @@ struct NoteEditorView: View {
             toolStore.activeShapeSelection = nil
             toolStore.activeStickerSelection = nil
             toolStore.activeAttachmentSelection = nil
+            toolStore.hasActiveSelection = false
+        }
+    }
+
+    // MARK: - Text Object Placement
+
+    /// Places a new empty text box anchored at the given page-coordinate point.
+    private func placeTextObject(at tapPoint: CGPoint) {
+        let pageIdx = currentPageIndex
+        var objects = note.textObjects(forPage: pageIdx)
+
+        // Enforce per-page limit
+        guard objects.count < TextObjectConstants.maxTextObjectsPerPage else { return }
+
+        let maxZ = objects.map(\.zIndex).max() ?? 0
+        let size = TextObjectConstants.defaultSize
+        // Centre the box on the tap point
+        let origin = CGPoint(x: tapPoint.x - size.width / 2, y: tapPoint.y - size.height / 2)
+        let frame = CGRect(origin: origin, size: size)
+
+        let obj = TextObject(
+            frame: frame,
+            fontSize: 16,
+            textColor: .label,
+            zIndex: maxZ + 1
+        )
+
+        objects.append(obj)
+        noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: objects)
+
+        // Auto-select so the user can immediately start editing
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            toolStore.activeTextObjectSelection = obj.id
+            toolStore.activeShapeSelection = nil
+            toolStore.activeStickerSelection = nil
+            toolStore.activeAttachmentSelection = nil
+            toolStore.activeWidgetSelection = nil
             toolStore.hasActiveSelection = false
         }
     }
@@ -1555,6 +1613,17 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Whether the text tool is active (text canvas overlay intercepts touches).
+    var isTextToolActive: Bool = false
+    /// Text objects for the current page.
+    var currentPageTextObjects: [TextObject] = []
+    /// Callback to persist text object changes.
+    var onTextObjectsChanged: (([TextObject]) -> Void)?
+    /// Callback when text object selection changes.
+    var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+    /// Called when the user taps an empty area while the text tool is active.
+    var onPlaceTextObject: ((CGPoint) -> Void)?
+
     /// Total number of pages in the note, used for adaptive effects complexity signals.
     var pageCount: Int = 1
 
@@ -1772,6 +1841,32 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.widgetCanvas = widgetCanvas
 
+        // ── Text object canvas (anchored text boxes layer) ───────────────────
+        let textCanvas = TextCanvasView(frame: .zero)
+        textCanvas.translatesAutoresizingMaskIntoConstraints = false
+        textCanvas.isTextToolActive = isTextToolActive
+        textCanvas.textObjects = currentPageTextObjects
+        textCanvas.onSelectionChanged = { textObjectID in
+            context.coordinator.onTextObjectSelectionChanged?(textObjectID)
+        }
+        textCanvas.onTextObjectsChanged = { textObjects in
+            context.coordinator.handleTextObjectsChanged(textObjects)
+        }
+        textCanvas.onPlaceTextObject = { point in
+            context.coordinator.onPlaceTextObject?(point)
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onPlaceTextObject = onPlaceTextObject
+        container.addSubview(textCanvas)
+        NSLayoutConstraint.activate([
+            textCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            textCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            textCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            textCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.textCanvas = textCanvas
+
         // ── Shape object canvas (editable shapes layer) ──────────────────────
         let shapeCanvas = ShapeCanvasView(frame: .zero)
         shapeCanvas.translatesAutoresizingMaskIntoConstraints = false
@@ -1965,6 +2060,16 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
 
+        // Sync text object canvas.
+        if let textCanvas = context.coordinator.textCanvas {
+            textCanvas.isTextToolActive = isTextToolActive
+            textCanvas.textObjects = currentPageTextObjects
+            textCanvas.selectedTextObjectID = toolStoreForFade?.activeTextObjectSelection
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onPlaceTextObject = onPlaceTextObject
+
         // Zoom reset: animate to 1× when the trigger value flips.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -2111,6 +2216,21 @@ struct CanvasView: UIViewRepresentable {
 
         /// Callback when widget selection changes.
         var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+        /// Text object canvas overlay for the current page.
+        weak var textCanvas: TextCanvasView?
+
+        /// Debounce timer for persisting text object changes.
+        private var textDebounceTimer: Timer?
+
+        /// Callback to persist text object changes.
+        var onTextObjectsChanged: (([TextObject]) -> Void)?
+
+        /// Callback when text object selection changes.
+        var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+
+        /// Called when the user taps empty space with the text tool active.
+        var onPlaceTextObject: ((CGPoint) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
@@ -2604,6 +2724,19 @@ struct CanvasView: UIViewRepresentable {
                 repeats: false
             ) { [weak self] _ in
                 self?.onWidgetsChanged?(widgets)
+            }
+        }
+
+        // MARK: - Text Object Coordinator
+
+        /// Debounced persistence for text object changes.
+        func handleTextObjectsChanged(_ textObjects: [TextObject]) {
+            textDebounceTimer?.invalidate()
+            textDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: TextObjectConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onTextObjectsChanged?(textObjects)
             }
         }
 

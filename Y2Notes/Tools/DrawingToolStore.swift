@@ -112,6 +112,15 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts false.
     @Published var isWidgetPickerPresented: Bool = false
 
+    // MARK: - Text Object State
+
+    /// The ID of the currently selected text object on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeTextObjectSelection: UUID?
+
+    /// Convenience: true when any text object is selected.
+    var hasActiveTextObjectSelection: Bool { activeTextObjectSelection != nil }
+
     // MARK: - Recording State
 
     /// Whether an audio recording is currently in progress.
@@ -193,6 +202,10 @@ final class DrawingToolStore: ObservableObject {
             return PKInkingTool(.pen, color: inkColor, width: activeWidth)
         case .sticker:
             // The sticker overlay handles interaction; canvas uses lasso as fallback
+            // so accidental touches don't create ink strokes.
+            return PKLassoTool()
+        case .text:
+            // The text canvas overlay handles interaction; canvas uses lasso as fallback
             // so accidental touches don't create ink strokes.
             return PKLassoTool()
         }

@@ -88,6 +88,11 @@ struct Note: Identifiable, Codable, Hashable {
     /// An empty outer array means no pages have widgets yet.
     var widgetLayers: [[NoteWidget]?]
 
+    /// Per-page text objects — parallel array to `pages`.
+    /// Each element is an array of text objects placed on that page, or `nil` (no text objects).
+    /// An empty outer array means no pages have text objects yet.
+    var textLayers: [[TextObject]?]
+
     /// Expandable canvas regions attached to page edges.
     /// Sparse — only pages that have been expanded carry entries.
     /// An empty array means no pages have expansion regions (default).
@@ -115,6 +120,12 @@ struct Note: Identifiable, Codable, Hashable {
     func widgets(forPage index: Int) -> [NoteWidget] {
         guard index >= 0 && index < widgetLayers.count else { return [] }
         return widgetLayers[index] ?? []
+    }
+
+    /// Returns the text objects for the given page index, or an empty array.
+    func textObjects(forPage index: Int) -> [TextObject] {
+        guard index >= 0 && index < textLayers.count else { return [] }
+        return textLayers[index] ?? []
     }
 
     /// Returns the visible (non-collapsed) expansion regions for the given page index.
@@ -177,6 +188,7 @@ struct Note: Identifiable, Codable, Hashable {
         shapeLayers: [[ShapeInstance]?] = [],
         attachmentLayers: [[AttachmentObject]?] = [],
         widgetLayers: [[NoteWidget]?] = [],
+        textLayers: [[TextObject]?] = [],
         expansionRegions: [PageRegion] = [],
         pdfFilename: String? = nil,
         typedText: String = "",
@@ -201,6 +213,7 @@ struct Note: Identifiable, Codable, Hashable {
         self.shapeLayers = shapeLayers
         self.attachmentLayers = attachmentLayers
         self.widgetLayers = widgetLayers
+        self.textLayers = textLayers
         self.expansionRegions = expansionRegions
         self.pdfFilename = pdfFilename
         self.typedText = typedText
@@ -213,7 +226,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, expansionRegions, pdfFilename
+        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, textLayers, expansionRegions, pdfFilename
         case typedText, ocrText
     }
 
@@ -247,6 +260,7 @@ struct Note: Identifiable, Codable, Hashable {
         shapeLayers   = try c.decodeIfPresent([[ShapeInstance]?].self,   forKey: .shapeLayers)   ?? []
         attachmentLayers = try c.decodeIfPresent([[AttachmentObject]?].self, forKey: .attachmentLayers) ?? []
         widgetLayers  = try c.decodeIfPresent([[NoteWidget]?].self, forKey: .widgetLayers) ?? []
+        textLayers    = try c.decodeIfPresent([[TextObject]?].self,  forKey: .textLayers)   ?? []
         expansionRegions = try c.decodeIfPresent([PageRegion].self, forKey: .expansionRegions) ?? []
         pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
@@ -280,6 +294,7 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encode(shapeLayers,              forKey: .shapeLayers)
         try c.encode(attachmentLayers,         forKey: .attachmentLayers)
         try c.encode(widgetLayers,             forKey: .widgetLayers)
+        try c.encode(textLayers,               forKey: .textLayers)
         try c.encode(expansionRegions,          forKey: .expansionRegions)
         try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
         try c.encode(typedText,     forKey: .typedText)
