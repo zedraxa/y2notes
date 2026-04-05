@@ -1915,6 +1915,13 @@ struct CanvasView: UIViewRepresentable {
         engine.attach(to: container)
         context.coordinator.effectEngine = engine
 
+        // ── Writing Effects Pipeline (glow, neon, trail, taper, pooling) ───
+        context.coordinator.writingPipeline.attach(to: container)
+        context.coordinator.writingPipeline.configure(
+            config: toolStoreForFade?.writingEffectConfig ?? .default,
+            color: toolStoreForFade?.activeColor ?? .black
+        )
+
         // ── Page gestures (two-finger pan + three-finger pinch) ──────────────
         // Two-finger horizontal pan navigates pages.  Using a pan recogniser
         // (instead of a swipe) allows the page to follow the finger in real-time,
@@ -2133,6 +2140,12 @@ struct CanvasView: UIViewRepresentable {
             engine.syncLayerFrames()
             engine.configure(fx: activeFX, color: fxColor)
         }
+
+        // Sync writing effects pipeline when the pen tool or colour changes.
+        context.coordinator.writingPipeline.configure(
+            config: toolStoreRef?.writingEffectConfig ?? .default,
+            color: toolStoreRef?.activeColor ?? .black
+        )
     }
 
     // MARK: - Ruling line color helper
@@ -2217,6 +2230,7 @@ struct CanvasView: UIViewRepresentable {
         var magicModeEngine: MagicModeEngine           { effects.magicModeEngine }
         var studyModeEngine: StudyModeEngine           { effects.studyModeEngine }
         var adaptiveEffectsEngine: AdaptiveEffectsEngine { effects.adaptiveEngine }
+        var writingPipeline: WritingEffectsPipeline    { effects.writingEffectsPipeline }
         var microInteractionEngine: MicroInteractionEngine { effects.microInteractionEngine }
         var snapAlignEffectEngine: SnapAlignEffectEngine { effects.snapAlignEffectEngine }
         var interactionFeedback: InteractionFeedbackEngine { effects.interactionFeedbackEngine }
@@ -2549,6 +2563,11 @@ struct CanvasView: UIViewRepresentable {
                 let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeBegan(at: center)
             }
+            // Notify writing effects pipeline of stroke start (taper, pooling, glow).
+            do {
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                writingPipeline.onStrokeBegan(at: center)
+            }
             // Notify magic mode engine of stroke start for writing particles.
             if magicModeEngine.isActive,
                let inkTool = canvasView.tool as? PKInkingTool {
@@ -2616,6 +2635,8 @@ struct CanvasView: UIViewRepresentable {
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
+            // Notify writing effects pipeline of stroke end (taper tail, glow fade).
+            writingPipeline.onStrokeEnded()
             // Notify magic mode engine of stroke end — fires keyword glow and
             // optional underline highlight.
             if magicModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
@@ -2826,6 +2847,38 @@ struct CanvasView: UIViewRepresentable {
                         in: canvasView
                     )
                     engine.onStrokeUpdated(at: vp)
+                }
+            }
+
+            // Feed latest stroke point to the writing effects pipeline (glow, trail, pooling).
+            do {
+                let lastStroke = canvasView.drawing.strokes.last
+                if let lastPoint = lastStroke?.path.last {
+                    let vp = viewportPoint(
+                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                        in: canvasView
+                    )
+                    // Derive inter-point velocity from the stroke path spacing.
+                    // PKStrokePoint.timeOffset is in seconds from the stroke start.
+                    // The fallback represents a moderate hand speed when timing data is unavailable.
+                    let pipelineFallbackVelocity: CGFloat = VelocityThicknessParams.velocityCeiling / 4
+                    let velocity: CGFloat
+                    if let path = lastStroke?.path, path.count >= 2 {
+                        let prev = path[path.count - 2]
+                        let curr = path[path.count - 1]
+                        let dt = curr.timeOffset - prev.timeOffset
+                        if dt > 0 {
+                            let dx = curr.location.x - prev.location.x
+                            let dy = curr.location.y - prev.location.y
+                            velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
+                        } else {
+                            velocity = pipelineFallbackVelocity
+                        }
+                    } else {
+                        velocity = pipelineFallbackVelocity
+                    }
+                    let pressure = lastStroke?.path.last?.force ?? 1.0
+                    writingPipeline.onStrokeUpdated(at: vp, pressure: pressure, velocity: velocity)
                 }
             }
 

@@ -55,6 +55,12 @@ final class DrawingToolStore: ObservableObject {
         didSet { UserDefaults.standard.set(activeOpacity, forKey: Keys.opacity) }
     }
 
+    /// The physical character of the pen tool (ballpoint, gel, felt-tip, etc.).
+    /// Only applied when `activeTool == .pen`.  Persisted to UserDefaults.
+    @Published var activePenSubType: PenSubType = .ballpoint {
+        didSet { UserDefaults.standard.set(activePenSubType.rawValue, forKey: Keys.penSubType) }
+    }
+
     @Published var recentColors: [UIColor] = []
 
     @Published var presets: [ToolPreset] = [] {
@@ -201,7 +207,10 @@ final class DrawingToolStore: ObservableObject {
     var pkTool: PKTool {
         switch activeTool {
         case .pen:
-            return PKInkingTool(.pen, color: inkColor, width: activeWidth)
+            // Apply the pen sub-type's width multiplier so each character feels
+            // physically distinct (e.g. felt-tip is 1.6× broader by default).
+            let penWidth = activeWidth * Double(activePenSubType.widthMultiplier)
+            return PKInkingTool(.pen, color: inkColor, width: penWidth)
         case .pencil:
             return PKInkingTool(.pencil, color: inkColor, width: activeWidth)
         case .highlighter:
@@ -271,6 +280,19 @@ final class DrawingToolStore: ObservableObject {
         if clamped != activeWidth { activeWidth = clamped }
     }
 
+    /// The `WritingEffectConfig` for the current pen state.
+    ///
+    /// When the active tool is `.pen` the config is derived from `activePenSubType`
+    /// (pressure curve, ink flow, taper, pooling).  For all other tools the
+    /// default config is returned so the pipeline stays dormant.
+    ///
+    /// Pass this to `WritingEffectsPipeline.configure(config:color:)` whenever
+    /// the tool or sub-type changes.
+    var writingEffectConfig: WritingEffectConfig {
+        guard activeTool == .pen else { return .default }
+        return activePenSubType.makeWritingEffectConfig()
+    }
+
     // MARK: - Recent Colors
 
     /// Maximum number of recent colours to keep.
@@ -310,16 +332,20 @@ final class DrawingToolStore: ObservableObject {
             name: resolved.isEmpty ? activeTool.displayName : resolved,
             tool: activeTool,
             color: activeColor,
-            width: activeWidth
+            width: activeWidth,
+            penSubType: activeTool == .pen ? activePenSubType : nil
         )
         presets.append(preset)
     }
 
-    /// Restores the tool, colour, and width from a saved preset.
+    /// Restores the tool, colour, width, and — for pen presets — sub-type from a saved preset.
     func applyPreset(_ preset: ToolPreset) {
         activeTool   = preset.tool
         activeColor  = preset.uiColor
         activeWidth  = preset.width
+        if preset.tool == .pen, let sub = preset.penSubType {
+            activePenSubType = sub
+        }
     }
 
     /// Toggles the favourite star on a preset.
@@ -367,6 +393,7 @@ final class DrawingToolStore: ObservableObject {
         static let presets    = "y2notes.tool.presets"
         static let opacity    = "y2notes.tool.opacity"
         static let toolbarMinimized = "y2notes.tool.toolbarMinimized"
+        static let penSubType = "y2notes.tool.penSubType"
         static let magicModeActive  = "y2notes.tool.magicModeActive"
         static let studyModeActive  = "y2notes.tool.studyModeActive"
     }
@@ -433,6 +460,10 @@ final class DrawingToolStore: ObservableObject {
         }
 
         isToolbarMinimized = ud.bool(forKey: Keys.toolbarMinimized)
+
+        if let raw = ud.string(forKey: Keys.penSubType), let sub = PenSubType(rawValue: raw) {
+            activePenSubType = sub
+        }
 
         // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
         isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)

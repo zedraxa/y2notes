@@ -83,6 +83,8 @@ struct BookmarkListView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(bookmark.label.isEmpty ? resolvedLabel(for: bookmark) : bookmark.label)
+        .accessibilityHint("Navigates to this bookmarked page")
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 navigationStore.removeBookmark(id: bookmark.id)
@@ -102,6 +104,8 @@ struct BookmarkListView: View {
                 Label("Color", systemImage: "paintpalette")
             }
             .tint(.orange)
+            .accessibilityLabel("Change color tag")
+            .accessibilityHint("Cycles through available bookmark colors")
         }
     }
 

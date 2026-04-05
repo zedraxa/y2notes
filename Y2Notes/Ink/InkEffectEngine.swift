@@ -161,9 +161,9 @@ final class InkEffectEngine {
         glitchLayer.isHidden = true
         overlayView.layer.addSublayer(glitchLayer)
 
-        // Glow layer — 60×60 radial gradient, initially hidden
-        glowLayer.bounds = CGRect(x: 0, y: 0, width: 60, height: 60)
-        glowLayer.cornerRadius = 30
+        // Glow layer — 120×120 radial gradient, initially hidden
+        glowLayer.bounds = CGRect(x: 0, y: 0, width: 120, height: 120)
+        glowLayer.cornerRadius = 60
         glowLayer.isHidden = true
         overlayView.layer.addSublayer(glowLayer)
         // Fire glow layer — 80×80 warm amber aura, initially hidden
@@ -395,7 +395,7 @@ final class InkEffectEngine {
         // Calculate the per-layer budget once so cell fractions correctly sum to ≤ 1×budget.
         let budget = Float(min(tier.maxParticles, FireTuning.maxParticles))
         emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 4, height: 4)
+        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
         emitterLayer.isHidden     = false
         emitterLayer.emitterCells = [
             makeCoreFlameCell(budget: budget),
@@ -438,18 +438,18 @@ final class InkEffectEngine {
         let physics = ParticlePhysics.firePhysics
         let cell               = CAEmitterCell()
         cell.birthRate         = budget * FireTuning.midBudgetFraction
-        cell.lifetime          = 0.50
-        cell.lifetimeRange     = 0.25
-        cell.velocity          = 68
+        cell.lifetime          = 0.65
+        cell.lifetimeRange     = 0.35
+        cell.velocity          = 100
         cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
         cell.yAcceleration     = physics.effectiveGravity  // negative = rise (flames go up)
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi / 4           // wider than core
         cell.emissionLongitude = -.pi / 2
-        cell.scale             = 0.055
-        cell.scaleRange        = 0.022
-        cell.scaleSpeed        = -0.012
-        cell.alphaSpeed        = -1.8
+        cell.scale             = 0.14
+        cell.scaleRange        = 0.06
+        cell.scaleSpeed        = -0.020
+        cell.alphaSpeed        = -1.2
         cell.spin              = 0.6
         cell.spinRange         = physics.spinRange
         cell.color             = fireMidFlameColor(from: color).cgColor
@@ -490,7 +490,7 @@ final class InkEffectEngine {
 
     private func setupSparkleEmitter(color: UIColor) {
         emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 4, height: 4)
+        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
         emitterLayer.isHidden     = false
         emitterLayer.emitterCells = [makeSparkleCell(color: color)]
         emitterLayer.birthRate    = 0
@@ -499,24 +499,24 @@ final class InkEffectEngine {
     private func makeSparkleCell(color: UIColor) -> CAEmitterCell {
         let physics = ParticlePhysics.sparklePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 15)) * 0.6
-        cell.lifetime          = 0.35
-        cell.lifetimeRange     = 0.20
-        cell.velocity          = 45
+        cell.birthRate         = Float(min(tier.maxParticles, 30)) * 0.6
+        cell.lifetime          = 0.60
+        cell.lifetimeRange     = 0.30
+        cell.velocity          = 80
         cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
         cell.yAcceleration     = physics.effectiveGravity
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi * 2  // omnidirectional
-        cell.scale             = 0.025
-        cell.scaleRange        = 0.012
-        cell.scaleSpeed        = -0.020
-        cell.alphaSpeed        = -2.8
+        cell.scale             = 0.08
+        cell.scaleRange        = 0.04
+        cell.scaleSpeed        = -0.025
+        cell.alphaSpeed        = -1.4
         cell.spin              = 1.0
         cell.spinRange         = physics.spinRange
         cell.color             = color.withAlphaComponent(0.95).cgColor
         cell.redRange          = 0.12
         cell.blueRange         = 0.12
-        cell.contents          = circleCGImage(diameter: 8)
+        cell.contents          = circleCGImage(diameter: 20)
         return cell
     }
 
@@ -524,7 +524,7 @@ final class InkEffectEngine {
 
     private func setupRainbowEmitter() {
         emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 4, height: 4)
+        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
         emitterLayer.isHidden     = false
         rainbowHueOffset = 0
         emitterLayer.emitterCells = [makeRainbowCell()]
@@ -534,18 +534,18 @@ final class InkEffectEngine {
     private func makeRainbowCell() -> CAEmitterCell {
         let physics = ParticlePhysics.rainbowPhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 25)) * 0.7
-        cell.lifetime          = 0.6
-        cell.lifetimeRange     = 0.3
-        cell.velocity          = 30
+        cell.birthRate         = Float(min(tier.maxParticles, 45)) * 0.7
+        cell.lifetime          = 0.90
+        cell.lifetimeRange     = 0.40
+        cell.velocity          = 60
         cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
         cell.yAcceleration     = physics.effectiveGravity
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi * 2
-        cell.scale             = 0.03
-        cell.scaleRange        = 0.015
-        cell.scaleSpeed        = -0.012
-        cell.alphaSpeed        = -1.6
+        cell.scale             = 0.09
+        cell.scaleRange        = 0.04
+        cell.scaleSpeed        = -0.015
+        cell.alphaSpeed        = -0.8
         cell.spin              = 0.3
         cell.spinRange         = physics.spinRange
         // Start with red — hue will cycle via recolourEmitter on each update
@@ -553,7 +553,7 @@ final class InkEffectEngine {
         cell.redRange          = 0.15
         cell.greenRange        = 0.15
         cell.blueRange         = 0.15
-        cell.contents          = circleCGImage(diameter: 10)
+        cell.contents          = circleCGImage(diameter: 22)
         return cell
     }
 
@@ -561,7 +561,7 @@ final class InkEffectEngine {
 
     private func setupSnowEmitter(color: UIColor) {
         emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 20, height: 4)
+        emitterLayer.emitterSize  = CGSize(width: 35, height: 8)
         emitterLayer.isHidden     = false
         emitterLayer.emitterCells = [makeSnowCell(color: color)]
         emitterLayer.birthRate    = 0
@@ -570,18 +570,18 @@ final class InkEffectEngine {
     private func makeSnowCell(color: UIColor) -> CAEmitterCell {
         let physics = ParticlePhysics.snowPhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 20)) * 0.5
-        cell.lifetime          = 1.2
-        cell.lifetimeRange     = 0.5
-        cell.velocity          = 15
+        cell.birthRate         = Float(min(tier.maxParticles, 35)) * 0.5
+        cell.lifetime          = 1.8
+        cell.lifetimeRange     = 0.7
+        cell.velocity          = 28
         cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
         cell.yAcceleration     = physics.effectiveGravity  // gentle descent
         cell.xAcceleration     = physics.wind               // sideways drift
         cell.emissionRange     = .pi * 2
-        cell.scale             = 0.02
-        cell.scaleRange        = 0.015
-        cell.scaleSpeed        = -0.005
-        cell.alphaSpeed        = -0.8
+        cell.scale             = 0.06
+        cell.scaleRange        = 0.04
+        cell.scaleSpeed        = -0.006
+        cell.alphaSpeed        = -0.45
         cell.spin              = 0.3
         cell.spinRange         = physics.spinRange
         // White-ish with a tint from the user's colour
@@ -593,7 +593,7 @@ final class InkEffectEngine {
         cell.color             = UIColor(red: sr, green: sg, blue: sb, alpha: 0.85).cgColor
         cell.redRange          = 0.08
         cell.blueRange         = 0.08
-        cell.contents          = snowflakeCGImage(diameter: 10)
+        cell.contents          = snowflakeCGImage(diameter: 24)
         return cell
     }
 
@@ -601,7 +601,7 @@ final class InkEffectEngine {
 
     private func setupDissolveEmitter(color: UIColor) {
         emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
+        emitterLayer.emitterSize  = CGSize(width: 14, height: 14)
         emitterLayer.isHidden     = false
         emitterLayer.emitterCells = [makeDissolveCell(color: color)]
         emitterLayer.birthRate    = 0
@@ -610,24 +610,24 @@ final class InkEffectEngine {
     private func makeDissolveCell(color: UIColor) -> CAEmitterCell {
         let physics = ParticlePhysics.dissolvePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 35)) * 0.7
-        cell.lifetime          = 0.55
-        cell.lifetimeRange     = 0.3
-        cell.velocity          = 50
+        cell.birthRate         = Float(min(tier.maxParticles, 55)) * 0.7
+        cell.lifetime          = 0.80
+        cell.lifetimeRange     = 0.40
+        cell.velocity          = 85
         cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
         cell.yAcceleration     = physics.effectiveGravity  // crumble downward
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi * 2
-        cell.scale             = 0.018
-        cell.scaleRange        = 0.012
-        cell.scaleSpeed        = -0.025   // shrink as they disintegrate
-        cell.alphaSpeed        = -1.8
+        cell.scale             = 0.06
+        cell.scaleRange        = 0.035
+        cell.scaleSpeed        = -0.040   // shrink as they disintegrate
+        cell.alphaSpeed        = -1.0
         cell.spin              = 1.5
         cell.spinRange         = physics.spinRange
         cell.color             = color.withAlphaComponent(0.80).cgColor
         cell.redRange          = 0.10
         cell.greenRange        = 0.10
-        cell.contents          = squareCGImage(size: 6)
+        cell.contents          = squareCGImage(size: 14)
         return cell
     }
 
@@ -640,7 +640,7 @@ final class InkEffectEngine {
     }
 
     private func configureGlowColor(_ color: UIColor) {
-        let glowColor = color.withAlphaComponent(0.45)
+        let glowColor = color.withAlphaComponent(0.75)
         let clearColor = color.withAlphaComponent(0.0)
         glowLayer.colors = [glowColor.cgColor, clearColor.cgColor]
         glowLayer.locations = [0.0, 1.0]
@@ -806,7 +806,7 @@ final class InkEffectEngine {
         // Horizontal jitter
         let shiftAnim            = CABasicAnimation(keyPath: "transform.translation.x")
         shiftAnim.fromValue      = 0
-        shiftAnim.toValue        = CGFloat.random(in: -7...7)
+        shiftAnim.toValue        = CGFloat.random(in: -18...18)
         shiftAnim.duration       = 0.04
         shiftAnim.autoreverses   = true
         shiftAnim.isRemovedOnCompletion = true
@@ -814,7 +814,7 @@ final class InkEffectEngine {
         // Brief cyan-tint bleed (scan-line artefact)
         let tintAnim             = CABasicAnimation(keyPath: "backgroundColor")
         tintAnim.fromValue       = UIColor.clear.cgColor
-        tintAnim.toValue         = UIColor(red: 0, green: 1, blue: 0.9, alpha: 0.07).cgColor
+        tintAnim.toValue         = UIColor(red: 0, green: 1, blue: 0.9, alpha: 0.20).cgColor
         tintAnim.duration        = 0.04
         tintAnim.autoreverses    = true
         tintAnim.isRemovedOnCompletion = true
@@ -839,12 +839,12 @@ final class InkEffectEngine {
         let ring           = CAShapeLayer()
         ring.fillColor     = UIColor.clear.cgColor
         ring.strokeColor   = strokeColor.withAlphaComponent(0.55).cgColor
-        ring.lineWidth     = 1.5
-        ring.path          = circlePath(center: point, radius: 5)
+        ring.lineWidth     = 3.5
+        ring.path          = circlePath(center: point, radius: 12)
         overlayView.layer.addSublayer(ring)
         rippleLayers.append(ring)
 
-        let expandPath     = circlePath(center: point, radius: 30)
+        let expandPath     = circlePath(center: point, radius: 60)
 
         let pathAnim       = CABasicAnimation(keyPath: "path")
         pathAnim.toValue   = expandPath
@@ -854,7 +854,7 @@ final class InkEffectEngine {
 
         let group                    = CAAnimationGroup()
         group.animations             = [pathAnim, opacityAnim]
-        group.duration               = 0.50
+        group.duration               = 0.70
         group.fillMode               = .forwards
         group.isRemovedOnCompletion  = false
 
@@ -914,7 +914,7 @@ final class InkEffectEngine {
 
     private func setupSheenEmitter(color: UIColor) {
         emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 2, height: 2)
+        emitterLayer.emitterSize  = CGSize(width: 6, height: 6)
         emitterLayer.isHidden     = false
         sheenHueOffset = 0
         emitterLayer.emitterCells = [
@@ -930,24 +930,24 @@ final class InkEffectEngine {
         let physics = ParticlePhysics.sheenCorePhysics
         let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxCoreParticles)) * SheenTuning.coreBirthFraction
-        cell.lifetime          = 0.42
-        cell.lifetimeRange     = 0.18
-        cell.velocity          = 48
+        cell.lifetime          = 0.80
+        cell.lifetimeRange     = 0.30
+        cell.velocity          = 70
         cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
         cell.yAcceleration     = physics.effectiveGravity
         cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 2  // omnidirectional
-        cell.scale             = 0.030
-        cell.scaleRange        = 0.012
-        cell.scaleSpeed        = -0.020
-        cell.alphaSpeed        = -2.2
-        cell.spin              = 2.5
+        cell.emissionRange     = .pi * 2  // omnidirectional shimmer
+        cell.scale             = 0.09
+        cell.scaleRange        = 0.04
+        cell.scaleSpeed        = -0.022
+        cell.alphaSpeed        = -1.0
+        cell.spin              = 2.0
         cell.spinRange         = physics.spinRange
         cell.color             = color.cgColor
         cell.redRange          = 0.55
         cell.greenRange        = 0.55
         cell.blueRange         = 0.55
-        cell.contents          = diamondCGImage(size: 8)
+        cell.contents          = diamondCGImage(size: 20)
         return cell
     }
 
@@ -1129,7 +1129,7 @@ final class InkEffectEngine {
     private func setupBloodEmitter(color: UIColor) {
         let physics = ParticlePhysics.bloodPhysics
         emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 3, height: 3)
+        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
         emitterLayer.isHidden     = false
         emitterLayer.emitterCells = [makeBloodCell(physics: physics)]
         emitterLayer.birthRate    = 0
@@ -1137,25 +1137,25 @@ final class InkEffectEngine {
 
     private func makeBloodCell(physics: ParticlePhysics) -> CAEmitterCell {
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 25)) * 0.5
-        cell.lifetime          = 0.70
-        cell.lifetimeRange     = 0.25
-        cell.velocity          = 20
+        cell.birthRate         = Float(min(tier.maxParticles, 45)) * 0.5
+        cell.lifetime          = 1.0
+        cell.lifetimeRange     = 0.35
+        cell.velocity          = 45
         cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
         cell.yAcceleration     = physics.effectiveGravity   // heavy downward pull
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi / 6            // mostly downward splatter
         cell.emissionLongitude = .pi / 2            // emitting downward
-        cell.scale             = 0.04
-        cell.scaleRange        = 0.025
-        cell.scaleSpeed        = -0.010
-        cell.alphaSpeed        = -1.5
+        cell.scale             = 0.12
+        cell.scaleRange        = 0.06
+        cell.scaleSpeed        = -0.015
+        cell.alphaSpeed        = -0.8
         cell.spin              = 0
         cell.spinRange         = physics.spinRange
         // Deep crimson — not user-customisable for maximum horror effect
         cell.color      = UIColor(red: 0.55, green: 0.02, blue: 0.02, alpha: 0.92).cgColor
         cell.redRange   = 0.15
-        cell.contents   = dropCGImage(size: 10)
+        cell.contents   = dropCGImage(size: 22)
         return cell
     }
 
