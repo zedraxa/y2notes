@@ -137,6 +137,35 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts false.
     @Published var isWidgetPickerPresented: Bool = false
 
+    // MARK: - Text Object State
+
+    /// The ID of the currently selected text object on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeTextObjectSelection: UUID?
+
+    /// Convenience: true when any text object is selected.
+    var hasActiveTextObjectSelection: Bool { activeTextObjectSelection != nil }
+
+    /// Default font family for new text objects. Persisted.
+    @Published var activeTextFontFamily: TextFontFamily = .system {
+        didSet { UserDefaults.standard.set(activeTextFontFamily.rawValue, forKey: Keys.textFontFamily) }
+    }
+
+    /// Default font size (points) for new text objects. Persisted.
+    @Published var activeTextFontSize: CGFloat = 18 {
+        didSet { UserDefaults.standard.set(Double(activeTextFontSize), forKey: Keys.textFontSize) }
+    }
+
+    /// Whether new text objects default to bold. Persisted.
+    @Published var activeTextBold: Bool = false {
+        didSet { UserDefaults.standard.set(activeTextBold, forKey: Keys.textBold) }
+    }
+
+    /// Default text alignment for new text objects. Persisted.
+    @Published var activeTextAlignment: TextAlignmentType = .leading {
+        didSet { UserDefaults.standard.set(activeTextAlignment.rawValue, forKey: Keys.textAlignment) }
+    }
+
     // MARK: - Recording State
 
     /// Whether an audio recording is currently in progress.
@@ -231,6 +260,10 @@ final class DrawingToolStore: ObservableObject {
         case .sticker:
             // The sticker overlay handles interaction; canvas uses lasso as fallback
             // so accidental touches don't create ink strokes.
+            return PKLassoTool()
+        case .text:
+            // The text canvas overlay handles all gestures; canvas uses lasso so
+            // finger touches never produce ink while text tool is active.
             return PKLassoTool()
         }
     }
@@ -396,6 +429,10 @@ final class DrawingToolStore: ObservableObject {
         static let penSubType = "y2notes.tool.penSubType"
         static let magicModeActive  = "y2notes.tool.magicModeActive"
         static let studyModeActive  = "y2notes.tool.studyModeActive"
+        static let textFontFamily   = "y2notes.text.fontFamily"
+        static let textFontSize     = "y2notes.text.fontSize"
+        static let textBold         = "y2notes.text.bold"
+        static let textAlignment    = "y2notes.text.alignment"
     }
 
     // MARK: - Persistence Helpers
@@ -468,5 +505,16 @@ final class DrawingToolStore: ObservableObject {
         // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
         isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)
         isStudyModeActive = ud.bool(forKey: Keys.studyModeActive)
+
+        // Text tool defaults
+        if let raw = ud.string(forKey: Keys.textFontFamily), let fam = TextFontFamily(rawValue: raw) {
+            activeTextFontFamily = fam
+        }
+        let tsz = ud.double(forKey: Keys.textFontSize)
+        if tsz > 0 { activeTextFontSize = CGFloat(tsz) }
+        activeTextBold = ud.bool(forKey: Keys.textBold)
+        if let raw = ud.string(forKey: Keys.textAlignment), let align = TextAlignmentType(rawValue: raw) {
+            activeTextAlignment = align
+        }
     }
 }

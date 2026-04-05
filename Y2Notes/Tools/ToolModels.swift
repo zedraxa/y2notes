@@ -15,6 +15,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     case lasso
     case shape
     case sticker
+    case text
 
     var id: String { rawValue }
 
@@ -28,6 +29,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .lasso:        return "Lasso"
         case .shape:        return "Shape"
         case .sticker:      return "Sticker"
+        case .text:         return NSLocalizedString("TextTool.Title", comment: "")
         }
     }
 
@@ -41,6 +43,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .lasso:        return "lasso"
         case .shape:        return "square.on.circle"
         case .sticker:      return "face.smiling"
+        case .text:         return "textformat"
         }
     }
 
@@ -48,7 +51,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     var isInking: Bool {
         switch self {
         case .pen, .pencil, .highlighter, .fountainPen, .shape: return true
-        case .eraser, .lasso, .sticker: return false
+        case .eraser, .lasso, .sticker, .text: return false
         }
     }
 

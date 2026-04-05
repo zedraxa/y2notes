@@ -48,6 +48,8 @@ struct ToolExpansionView: View {
                 eraserExpansion
             } else if expandedTool == .shape {
                 shapeExpansion
+            } else if expandedTool == .text {
+                textExpansion
             }
         }
         .padding(.horizontal, 12)
@@ -291,6 +293,113 @@ struct ToolExpansionView: View {
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
+    }
+
+    // MARK: - Text Expansion
+
+    @ViewBuilder
+    private var textExpansion: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Font family row
+            HStack(spacing: 5) {
+                ForEach(TextFontFamily.allCases) { family in
+                    let selected = toolStore.activeTextFontFamily == family
+                    Button {
+                        selectionFeedback.selectionChanged()
+                        toolStore.activeTextFontFamily = family
+                        resetTimeout()
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: family.systemImage)
+                                .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                            Text(family.displayName)
+                                .font(.system(size: 8, weight: selected ? .semibold : .regular))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(
+                            selected ? Color.accentColor.opacity(0.15) : Color(.systemGray5),
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        )
+                        .foregroundStyle(selected ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(family.displayName)
+                }
+            }
+
+            // Font size row
+            HStack(spacing: 6) {
+                Image(systemName: "textformat.size")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { Double(toolStore.activeTextFontSize) },
+                        set: { val in
+                            toolStore.activeTextFontSize = CGFloat(val)
+                            resetTimeout()
+                        }
+                    ),
+                    in: 8...72,
+                    step: 1
+                ) { editing in
+                    if !editing { lightImpact.impactOccurred(intensity: 0.4) }
+                }
+                .accessibilityLabel(NSLocalizedString("TextStyle.Size", comment: ""))
+                Text("\(Int(toolStore.activeTextFontSize))pt")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 34, alignment: .trailing)
+            }
+
+            // Bold toggle + alignment picker
+            HStack(spacing: 6) {
+                // Bold
+                let boldSelected = toolStore.activeTextBold
+                Button {
+                    selectionFeedback.selectionChanged()
+                    toolStore.activeTextBold.toggle()
+                    resetTimeout()
+                } label: {
+                    Image(systemName: "bold")
+                        .font(.system(size: 13, weight: boldSelected ? .semibold : .regular))
+                        .frame(width: 36, height: 28)
+                        .background(
+                            boldSelected ? Color.accentColor.opacity(0.15) : Color(.systemGray5),
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        )
+                        .foregroundStyle(boldSelected ? Color.accentColor : Color(uiColor: .label))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NSLocalizedString("TextStyle.Bold", comment: ""))
+
+                Spacer()
+
+                // Alignment picker
+                ForEach(TextAlignmentType.allCases) { align in
+                    let selected = toolStore.activeTextAlignment == align
+                    Button {
+                        selectionFeedback.selectionChanged()
+                        toolStore.activeTextAlignment = align
+                        resetTimeout()
+                    } label: {
+                        Image(systemName: align.systemImage)
+                            .font(.system(size: 13))
+                            .frame(width: 34, height: 28)
+                            .background(
+                                selected ? Color.accentColor.opacity(0.15) : Color(.systemGray5),
+                                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            )
+                            .foregroundStyle(selected ? Color.accentColor : Color(uiColor: .label))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(align.accessibilityLabel)
+                }
+            }
+        }
+        .frame(maxWidth: 300)
     }
 
     // MARK: - Helpers

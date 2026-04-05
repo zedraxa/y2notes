@@ -377,6 +377,21 @@ final class NoteStore: ObservableObject {
         scheduleNoteAutosave()
     }
 
+    /// Updates the text objects for a specific page.
+    func updateTextObjects(for noteID: UUID, pageIndex: Int, objects: [TextObject]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure textLayers array is sized to match pages
+        while notes[idx].textLayers.count < notes[idx].pages.count {
+            notes[idx].textLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].textLayers.count else { return }
+        notes[idx].textLayers[pageIndex] = objects.isEmpty ? nil : objects
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
+    }
+
     // MARK: - Expansion Region Updates
 
     /// Replaces the full set of expansion regions for a note.

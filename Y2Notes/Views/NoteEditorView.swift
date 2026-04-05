@@ -1607,6 +1607,17 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Text objects for the current page.
+    var currentPageTextObjects: [TextObject] = []
+    /// Whether the text tool is active (enables tap-to-place on the canvas).
+    var isTextToolActive: Bool = false
+    /// Callback to persist text object changes.
+    var onTextObjectsChanged: (([TextObject]) -> Void)?
+    /// Callback when text object selection changes.
+    var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+    /// Callback when inline text editing is requested (double-tap).
+    var onTextEditRequested: ((UUID) -> Void)?
+
     /// Total number of pages in the note, used for adaptive effects complexity signals.
     var pageCount: Int = 1
 
@@ -1873,6 +1884,32 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.shapeCanvas = shapeCanvas
 
+        // ── Text object canvas (placed text annotations layer) ───────────────
+        let textCanvas = TextCanvasView(frame: .zero)
+        textCanvas.translatesAutoresizingMaskIntoConstraints = false
+        textCanvas.textObjects = currentPageTextObjects
+        textCanvas.isTextToolActive = isTextToolActive
+        textCanvas.onObjectsChanged = { objects in
+            context.coordinator.handleTextObjectsChanged(objects)
+        }
+        textCanvas.onSelectionChanged = { textID in
+            context.coordinator.onTextObjectSelectionChanged?(textID)
+        }
+        textCanvas.onEditRequested = { textID in
+            context.coordinator.onTextEditRequested?(textID)
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onTextEditRequested = onTextEditRequested
+        container.addSubview(textCanvas)
+        NSLayoutConstraint.activate([
+            textCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            textCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            textCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            textCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.textCanvas = textCanvas
+
         // ── Hover overlay (non-interactive, floats above the canvas) ─────────
         let hoverOverlay = PencilHoverOverlayView(frame: .zero)
         hoverOverlay.translatesAutoresizingMaskIntoConstraints = false
@@ -2076,6 +2113,16 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
 
+        // Sync text object canvas.
+        if let textCanvas = context.coordinator.textCanvas {
+            textCanvas.textObjects = currentPageTextObjects
+            textCanvas.isTextToolActive = isTextToolActive
+            textCanvas.selectedTextID = toolStoreForFade?.activeTextObjectSelection
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onTextEditRequested = onTextEditRequested
+
         // Zoom reset: animate to fit-to-width when the trigger value flips.
         // "Fit to width" is more useful than a fixed 1× scale because it adapts
         // to the current screen size and orientation.
@@ -2268,6 +2315,21 @@ struct CanvasView: UIViewRepresentable {
 
         /// Callback when widget selection changes.
         var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+        /// Text object canvas overlay for the current page.
+        weak var textCanvas: TextCanvasView?
+
+        /// Debounce timer for persisting text object changes.
+        private var textObjectDebounceTimer: Timer?
+
+        /// Callback to persist text object changes.
+        var onTextObjectsChanged: (([TextObject]) -> Void)?
+
+        /// Callback when text object selection changes.
+        var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+
+        /// Callback when inline text editing is requested.
+        var onTextEditRequested: ((UUID) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
