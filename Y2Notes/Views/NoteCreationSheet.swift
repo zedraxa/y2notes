@@ -21,6 +21,7 @@ struct NoteCreationSheet: View {
 
     private let selectionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let confirmFeedback   = UINotificationFeedbackGenerator()
+    private let cancelFeedback    = UIImpactFeedbackGenerator(style: .light)
 
     // Two-column grid for the paper type cards.
     private let columns = [
@@ -93,10 +94,13 @@ struct NoteCreationSheet: View {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
-                            .transition(.opacity)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.98)),
+                                removal: .opacity
+                            ))
                             .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
-                            .animation(.easeInOut(duration: 0.2), value: selectedPageType)
-                            .animation(.easeInOut(duration: 0.2), value: selectedMaterial)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedPageType)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedMaterial)
                     }
                 }
                 .padding(20)
@@ -106,7 +110,10 @@ struct NoteCreationSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        cancelFeedback.impactOccurred()
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { createNote() }

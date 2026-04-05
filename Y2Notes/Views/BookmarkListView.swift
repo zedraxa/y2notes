@@ -11,6 +11,10 @@ struct BookmarkListView: View {
     let onJump: (NavigationAnchor) -> Void
     @Environment(\.dismiss) private var dismiss
 
+    @State private var rowsAppeared = false
+    private let colorCycleFeedback = UISelectionFeedbackGenerator()
+    private let jumpFeedback = UIImpactFeedbackGenerator(style: .light)
+
     var body: some View {
         NavigationStack {
             let items = navigationStore.bookmarks(for: notebook.id)
@@ -22,8 +26,15 @@ struct BookmarkListView: View {
                 )
             } else {
                 List {
-                    ForEach(items) { bookmark in
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, bookmark in
                         bookmarkRow(bookmark)
+                            .opacity(rowsAppeared ? 1 : 0)
+                            .offset(y: rowsAppeared ? 0 : 8)
+                            .animation(
+                                .spring(response: 0.35, dampingFraction: 0.8)
+                                .delay(Double(index) * 0.05),
+                                value: rowsAppeared
+                            )
                     }
                     .onDelete { offsets in
                         let allBookmarks = navigationStore.bookmarks(for: notebook.id)
@@ -33,6 +44,7 @@ struct BookmarkListView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .onAppear { rowsAppeared = true }
             }
         }
         .navigationTitle("Bookmarks")
@@ -49,6 +61,7 @@ struct BookmarkListView: View {
     @ViewBuilder
     private func bookmarkRow(_ bookmark: PageBookmark) -> some View {
         Button {
+            jumpFeedback.impactOccurred()
             onJump(bookmark.anchor)
             dismiss()
         } label: {
@@ -93,6 +106,7 @@ struct BookmarkListView: View {
         .swipeActions(edge: .leading) {
             // Cycle colour tag
             Button {
+                colorCycleFeedback.selectionChanged()
                 let allColors = BookmarkColor.allCases
                 if let idx = allColors.firstIndex(of: bookmark.colorTag) {
                     let next = allColors[(idx + 1) % allColors.count]

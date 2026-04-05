@@ -219,14 +219,18 @@ struct NoteEditorView: View {
             }
             .onReceive(noteStore.$saveState) { state in
                 if state == .saved {
-                    showSavedBadge = true
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        showSavedBadge = true
+                    }
                     let now = Date()
                     badgeShownAt = now
                     // Each rapid save updates `badgeShownAt`; only the last scheduled
                     // callback will actually hide the badge, avoiding premature dismissal.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                         if badgeShownAt == now {
-                            showSavedBadge = false
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                showSavedBadge = false
+                            }
                         }
                     }
                 }
@@ -615,6 +619,7 @@ struct NoteEditorView: View {
         // Draw ↔ Type mode toggle.
         // "keyboard" switches to text mode; "pencil" returns to drawing mode.
         Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             flushTextNow()
             isTextMode.toggle()
         } label: {
@@ -1141,6 +1146,7 @@ struct NoteEditorView: View {
             Image(systemName: "checkmark.circle")
                 .foregroundStyle(.secondary)
                 .font(.caption)
+                .transition(.scale(scale: 0.5).combined(with: .opacity))
                 .accessibilityLabel("Saved")
         default:
             EmptyView()
