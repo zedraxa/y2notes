@@ -203,8 +203,10 @@ struct UniversalSearchView: View {
             name = "doc.richtext.fill"
         case .attachmentLabel:
             name = "paperclip"
-        case .audioSession, .audioTimestamp:
+        case .audioSession:
             name = "waveform"
+        case .audioTimestamp:
+            name = "clock.badge.waveform"
         case .widgetContent:
             name = "square.grid.2x2"
         }
