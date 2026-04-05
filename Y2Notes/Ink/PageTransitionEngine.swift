@@ -585,8 +585,9 @@ final class PageTransitionEngine {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
-        // Position offset
-        let offsetX = -translation * Tuning.slideFraction * state.direction.sign
+        // Position offset — translation is already signed to match the
+        // drag direction so the page follows the finger directly.
+        let offsetX = translation * Tuning.slideFraction
         layer.position = CGPoint(
             x: state.originalPosition.x + offsetX,
             y: state.originalPosition.y
