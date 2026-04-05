@@ -788,7 +788,8 @@ final class NoteStore: ObservableObject {
     func addSection(
         toNotebook notebookID: UUID,
         name: String,
-        defaultTemplateID: String = "builtin.blank"
+        defaultTemplateID: String = "builtin.blank",
+        colorTag: SectionColorTag = .none
     ) -> NotebookSection {
         let nextOrder = nextSectionSortOrder(forNotebook: notebookID)
         let section = NotebookSection(
@@ -796,7 +797,8 @@ final class NoteStore: ObservableObject {
             name: name,
             kind: .section,
             sortOrder: nextOrder,
-            defaultTemplateID: defaultTemplateID
+            defaultTemplateID: defaultTemplateID,
+            colorTag: colorTag
         )
         sections.append(section)
         save()
@@ -872,6 +874,7 @@ final class NoteStore: ObservableObject {
     @discardableResult
     func addNotebook(
         name: String,
+        description: String = "",
         cover: NotebookCover = .ocean,
         pageType: PageType = .ruled,
         pageSize: PageSize = .letter,
@@ -883,6 +886,7 @@ final class NoteStore: ObservableObject {
     ) -> Notebook {
         let nb = Notebook(
             name: name,
+            description: description,
             cover: cover,
             pageType: pageType,
             pageSize: pageSize,
@@ -924,6 +928,13 @@ final class NoteStore: ObservableObject {
     func renameNotebook(id: UUID, name: String) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
         notebooks[idx].name = name
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    func updateNotebookDescription(id: UUID, description: String) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].description = description
         notebooks[idx].modifiedAt = Date()
         save()
     }

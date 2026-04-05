@@ -87,7 +87,8 @@ struct PageRegion: Identifiable, Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id              = try c.decode(UUID.self, forKey: .id)
-        pageIndex       = try c.decode(Int.self, forKey: .pageIndex)
+        let rawIndex    = try c.decode(Int.self, forKey: .pageIndex)
+        pageIndex       = max(0, rawIndex) // Guard against negative indices from corruption
         edge            = try c.decode(ExpansionEdge.self, forKey: .edge)
         let w           = try c.decode(CGFloat.self, forKey: .width)
         let h           = try c.decode(CGFloat.self, forKey: .height)
