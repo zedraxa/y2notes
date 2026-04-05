@@ -24,7 +24,11 @@ struct NoteEditorView: View {
     @EnvironmentObject var documentStore: DocumentStore
     @EnvironmentObject var stickerStore: StickerStore
     @Environment(\.undoManager) private var undoManager
+    @Environment(TabWorkspaceStore.self) private var workspace
     let note: Note
+    /// The tab ID for state sync. `nil` when opened as a standalone editor
+    /// (e.g. from a widget or deep link) rather than inside the tab workspace.
+    let tabID: UUID?
 
     @State private var titleText: String
     @State private var canUndo = false
@@ -87,10 +91,13 @@ struct NoteEditorView: View {
 
     private let searchService = SearchService()
 
-    init(note: Note) {
+    init(note: Note, tab: TabSession? = nil) {
         self.note = note
+        self.tabID = tab?.id
         _titleText = State(initialValue: note.title)
         _typedTextContent = State(initialValue: note.typedText)
+        _currentPageIndex = State(initialValue: tab?.pageIndex ?? 0)
+        _showAdvancedPanel = State(initialValue: tab?.showAdvancedPanel ?? false)
     }
 
     // MARK: - Notebook context
@@ -165,6 +172,17 @@ struct NoteEditorView: View {
             .onDisappear {
                 toolStore.currentPaperMaterial = .standard
             }
+            // Sync tab navigation state back to the workspace store on every change.
+            .onChange(of: currentPageIndex) { _, newIndex in
+                if let id = tabID {
+                    workspace.updateTabState(id, pageIndex: newIndex)
+                }
+            }
+            .onChange(of: showAdvancedPanel) { _, isOpen in
+                if let id = tabID {
+                    workspace.updateTabState(id, showAdvancedPanel: isOpen)
+                }
+            }
             .onChange(of: toolStore.isFocusModeActive) { _, isActive in
                 // Toolbar opacity is driven directly by the SwiftUI toolbarOpacity
                 // binding.  The paper glow (CALayer) is handled here via the
@@ -216,6 +234,10 @@ struct NoteEditorView: View {
             .onDisappear {
                 flushTextNow()
                 toolStore.currentPaperMaterial = .standard
+                // Persist tab state when leaving this editor tab.
+                if let id = tabID {
+                    workspace.updateTabState(id, pageIndex: currentPageIndex, showAdvancedPanel: showAdvancedPanel)
+                }
                 // Reset focus mode on editor tear-down so state doesn't leak.
                 if toolStore.isFocusModeActive {
                     toolStore.isFocusModeActive = false
