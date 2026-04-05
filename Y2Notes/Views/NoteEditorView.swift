@@ -2136,6 +2136,12 @@ struct CanvasView: UIViewRepresentable {
         /// Last barrel-roll angle reported during hover (for hover cursor preview).
         var lastHoverRollAngle: CGFloat = 0
 
+        /// Last known pencil altitude from hover events (for barrel-roll hover updates).
+        var lastHoverAltitude: CGFloat = .pi / 2
+
+        /// Last known pencil azimuth from hover events (for barrel-roll hover updates).
+        var lastHoverAzimuth: CGFloat = 0
+
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
 
@@ -2922,6 +2928,13 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Hover preview
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
+        // Cache last known orientation for barrel-roll hover preview updates,
+        // which occur on a separate gesture recognizer without altitude/azimuth data.
+        if position != nil {
+            lastHoverAltitude = altitude
+            lastHoverAzimuth = azimuth
+        }
+
         hoverOverlay?.update(
             position: position,
             altitude: altitude,
@@ -2963,11 +2976,13 @@ extension CanvasView.Coordinator: PencilActionDelegate {
         lastHoverRollAngle = angle
 
         // Forward roll angle to hover overlay for nib rotation preview.
+        // Use cached altitude/azimuth from the most recent hover event since
+        // the barrel-roll gesture recognizer does not provide orientation data.
         if let overlay = hoverOverlay, !isDrawing {
             overlay.update(
                 position: position,
-                altitude: .pi / 2,  // assume perpendicular during drawing
-                azimuth: 0,
+                altitude: lastHoverAltitude,
+                azimuth: lastHoverAzimuth,
                 rollAngle: angle
             )
         }

@@ -158,16 +158,22 @@ final class PencilHapticEngine {
 
     /// Graduated tension as the pencil cursor approaches the page edge.
     ///
-    /// - Parameter proximity: 0.0 = at center, 1.0 = touching edge.
-    ///   Haptic fires only when proximity > 0.7 and throttles at ~10 Hz.
+    /// - Parameter proximity: Normalized proximity within the edge zone (0.0 = just entered
+    ///   the edge zone, 1.0 = touching edge). The caller is responsible for normalizing
+    ///   against `WritingConfig.pageEdgeProximityThreshold` before invoking this method.
+    ///   Haptic fires only when the normalized proximity exceeds `edgeHapticInnerThreshold`
+    ///   and throttles at ~10 Hz to avoid motor fatigue.
     func pageEdgeApproached(proximity: CGFloat) {
-        guard isEnabled, proximity > 0.7 else { return }
+        // Inner threshold within the already-normalized edge zone (0.0–1.0).
+        // Only fire haptics in the last 30% of the zone to avoid over-triggering.
+        let edgeHapticInnerThreshold: CGFloat = 0.7
+        guard isEnabled, proximity > edgeHapticInnerThreshold else { return }
 
         let now = CACurrentMediaTime()
         guard now - lastEdgeHapticTime > 0.1 else { return } // 10 Hz throttle
         lastEdgeHapticTime = now
 
-        let scaledIntensity = Float(proximity - 0.7) / 0.3  // 0…1 within the 0.7…1.0 range
+        let scaledIntensity = Float(proximity - edgeHapticInnerThreshold) / Float(1.0 - edgeHapticInnerThreshold)
         if supportsHaptics {
             playTransient(intensity: 0.3 + scaledIntensity * 0.4, sharpness: 0.5)
         } else {
