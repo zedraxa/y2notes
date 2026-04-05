@@ -247,6 +247,42 @@ struct ParticlePhysics: Equatable {
     /// Whether particles fade out linearly over their lifetime.
     var fadeOut: Bool = true
 
+    // MARK: Extended physics fields
+
+    /// Particle mass (1.0 = neutral).  Values > 1 amplify gravity and resist
+    /// acceleration; values < 1 make particles buoyant and highly responsive.
+    var mass: CGFloat = 1.0
+
+    /// Centripetal pull strength toward the emitter origin (points/s²).
+    /// Positive values create a swirl-inward orbit; 0 = no attractor.
+    var attractorStrength: CGFloat = 0
+
+    /// Frequency of a Perlin-like noise layer added on top of base turbulence
+    /// (cycles per second).  0 = no noise modulation.
+    var noiseFrequency: CGFloat = 0
+
+    /// Peak amplitude of the noise displacement (points).  Combined with
+    /// `noiseFrequency` to produce organic, non-repeating particle jitter.
+    var noiseAmplitude: CGFloat = 0
+
+    /// Scale factor applied to each particle's initial velocity at spawn.
+    /// Values > 1 widen the spawn cone; values < 1 narrow it.
+    var velocitySpawnSpread: CGFloat = 1.0
+
+    // MARK: Computed physics helpers
+
+    /// Effective downward acceleration after applying `mass` and an optional
+    /// external multiplier (e.g. from `EffectIntensity.durationMultiplier`).
+    func effectiveGravity(multiplier: CGFloat = 1.0) -> CGFloat {
+        gravity * multiplier * mass
+    }
+
+    /// Effective turbulence strength, blending base `turbulence` with the
+    /// noise layer (`noiseAmplitude × noiseFrequency`) and an optional scale.
+    func effectiveTurbulence(scale: CGFloat = 1.0) -> CGFloat {
+        (turbulence + noiseAmplitude * noiseFrequency) * scale
+    }
+
     // MARK: Named presets
 
     static let firePhysics = ParticlePhysics(
@@ -346,6 +382,77 @@ struct ParticlePhysics: Equatable {
         bounciness: 0,
         spinRange: 0.3,
         fadeOut: true
+    )
+
+    // MARK: Distinct per-layer presets
+
+    /// Core flame layer — high-velocity rising particles with noise modulation.
+    static let fireCorePhysics = ParticlePhysics(
+        gravity: -140,        // flames rise strongly
+        wind: 0,
+        turbulence: 30,       // natural flicker
+        drag: 0.91,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.8,
+        fadeOut: true,
+        mass: 0.8,            // lighter → gravity amplified less, rises faster
+        attractorStrength: 0,
+        noiseFrequency: 2.5,  // rapid noise bursts for flame dancing
+        noiseAmplitude: 12,
+        velocitySpawnSpread: 1.1
+    )
+
+    /// Ember / mid-flame layer — slower, wider spread with gentle oscillation.
+    static let fireEmberPhysics = ParticlePhysics(
+        gravity: -55,         // embers rise, but slower than core
+        wind: 4,              // slight lateral drift
+        turbulence: 55,       // wide chaotic scatter
+        drag: 0.89,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 3.5,
+        fadeOut: true,
+        mass: 1.2,            // heavier embers pulled back by gravity sooner
+        attractorStrength: 0,
+        noiseFrequency: 1.8,
+        noiseAmplitude: 18,
+        velocitySpawnSpread: 1.4
+    )
+
+    /// Sheen core layer — rising diamond particles with rapid hue cycling.
+    static let sheenCorePhysics = ParticlePhysics(
+        gravity: -18,         // core diamonds float upward
+        wind: 0,
+        turbulence: 28,       // moderate scatter for sparkle feel
+        drag: 0.95,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 2.2,
+        fadeOut: true,
+        mass: 0.7,
+        attractorStrength: 0,
+        noiseFrequency: 3.0,  // high-frequency noise for iridescent shimmer
+        noiseAmplitude: 8,
+        velocitySpawnSpread: 0.9
+    )
+
+    /// Sheen dust layer — micro-particles with slightly different physics for
+    /// the layered holographic look.  Hue offset by 0.20 in the engine.
+    static let sheenDustPhysics = ParticlePhysics(
+        gravity: 10,          // dust settles very gently
+        wind: 0,
+        turbulence: 50,       // high spread for a cloud-of-colour feel
+        drag: 0.93,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.0,
+        fadeOut: true,
+        mass: 1.3,
+        attractorStrength: 0,
+        noiseFrequency: 1.5,
+        noiseAmplitude: 20,
+        velocitySpawnSpread: 1.6
     )
 }
 

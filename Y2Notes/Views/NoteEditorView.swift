@@ -1843,6 +1843,19 @@ struct CanvasView: UIViewRepresentable {
         container.addGestureRecognizer(pinchOverview)
         context.coordinator.pinchOverviewGesture = pinchOverview
 
+        // ── Interactive two-finger page pan (replaces discrete swipe) ─────────
+        // Two-finger pan follows the user's fingers in real time for a tactile
+        // page-turn feel. Requires two touches to avoid conflict with drawing.
+        let pagePan = UIPanGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handlePagePan(_:))
+        )
+        pagePan.minimumNumberOfTouches = 2
+        pagePan.maximumNumberOfTouches = 2
+        pagePan.delegate = context.coordinator
+        container.addGestureRecognizer(pagePan)
+        context.coordinator.pagePanGesture = pagePan
+
         // ── Book feel: page shadow ──────────────────────────────────────────
         container.layer.shadowColor   = UIColor.black.cgColor
         container.layer.shadowOpacity = 0.12
@@ -1976,6 +1989,9 @@ struct CanvasView: UIViewRepresentable {
 
         // Sync adaptive effects engine with current note complexity.
         context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
+        // Keep coordinator page state in sync for interactive gesture decisions.
+        context.coordinator.coordinatorPageIndex = pageIndex
+        context.coordinator.coordinatorPageCount = pageCount
         // Propagate intensity to sub-engines.
         let intensity = context.coordinator.adaptiveEffectsEngine.intensity
         context.coordinator.pageTransitionEngine.effectIntensity = intensity
@@ -2136,9 +2152,25 @@ struct CanvasView: UIViewRepresentable {
         /// Pinch gesture recognizer for page overview.
         var pinchOverviewGesture: UIPinchGestureRecognizer?
 
+        /// Pan gesture recognizer for interactive two-finger page drag.
+        var pagePanGesture: UIPanGestureRecognizer?
+
         /// Minimum scale observed during the current pinch-to-overview gesture.
         /// Tracked during `.changed` because `numberOfTouches` is zero at `.ended`.
         private var pinchOverviewMinScale: CGFloat = 1.0
+
+        /// Current page index in the notebook, kept in sync via `updateUIView`.
+        var coordinatorPageIndex: Int = 0
+
+        /// Total page count in the notebook, kept in sync via `updateUIView`.
+        var coordinatorPageCount: Int = 1
+
+        // Pre-prepared haptic generator for page-turn confirmation feedback.
+        private let pageTurnImpact: UIImpactFeedbackGenerator = {
+            let g = UIImpactFeedbackGenerator(style: .light)
+            g.prepare()
+            return g
+        }()
 
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
@@ -2247,15 +2279,75 @@ struct CanvasView: UIViewRepresentable {
             }
         }
 
+        // MARK: - Interactive page-pan gesture
+
+        /// Two-finger horizontal pan handler for interactive page navigation.
+        ///
+        /// Uses `PageTransitionEngine`'s interactive drag API so the page
+        /// follows the user's fingers in real time, snapping to the next/prev
+        /// page or bouncing back depending on distance and velocity.
+        @objc func handlePagePan(_ gesture: UIPanGestureRecognizer) {
+            guard !isDrawing, let view = gesture.view else { return }
+
+            let translation = gesture.translation(in: view)
+            let velocity    = gesture.velocity(in: view)
+            let pageWidth   = view.bounds.width
+
+            switch gesture.state {
+            case .began:
+                // Only begin if there is a page to navigate to.
+                let canGoForward  = coordinatorPageIndex < coordinatorPageCount - 1
+                let canGoBackward = coordinatorPageIndex > 0
+                let movingForward = velocity.x < 0
+                guard (movingForward && canGoForward) || (!movingForward && canGoBackward) else {
+                    gesture.isEnabled = false   // cancel this gesture cycle
+                    gesture.isEnabled = true
+                    return
+                }
+                pageTransitionEngine.beginInteractiveDrag(on: view)
+
+            case .changed:
+                pageTransitionEngine.updateInteractiveDrag(
+                    on: view,
+                    translation: translation,
+                    pageWidth: pageWidth
+                )
+
+            case .ended:
+                pageTransitionEngine.finishInteractiveDrag(
+                    on: view,
+                    translation: translation,
+                    velocity: velocity,
+                    pageWidth: pageWidth
+                ) { [weak self] committed in
+                    guard let self else { return }
+                    if committed {
+                        self.pageTurnImpact.impactOccurred()
+                        self.pageTurnImpact.prepare()
+                        let direction: Int = translation.x < 0 ? 1 : -1
+                        self.onPageSwipe?(direction)
+                    }
+                }
+
+            case .cancelled, .failed:
+                pageTransitionEngine.cancelInteractiveDrag(on: view) { }
+
+            default:
+                break
+            }
+        }
+
         // MARK: - UIGestureRecognizerDelegate
 
-        /// Allows the page-overview pinch gesture to fire simultaneously with
-        /// PKCanvasView's built-in pinch-to-zoom so normal zoom is not blocked.
+        /// Allows the page-overview pinch gesture and the page-pan gesture to fire
+        /// simultaneously with PKCanvasView's built-in gestures so normal zoom and
+        /// scroll are not blocked.
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
             gestureRecognizer === pinchOverviewGesture
+                || gestureRecognizer === pagePanGesture
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)

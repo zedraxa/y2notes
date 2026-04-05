@@ -72,6 +72,35 @@ final class PageTransitionEngine {
         static let bendHighlightOpacity: Float = 0.07
     }
 
+    // MARK: - Velocity-Driven Tuning
+
+    private enum VelocityTuning {
+        /// Gesture velocity below which no speed scaling is applied.
+        static let minVelocity: CGFloat = 200
+        /// Gesture velocity at which maximum speed scaling is reached.
+        static let maxVelocity: CGFloat = 1200
+        /// Minimum duration multiplier at peak velocity (shortens the animation).
+        static let minDurationScale: CGFloat = 0.70
+        /// Extra slide fraction added at peak velocity for a "flung" feel.
+        static let maxSlideFractionBoost: CGFloat = 0.08
+    }
+
+    // MARK: - Interactive Drag Tuning
+
+    private enum InteractiveTuning {
+        /// Fraction of `pageWidth` the user must drag to commit a page turn.
+        static let commitFraction: CGFloat = 0.35
+        /// Horizontal velocity (pt/s) that alone commits a page turn.
+        static let commitVelocity: CGFloat = 400
+        /// Rubber-band resistance factor (0 = no movement, 1 = full 1:1).
+        /// Applied when dragging past the commit threshold.
+        static let rubberBandDamping: CGFloat = 0.40
+        /// Duration for the snap-to-committed or snap-back spring (seconds).
+        static let snapDuration: TimeInterval = 0.40
+        /// UIView spring damping ratio (0–1).  0.85 = slight overshoot then settle.
+        static let snapDamping: CGFloat = 0.85
+    }
+
     // MARK: - State
 
     private let reduceMotion: Bool
@@ -79,6 +108,11 @@ final class PageTransitionEngine {
 
     /// Current adaptive effect intensity.  Updated by the owning view.
     var effectIntensity: EffectIntensity = .full
+
+    // MARK: - Interactive Drag State
+
+    private var interactiveDragOrigin: CGPoint = .zero
+    private var isInteractiveDragging: Bool = false
 
     init() {
         reduceMotion = UIAccessibility.isReduceMotionEnabled
@@ -232,6 +266,258 @@ final class PageTransitionEngine {
         }
         layer.add(fade, forKey: "reducedMotionFade")
         CATransaction.commit()
+    }
+
+    // MARK: - Velocity-Driven Transition
+
+    /// Plays a velocity-modulated page transition.
+    ///
+    /// At low gesture velocity the animation is identical to `playTransition`.
+    /// At high velocity the animation shortens and the slide distance grows,
+    /// conveying the momentum of a fast swipe.
+    ///
+    /// - Parameters:
+    ///   - layer: The container `CALayer` for the current page.
+    ///   - direction: `.forward` or `.backward`.
+    ///   - pageWidth: Visible page width in points.
+    ///   - velocity: Horizontal gesture velocity at release (points/second).
+    ///   - completion: Called on the main thread when the transition finishes.
+    func playVelocityTransition(
+        on layer: CALayer,
+        direction: PageTransitionDirection,
+        pageWidth: CGFloat,
+        velocity: CGFloat,
+        completion: @escaping () -> Void
+    ) {
+        guard !isTransitioning else { completion(); return }
+
+        if reduceMotion || !effectIntensity.allowsPageTurnPhysics {
+            playReducedMotionTransition(on: layer, completion: completion)
+            return
+        }
+
+        let absVelocity = abs(velocity)
+        let speedFraction = max(0, min(1,
+            (absVelocity - VelocityTuning.minVelocity)
+            / (VelocityTuning.maxVelocity - VelocityTuning.minVelocity)
+        ))
+
+        // Scale duration: full at low velocity, 70% at peak velocity.
+        let durationScale = 1.0 - speedFraction * (1.0 - VelocityTuning.minDurationScale)
+        let duration = Tuning.duration * durationScale
+
+        // Boost slide fraction slightly at high velocity for a "flung" feel.
+        let slideFraction = Tuning.slideFraction + speedFraction * VelocityTuning.maxSlideFractionBoost
+        let slideDistance = pageWidth * slideFraction * direction.sign
+        let originalPosition = layer.position
+
+        isTransitioning = true
+
+        let shadow = makeEdgeShadow(height: layer.bounds.height, direction: direction)
+        let shadowX: CGFloat = direction == .forward ? layer.bounds.width : 0
+        shadow.position = CGPoint(x: shadowX, y: layer.bounds.height / 2)
+        layer.addSublayer(shadow)
+
+        let bend = makeBendHighlight(height: layer.bounds.height, direction: direction)
+        let bendX: CGFloat = direction == .forward ? 0 : layer.bounds.width
+        bend.position = CGPoint(x: bendX, y: layer.bounds.height / 2)
+        bend.opacity = 0
+        layer.addSublayer(bend)
+
+        let easeOut = CAMediaTimingFunction(controlPoints: 0.0, 0.0, 0.25, 1.0)
+
+        let slide                   = CABasicAnimation(keyPath: "position.x")
+        slide.fromValue             = originalPosition.x
+        slide.toValue               = originalPosition.x - slideDistance
+        slide.duration              = duration
+        slide.timingFunction        = easeOut
+        slide.fillMode              = .forwards
+        slide.isRemovedOnCompletion = false
+
+        let resist                   = CABasicAnimation(keyPath: "transform")
+        let resistTransform = CATransform3DMakeScale(Tuning.resistanceScaleX, 1.0, 1.0)
+        resist.fromValue             = NSValue(caTransform3D: CATransform3DIdentity)
+        resist.toValue               = NSValue(caTransform3D: resistTransform)
+        resist.duration              = duration * 0.5
+        resist.autoreverses          = true
+        resist.timingFunction        = easeOut
+        resist.fillMode              = .forwards
+        resist.isRemovedOnCompletion = false
+
+        let shadowFade               = CAKeyframeAnimation(keyPath: "opacity")
+        shadowFade.values            = [0.0, Tuning.edgeShadowOpacity, 0.0]
+        shadowFade.keyTimes          = [0.0, 0.4, 1.0]
+        shadowFade.duration          = duration
+        shadowFade.timingFunction    = easeOut
+        shadowFade.fillMode          = .forwards
+        shadowFade.isRemovedOnCompletion = false
+
+        let bendFade                 = CAKeyframeAnimation(keyPath: "opacity")
+        bendFade.values              = [0.0, Tuning.bendHighlightOpacity, 0.0]
+        bendFade.keyTimes            = [0.0, 0.35, 1.0]
+        bendFade.duration            = duration
+        bendFade.timingFunction      = easeOut
+        bendFade.fillMode            = .forwards
+        bendFade.isRemovedOnCompletion = false
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            layer.position  = originalPosition
+            layer.transform = CATransform3DIdentity
+            layer.removeAnimation(forKey: "pageSlide")
+            layer.removeAnimation(forKey: "pageResist")
+            shadow.removeFromSuperlayer()
+            bend.removeFromSuperlayer()
+            self?.isTransitioning = false
+            completion()
+        }
+
+        layer.add(slide,  forKey: "pageSlide")
+        layer.add(resist, forKey: "pageResist")
+        shadow.add(shadowFade, forKey: "shadowFade")
+        bend.add(bendFade,     forKey: "bendFade")
+
+        CATransaction.commit()
+    }
+
+    // MARK: - Interactive Drag
+
+    /// Prepares a view for an interactive two-finger page-drag.
+    ///
+    /// Call from the gesture recognizer's `.began` state.
+    ///
+    /// - Parameter view: The page container view.
+    func beginInteractiveDrag(on view: UIView) {
+        guard !isTransitioning && !isInteractiveDragging else { return }
+        isInteractiveDragging = true
+        interactiveDragOrigin = view.center
+    }
+
+    /// Updates the interactive drag position with rubber-band resistance.
+    ///
+    /// Call continuously from the gesture recognizer's `.changed` state.
+    /// The translation is damped: full 1:1 up to the commit threshold,
+    /// then rubber-banded for over-scroll feedback.
+    ///
+    /// - Parameters:
+    ///   - view: The page container view.
+    ///   - translation: Current pan translation (x component used for horizontal drag).
+    ///   - pageWidth: Visible page width for threshold calculations.
+    func updateInteractiveDrag(
+        on view: UIView,
+        translation: CGPoint,
+        pageWidth: CGFloat
+    ) {
+        guard isInteractiveDragging else { return }
+
+        let commitDistance = pageWidth * InteractiveTuning.commitFraction
+        let rawX = translation.x
+        let absX = abs(rawX)
+
+        let damped: CGFloat
+        if absX <= commitDistance {
+            damped = rawX
+        } else {
+            // Rubber-band beyond commit threshold.
+            let overshoot = absX - commitDistance
+            let rubberBand = overshoot * InteractiveTuning.rubberBandDamping
+            damped = rawX < 0
+                ? -(commitDistance + rubberBand)
+                :  (commitDistance + rubberBand)
+        }
+
+        view.transform = CGAffineTransform(translationX: damped, y: 0)
+    }
+
+    /// Finishes an interactive drag, either committing the page turn or snapping back.
+    ///
+    /// The engine decides to commit if the drag exceeds `commitFraction` of
+    /// `pageWidth` **or** the horizontal velocity exceeds `commitVelocity`.
+    ///
+    /// Call from the gesture recognizer's `.ended` state.
+    ///
+    /// - Parameters:
+    ///   - view: The page container view.
+    ///   - translation: Final pan translation at gesture end.
+    ///   - velocity: Pan velocity at gesture end (points/second).
+    ///   - pageWidth: Visible page width in points.
+    ///   - completion: Called with `true` if the page turn was committed,
+    ///     `false` if it was cancelled.
+    func finishInteractiveDrag(
+        on view: UIView,
+        translation: CGPoint,
+        velocity: CGPoint,
+        pageWidth: CGFloat,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard isInteractiveDragging else { completion(false); return }
+        isInteractiveDragging = false
+
+        let commitDistance = pageWidth * InteractiveTuning.commitFraction
+        let shouldCommit = abs(translation.x) >= commitDistance
+            || abs(velocity.x) >= InteractiveTuning.commitVelocity
+
+        if reduceMotion || !effectIntensity.allowsPageTurnPhysics {
+            view.transform = .identity
+            completion(shouldCommit)
+            return
+        }
+
+        // Snap to off-screen (commit) or back to origin (cancel).
+        let targetX: CGFloat
+        if shouldCommit {
+            targetX = translation.x < 0 ? -pageWidth : pageWidth
+        } else {
+            targetX = 0
+        }
+
+        UIView.animate(
+            withDuration: InteractiveTuning.snapDuration,
+            delay: 0,
+            usingSpringWithDamping: InteractiveTuning.snapDamping,
+            initialSpringVelocity: abs(velocity.x) / pageWidth,
+            options: [.curveEaseOut, .allowUserInteraction],
+            animations: {
+                view.transform = targetX == 0
+                    ? .identity
+                    : CGAffineTransform(translationX: targetX, y: 0)
+            },
+            completion: { _ in
+                view.transform = .identity
+                completion(shouldCommit)
+            }
+        )
+    }
+
+    /// Cancels an in-flight interactive drag, snapping the view back to its origin.
+    ///
+    /// Call from the gesture recognizer's `.cancelled` or `.failed` state.
+    ///
+    /// - Parameters:
+    ///   - view: The page container view.
+    ///   - completion: Called when the snap-back animation finishes.
+    func cancelInteractiveDrag(
+        on view: UIView,
+        completion: @escaping () -> Void
+    ) {
+        guard isInteractiveDragging else { completion(); return }
+        isInteractiveDragging = false
+
+        if reduceMotion {
+            view.transform = .identity
+            completion()
+            return
+        }
+
+        UIView.animate(
+            withDuration: InteractiveTuning.snapDuration,
+            delay: 0,
+            usingSpringWithDamping: InteractiveTuning.snapDamping,
+            initialSpringVelocity: 0,
+            options: [.curveEaseOut],
+            animations: { view.transform = .identity },
+            completion: { _ in completion() }
+        )
     }
 
     // MARK: - Shadow & Bend Layer Factories

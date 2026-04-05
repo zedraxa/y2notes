@@ -138,11 +138,26 @@ final class AdaptiveEffectsEngine: ObservableObject {
         /// Smoothing factor for exponential moving average (0–1).
         /// Lower = smoother / slower to react.
         static let velocitySmoothingAlpha: Double = 0.3
+
+        /// Thermal state at which effects are reduced to `.reduced`.
+        static let thermalReduceState: ProcessInfo.ThermalState = .fair
+
+        /// Thermal state at which effects are reduced to `.minimal`.
+        static let thermalMinimalState: ProcessInfo.ThermalState = .serious
     }
 
     // MARK: - Stroke Timing
 
     private var lastStrokeTimestamp: CFTimeInterval = 0
+
+    // MARK: - Thermal State Observation
+
+    /// Current device thermal state, updated via system notifications.
+    private var thermalState: ProcessInfo.ThermalState = .nominal {
+        didSet { reevaluate() }
+    }
+
+    private var thermalStateObserver: NSObjectProtocol?
 
     // MARK: - Low Power Mode Observation
 
@@ -152,6 +167,17 @@ final class AdaptiveEffectsEngine: ObservableObject {
 
     init() {
         isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+        thermalState   = ProcessInfo.processInfo.thermalState
+
+        thermalStateObserver = NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.thermalState = ProcessInfo.processInfo.thermalState
+            }
+        }
 
         powerStateObserver = NotificationCenter.default.addObserver(
             forName: .NSProcessInfoPowerStateDidChange,
@@ -165,6 +191,9 @@ final class AdaptiveEffectsEngine: ObservableObject {
     }
 
     deinit {
+        if let observer = thermalStateObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         if let observer = powerStateObserver {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -210,26 +239,33 @@ final class AdaptiveEffectsEngine: ObservableObject {
     private func reevaluate() {
         var proposed: EffectIntensity = .full
 
-        // 1. Low-power mode — at least `.reduced`
+        // 1. Thermal state — highest priority: device overheating trumps all
+        if thermalState >= Thresholds.thermalMinimalState {
+            proposed = min(proposed, .minimal)
+        } else if thermalState >= Thresholds.thermalReduceState {
+            proposed = min(proposed, .reduced)
+        }
+
+        // 2. Low-power mode — at least `.reduced`
         if isLowPowerMode {
             proposed = min(proposed, .reduced)
         }
 
-        // 2. Extreme zoom-out → minimal
+        // 3. Extreme zoom-out → minimal
         if zoomScale < Thresholds.zoomOutMinimal {
             proposed = min(proposed, .minimal)
         } else if zoomScale < Thresholds.zoomOutCutoff {
             proposed = min(proposed, .reduced)
         }
 
-        // 3. Writing velocity
+        // 4. Writing velocity
         if smoothedStrokeRate > Thresholds.veryFastWritingRate {
             proposed = min(proposed, .minimal)
         } else if smoothedStrokeRate > Thresholds.fastWritingRate {
             proposed = min(proposed, .reduced)
         }
 
-        // 4. Notebook complexity
+        // 5. Notebook complexity
         if pageCount > Thresholds.largeNotebookPages
             && currentPageStrokeCount > Thresholds.complexPageStrokes {
             proposed = min(proposed, .minimal)
