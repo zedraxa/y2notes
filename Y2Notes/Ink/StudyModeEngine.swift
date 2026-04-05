@@ -135,7 +135,7 @@ final class StudyModeEngine {
             width: r * 2, height: r * 2
         )
         glow.colors = [
-            Tuning.headingGlowColor.withAlphaComponent(0.3).cgColor,
+            Tuning.headingGlowColor.withAlphaComponent(CGFloat(Tuning.headingGlowOpacity)).cgColor,
             UIColor.clear.cgColor
         ]
         glow.startPoint = CGPoint(x: 0.5, y: 0.5)
@@ -187,7 +187,7 @@ final class StudyModeEngine {
             x: center.x - startD / 2, y: center.y - startD / 2,
             width: startD, height: startD
         )
-        pulse.backgroundColor = Tuning.checklistPulseColor.withAlphaComponent(0.3).cgColor
+        pulse.backgroundColor = Tuning.checklistPulseColor.withAlphaComponent(CGFloat(Tuning.checklistPulseOpacity)).cgColor
         pulse.cornerRadius = startD / 2
         pulse.opacity = Tuning.checklistPulseOpacity
         pulse.zPosition = 994

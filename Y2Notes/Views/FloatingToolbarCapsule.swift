@@ -477,7 +477,7 @@ struct FloatingToolbarCapsule: View {
         } label: {
             VStack(spacing: 2) {
                 Image(systemName: toolStore.isMagicModeActive
-                      ? "wand.and.stars" : "wand.and.stars")
+                      ? "wand.and.stars.inverse" : "wand.and.stars")
                     .font(.system(size: 15, weight: .regular))
                     .frame(width: 34, height: 30)
                     .foregroundStyle(toolStore.isMagicModeActive

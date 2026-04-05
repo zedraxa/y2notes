@@ -246,7 +246,9 @@ struct NoteEditorView: View {
                                     toolStore.hasActiveSelection = false
                                 }
                             }
-                        }
+                        },
+                        isMagicModeActive: toolStore.isMagicModeActive,
+                        isStudyModeActive: toolStore.isStudyModeActive
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
                     .id("\(note.id)-\(safePageIndex)")
@@ -1511,6 +1513,11 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Whether Magic Mode is active (writing particles, keyword glow, highlight).
+    var isMagicModeActive: Bool = false
+    /// Whether Study Mode is active (heading glow, checklist pulse, timer pulse).
+    var isStudyModeActive: Bool = false
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
@@ -1944,6 +1951,22 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.attachmentCanvas?.effectIntensity = intensity
         context.coordinator.widgetCanvas?.effectIntensity = intensity
 
+        // Sync magic mode engine — activate/deactivate when toggle changes.
+        let magicEngine = context.coordinator.magicModeEngine
+        if isMagicModeActive && !magicEngine.isActive {
+            magicEngine.activate(on: uiView.layer)
+        } else if !isMagicModeActive && magicEngine.isActive {
+            magicEngine.deactivate()
+        }
+
+        // Sync study mode engine — activate/deactivate when toggle changes.
+        let studyEngine = context.coordinator.studyModeEngine
+        if isStudyModeActive && !studyEngine.isActive {
+            studyEngine.activate(on: uiView.layer)
+        } else if !isStudyModeActive && studyEngine.isActive {
+            studyEngine.deactivate()
+        }
+
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
             engine.syncLayerFrames()
@@ -2234,6 +2257,13 @@ struct CanvasView: UIViewRepresentable {
                 let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeBegan(at: center)
             }
+            // Notify magic mode engine of stroke start for writing particles.
+            if magicModeEngine.isActive,
+               let inkTool = canvasView.tool as? PKInkingTool {
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                let vp = viewportPoint(from: center, in: canvasView)
+                magicModeEngine.strokeBegan(at: vp, inkColor: inkTool.color)
+            }
             // Auto-fade toolbar using config constants
             fadeTask?.cancel()
             fadeTask = Task { @MainActor [weak self] in
@@ -2280,6 +2310,42 @@ struct CanvasView: UIViewRepresentable {
                     viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
+            }
+            // Notify magic mode engine of stroke end — fires keyword glow and
+            // optional underline highlight.
+            if magicModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
+                let path = lastStroke.path
+                if let first = path.first, let last = path.last {
+                    let startVP = viewportPoint(
+                        from: CGPoint(x: first.location.x, y: first.location.y),
+                        in: canvasView
+                    )
+                    let endVP = viewportPoint(
+                        from: CGPoint(x: last.location.x, y: last.location.y),
+                        in: canvasView
+                    )
+                    let inkColor = (canvasView.tool as? PKInkingTool)?.color ?? .label
+                    magicModeEngine.strokeEnded(at: endVP, startPoint: startVP, inkColor: inkColor)
+                }
+            }
+            // Notify study mode engine — check if the last stroke looks like a heading
+            // (wide horizontal span, small vertical span) and fire a subtle glow.
+            if studyModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
+                let bbox = lastStroke.renderBounds
+                let vpOrigin = viewportPoint(
+                    from: CGPoint(x: bbox.origin.x, y: bbox.origin.y),
+                    in: canvasView
+                )
+                let vpEnd = viewportPoint(
+                    from: CGPoint(x: bbox.maxX, y: bbox.maxY),
+                    in: canvasView
+                )
+                let vpRect = CGRect(
+                    x: vpOrigin.x, y: vpOrigin.y,
+                    width: vpEnd.x - vpOrigin.x,
+                    height: vpEnd.y - vpOrigin.y
+                )
+                studyModeEngine.headingGlow(at: vpRect)
             }
             // Restore toolbar opacity after drawing ends using config constants
             fadeTask?.cancel()
@@ -2455,6 +2521,18 @@ struct CanvasView: UIViewRepresentable {
                         in: canvasView
                     )
                     engine.onStrokeUpdated(at: vp)
+                }
+            }
+
+            // Update magic mode particle position while writing.
+            if magicModeEngine.isActive {
+                let lastStroke = canvasView.drawing.strokes.last
+                if let lastPoint = lastStroke?.path.last {
+                    let vp = viewportPoint(
+                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                        in: canvasView
+                    )
+                    magicModeEngine.strokeMoved(to: vp)
                 }
             }
 

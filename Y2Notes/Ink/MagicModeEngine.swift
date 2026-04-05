@@ -241,7 +241,7 @@ final class MagicModeEngine {
             width: d, height: d
         )
         glow.colors = [
-            color.withAlphaComponent(0.3).cgColor,
+            color.withAlphaComponent(CGFloat(Tuning.glowOpacity)).cgColor,
             UIColor.clear.cgColor
         ]
         glow.startPoint = CGPoint(x: 0.5, y: 0.5)
@@ -295,7 +295,7 @@ final class MagicModeEngine {
             width: maxX - minX,
             height: Tuning.highlightHeight
         )
-        bar.backgroundColor = color.withAlphaComponent(0.20).cgColor
+        bar.backgroundColor = color.withAlphaComponent(CGFloat(Tuning.highlightOpacity)).cgColor
         bar.cornerRadius = Tuning.highlightHeight / 2
         bar.opacity = 0
         bar.zPosition = 996
