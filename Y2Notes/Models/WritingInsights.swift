@@ -53,6 +53,17 @@ struct WritingInsights {
 
     /// Average word count per note.
     let averageWordsPerNote: Double
+
+    // MARK: Trend Analysis (powered by InsightsAnalytics)
+
+    /// Linear trend direction for daily activity over the heatmap window.
+    let activityTrend: TrendAnalyser.TrendResult
+
+    /// Descriptive statistics over daily word-count estimates.
+    let wordCountStats: DescriptiveStats?
+
+    /// Anomalous days — dates where activity deviated unusually from the mean.
+    let anomalousDays: [Date]
 }
 
 // MARK: - NotebookStat
@@ -119,6 +130,22 @@ enum WritingInsightsBuilder {
         let avgPages = totalNotes > 0 ? Double(totalPages) / Double(totalNotes) : 0
         let avgWords = totalNotes > 0 ? Double(totalWords) / Double(totalNotes) : 0
 
+        // --- InsightsAnalytics: trend + stats ---
+        // Build a 90-day daily activity series (ordered oldest → newest).
+        let sortedDays: [Date] = (0..<activityWindowDays).compactMap { offset in
+            calendar.date(byAdding: .day, value: -(activityWindowDays - 1 - offset), to: today)
+        }
+        let activitySeries = sortedDays.map { Double(dailyActivity[$0] ?? 0) }
+        let activityTrend = TrendAnalyser.analyse(dailyValues: activitySeries)
+
+        // Descriptive stats on per-note word counts.
+        let wordCounts = notes.map { Double(wordCount(of: combinedText(for: $0))) }
+        let wordCountStats = DescriptiveStats.compute(wordCounts)
+
+        // Detect anomalous activity days (z-score > 2.0 = unusually high or low).
+        let anomalies = AnomalyDetector.detect(values: activitySeries, threshold: 2.0)
+        let anomalousDays = anomalies.map { sortedDays[$0.index] }
+
         return WritingInsights(
             totalNotes: totalNotes,
             totalNotebooks: totalNotebooks,
@@ -130,7 +157,10 @@ enum WritingInsightsBuilder {
             perNotebook: perNotebook,
             dailyActivity: dailyActivity,
             averagePagesPerNote: (avgPages * 10).rounded() / 10,
-            averageWordsPerNote: (avgWords * 10).rounded() / 10
+            averageWordsPerNote: (avgWords * 10).rounded() / 10,
+            activityTrend: activityTrend,
+            wordCountStats: wordCountStats,
+            anomalousDays: anomalousDays
         )
     }
 

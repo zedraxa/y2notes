@@ -161,16 +161,7 @@ final class AdaptiveEffectsEngine: ObservableObject {
 
     private var lastStrokeTimestamp: CFTimeInterval = 0
 
-    // MARK: - Thermal State Observation
-
-    /// Current device thermal state, updated via system notifications.
-    private var thermalState: ProcessInfo.ThermalState = .nominal {
-        didSet { reevaluate() }
-    }
-
-    private var thermalStateObserver: NSObjectProtocol?
-
-    // MARK: - Low Power Mode Observation
+    // MARK: - Low Power Mode & Thermal State Observation
 
     private var powerStateObserver: NSObjectProtocol?
     private var thermalStateObserver: NSObjectProtocol?
@@ -179,17 +170,7 @@ final class AdaptiveEffectsEngine: ObservableObject {
 
     init() {
         isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
-        thermalState   = ProcessInfo.processInfo.thermalState
-
-        thermalStateObserver = NotificationCenter.default.addObserver(
-            forName: ProcessInfo.thermalStateDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.thermalState = ProcessInfo.processInfo.thermalState
-            }
-        }
+        thermalState = ProcessInfo.processInfo.thermalState
 
         powerStateObserver = NotificationCenter.default.addObserver(
             forName: .NSProcessInfoPowerStateDidChange,

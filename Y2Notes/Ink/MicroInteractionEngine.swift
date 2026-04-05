@@ -947,6 +947,68 @@ final class MicroInteractionEngine {
         layer.add(anim, forKey: "buttonRelease")
     }
 
+    // MARK: - Velocity-Dependent Spring Profiles (AGENT-22)
+
+    /// Parameterised spring profile that adapts to gesture velocity and device tier.
+    ///
+    /// Instead of fixed spring constants, the profile derives stiffness and
+    /// damping from the drag velocity — fast gestures produce snappy, energetic
+    /// springs while slow gestures feel gentle and deliberate.
+    struct SpringProfile: Equatable {
+        /// Base spring stiffness (Newton/meter analogy).
+        let baseStiffness: CGFloat
+        /// Base damping ratio.
+        let baseDamping: CGFloat
+        /// Mass of the animated object.
+        let mass: CGFloat
+        /// How much velocity increases stiffness (0 = none, 1 = doubles at max).
+        let velocityStiffnessGain: CGFloat
+        /// How much velocity decreases damping (0 = none, 1 = halves at max).
+        let velocityDampingReduction: CGFloat
+
+        /// Returns spring parameters tuned for the given drag velocity.
+        ///
+        /// - Parameter velocity: Gesture velocity magnitude (points/second).
+        /// - Returns: Tuple of (stiffness, damping, initialVelocity) for CASpringAnimation.
+        func resolved(for velocity: CGFloat) -> (stiffness: CGFloat, damping: CGFloat, initialVelocity: CGFloat) {
+            let maxVelocity: CGFloat = 2000.0
+            let t = min(abs(velocity) / maxVelocity, 1.0)
+            let stiffness = baseStiffness * (1.0 + t * velocityStiffnessGain)
+            let damping = baseDamping * (1.0 - t * velocityDampingReduction)
+            let impulse = 2.0 + t * 10.0  // initial velocity scales with gesture speed
+            return (stiffness, damping, impulse)
+        }
+
+        // ── Named profiles ──────────────────────────────────────────────
+
+        /// Snappy selection scale — responds to tap/drag velocity.
+        static let selectScale = SpringProfile(
+            baseStiffness: 280,
+            baseDamping: 12,
+            mass: 1.0,
+            velocityStiffnessGain: 0.3,
+            velocityDampingReduction: 0.15
+        )
+
+        /// Energetic bounce on snap — velocity makes it bouncier.
+        static let snapBounce = SpringProfile(
+            baseStiffness: 300,
+            baseDamping: 15,
+            mass: 1.0,
+            velocityStiffnessGain: 0.2,
+            velocityDampingReduction: 0.25
+        )
+
+        /// Release settle — faster release gives snappier settle.
+        static let releaseSettle = SpringProfile(
+            baseStiffness: 300,
+            baseDamping: 10,
+            mass: 1.0,
+            velocityStiffnessGain: 0.4,
+            velocityDampingReduction: 0.1
+        )
+    }
+
     // MARK: - Velocity-Driven Drag Inertia (AGENT-22)
 
     /// Enhanced drag inertia that uses spring physics scaled by gesture velocity.
@@ -959,38 +1021,33 @@ final class MicroInteractionEngine {
     ///   - layer: The dragged layer.
     ///   - from: Current position at drag release.
     ///   - velocity: Drag velocity at release (points/second).
+    ///   - profile: Spring profile to use (default: `.releaseSettle`).
     func playVelocityDragInertia(
         on layer: CALayer,
         from currentPosition: CGPoint,
-        velocity: CGPoint
+        velocity: CGPoint,
+        profile: SpringProfile = .releaseSettle
     ) {
         guard !shouldSuppressAnimations else { return }
 
-        let speed = hypot(velocity.x, velocity.y)
+        let speed = sqrt(velocity.x * velocity.x + velocity.y * velocity.y)
+        let spring = profile.resolved(for: speed)
 
-        // Scale carry: 0.06 at 200 pt/s → 0.10 at 1000+ pt/s, capped at 40 pt.
-        let baseDecay: CGFloat      = 0.06
-        let velocityBoost: CGFloat  = min(speed / 1000.0, 1.0) * 0.04
-        let decayFactor: CGFloat    = baseDecay + velocityBoost
+        // Decay factor scales with velocity — faster flicks carry further
+        let decayFactor: CGFloat = 0.08 + min(speed / 3000.0, 0.12)
         let dx = velocity.x * decayFactor
         let dy = velocity.y * decayFactor
-        let maxCarry: CGFloat = 40
-        let clampedDx = max(-maxCarry, min(maxCarry, dx))
-        let clampedDy = max(-maxCarry, min(maxCarry, dy))
-        let target = CGPoint(x: currentPosition.x + clampedDx,
-                             y: currentPosition.y + clampedDy)
+        let target = CGPoint(x: currentPosition.x + dx, y: currentPosition.y + dy)
 
-        // Duration scales with speed: 0.28 s at slow → 0.42 s at high velocity.
-        let duration = 0.28 + min(speed / 1000.0, 1.0) * 0.14
-
-        let timing = CAMediaTimingFunction(controlPoints: 0.0, 0.0, 0.15, 1.0)  // ease-out quintic approx
-
-        let anim               = CABasicAnimation(keyPath: "position")
-        anim.fromValue         = NSValue(cgPoint: currentPosition)
-        anim.toValue           = NSValue(cgPoint: target)
-        anim.duration          = duration
-        anim.timingFunction    = timing
-        anim.fillMode          = .forwards
+        let anim = CASpringAnimation(keyPath: "position")
+        anim.fromValue       = NSValue(cgPoint: currentPosition)
+        anim.toValue         = NSValue(cgPoint: target)
+        anim.stiffness       = spring.stiffness
+        anim.damping         = spring.damping
+        anim.mass            = profile.mass
+        anim.initialVelocity = spring.initialVelocity
+        anim.duration        = anim.settlingDuration
+        anim.fillMode        = .forwards
         anim.isRemovedOnCompletion = false
 
         CATransaction.begin()
@@ -1019,41 +1076,171 @@ final class MicroInteractionEngine {
     ) {
         guard !shouldSuppressAnimations else { return }
 
-        let speed = hypot(velocity.x, velocity.y)
-        guard speed > 1 else { return }
+        let speed = sqrt(velocity.x * velocity.x + velocity.y * velocity.y)
+        let maxSpeed: CGFloat = 2000.0
+        let t = min(speed / maxSpeed, 1.0)
 
-        let maxSpeed: CGFloat = 800
-        let speedFraction = min(speed / maxSpeed, 1.0)
-
-        // Shadow offset: opposite to velocity direction, max ±4 pt.
-        let maxOffset: CGFloat = 4.0
-        let nx = velocity.x / speed  // normalised direction
-        let ny = velocity.y / speed
+        // Shadow depth scales from resting (offset 2pt, radius 4pt) to
+        // elevated (offset 8pt, radius 12pt) based on velocity.
         let targetOffset = CGSize(
-            width:  -nx * maxOffset * speedFraction,
-            height: -ny * maxOffset * speedFraction
+            width: -velocity.x / maxSpeed * 4.0,
+            height: 2.0 + t * 6.0
         )
-
-        // Shadow radius: 4 → 8 with speed.
-        let targetRadius: CGFloat = 4.0 + speedFraction * 4.0
+        let targetRadius: CGFloat = 4.0 + t * 8.0
+        let targetOpacity: Float = 0.10 + Float(t) * 0.15
 
         let timing = CAMediaTimingFunction(controlPoints: 0.0, 0.0, 0.2, 1.0)
 
-        let offsetAnim              = CABasicAnimation(keyPath: "shadowOffset")
-        offsetAnim.toValue          = NSValue(cgSize: targetOffset)
-        offsetAnim.duration         = 0.18
-        offsetAnim.timingFunction   = timing
-        offsetAnim.fillMode         = .forwards
+        let offsetAnim = CABasicAnimation(keyPath: "shadowOffset")
+        offsetAnim.toValue = NSValue(cgSize: targetOffset)
+        offsetAnim.duration = 0.15
+        offsetAnim.timingFunction = timing
+        offsetAnim.fillMode = .forwards
         offsetAnim.isRemovedOnCompletion = false
 
-        let radiusAnim              = CABasicAnimation(keyPath: "shadowRadius")
-        radiusAnim.toValue          = targetRadius
-        radiusAnim.duration         = 0.18
-        radiusAnim.timingFunction   = timing
-        radiusAnim.fillMode         = .forwards
+        let radiusAnim = CABasicAnimation(keyPath: "shadowRadius")
+        radiusAnim.toValue = targetRadius
+        radiusAnim.duration = 0.15
+        radiusAnim.timingFunction = timing
+        radiusAnim.fillMode = .forwards
         radiusAnim.isRemovedOnCompletion = false
 
-        layer.add(offsetAnim, forKey: "momentumShadowOffset")
-        layer.add(radiusAnim, forKey: "momentumShadowRadius")
+        let opacityAnim = CABasicAnimation(keyPath: "shadowOpacity")
+        opacityAnim.toValue = targetOpacity
+        opacityAnim.duration = 0.15
+        opacityAnim.timingFunction = timing
+        opacityAnim.fillMode = .forwards
+        opacityAnim.isRemovedOnCompletion = false
+
+        let group = CAAnimationGroup()
+        group.animations = [offsetAnim, radiusAnim, opacityAnim]
+        group.duration = 0.15
+        group.fillMode = .forwards
+        group.isRemovedOnCompletion = false
+
+        layer.add(group, forKey: "momentumShadow")
+    }
+
+    // MARK: - Chain Animation: Lift and Glow (AGENT-22)
+
+    /// Plays a sequenced lift-and-glow chain animation when an object is long-pressed.
+    ///
+    /// The sequence is:
+    /// 1. **Lift** — scale up 1.0 → 1.06 with spring physics (0.25 s)
+    /// 2. **Shadow deepen** — shadow offset and radius increase (concurrent with lift)
+    /// 3. **Glow pulse** — shadow colour pulses with selection colour (0.3 s, auto-reverse)
+    ///
+    /// The chain runs within a single `CAAnimationGroup` to avoid callback overhead.
+    ///
+    /// - Parameters:
+    ///   - layer: The object's layer.
+    ///   - color: Glow colour (default: accent blue).
+    func playLiftAndGlow(
+        on layer: CALayer,
+        color: UIColor = UIColor.systemBlue
+    ) {
+        guard !shouldSuppressAnimations else { return }
+        guard activeAnimationCount < InteractionRules.maxSimultaneousAnimations else { return }
+
+        activeAnimationCount += 1
+        layer.shadowColor = color.cgColor
+
+        // Phase 1: Lift scale (spring)
+        let lift = CASpringAnimation(keyPath: "transform.scale")
+        lift.fromValue       = 1.0
+        lift.toValue         = 1.06
+        lift.stiffness       = 320.0
+        lift.damping         = 14.0
+        lift.mass            = 1.0
+        lift.initialVelocity = 5.0
+        lift.beginTime       = 0
+        lift.duration        = 0.25
+        lift.fillMode        = .forwards
+
+        // Phase 2: Shadow deepen (concurrent with lift)
+        let shadowDeepen = CABasicAnimation(keyPath: "shadowRadius")
+        shadowDeepen.fromValue = 4.0
+        shadowDeepen.toValue   = 10.0
+        shadowDeepen.beginTime = 0
+        shadowDeepen.duration  = 0.25
+        shadowDeepen.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        shadowDeepen.fillMode = .forwards
+
+        let shadowOffset = CABasicAnimation(keyPath: "shadowOffset")
+        shadowOffset.fromValue = NSValue(cgSize: CGSize(width: 0, height: 2))
+        shadowOffset.toValue   = NSValue(cgSize: CGSize(width: 0, height: 6))
+        shadowOffset.beginTime = 0
+        shadowOffset.duration  = 0.25
+        shadowOffset.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        shadowOffset.fillMode = .forwards
+
+        // Phase 3: Glow pulse (begins after lift settles)
+        let glowPulse = CABasicAnimation(keyPath: "shadowOpacity")
+        glowPulse.fromValue     = 0.10
+        glowPulse.toValue       = 0.30
+        glowPulse.beginTime     = 0.20  // slight overlap with lift
+        glowPulse.duration      = 0.30
+        glowPulse.autoreverses  = true
+        glowPulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        glowPulse.fillMode      = .forwards
+
+        let group = CAAnimationGroup()
+        group.animations = [lift, shadowDeepen, shadowOffset, glowPulse]
+        group.duration = 0.80  // total chain duration
+        group.fillMode = .forwards
+        group.isRemovedOnCompletion = false
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            self?.activeAnimationCount -= 1
+        }
+        layer.add(group, forKey: "liftAndGlow")
+        CATransaction.commit()
+    }
+
+    /// Reverses the lift-and-glow animation, settling back to resting state.
+    func playSettleFromLift(on layer: CALayer) {
+        guard !shouldSuppressAnimations else {
+            layer.removeAnimation(forKey: "liftAndGlow")
+            layer.transform = CATransform3DIdentity
+            layer.shadowRadius  = 4.0
+            layer.shadowOffset  = CGSize(width: 0, height: 2)
+            layer.shadowOpacity = 0.10
+            return
+        }
+
+        let scale = CASpringAnimation(keyPath: "transform.scale")
+        scale.toValue         = 1.0
+        scale.stiffness       = 280.0
+        scale.damping         = 12.0
+        scale.mass            = 1.0
+        scale.initialVelocity = 3.0
+        scale.duration        = scale.settlingDuration
+        scale.fillMode        = .forwards
+        scale.isRemovedOnCompletion = false
+
+        let radius = CABasicAnimation(keyPath: "shadowRadius")
+        radius.toValue   = 4.0
+        radius.duration  = 0.2
+        radius.fillMode  = .forwards
+        radius.isRemovedOnCompletion = false
+
+        let offset = CABasicAnimation(keyPath: "shadowOffset")
+        offset.toValue  = NSValue(cgSize: CGSize(width: 0, height: 2))
+        offset.duration = 0.2
+        offset.fillMode = .forwards
+        offset.isRemovedOnCompletion = false
+
+        let opacity = CABasicAnimation(keyPath: "shadowOpacity")
+        opacity.toValue  = 0.10
+        opacity.duration = 0.2
+        opacity.fillMode = .forwards
+        opacity.isRemovedOnCompletion = false
+
+        layer.removeAnimation(forKey: "liftAndGlow")
+        layer.add(scale, forKey: "settleScale")
+        layer.add(radius, forKey: "settleRadius")
+        layer.add(offset, forKey: "settleOffset")
+        layer.add(opacity, forKey: "settleOpacity")
     }
 }

@@ -164,6 +164,27 @@ struct WritingEffectConfig: Codable, Equatable {
     /// Gradient ink mapping source.
     var gradientSource: GradientSource = .velocity
 
+    // ── Pen sub-type physics ──────────────────────────────────────────────────
+
+    /// Pressure response curve.  Overrides `PressureSpreadParams.defaultCurveExponent`
+    /// when the pressure-spread core effect is enabled.
+    var pressureCurve: PressureCurvePreset = .balanced
+
+    /// Ink flow characteristics derived from the active pen sub-type.
+    /// Scales micro-texture, opacity variance, velocity ceiling, and pooling.
+    var inkFlow: InkFlowParams = .default
+
+    /// When `true`, a short fade-in/fade-out overlay is rendered at the stroke
+    /// start and end, simulating ink loading and taper.  Requires `.standard`
+    /// tier minimum.  Disabled automatically when `ReduceMotion` is on.
+    var strokeTaperEnabled: Bool = false
+
+    /// When `true` and `inkFlow.poolingStrength > 0`, the glow layer expands
+    /// briefly when the nib velocity drops near zero, simulating ink pooling.
+    /// Only visible when `glowPenEnabled` is also `true`, or automatically
+    /// activated by the pipeline when poolingStrength > 0.
+    var inkPoolingEnabled: Bool = false
+
     // MARK: - Convenience
 
     /// Whether any core effect is active.
@@ -175,6 +196,7 @@ struct WritingEffectConfig: Codable, Equatable {
     /// Whether any advanced effect is active.
     var hasAdvancedEffects: Bool {
         glowPenEnabled || neonInkEnabled || gradientInkEnabled || inkTrailFadeEnabled
+            || strokeTaperEnabled || inkPoolingEnabled
     }
 
     /// Returns the set of active core effects for iteration.
@@ -205,6 +227,11 @@ struct WritingEffectConfig: Codable, Equatable {
         if !AdvancedWritingEffect.neonInk.isSupported(on: tier)      { copy.neonInkEnabled = false }
         if !AdvancedWritingEffect.gradientInk.isSupported(on: tier)  { copy.gradientInkEnabled = false }
         if !AdvancedWritingEffect.inkTrailFade.isSupported(on: tier) { copy.inkTrailFadeEnabled = false }
+        // Taper and pooling overlays require at least .standard to keep 120 fps headroom.
+        if tier < .standard {
+            copy.strokeTaperEnabled = false
+            copy.inkPoolingEnabled  = false
+        }
         return copy
     }
 
@@ -221,6 +248,8 @@ struct WritingEffectConfig: Codable, Equatable {
             copy.neonInkEnabled      = false
             copy.gradientInkEnabled  = false
             copy.inkTrailFadeEnabled = false
+            copy.strokeTaperEnabled  = false
+            copy.inkPoolingEnabled   = false
         }
         if intensity == .minimal {
             copy.microTextureEnabled       = false
@@ -306,8 +335,9 @@ enum PressureSpreadParams {
     static let minMultiplier: CGFloat = 1.0
     /// Maximum width multiplier at full force.
     static let maxMultiplier: CGFloat = 2.4
-    /// Response curve exponent (< 1 = more sensitive at light pressure).
-    static let curveExponent: CGFloat = 0.7
+    /// Default response curve exponent (< 1 = more sensitive at light pressure).
+    /// Overridden at runtime by `WritingEffectConfig.pressureCurve`.
+    static let defaultCurveExponent: CGFloat = 0.7
     /// Force normalisation ceiling (points above this are clamped to 1.0).
     static let forceCeiling: CGFloat = 4.0
 }
@@ -398,7 +428,56 @@ enum InkTrailFadeParams {
     static let pruneInterval: TimeInterval = 0.3
 }
 
-// MARK: - Ink Flow Physics (AGENT-22)
+// MARK: - Pressure Curve Preset
+
+/// User-selectable pressure response presets that control how hard the user
+/// needs to press before ink reaches full width.
+///
+/// Each case maps to a curve exponent used in the PressureSpread core effect.
+/// `flat` disables all pressure variation — useful for technical / drafting work.
+enum PressureCurvePreset: String, CaseIterable, Codable {
+    /// Very sensitive — a light touch already produces thick strokes.
+    case light
+    /// Natural, default feel — moderate responsiveness.
+    case balanced
+    /// Requires deliberate pressure for maximum width.
+    case firm
+    /// No pressure variation — constant width regardless of Pencil force.
+    case flat
+
+    /// Response curve exponent.  Applied to the normalised Apple Pencil force
+    /// value before computing the width multiplier.  Values < 1 boost
+    /// sensitivity at light pressures; values > 1 require heavier contact.
+    /// A value of 0 (flat) is treated specially: pressure spread is disabled.
+    var curveExponent: CGFloat {
+        switch self {
+        case .light:    return 0.4
+        case .balanced: return 0.7
+        case .firm:     return 1.2
+        case .flat:     return 0.0
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .light:    return "Light"
+        case .balanced: return "Balanced"
+        case .firm:     return "Firm"
+        case .flat:     return "Flat"
+        }
+    }
+
+    var tagline: String {
+        switch self {
+        case .light:    return "Very sensitive to light pressure"
+        case .balanced: return "Natural, default feel"
+        case .firm:     return "Requires deliberate pressure"
+        case .flat:     return "Constant width — no variation"
+        }
+    }
+}
+
+// MARK: - Ink Fluid Physics Parameters
 
 /// Physical ink-flow parameters that simulate fluid dynamics on paper.
 ///
@@ -501,6 +580,50 @@ enum PressureResponseCurve {
 }
 
 // MARK: - Velocity-Aligned Texture Rotation (AGENT-22)
+// MARK: - Ink Flow Parameters
+
+/// Per-pen-sub-type ink flow characteristics that scale core writing effects.
+///
+/// These parameters do not add new overlay layers — they modulate the intensity
+/// of existing core effects (micro texture, opacity fluctuation, velocity
+/// thickness) and govern optional pooling / taper overlays in
+/// `WritingEffectsPipeline`.
+struct InkFlowParams: Codable, Equatable {
+
+    /// Scales the micro-texture grain relative to its base opacity.
+    /// Values > 1 increase texture (e.g. sketchy pen); < 1 clean it up (gel).
+    var microTextureMultiplier: CGFloat
+
+    /// Scales per-segment opacity variance relative to `OpacityFluctuationParams.maxDeviation`.
+    /// 0 = perfectly uniform; 3 = exaggerated organic variation.
+    var opacityVarianceMultiplier: CGFloat
+
+    /// Velocity ceiling override (pts/s) for the VelocityThickness core effect.
+    /// Lower values cause strokes to thin out at slower speeds.
+    var velocityCeiling: CGFloat
+
+    /// Ink pooling glow expansion factor when the nib slows to near-zero.
+    /// 0 = no visible pooling; 1 = large glow bloom.  Only has visible effect
+    /// when `WritingEffectConfig.inkPoolingEnabled` is `true`.
+    var poolingStrength: CGFloat
+
+    init(
+        microTextureMultiplier: CGFloat  = 1.0,
+        opacityVarianceMultiplier: CGFloat = 1.0,
+        velocityCeiling: CGFloat         = VelocityThicknessParams.velocityCeiling,
+        poolingStrength: CGFloat         = 0.0
+    ) {
+        self.microTextureMultiplier     = microTextureMultiplier
+        self.opacityVarianceMultiplier  = opacityVarianceMultiplier
+        self.velocityCeiling            = velocityCeiling
+        self.poolingStrength            = poolingStrength
+    }
+
+    /// Default flow — matches ballpoint / balanced behaviour.
+    static let `default` = InkFlowParams()
+}
+
+// MARK: - Velocity-Aligned Texture Rotation
 
 /// Parameters for aligning the micro-texture grain with stroke direction.
 ///

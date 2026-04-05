@@ -19,6 +19,9 @@ struct SettingsView: View {
     @State private var showWritingInsights = false
     @State private var showOpenSourceCredits = false
 
+    private let toggleFeedback = UIImpactFeedbackGenerator(style: .light)
+    private let resetFeedback = UINotificationFeedbackGenerator()
+
     var body: some View {
         NavigationStack {
             Form {
@@ -52,6 +55,7 @@ struct SettingsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Reset to Defaults", role: .destructive) {
+                    resetFeedback.notificationOccurred(.warning)
                     settingsStore.resetToDefaults()
                 }
                 Button("Cancel", role: .cancel) {}
@@ -85,8 +89,34 @@ struct SettingsView: View {
             }
             .accessibilityLabel("App theme")
 
-            // Contrast row — shows the primary text ratio alongside the pass/fail badge.
+            // Active theme indicator when scheduling is on.
+            if themeStore.autoScheduleEnabled {
+                HStack {
+                    Label("Active", systemImage: "clock.arrow.2.circlepath")
+                        .font(.subheadline)
+                    Spacer()
+                    Text(themeStore.effectiveTheme.displayName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Auto-schedule active. Current theme is \(themeStore.effectiveTheme.displayName).")
+            }
+
+            // Colour palette preview.
             let def = themeStore.definition
+            HStack(spacing: 6) {
+                Text("Palette")
+                Spacer()
+                paletteCircle(def.canvasBackgroundColor, border: true)
+                paletteCircle(def.primaryTextColor)
+                paletteCircle(def.secondaryTextColor)
+                paletteCircle(def.accentColor)
+                paletteCircle(def.toolbarBackgroundColor, border: true)
+                paletteCircle(def.surfaceSwiftUIColor, border: true)
+            }
+            .accessibilityHidden(true)
+
+            // Contrast row — shows the primary text ratio alongside the pass/fail badge.
             HStack {
                 Text("Contrast")
                 Spacer()
@@ -113,6 +143,16 @@ struct SettingsView: View {
         } header: {
             Text("Appearance")
         }
+    }
+
+    private func paletteCircle(_ color: Color, border: Bool = false) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 18, height: 18)
+            .overlay(
+                Circle()
+                    .strokeBorder(Color(uiColor: .separator).opacity(border ? 0.4 : 0), lineWidth: 0.5)
+            )
     }
 
     // MARK: - Document Defaults
@@ -183,6 +223,7 @@ struct SettingsView: View {
             Toggle(isOn: $settingsStore.pencilOnlyDrawing) {
                 Label("Pencil-Only Drawing", systemImage: "pencil.tip")
             }
+            .onChange(of: settingsStore.pencilOnlyDrawing) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Pencil-only drawing. When enabled, finger input pans and zooms instead of drawing.")
         } header: {
             Text("Tool Preferences")
@@ -196,11 +237,13 @@ struct SettingsView: View {
             Toggle(isOn: $toolStore.isMagicModeActive) {
                 Label("Magic Mode", systemImage: "sparkles")
             }
+            .onChange(of: toolStore.isMagicModeActive) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Magic Mode. Adds writing particles, keyword glow, and underline highlight animation.")
 
             Toggle(isOn: $toolStore.isStudyModeActive) {
                 Label("Study Mode", systemImage: "graduationcap")
             }
+            .onChange(of: toolStore.isStudyModeActive) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Study Mode. Adds heading glow, checklist completion animation, and timer pulse.")
         } header: {
             Text("Ink Effects")
@@ -216,11 +259,13 @@ struct SettingsView: View {
             Toggle(isOn: $settingsStore.reduceMotion) {
                 Label("Reduce Motion", systemImage: "figure.walk.motion")
             }
+            .onChange(of: settingsStore.reduceMotion) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Reduce motion. Disables animations throughout the app.")
 
             Toggle(isOn: $settingsStore.highContrastMode) {
                 Label("Increase Contrast", systemImage: "circle.lefthalf.filled")
             }
+            .onChange(of: settingsStore.highContrastMode) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Increase contrast mode for improved visibility.")
         } header: {
             Text("Accessibility")
