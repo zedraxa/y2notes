@@ -2308,11 +2308,7 @@ struct CanvasView: UIViewRepresentable {
         deinit {
             // Flush any pending drawing save so strokes are never silently
             // dropped when the coordinator deallocates (e.g. on page change).
-            if debounceTimer != nil {
-                debounceTimer?.invalidate()
-                debounceTimer = nil
-                onSaveRequested()
-            }
+            flushPendingSave()
             // Invalidate remaining timers.
             postStrokeZoomUnlockTimer?.invalidate()
             shapeDebounceTimer?.invalidate()
