@@ -2018,10 +2018,13 @@ struct CanvasView: UIViewRepresentable {
         let ambientEngine = context.coordinator.ambientEngine
         ambientEngine.soundEnabled = isAmbientSoundEnabled
         if let ts = toolStoreForFade {
-            if let scene = activeAmbientScene, ambientEngine.activeScene != scene {
+            switch (activeAmbientScene, ambientEngine.activeScene) {
+            case let (scene?, current) where current != scene:
                 ambientEngine.activate(scene, on: uiView.layer, toolStore: ts)
-            } else if activeAmbientScene == nil, ambientEngine.activeScene != nil {
+            case (nil, .some):
                 ambientEngine.deactivate(toolStore: ts)
+            default:
+                break
             }
         }
         if ambientEngine.activeScene != nil {

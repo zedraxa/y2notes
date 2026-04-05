@@ -146,6 +146,11 @@ final class AmbientEnvironmentEngine {
         static let soundFadeSteps:   Int   = 20
         /// Sample rate of the synthesised audio (Hz).
         static let sampleRate:       Double = 44_100
+        /// Pre-computed lo-fi LFO phase increment per audio sample (radians).
+        /// = 2π × lofiLFOFrequency / sampleRate
+        static let lofiLFOIncrement: Float = Float(
+            2.0 * Double.pi * Double(lofiLFOFrequency) / sampleRate
+        )
     }
 
     // MARK: - State
@@ -306,7 +311,6 @@ final class AmbientEnvironmentEngine {
         // `self` — avoiding any potential data races.
         let noiseState = NoiseState()
         let capturedScene = scene
-        let lfoIncrement = Float(2.0 * Double.pi * Double(Tuning.lofiLFOFrequency) / sampleRate)
 
         let sourceNode = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList in
             let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
@@ -321,7 +325,7 @@ final class AmbientEnvironmentEngine {
                 case .lofiLight:
                     // Pink noise with gentle LFO tremolo for lo-fi warmth.
                     let lfoValue = 0.85 + 0.15 * sinf(noiseState.lfoPhase)
-                    noiseState.lfoPhase += lfoIncrement
+                    noiseState.lfoPhase += Tuning.lofiLFOIncrement
                     if noiseState.lfoPhase > Float(2.0 * Double.pi) {
                         noiseState.lfoPhase -= Float(2.0 * Double.pi)
                     }
@@ -428,7 +432,10 @@ final class AmbientEnvironmentEngine {
         case .reduced: vol *= 0.6
         case .minimal: return 0
         }
-        if ProcessInfo.processInfo.isLowPowerModeEnabled { vol *= 0.5 }
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            // Halve volume in Low Power Mode to reduce audio processing load.
+            vol *= 0.5
+        }
         return vol
     }
 
@@ -664,6 +671,10 @@ private final class NoiseState {
     var lcgState: UInt32 = 2_463_534_242
 
     /// Returns the next pink-noise sample in the approximate range ±0.5.
+    ///
+    /// Uses Paul Kellet's pink-noise IIR filter (3rd-order Yule-Walker approximation).
+    /// The six filter coefficients (0.99886…) are the pole locations that shape the
+    /// spectrum to approximate a −3 dB/octave roll-off characteristic of pink noise.
     @inline(__always)
     func pinkNoise() -> Float {
         let white = lcgFloat()
