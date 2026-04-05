@@ -449,6 +449,26 @@ struct NoteEditorView: View {
                     }
                 }
             },
+            currentPageStickers: note.stickers(forPage: safePageIndex),
+            onStickersChanged: { stickers in
+                noteStore.updateStickers(for: note.id, pageIndex: safePageIndex, stickers: stickers)
+            },
+            onStickerSelectionChanged: { stickerID in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeStickerSelection = stickerID
+                    if stickerID != nil {
+                        toolStore.activeShapeSelection = nil
+                        toolStore.activeAttachmentSelection = nil
+                        toolStore.activeWidgetSelection = nil
+                        toolStore.activeTextObjectSelection = nil
+                        toolStore.hasActiveSelection = false
+                    }
+                }
+            },
+            stickerImageProvider: { id in
+                guard let asset = stickerStore.asset(for: id) else { return nil }
+                return stickerStore.image(for: asset)
+            },
             isTextToolActive: toolStore.activeTool == .text,
             currentPageTextObjects: note.textObjects(forPage: safePageIndex),
             onTextObjectsChanged: { textObjects in
@@ -1981,6 +2001,15 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Sticker instances for the current page.
+    var currentPageStickers: [StickerInstance] = []
+    /// Callback to persist sticker changes.
+    var onStickersChanged: (([StickerInstance]) -> Void)?
+    /// Callback when sticker selection changes.
+    var onStickerSelectionChanged: ((UUID?) -> Void)?
+    /// Image provider for rendering sticker assets.
+    var stickerImageProvider: ((String) -> UIImage?)?
+
     /// Whether the text tool is active (text canvas overlay intercepts touches).
     var isTextToolActive: Bool = false
     /// Text objects for the current page.
@@ -2239,6 +2268,31 @@ struct CanvasView: UIViewRepresentable {
             widgetCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         context.coordinator.widgetCanvas = widgetCanvas
+
+        // ── Sticker canvas (draggable sticker overlays) ──────────────────────
+        let stickerCanvas = StickerCanvasView(frame: .zero)
+        stickerCanvas.translatesAutoresizingMaskIntoConstraints = false
+        stickerCanvas.stickers = currentPageStickers
+        stickerCanvas.imageProvider = stickerImageProvider
+        stickerCanvas.onStickerTransformed = { sticker in
+            context.coordinator.handleStickerTransformed(sticker)
+        }
+        stickerCanvas.onStickerDeleted = { stickerID in
+            context.coordinator.handleStickerDeleted(stickerID)
+        }
+        stickerCanvas.onSelectionChanged = { stickerID in
+            context.coordinator.handleStickerSelectionChanged(stickerID)
+        }
+        context.coordinator.onStickersChanged = onStickersChanged
+        context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
+        container.addSubview(stickerCanvas)
+        NSLayoutConstraint.activate([
+            stickerCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            stickerCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stickerCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stickerCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.stickerCanvas = stickerCanvas
 
         // ── Text object canvas (anchored text boxes layer) ───────────────────
         let textCanvas = TextCanvasView(frame: .zero)
@@ -2521,6 +2575,15 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
 
+        // Sync sticker canvas.
+        if let stickerCanvas = context.coordinator.stickerCanvas {
+            stickerCanvas.stickers = currentPageStickers
+            stickerCanvas.imageProvider = stickerImageProvider
+            stickerCanvas.selectedStickerID = toolStoreForFade?.activeStickerSelection
+        }
+        context.coordinator.onStickersChanged = onStickersChanged
+        context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
+
         // Sync text object canvas.
         if let textCanvas = context.coordinator.textCanvas {
             textCanvas.isTextToolActive = isTextToolActive
@@ -2563,7 +2626,8 @@ struct CanvasView: UIViewRepresentable {
             intensity: intensity,
             shapeCanvas: context.coordinator.shapeCanvas,
             attachmentCanvas: context.coordinator.attachmentCanvas,
-            widgetCanvas: context.coordinator.widgetCanvas
+            widgetCanvas: context.coordinator.widgetCanvas,
+            stickerCanvas: context.coordinator.stickerCanvas
         )
 
         // Sync magic mode engine — activate/deactivate when toggle changes.
@@ -2739,6 +2803,18 @@ struct CanvasView: UIViewRepresentable {
 
         /// Callback when widget selection changes.
         var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+        /// Sticker canvas overlay for the current page.
+        weak var stickerCanvas: StickerCanvasView?
+
+        /// Debounce timer for persisting sticker changes.
+        private var stickerDebounceTimer: Timer?
+
+        /// Callback to persist sticker changes.
+        var onStickersChanged: (([StickerInstance]) -> Void)?
+
+        /// Callback when sticker selection changes.
+        var onStickerSelectionChanged: ((UUID?) -> Void)?
 
         /// Text object canvas overlay for the current page.
         weak var textCanvas: TextCanvasView?
@@ -3311,6 +3387,36 @@ struct CanvasView: UIViewRepresentable {
             ) { [weak self] _ in
                 self?.onWidgetsChanged?(widgets)
             }
+        }
+
+        // MARK: - Sticker Coordinator
+
+        func handleStickersChanged(_ stickers: [StickerInstance]) {
+            stickerDebounceTimer?.invalidate()
+            stickerDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: StickerConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onStickersChanged?(stickers)
+            }
+        }
+
+        func handleStickerTransformed(_ sticker: StickerInstance) {
+            guard let stickerCanvas = stickerCanvas else { return }
+            if let idx = stickerCanvas.stickers.firstIndex(where: { $0.id == sticker.id }) {
+                stickerCanvas.stickers[idx] = sticker
+            }
+            handleStickersChanged(stickerCanvas.stickers)
+        }
+
+        func handleStickerDeleted(_ stickerID: UUID) {
+            guard let stickerCanvas = stickerCanvas else { return }
+            stickerCanvas.stickers.removeAll(where: { $0.id == stickerID })
+            handleStickersChanged(stickerCanvas.stickers)
+        }
+
+        func handleStickerSelectionChanged(_ stickerID: UUID?) {
+            onStickerSelectionChanged?(stickerID)
         }
 
         // MARK: - Text Object Coordinator
