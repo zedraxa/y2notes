@@ -119,14 +119,6 @@ final class InkEffectEngine {
         static let glowDiameter: CGFloat         = 80
     }
 
-    private enum SheenTuning {
-        static let maxBirthRate                  = 50
-        static let coreFraction: Float           = 0.60   // 60% budget → core diamond sparkles
-        static let dustFraction: Float           = 0.40   // 40% budget → fine dust circles
-        static let glowDiameter: CGFloat         = 44
-        static let dustHuePhaseOffset: CGFloat   = 0.20   // complementary hue offset for dust cell
-    }
-
     // Emitter (fire / sparkle / rainbow / snow / dissolve / glow / sheen / blood)
     private let emitterLayer = CAEmitterLayer()
 

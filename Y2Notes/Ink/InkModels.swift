@@ -486,30 +486,6 @@ struct ParticlePhysics: Equatable {
         velocitySpawnSpread: .pi / 3  // wider cone — fast strokes fan dust broadly
     )
 
-    /// Sheen core diamonds — slight rise, moderate scatter.
-    static let sheenCorePhysics = ParticlePhysics(
-        gravity: -18,         // core particles rise gently
-        wind: 0,
-        turbulence: 28,       // moderate — focused iridescent shimmer
-        drag: 0.95,
-        bounceOffBounds: false,
-        bounciness: 0,
-        spinRange: 2.0,
-        fadeOut: true
-    )
-
-    /// Sheen dust circles — gentle fall, more chaotic than core.
-    static let sheenDustPhysics = ParticlePhysics(
-        gravity: 10,          // dust settles softly downward
-        wind: 0,
-        turbulence: 50,       // more chaotic — micro-glitter scatter
-        drag: 0.90,
-        bounceOffBounds: false,
-        bounciness: 0,
-        spinRange: 3.0,
-        fadeOut: true
-    )
-
     static let shadowPhysics = ParticlePhysics(
         gravity: -22,         // smoke rises gently (negative = upward on screen)
         wind: 10,             // lateral drift for natural dispersion
