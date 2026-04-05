@@ -276,6 +276,18 @@ private struct ShelfSidebarView: View {
                             Label("Change Cover", systemImage: "paintpalette")
                         }
 
+                        Menu {
+                            ForEach(CoverTexture.allCases) { tex in
+                                Button {
+                                    noteStore.updateNotebookTexture(id: notebook.id, texture: tex)
+                                } label: {
+                                    Label(tex.displayName, systemImage: tex.systemImage)
+                                }
+                            }
+                        } label: {
+                            Label("Cover Texture", systemImage: "rectangle.pattern.checkered")
+                        }
+
                         Button {
                             sidebarManageSectionsNotebook = notebook
                         } label: {
@@ -431,16 +443,32 @@ private struct NotebookSidebarRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // Mini cover swatch
-            RoundedRectangle(cornerRadius: 5)
-                .fill(notebook.cover.gradient)
-                .frame(width: 28, height: 36)
-                .overlay(
-                    Image(systemName: "book.closed.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.85))
+            // Mini cover swatch with texture + custom photo
+            ZStack {
+                if let data = notebook.customCoverData,
+                   let uiImg = UIImage(data: data) {
+                    Image(uiImage: uiImg)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 28, height: 36)
+                        .clipped()
+                } else {
+                    notebook.cover.gradient
+                }
+
+                CoverTextureOverlay(
+                    texture: notebook.coverTexture,
+                    size: CGSize(width: 28, height: 36),
+                    intensity: 0.7
                 )
-                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .frame(width: 28, height: 36)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(notebook.name)
@@ -564,7 +592,11 @@ struct NoteGridView: View {
             }
             if let nb = notebookForSection {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    NotebookCoverBadge(cover: nb.cover)
+                    NotebookCoverBadge(
+                        cover: nb.cover,
+                        customCoverData: nb.customCoverData,
+                        coverTexture: nb.coverTexture
+                    )
                 }
             }
         }
@@ -1370,17 +1402,35 @@ private struct ManageSectionsSheet: View {
 
 private struct NotebookCoverBadge: View {
     let cover: NotebookCover
+    var customCoverData: Data?
+    var coverTexture: CoverTexture = .smooth
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(cover.gradient)
-            .frame(width: 22, height: 28)
-            .overlay(
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.85))
+        ZStack {
+            if let data = customCoverData,
+               let uiImg = UIImage(data: data) {
+                Image(uiImage: uiImg)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 22, height: 28)
+                    .clipped()
+            } else {
+                cover.gradient
+            }
+
+            CoverTextureOverlay(
+                texture: coverTexture,
+                size: CGSize(width: 22, height: 28),
+                intensity: 0.7
             )
-            .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .frame(width: 22, height: 28)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
     }
 }
 
@@ -1508,20 +1558,43 @@ private struct NoteCardView: View {
 // MARK: - Notebook cover card (shelf display)
 
 /// Rich notebook cover card that looks like a physical notebook on a shelf.
-/// Shows the gradient cover, notebook name, page count, and a subtle 3D effect.
+/// Shows the gradient cover with texture overlay, embossed title, page edge
+/// effect, and a subtle 3D perspective tilt.
 private struct NotebookCoverCard: View {
     let notebook: Notebook
     let pageCount: Int
 
     @State private var isPressed = false
 
+    private let coverWidth: CGFloat = 120
+    private let coverHeight: CGFloat = 160
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Book cover
-            ZStack(alignment: .bottomLeading) {
-                // Main cover with gradient
-                notebook.cover.gradient
-                    .frame(width: 120, height: 160)
+            HStack(alignment: .top, spacing: 0) {
+                // Page edge (visible pages on the right of the book)
+                CoverPageEdge(height: coverHeight)
+                    .offset(x: 2)
+
+                // Book cover
+                ZStack(alignment: .bottomLeading) {
+                    // Main cover surface
+                    coverSurface
+                        .frame(width: coverWidth, height: coverHeight)
+                        .clipShape(
+                            .rect(
+                                topLeadingRadius: 4,
+                                bottomLeadingRadius: 4,
+                                bottomTrailingRadius: 10,
+                                topTrailingRadius: 10
+                            )
+                        )
+
+                    // Texture overlay
+                    CoverTextureOverlay(
+                        texture: notebook.coverTexture,
+                        size: CGSize(width: coverWidth, height: coverHeight)
+                    )
                     .clipShape(
                         .rect(
                             topLeadingRadius: 4,
@@ -1531,28 +1604,48 @@ private struct NotebookCoverCard: View {
                         )
                     )
 
-                // Spine highlight (left edge)
-                Rectangle()
-                    .fill(.white.opacity(0.15))
-                    .frame(width: 6)
+                    // Spine with stitching
+                    ZStack {
+                        LinearGradient(
+                            colors: [.white.opacity(0.18), .black.opacity(0.06), .clear],
+                            startPoint: .leading,
+                            endPoint: .init(x: 0.15, y: 0)
+                        )
+                        .frame(width: coverWidth, height: coverHeight)
+
+                        CoverSpineStitching(height: coverHeight)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 1)
+                    }
                     .clipShape(
                         .rect(topLeadingRadius: 4, bottomLeadingRadius: 4)
                     )
+                    .frame(width: coverWidth, height: coverHeight)
 
-                // Book icon + page count
-                VStack(alignment: .leading, spacing: 4) {
-                    Spacer()
-                    Image(systemName: "book.fill")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
-                    Text("\(pageCount) page\(pageCount == 1 ? "" : "s")")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.6))
+                    // Book icon + page count + embossed title
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Embossed title at top
+                        if !notebook.name.isEmpty {
+                            CoverEmbossedTitle(text: notebook.name, maxWidth: coverWidth - 20)
+                                .padding(.top, 14)
+                                .padding(.horizontal, 10)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text("\(pageCount) page\(pageCount == 1 ? "" : "s")")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .padding(10)
                 }
-                .padding(10)
             }
             // 3D book shadow
-            .shadow(color: .black.opacity(0.18), radius: 6, x: 2, y: 4)
+            .shadow(color: .black.opacity(0.22), radius: 8, x: 2, y: 5)
             .shadow(color: .black.opacity(0.06), radius: 1, x: 1, y: 1)
             // Subtle 3D perspective tilt
             .rotation3DEffect(
@@ -1568,13 +1661,27 @@ private struct NotebookCoverCard: View {
             Text(notebook.name)
                 .font(.caption.weight(.medium))
                 .lineLimit(1)
-                .frame(width: 120, alignment: .leading)
+                .frame(width: coverWidth + 8, alignment: .leading)
                 .padding(.top, 6)
                 .foregroundStyle(.primary)
         }
         .onLongPressGesture(minimumDuration: 0.5, pressing: { pressing in
             isPressed = pressing
         }, perform: {})
+    }
+
+    @ViewBuilder
+    private var coverSurface: some View {
+        if let data = notebook.customCoverData,
+           let uiImg = UIImage(data: data) {
+            Image(uiImage: uiImg)
+                .resizable()
+                .scaledToFill()
+                .frame(width: coverWidth, height: coverHeight)
+                .clipped()
+        } else {
+            notebook.cover.gradient
+        }
     }
 }
 

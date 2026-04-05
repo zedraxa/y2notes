@@ -881,7 +881,8 @@ final class NoteStore: ObservableObject {
         orientation: PageOrientation = .portrait,
         defaultTheme: AppTheme? = nil,
         paperMaterial: PaperMaterial = .standard,
-        customCoverData: Data? = nil
+        customCoverData: Data? = nil,
+        coverTexture: CoverTexture = .smooth
     ) -> Notebook {
         let nb = Notebook(
             name: name,
@@ -892,7 +893,8 @@ final class NoteStore: ObservableObject {
             orientation: orientation,
             defaultTheme: defaultTheme,
             paperMaterial: paperMaterial,
-            customCoverData: customCoverData
+            customCoverData: customCoverData,
+            coverTexture: coverTexture
         )
         notebooks.insert(nb, at: 0)
         save()
@@ -940,6 +942,13 @@ final class NoteStore: ObservableObject {
     func updateNotebookCover(id: UUID, cover: NotebookCover) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
         notebooks[idx].cover = cover
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    func updateNotebookTexture(id: UUID, texture: CoverTexture) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].coverTexture = texture
         notebooks[idx].modifiedAt = Date()
         save()
     }
