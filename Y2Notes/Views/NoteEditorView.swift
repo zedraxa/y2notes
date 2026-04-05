@@ -1767,6 +1767,13 @@ struct CanvasView: UIViewRepresentable {
         widgetCanvas.onWidgetsChanged = { widgets in
             context.coordinator.handleWidgetsChanged(widgets)
         }
+        let coordinatorRef = context.coordinator
+        widgetCanvas.onChecklistCompleted = { center in
+            coordinatorRef.studyModeEngine.checklistComplete(at: center)
+        }
+        widgetCanvas.onTimerCompleted = { _ in
+            coordinatorRef.studyModeEngine.timerComplete()
+        }
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
         container.addSubview(widgetCanvas)
@@ -2693,7 +2700,23 @@ struct CanvasView: UIViewRepresentable {
                         from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
                         in: canvasView
                     )
-                    magicModeEngine.strokeMoved(to: vp)
+                    // Estimate velocity from the last two points.
+                    let path = lastStroke?.path
+                    var velocity: CGFloat = 500
+                    if let path = path, path.count >= 2 {
+                        let prev = path[path.count - 2]
+                        let dx = lastPoint.location.x - prev.location.x
+                        let dy = lastPoint.location.y - prev.location.y
+                        let dt = lastPoint.timeOffset - prev.timeOffset
+                        if dt > 0 {
+                            velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
+                        }
+                    }
+                    magicModeEngine.strokeMoved(
+                        to: vp,
+                        velocity: velocity,
+                        pressure: lastPoint.force
+                    )
                 }
             }
 

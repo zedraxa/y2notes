@@ -23,7 +23,12 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - Public State
 
-    var widgets: [NoteWidget] = [] { didSet { if !renderingPaused { setNeedsDisplay() } } }
+    var widgets: [NoteWidget] = [] {
+        didSet {
+            if !renderingPaused { setNeedsDisplay() }
+            detectChecklistCompletions()
+        }
+    }
     var selectedWidgetID: UUID? { didSet { setNeedsDisplay() } }
     var renderingPaused: Bool = false
 
@@ -32,6 +37,18 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
     var onSelectionChanged: ((UUID?) -> Void)?
     var onWidgetTransformed: ((NoteWidget) -> Void)?
     var onWidgetsChanged: (([NoteWidget]) -> Void)?
+
+    /// Fired when a checklist widget becomes fully checked (all items `isChecked`).
+    /// The parameter is the centre point of the completed widget in canvas coordinates.
+    var onChecklistCompleted: ((CGPoint) -> Void)?
+
+    /// Fired when a timer/countdown widget completes its countdown.
+    /// The parameter is the centre point of the completed timer widget.
+    var onTimerCompleted: ((CGPoint) -> Void)?
+
+    /// Tracks widget IDs whose checklists were already fully complete on the
+    /// previous change, to avoid re-firing the completion effect.
+    private var previouslyCompletedChecklists: Set<UUID> = []
 
     // MARK: - Private State
 
@@ -525,6 +542,27 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
             if dx * dx + dy * dy <= tolerance * tolerance { return corner }
         }
         return nil
+    }
+
+    // MARK: - Checklist Completion Detection
+
+    /// Scans all checklist widgets and fires `onChecklistCompleted` for any
+    /// widget that just transitioned from incomplete to fully-checked.
+    private func detectChecklistCompletions() {
+        var nowComplete: Set<UUID> = []
+        for widget in widgets {
+            guard case .checklist(_, let items) = widget.payload,
+                  !items.isEmpty,
+                  items.allSatisfy(\.isChecked) else { continue }
+            nowComplete.insert(widget.id)
+
+            // Only fire if this widget was NOT already complete on the prior update.
+            if !previouslyCompletedChecklists.contains(widget.id) {
+                let center = widget.frame.position
+                onChecklistCompleted?(center)
+            }
+        }
+        previouslyCompletedChecklists = nowComplete
     }
 
     // MARK: - Gestures
