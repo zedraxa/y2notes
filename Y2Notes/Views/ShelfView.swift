@@ -315,6 +315,21 @@ private struct ShelfSidebarView: View {
                             Label("Manage Sections…", systemImage: "list.bullet.indent")
                         }
 
+                        Button {
+                            noteStore.duplicateNotebook(id: notebook.id)
+                        } label: {
+                            Label("Duplicate", systemImage: "doc.on.doc")
+                        }
+
+                        Button {
+                            noteStore.toggleNotebookLock(id: notebook.id)
+                        } label: {
+                            Label(
+                                notebook.isLocked ? "Unlock" : "Lock",
+                                systemImage: notebook.isLocked ? "lock.open" : "lock"
+                            )
+                        }
+
                         Divider()
 
                         Button(role: .destructive) {
@@ -492,9 +507,16 @@ private struct NotebookSidebarRow: View {
             .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(notebook.name)
-                    .font(.body)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(notebook.name)
+                        .font(.body)
+                        .lineLimit(1)
+                    if notebook.isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                    }
+                }
                 HStack(spacing: 6) {
                     Text("\(noteCount) note\(noteCount == 1 ? "" : "s")")
                         .font(.caption2)

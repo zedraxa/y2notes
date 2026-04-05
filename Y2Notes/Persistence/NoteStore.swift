@@ -788,17 +788,20 @@ final class NoteStore: ObservableObject {
     func addSection(
         toNotebook notebookID: UUID,
         name: String,
+        kind: SectionKind = .section,
         defaultTemplateID: String = "builtin.blank",
-        colorTag: SectionColorTag = .none
+        colorTag: SectionColorTag = .none,
+        defaultPageType: PageType? = nil
     ) -> NotebookSection {
         let nextOrder = nextSectionSortOrder(forNotebook: notebookID)
         let section = NotebookSection(
             notebookID: notebookID,
             name: name,
-            kind: .section,
+            kind: kind,
             sortOrder: nextOrder,
             defaultTemplateID: defaultTemplateID,
-            colorTag: colorTag
+            colorTag: colorTag,
+            defaultPageType: defaultPageType
         )
         sections.append(section)
         save()
@@ -961,6 +964,45 @@ final class NoteStore: ObservableObject {
         }
         sections.removeAll { $0.notebookID == id }
         notebooks.removeAll { $0.id == id }
+        save()
+    }
+
+    /// Duplicates a notebook including its sections (notes are *not* deep-copied).
+    @discardableResult
+    func duplicateNotebook(id: UUID) -> Notebook? {
+        guard let source = notebooks.first(where: { $0.id == id }) else { return nil }
+        let nb = addNotebook(
+            name: source.name + " Copy",
+            description: source.description,
+            cover: source.cover,
+            pageType: source.pageType,
+            pageSize: source.pageSize,
+            orientation: source.orientation,
+            defaultTheme: source.defaultTheme,
+            paperMaterial: source.paperMaterial,
+            customCoverData: source.customCoverData,
+            coverTexture: source.coverTexture
+        )
+        // Duplicate sections preserving order and settings
+        let srcSections = self.sections(inNotebook: id)
+        for s in srcSections {
+            addSection(
+                toNotebook: nb.id,
+                name: s.name,
+                kind: s.kind,
+                defaultTemplateID: s.defaultTemplateID,
+                colorTag: s.colorTag,
+                defaultPageType: s.defaultPageType
+            )
+        }
+        return nb
+    }
+
+    /// Toggles the locked state of a notebook.
+    func toggleNotebookLock(id: UUID) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].isLocked.toggle()
+        notebooks[idx].modifiedAt = Date()
         save()
     }
 

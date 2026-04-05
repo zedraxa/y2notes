@@ -59,6 +59,103 @@ enum NotebookCover: String, CaseIterable, Codable {
     }
 }
 
+// MARK: - Notebook template
+
+/// Preset notebook configurations for common use cases.
+/// Selecting a template in `NotebookQuickCreator` pre-fills the form fields;
+/// the user can still customise individual settings afterwards.
+enum NotebookTemplate: String, CaseIterable, Identifiable {
+    case blank
+    case study
+    case journal
+    case planner
+    case sketchbook
+    case music
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .blank:      return "Blank"
+        case .study:      return "Study"
+        case .journal:    return "Journal"
+        case .planner:    return "Planner"
+        case .sketchbook: return "Sketchbook"
+        case .music:      return "Music"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .blank:      return "Empty canvas"
+        case .study:      return "Cornell notes"
+        case .journal:    return "Lined writing"
+        case .planner:    return "Grid layout"
+        case .sketchbook: return "Dot guide"
+        case .music:      return "Staff paper"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .blank:      return "doc"
+        case .study:      return "text.book.closed"
+        case .journal:    return "book"
+        case .planner:    return "calendar"
+        case .sketchbook: return "pencil.and.outline"
+        case .music:      return "music.note.list"
+        }
+    }
+
+    /// Default page type for this template.
+    var pageType: PageType {
+        switch self {
+        case .blank:      return .blank
+        case .study:      return .cornell
+        case .journal:    return .ruled
+        case .planner:    return .grid
+        case .sketchbook: return .dot
+        case .music:      return .music
+        }
+    }
+
+    /// Suggested paper material for this template.
+    var paperMaterial: PaperMaterial {
+        switch self {
+        case .blank:      return .standard
+        case .study:      return .standard
+        case .journal:    return .premium
+        case .planner:    return .standard
+        case .sketchbook: return .textured
+        case .music:      return .premium
+        }
+    }
+
+    /// Suggested cover colour for this template.
+    var suggestedCover: NotebookCover {
+        switch self {
+        case .blank:      return .ocean
+        case .study:      return .midnight
+        case .journal:    return .forest
+        case .planner:    return .slate
+        case .sketchbook: return .coral
+        case .music:      return .lavender
+        }
+    }
+
+    /// Suggested cover texture for this template.
+    var suggestedTexture: CoverTexture {
+        switch self {
+        case .blank:      return .smooth
+        case .study:      return .leather
+        case .journal:    return .linen
+        case .planner:    return .smooth
+        case .sketchbook: return .canvas
+        case .music:      return .cloth
+        }
+    }
+}
+
 // MARK: - Cover texture
 
 /// Physical surface texture applied on top of the cover gradient or photo.
@@ -119,6 +216,8 @@ struct Notebook: Identifiable, Codable, Hashable {
     var customCoverData: Data?
     /// Physical surface texture rendered over the cover gradient or photo.
     var coverTexture: CoverTexture
+    /// When true the notebook is locked — page creation and editing are disabled.
+    var isLocked: Bool
 
     init(
         id: UUID = UUID(),
@@ -133,7 +232,8 @@ struct Notebook: Identifiable, Codable, Hashable {
         defaultTheme: AppTheme? = nil,
         paperMaterial: PaperMaterial = .standard,
         customCoverData: Data? = nil,
-        coverTexture: CoverTexture = .smooth
+        coverTexture: CoverTexture = .smooth,
+        isLocked: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -148,6 +248,7 @@ struct Notebook: Identifiable, Codable, Hashable {
         self.paperMaterial = paperMaterial
         self.customCoverData = customCoverData
         self.coverTexture = coverTexture
+        self.isLocked = isLocked
     }
 
     // MARK: Codable — custom decoder for backward compatibility with saves that pre-date
@@ -155,7 +256,7 @@ struct Notebook: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, name, description, createdAt, modifiedAt, cover
         case pageType, pageSize, orientation, defaultTheme, paperMaterial, customCoverData
-        case coverTexture
+        case coverTexture, isLocked
     }
 
     init(from decoder: Decoder) throws {
@@ -173,6 +274,7 @@ struct Notebook: Identifiable, Codable, Hashable {
         paperMaterial   = try c.decodeIfPresent(PaperMaterial.self,   forKey: .paperMaterial) ?? .standard
         customCoverData = try c.decodeIfPresent(Data.self,            forKey: .customCoverData)
         coverTexture    = try c.decodeIfPresent(CoverTexture.self,    forKey: .coverTexture)  ?? .smooth
+        isLocked        = try c.decodeIfPresent(Bool.self,            forKey: .isLocked)      ?? false
     }
 
     // MARK: Hashable — identity only.
