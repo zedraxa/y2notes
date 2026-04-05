@@ -693,7 +693,7 @@ struct NotebookReaderView: View {
         HStack(spacing: 6) {
             Image(systemName: "bookmark.fill")
                 .font(.caption2)
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
             Text(name)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -733,7 +733,7 @@ struct NotebookReaderView: View {
                     if let sName = currentPage?.sectionName {
                         Text(sName)
                             .font(.caption2.weight(.medium))
-                            .foregroundStyle(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                     }
                     Text("Page \(flatPageIndex + 1) of \(totalPages)")
                         .font(.subheadline.monospacedDigit())

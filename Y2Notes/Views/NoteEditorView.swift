@@ -248,7 +248,8 @@ struct NoteEditorView: View {
                             }
                         },
                         isMagicModeActive: toolStore.isMagicModeActive,
-                        isStudyModeActive: toolStore.isStudyModeActive
+                        isStudyModeActive: toolStore.isStudyModeActive,
+                        pageCount: note.pageCount
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
                     .id("\(note.id)-\(safePageIndex)")
@@ -1513,6 +1514,9 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Total number of pages in the note, used for adaptive effects complexity signals.
+    var pageCount: Int = 1
+
     /// Whether Magic Mode is active (writing particles, keyword glow, highlight).
     var isMagicModeActive: Bool = false
     /// Whether Study Mode is active (heading glow, checklist pulse, timer pulse).
@@ -1938,7 +1942,7 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
         // Sync adaptive effects engine with current note complexity.
-        context.coordinator.adaptiveEffectsEngine.pageCount = note.pageCount
+        context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
         // Propagate intensity to sub-engines.
         let intensity = context.coordinator.adaptiveEffectsEngine.intensity
         context.coordinator.pageTransitionEngine.effectIntensity = intensity

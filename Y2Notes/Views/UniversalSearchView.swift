@@ -203,6 +203,10 @@ struct UniversalSearchView: View {
             name = "doc.richtext.fill"
         case .attachmentLabel:
             name = "paperclip"
+        case .audioSession, .audioTimestamp:
+            name = "waveform"
+        case .widgetContent:
+            name = "square.grid.2x2"
         }
         return Image(systemName: name)
     }
@@ -220,6 +224,9 @@ struct UniversalSearchView: View {
             case .stickerLabel:    return ("star.circle", "Sticker")
             case .pdfTitle:        return ("doc.richtext", "PDF")
             case .attachmentLabel: return ("paperclip", "Attachment")
+            case .audioSession:    return ("waveform", "Audio")
+            case .audioTimestamp:  return ("clock.badge.waveform", "Timestamp")
+            case .widgetContent:   return ("square.grid.2x2", "Widget")
             }
         }()
 
@@ -249,7 +256,7 @@ struct UniversalSearchView: View {
 
         // Otherwise resolve by kind
         switch result.entry.kind {
-        case .noteTitle, .noteText, .noteOCR, .stickerLabel, .attachmentLabel:
+        case .noteTitle, .noteText, .noteOCR, .stickerLabel, .attachmentLabel, .widgetContent:
             // Extract noteID from the entry id (format: "note-<UUID>-suffix")
             if let noteID = extractNoteID(from: result.entry.id) {
                 onSelectNote(noteID)
@@ -266,6 +273,11 @@ struct UniversalSearchView: View {
             break
         case .sectionName:
             break
+        case .audioSession, .audioTimestamp:
+            // Audio entries — jump to the associated note if possible
+            if let noteID = extractNoteID(from: result.entry.id) {
+                onSelectNote(noteID)
+            }
         }
     }
 

@@ -143,7 +143,7 @@ extension ToolPersonality {
         case .pencil:       return .pencil
         case .highlighter:  return .highlighter
         case .fountainPen:  return .fountainPen
-        case .eraser, .lasso, .shape:
+        case .eraser, .lasso, .shape, .sticker:
             return nil  // Non-inking tools have no personality
         }
     }
