@@ -22,10 +22,18 @@
 		AA0001000000000000000060 /* NotebookSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000050 /* NotebookSection.swift */; };
 		AA0001000000000000000061 /* PageTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000051 /* PageTemplate.swift */; };
 		AA0001000000000000000052 /* NotebookConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000070 /* NotebookConfig.swift */; };
-		AA0001000000000000000057 /* NotebookCreationWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000071 /* NotebookCreationWizard.swift */; };
+		AA00010000000000000000DB /* NotebookQuickCreator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000DA /* NotebookQuickCreator.swift */; };
+		AA00010000000000000000D8 /* NotebookReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D9 /* NotebookReaderView.swift */; };
 		AA0001000000000000000083 /* ToolModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000080 /* ToolModels.swift */; };
 		AA0001000000000000000084 /* DrawingToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000081 /* DrawingToolStore.swift */; };
 		AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000082 /* DrawingToolbarView.swift */; };
+		AA00010000000000000000E9 /* WritingConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E8 /* WritingConfig.swift */; };
+		AA00010000000000000000DD /* FloatingToolbarCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000DC /* FloatingToolbarCapsule.swift */; };
+		AA00010000000000000000DF /* ToolExpansionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000DE /* ToolExpansionView.swift */; };
+		AA00010000000000000000E1 /* SelectionToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E0 /* SelectionToolbar.swift */; };
+		AA00010000000000000000E3 /* NotebookTabSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E2 /* NotebookTabSession.swift */; };
+		AA00010000000000000000E5 /* NotebookTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E4 /* NotebookTabBar.swift */; };
+		AA00010000000000000000E7 /* NotebookWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000E6 /* NotebookWorkspaceView.swift */; };
 		AA00010000000000000000C2 /* PageRulingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000087 /* PageRulingView.swift */; };
 		AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000053 /* PencilInteractionCoordinator.swift */; };
 		AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000054 /* PencilHoverOverlayView.swift */; };
@@ -65,6 +73,51 @@
 		AA00010000000000000000D0 /* DocumentViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000CD /* DocumentViewerView.swift */; };
 		AA00010000000000000000D3 /* OCREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D2 /* OCREngine.swift */; };
 		AA00010000000000000000D5 /* NoteExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D4 /* NoteExporter.swift */; };
+		AA00010000000000000000D7 /* NotePDFGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000D6 /* NotePDFGenerator.swift */; };
+		AA00010000000000000000EB /* Sticker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000EA /* Sticker.swift */; };
+		AA00010000000000000000ED /* StickerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000EC /* StickerStore.swift */; };
+		AA00010000000000000000EF /* StickerLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000EE /* StickerLibraryView.swift */; };
+		AA00010000000000000000F1 /* StickerCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F0 /* StickerCanvasView.swift */; };
+		AA00010000000000000000F3 /* StickerHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F2 /* StickerHandlesView.swift */; };
+		AA00010000000000000000F5 /* ShapeObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F4 /* ShapeObject.swift */; };
+		AA00010000000000000000F7 /* ShapeCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F6 /* ShapeCanvasView.swift */; };
+		AA00010000000000000000F9 /* ShapeHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000F8 /* ShapeHandlesView.swift */; };
+		AA00010000000000000000FB /* NavigationAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FA /* NavigationAnchor.swift */; };
+		AA00010000000000000000FD /* NavigationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FC /* NavigationStore.swift */; };
+		AA00010000000000000000FF /* BookmarkListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000FE /* BookmarkListView.swift */; };
+		AA0001000000000000000101 /* SearchIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000100 /* SearchIndex.swift */; };
+		AA0001000000000000000103 /* UniversalSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000102 /* UniversalSearchView.swift */; };
+		AA0001000000000000000105 /* Attachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000104 /* Attachment.swift */; };
+		AA0001000000000000000107 /* AttachmentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000106 /* AttachmentStore.swift */; };
+		AA0001000000000000000109 /* AttachmentCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000108 /* AttachmentCanvasView.swift */; };
+		AA000100000000000000010B /* AttachmentHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010A /* AttachmentHandlesView.swift */; };
+		AA000100000000000000010D /* AttachmentSourcePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010C /* AttachmentSourcePicker.swift */; };
+		AA000100000000000000010F /* AttachmentViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000010E /* AttachmentViewerView.swift */; };
+		AA0001000000000000000111 /* AudioTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000110 /* AudioTimeline.swift */; };
+		AA0001000000000000000113 /* AudioTimelineLinkingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000112 /* AudioTimelineLinkingController.swift */; };
+		AA0001000000000000000115 /* AudioRecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000114 /* AudioRecordingStore.swift */; };
+		AA0001000000000000000117 /* RecordingIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000116 /* RecordingIndicatorView.swift */; };
+		AA0001000000000000000119 /* RecordingSessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000118 /* RecordingSessionListView.swift */; };
+		AA000100000000000000011B /* AudioStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000011A /* AudioStorageManager.swift */; };
+		AA000100000000000000011D /* AudioSearchIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000011C /* AudioSearchIndexer.swift */; };
+		AA000100000000000000011F /* PerformanceConstraints.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000011E /* PerformanceConstraints.swift */; };
+		AA0001000000000000000121 /* SnapshotModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000120 /* SnapshotModel.swift */; };
+		AA0001000000000000000123 /* SnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000122 /* SnapshotStore.swift */; };
+		AA0001000000000000000125 /* VersionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000124 /* VersionHistoryView.swift */; };
+		AA0001000000000000000127 /* WidgetModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000126 /* WidgetModel.swift */; };
+		AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000128 /* WidgetCanvasView.swift */; };
+		AA000100000000000000012B /* WidgetHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012A /* WidgetHandlesView.swift */; };
+		AA000100000000000000012D /* WidgetPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012C /* WidgetPickerView.swift */; };
+		AA000100000000000000012F /* PageRegion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012E /* PageRegion.swift */; };
+		AA0001000000000000000131 /* WritingEffectModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000130 /* WritingEffectModel.swift */; };
+		AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000132 /* MicroInteractionEngine.swift */; };
+		AA0001000000000000000135 /* SnapAlignEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000134 /* SnapAlignEffectEngine.swift */; };
+		AA0001000000000000000137 /* PageTransitionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000136 /* PageTransitionEngine.swift */; };
+		AA0001000000000000000139 /* FocusModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000138 /* FocusModeEngine.swift */; };
+		AA000100000000000000013B /* AmbientEnvironmentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013A /* AmbientEnvironmentEngine.swift */; };
+		AA000100000000000000013D /* AdaptiveEffectsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013C /* AdaptiveEffectsEngine.swift */; };
+		AA000100000000000000013F /* MagicModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013E /* MagicModeEngine.swift */; };
+		AA0001000000000000000141 /* StudyModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000140 /* StudyModeEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,10 +138,18 @@
 		AA0001000000000000000050 /* NotebookSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookSection.swift; sourceTree = "<group>"; };
 		AA0001000000000000000051 /* PageTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTemplate.swift; sourceTree = "<group>"; };
 		AA0001000000000000000070 /* NotebookConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookConfig.swift; sourceTree = "<group>"; };
-		AA0001000000000000000071 /* NotebookCreationWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCreationWizard.swift; sourceTree = "<group>"; };
+		AA00010000000000000000DA /* NotebookQuickCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookQuickCreator.swift; sourceTree = "<group>"; };
+		AA00010000000000000000D9 /* NotebookReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookReaderView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000080 /* ToolModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolModels.swift; sourceTree = "<group>"; };
 		AA0001000000000000000081 /* DrawingToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E8 /* WritingConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingConfig.swift; sourceTree = "<group>"; };
 		AA0001000000000000000082 /* DrawingToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolbarView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000DC /* FloatingToolbarCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingToolbarCapsule.swift; sourceTree = "<group>"; };
+		AA00010000000000000000DE /* ToolExpansionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolExpansionView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E0 /* SelectionToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionToolbar.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E2 /* NotebookTabSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookTabSession.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E4 /* NotebookTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookTabBar.swift; sourceTree = "<group>"; };
+		AA00010000000000000000E6 /* NotebookWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookWorkspaceView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000087 /* PageRulingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRulingView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000053 /* PencilInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilInteractionCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000054 /* PencilHoverOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHoverOverlayView.swift; sourceTree = "<group>"; };
@@ -108,6 +169,15 @@
 		AA0001000000000000000099 /* InkEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009A /* InkFamilyRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkFamilyRegistry.swift; sourceTree = "<group>"; };
 		AA000100000000000000009B /* InkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000130 /* WritingEffectModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectModel.swift; sourceTree = "<group>"; };
+		AA0001000000000000000132 /* MicroInteractionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicroInteractionEngine.swift; sourceTree = "<group>"; };
+		AA0001000000000000000134 /* SnapAlignEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAlignEffectEngine.swift; sourceTree = "<group>"; };
+		AA0001000000000000000136 /* PageTransitionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTransitionEngine.swift; sourceTree = "<group>"; };
+		AA0001000000000000000138 /* FocusModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusModeEngine.swift; sourceTree = "<group>"; };
+		AA000100000000000000013A /* AmbientEnvironmentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientEnvironmentEngine.swift; sourceTree = "<group>"; };
+		AA000100000000000000013C /* AdaptiveEffectsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveEffectsEngine.swift; sourceTree = "<group>"; };
+		AA000100000000000000013E /* MagicModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MagicModeEngine.swift; sourceTree = "<group>"; };
+		AA0001000000000000000140 /* StudyModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyModeEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -128,6 +198,42 @@
 		AA00010000000000000000CD /* DocumentViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentViewerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000D2 /* OCREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCREngine.swift; sourceTree = "<group>"; };
 		AA00010000000000000000D4 /* NoteExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteExporter.swift; sourceTree = "<group>"; };
+		AA00010000000000000000D6 /* NotePDFGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotePDFGenerator.swift; sourceTree = "<group>"; };
+		AA00010000000000000000EA /* Sticker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sticker.swift; sourceTree = "<group>"; };
+		AA00010000000000000000EC /* StickerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000000EE /* StickerLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerLibraryView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000F0 /* StickerCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerCanvasView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000F2 /* StickerHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerHandlesView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000F4 /* ShapeObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeObject.swift; sourceTree = "<group>"; };
+		AA00010000000000000000F6 /* ShapeCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeCanvasView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000F8 /* ShapeHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeHandlesView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000FA /* NavigationAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationAnchor.swift; sourceTree = "<group>"; };
+		AA00010000000000000000FC /* NavigationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000000FE /* BookmarkListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkListView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000100 /* SearchIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchIndex.swift; sourceTree = "<group>"; };
+		AA0001000000000000000102 /* UniversalSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalSearchView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000104 /* Attachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachment.swift; sourceTree = "<group>"; };
+		AA0001000000000000000106 /* AttachmentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000108 /* AttachmentCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentCanvasView.swift; sourceTree = "<group>"; };
+		AA000100000000000000010A /* AttachmentHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentHandlesView.swift; sourceTree = "<group>"; };
+		AA000100000000000000010C /* AttachmentSourcePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentSourcePicker.swift; sourceTree = "<group>"; };
+		AA000100000000000000010E /* AttachmentViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewerView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000110 /* AudioTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTimeline.swift; sourceTree = "<group>"; };
+		AA0001000000000000000112 /* AudioTimelineLinkingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTimelineLinkingController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000114 /* AudioRecordingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecordingStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000116 /* RecordingIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingIndicatorView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000118 /* RecordingSessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSessionListView.swift; sourceTree = "<group>"; };
+		AA000100000000000000011A /* AudioStorageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStorageManager.swift; sourceTree = "<group>"; };
+		AA000100000000000000011C /* AudioSearchIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSearchIndexer.swift; sourceTree = "<group>"; };
+		AA000100000000000000011E /* PerformanceConstraints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceConstraints.swift; sourceTree = "<group>"; };
+		AA0001000000000000000120 /* SnapshotModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotModel.swift; sourceTree = "<group>"; };
+		AA0001000000000000000122 /* SnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStore.swift; sourceTree = "<group>"; };
+		AA0001000000000000000124 /* VersionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionHistoryView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000126 /* WidgetModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetModel.swift; sourceTree = "<group>"; };
+		AA0001000000000000000128 /* WidgetCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetCanvasView.swift; sourceTree = "<group>"; };
+		AA000100000000000000012A /* WidgetHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetHandlesView.swift; sourceTree = "<group>"; };
+		AA000100000000000000012C /* WidgetPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPickerView.swift; sourceTree = "<group>"; };
+		AA000100000000000000012E /* PageRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRegion.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,6 +297,16 @@
 				AA0001000000000000000051 /* PageTemplate.swift */,
 				AA0001000000000000000070 /* NotebookConfig.swift */,
 				AA0001000000000000000089 /* StudySet.swift */,
+				AA00010000000000000000E2 /* NotebookTabSession.swift */,
+				AA00010000000000000000EA /* Sticker.swift */,
+				AA00010000000000000000F4 /* ShapeObject.swift */,
+				AA00010000000000000000FA /* NavigationAnchor.swift */,
+				AA0001000000000000000104 /* Attachment.swift */,
+				AA0001000000000000000110 /* AudioTimeline.swift */,
+				AA000100000000000000011E /* PerformanceConstraints.swift */,
+				AA0001000000000000000120 /* SnapshotModel.swift */,
+				AA0001000000000000000126 /* WidgetModel.swift */,
+				AA000100000000000000012E /* PageRegion.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -203,8 +319,12 @@
 				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
 				AA0001000000000000000082 /* DrawingToolbarView.swift */,
-				AA0001000000000000000071 /* NotebookCreationWizard.swift */,
+				AA00010000000000000000DC /* FloatingToolbarCapsule.swift */,
+				AA00010000000000000000DE /* ToolExpansionView.swift */,
+				AA00010000000000000000DA /* NotebookQuickCreator.swift */,
+				AA00010000000000000000D9 /* NotebookReaderView.swift */,
 				AA000100000000000000008A /* LibrarySearchView.swift */,
+				AA0001000000000000000102 /* UniversalSearchView.swift */,
 				AA000100000000000000008B /* StudySetListView.swift */,
 				AA000100000000000000008C /* StudySessionView.swift */,
 				AA0001000000000000000087 /* PageRulingView.swift */,
@@ -215,6 +335,25 @@
 				AA00010000000000000000C7 /* NoteCreationSheet.swift */,
 				AA00010000000000000000C9 /* StudyStatsView.swift */,
 				AA00010000000000000000CD /* DocumentViewerView.swift */,
+				AA00010000000000000000E0 /* SelectionToolbar.swift */,
+				AA00010000000000000000E4 /* NotebookTabBar.swift */,
+				AA00010000000000000000E6 /* NotebookWorkspaceView.swift */,
+				AA00010000000000000000EE /* StickerLibraryView.swift */,
+				AA00010000000000000000F0 /* StickerCanvasView.swift */,
+				AA00010000000000000000F2 /* StickerHandlesView.swift */,
+				AA00010000000000000000F6 /* ShapeCanvasView.swift */,
+				AA00010000000000000000F8 /* ShapeHandlesView.swift */,
+				AA00010000000000000000FE /* BookmarkListView.swift */,
+				AA0001000000000000000108 /* AttachmentCanvasView.swift */,
+				AA000100000000000000010A /* AttachmentHandlesView.swift */,
+				AA000100000000000000010C /* AttachmentSourcePicker.swift */,
+				AA000100000000000000010E /* AttachmentViewerView.swift */,
+				AA0001000000000000000116 /* RecordingIndicatorView.swift */,
+				AA0001000000000000000118 /* RecordingSessionListView.swift */,
+				AA0001000000000000000124 /* VersionHistoryView.swift */,
+				AA0001000000000000000128 /* WidgetCanvasView.swift */,
+				AA000100000000000000012A /* WidgetHandlesView.swift */,
+				AA000100000000000000012C /* WidgetPickerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -223,6 +362,12 @@
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000016 /* NoteStore.swift */,
+				AA00010000000000000000EC /* StickerStore.swift */,
+				AA00010000000000000000FC /* NavigationStore.swift */,
+				AA0001000000000000000106 /* AttachmentStore.swift */,
+				AA0001000000000000000114 /* AudioRecordingStore.swift */,
+				AA000100000000000000011A /* AudioStorageManager.swift */,
+				AA0001000000000000000122 /* SnapshotStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -251,6 +396,8 @@
 			children = (
 				AA0001000000000000000080 /* ToolModels.swift */,
 				AA0001000000000000000081 /* DrawingToolStore.swift */,
+				AA00010000000000000000E8 /* WritingConfig.swift */,
+				AA0001000000000000000112 /* AudioTimelineLinkingController.swift */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -260,6 +407,8 @@
 			children = (
 				AA0001000000000000000088 /* SearchService.swift */,
 				AA00010000000000000000D2 /* OCREngine.swift */,
+				AA0001000000000000000100 /* SearchIndex.swift */,
+				AA000100000000000000011C /* AudioSearchIndexer.swift */,
 			);
 			path = Search;
 			sourceTree = "<group>";
@@ -272,6 +421,7 @@
 				AA0001000000000000000092 /* PDFPageAnnotationView.swift */,
 				AA0001000000000000000093 /* PDFViewerView.swift */,
 				AA00010000000000000000D4 /* NoteExporter.swift */,
+				AA00010000000000000000D6 /* NotePDFGenerator.swift */,
 			);
 			path = PDF;
 			sourceTree = "<group>";
@@ -283,6 +433,15 @@
 				AA0001000000000000000099 /* InkEffectEngine.swift */,
 				AA000100000000000000009A /* InkFamilyRegistry.swift */,
 				AA000100000000000000009B /* InkEffectStore.swift */,
+				AA0001000000000000000130 /* WritingEffectModel.swift */,
+				AA0001000000000000000132 /* MicroInteractionEngine.swift */,
+				AA0001000000000000000134 /* SnapAlignEffectEngine.swift */,
+				AA0001000000000000000136 /* PageTransitionEngine.swift */,
+				AA0001000000000000000138 /* FocusModeEngine.swift */,
+				AA000100000000000000013A /* AmbientEnvironmentEngine.swift */,
+				AA000100000000000000013C /* AdaptiveEffectsEngine.swift */,
+				AA000100000000000000013E /* MagicModeEngine.swift */,
+				AA0001000000000000000140 /* StudyModeEngine.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -413,10 +572,18 @@
 				AA0001000000000000000060 /* NotebookSection.swift in Sources */,
 				AA0001000000000000000061 /* PageTemplate.swift in Sources */,
 				AA0001000000000000000052 /* NotebookConfig.swift in Sources */,
-				AA0001000000000000000057 /* NotebookCreationWizard.swift in Sources */,
+				AA00010000000000000000DB /* NotebookQuickCreator.swift in Sources */,
+				AA00010000000000000000D8 /* NotebookReaderView.swift in Sources */,
 				AA0001000000000000000083 /* ToolModels.swift in Sources */,
 				AA0001000000000000000084 /* DrawingToolStore.swift in Sources */,
 				AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */,
+				AA00010000000000000000DD /* FloatingToolbarCapsule.swift in Sources */,
+				AA00010000000000000000DF /* ToolExpansionView.swift in Sources */,
+				AA00010000000000000000E1 /* SelectionToolbar.swift in Sources */,
+				AA00010000000000000000E3 /* NotebookTabSession.swift in Sources */,
+				AA00010000000000000000E5 /* NotebookTabBar.swift in Sources */,
+				AA00010000000000000000E7 /* NotebookWorkspaceView.swift in Sources */,
+				AA00010000000000000000E9 /* WritingConfig.swift in Sources */,
 				AA00010000000000000000C2 /* PageRulingView.swift in Sources */,
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
@@ -455,6 +622,51 @@
 				AA00010000000000000000D0 /* DocumentViewerView.swift in Sources */,
 				AA00010000000000000000D3 /* OCREngine.swift in Sources */,
 				AA00010000000000000000D5 /* NoteExporter.swift in Sources */,
+				AA00010000000000000000D7 /* NotePDFGenerator.swift in Sources */,
+				AA00010000000000000000EB /* Sticker.swift in Sources */,
+				AA00010000000000000000ED /* StickerStore.swift in Sources */,
+				AA00010000000000000000EF /* StickerLibraryView.swift in Sources */,
+				AA00010000000000000000F1 /* StickerCanvasView.swift in Sources */,
+				AA00010000000000000000F3 /* StickerHandlesView.swift in Sources */,
+				AA00010000000000000000F5 /* ShapeObject.swift in Sources */,
+				AA00010000000000000000F7 /* ShapeCanvasView.swift in Sources */,
+				AA00010000000000000000F9 /* ShapeHandlesView.swift in Sources */,
+				AA00010000000000000000FB /* NavigationAnchor.swift in Sources */,
+				AA00010000000000000000FD /* NavigationStore.swift in Sources */,
+				AA00010000000000000000FF /* BookmarkListView.swift in Sources */,
+				AA0001000000000000000101 /* SearchIndex.swift in Sources */,
+				AA000100000000000000011D /* AudioSearchIndexer.swift in Sources */,
+				AA000100000000000000011F /* PerformanceConstraints.swift in Sources */,
+				AA0001000000000000000103 /* UniversalSearchView.swift in Sources */,
+				AA0001000000000000000105 /* Attachment.swift in Sources */,
+				AA0001000000000000000107 /* AttachmentStore.swift in Sources */,
+				AA0001000000000000000109 /* AttachmentCanvasView.swift in Sources */,
+				AA000100000000000000010B /* AttachmentHandlesView.swift in Sources */,
+				AA000100000000000000010D /* AttachmentSourcePicker.swift in Sources */,
+				AA000100000000000000010F /* AttachmentViewerView.swift in Sources */,
+				AA0001000000000000000111 /* AudioTimeline.swift in Sources */,
+				AA0001000000000000000113 /* AudioTimelineLinkingController.swift in Sources */,
+				AA0001000000000000000115 /* AudioRecordingStore.swift in Sources */,
+				AA000100000000000000011B /* AudioStorageManager.swift in Sources */,
+				AA0001000000000000000117 /* RecordingIndicatorView.swift in Sources */,
+				AA0001000000000000000119 /* RecordingSessionListView.swift in Sources */,
+				AA0001000000000000000121 /* SnapshotModel.swift in Sources */,
+				AA0001000000000000000123 /* SnapshotStore.swift in Sources */,
+				AA0001000000000000000125 /* VersionHistoryView.swift in Sources */,
+				AA0001000000000000000127 /* WidgetModel.swift in Sources */,
+				AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */,
+				AA000100000000000000012B /* WidgetHandlesView.swift in Sources */,
+				AA000100000000000000012D /* WidgetPickerView.swift in Sources */,
+				AA000100000000000000012F /* PageRegion.swift in Sources */,
+				AA0001000000000000000131 /* WritingEffectModel.swift in Sources */,
+				AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */,
+				AA0001000000000000000135 /* SnapAlignEffectEngine.swift in Sources */,
+				AA0001000000000000000137 /* PageTransitionEngine.swift in Sources */,
+				AA0001000000000000000139 /* FocusModeEngine.swift in Sources */,
+				AA000100000000000000013B /* AmbientEnvironmentEngine.swift in Sources */,
+				AA000100000000000000013D /* AdaptiveEffectsEngine.swift in Sources */,
+				AA000100000000000000013F /* MagicModeEngine.swift in Sources */,
+				AA0001000000000000000141 /* StudyModeEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

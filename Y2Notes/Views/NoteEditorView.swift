@@ -1,7 +1,9 @@
 // swiftlint:disable file_length
 import SwiftUI
 import PencilKit
+import PDFKit
 import OSLog
+import UniformTypeIdentifiers
 
 // MARK: - Performance instrumentation
 
@@ -19,6 +21,8 @@ struct NoteEditorView: View {
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
+    @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var stickerStore: StickerStore
     @Environment(\.undoManager) private var undoManager
     let note: Note
 
@@ -69,6 +73,12 @@ struct NoteEditorView: View {
     /// True while an export render is in progress — disables the export button.
     @State private var isExporting = false
 
+    /// Whether the document import picker is visible.
+    @State private var showDocumentImporter = false
+
+    /// Whether the version history sheet is visible.
+    @State private var showVersionHistory = false
+
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
@@ -116,9 +126,14 @@ struct NoteEditorView: View {
         effectiveTheme.definition
     }
 
-    /// Canvas background blended with the paper material's tint colour.
+    /// Canvas background: per-page colour → theme base blended with paper material tint.
     private var canvasBackgroundColor: UIColor {
-        blendedBackground(
+        // Per-page colour takes absolute precedence when set.
+        let safeIdx = min(currentPageIndex, max(0, note.pages.count - 1))
+        if let explicit = note.pageColor(forPage: safeIdx) {
+            return explicit
+        }
+        return blendedBackground(
             base: effectiveDefinition.canvasBackground,
             tint: effectivePaperMaterial.pageTint
         )
@@ -133,13 +148,6 @@ struct NoteEditorView: View {
                     contrastBanner
                 }
                 Divider()
-                if !isTextMode {
-                    DrawingToolbarView(toolStore: toolStore, inkStore: inkStore, onOpenInspector: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            showAdvancedPanel.toggle()
-                        }
-                    })
-                }
                 if showFindBar {
                     findBar
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -182,9 +190,16 @@ struct NoteEditorView: View {
                             canRedo = canRedoVal
                         },
                         onPageSwipe: { direction in
-                            withAnimation(.easeInOut(duration: 0.25)) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
                                 if direction > 0 {
-                                    currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                                    if currentPageIndex >= note.pageCount - 1 {
+                                        // Swipe past last page → auto-create new page
+                                        if let newIndex = noteStore.addPage(to: note.id) {
+                                            currentPageIndex = newIndex
+                                        }
+                                    } else {
+                                        currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                                    }
                                 } else {
                                     currentPageIndex = max(0, currentPageIndex - 1)
                                 }
@@ -192,7 +207,49 @@ struct NoteEditorView: View {
                         },
                         onPinchToOverview: {
                             showPageOverview = true
-                        }
+                        },
+                        pdfURL: noteStore.notePDFURL(for: note),
+                        toolStoreForFade: toolStore,
+                        currentPageShapes: note.shapes(forPage: safePageIndex),
+                        onShapesChanged: { shapes in
+                            noteStore.updateShapes(for: note.id, pageIndex: safePageIndex, shapes: shapes)
+                        },
+                        currentPageAttachments: note.attachments(forPage: safePageIndex),
+                        attachmentNoteID: note.id,
+                        onAttachmentsChanged: { attachments in
+                            noteStore.updateAttachments(for: note.id, pageIndex: safePageIndex, attachments: attachments)
+                        },
+                        onAttachmentSelectionChanged: { attachmentID in
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                toolStore.activeAttachmentSelection = attachmentID
+                                // Clear other selections when attachment is selected
+                                if attachmentID != nil {
+                                    toolStore.activeShapeSelection = nil
+                                    toolStore.activeStickerSelection = nil
+                                    toolStore.activeWidgetSelection = nil
+                                    toolStore.hasActiveSelection = false
+                                }
+                            }
+                        },
+                        currentPageWidgets: note.widgets(forPage: safePageIndex),
+                        onWidgetsChanged: { widgets in
+                            noteStore.updateWidgets(for: note.id, pageIndex: safePageIndex, widgets: widgets)
+                        },
+                        onWidgetSelectionChanged: { widgetID in
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                toolStore.activeWidgetSelection = widgetID
+                                // Clear other selections when widget is selected
+                                if widgetID != nil {
+                                    toolStore.activeShapeSelection = nil
+                                    toolStore.activeStickerSelection = nil
+                                    toolStore.activeAttachmentSelection = nil
+                                    toolStore.hasActiveSelection = false
+                                }
+                            }
+                        },
+                        pageCount: note.pageCount,
+                        isMagicModeActive: toolStore.isMagicModeActive,
+                        isStudyModeActive: toolStore.isStudyModeActive
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
                     .id("\(note.id)-\(safePageIndex)")
@@ -209,6 +266,90 @@ struct NoteEditorView: View {
                 }
             }  // end VStack
 
+            // Floating toolbar capsule — bottom-center, above page navigation bar
+            if !isTextMode {
+                VStack {
+                    Spacer()
+                    FloatingToolbarCapsule(
+                        toolStore: toolStore,
+                        inkStore: inkStore,
+                        stickerStore: stickerStore,
+                        canUndo: canUndo,
+                        canRedo: canRedo,
+                        onUndo: { undoManager?.undo() },
+                        onRedo: { undoManager?.redo() },
+                        onOpenInspector: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showAdvancedPanel.toggle()
+                            }
+                        },
+                        onSelectionAction: { action in
+                            handleSelectionAction(action)
+                        }
+                    )
+                    .opacity(toolStore.toolbarOpacity)
+                    .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
+                    .allowsHitTesting(toolStore.toolbarOpacity > 0.5)
+                    .padding(.bottom, 8)
+                }
+                .zIndex(0.5)
+            }
+
+            // Shape action bar — appears when a shape object is selected
+            if toolStore.hasActiveShapeSelection,
+               let selectedID = toolStore.activeShapeSelection,
+               let selectedShape = note.shapes(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+                VStack {
+                    ShapeHandlesView(
+                        toolStore: toolStore,
+                        selectedShape: selectedShape,
+                        onAction: { action in
+                            handleShapeAction(action, for: selectedID)
+                        }
+                    )
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    Spacer()
+                }
+                .padding(.top, 60)
+                .zIndex(0.6)
+            }
+
+            // Attachment action bar — appears when an attachment is selected
+            if toolStore.hasActiveAttachmentSelection,
+               let selectedID = toolStore.activeAttachmentSelection,
+               let selectedAttachment = note.attachments(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+                VStack {
+                    AttachmentHandlesView(
+                        attachment: selectedAttachment,
+                        onAction: { action in
+                            handleAttachmentAction(action, for: selectedID)
+                        }
+                    )
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    Spacer()
+                }
+                .padding(.top, 60)
+                .zIndex(0.7)
+            }
+
+            // Widget action bar — appears when a widget is selected
+            if toolStore.hasActiveWidgetSelection,
+               let selectedID = toolStore.activeWidgetSelection,
+               let selectedWidget = note.widgets(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+                VStack {
+                    WidgetHandlesView(
+                        widget: selectedWidget,
+                        onAction: { action in
+                            handleWidgetAction(action, for: selectedID)
+                        }
+                    )
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    Spacer()
+                }
+                .padding(.top, 60)
+                .zIndex(0.75)
+            }
+
             // Advanced tools inspector — slides in from the right
             if showAdvancedPanel {
                 AdvancedToolsPanel(toolStore: toolStore, isPresented: $showAdvancedPanel)
@@ -220,7 +361,31 @@ struct NoteEditorView: View {
                     ))
                     .zIndex(1)
             }
+
+            // Focus-mode ambient overlays — vignette + dim.
+            // Applied via SwiftUI so they participate in the view hierarchy
+            // and auto-size on rotation.  The paper glow is applied to the
+            // canvas CALayer separately via FocusModeEngine.
+            if toolStore.isFocusModeActive {
+                focusModeOverlay
+                    .zIndex(0.4)   // behind toolbar capsules, above canvas
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+
+            // Ambient environment scene indicator — a thin tinted
+            // overlay matching the active scene's colour.  The bulk
+            // of the effect (rain streaks, grain, warm wash) is
+            // handled via CALayers by AmbientEnvironmentEngine.
+            if toolStore.activeAmbientScene != nil {
+                ambientSceneOverlay
+                    .zIndex(0.35)  // below focus overlay and toolbars
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }  // end ZStack
+        .animation(.easeInOut(duration: 0.35), value: toolStore.isFocusModeActive)
+        .animation(.easeInOut(duration: 0.45), value: toolStore.activeAmbientScene)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showAdvancedPanel)
         .navigationBarTitleDisplayMode(.inline)
         .animation(.spring(duration: 0.25), value: showFindBar)
@@ -245,6 +410,22 @@ struct NoteEditorView: View {
 
                 // Export menu — PDF (single page), PDF (all pages), PNG image.
                 exportMenu
+
+                // Version history browser.
+                Button {
+                    showVersionHistory = true
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
+                .accessibilityLabel("Version History")
+
+                // Import document into the library.
+                Button {
+                    showDocumentImporter = true
+                } label: {
+                    Image(systemName: "square.and.arrow.down")
+                }
+                .accessibilityLabel("Import document")
 
                 // Draw ↔ Type mode toggle.
                 // "keyboard" switches to text mode; "pencil" returns to drawing mode.
@@ -312,6 +493,29 @@ struct NoteEditorView: View {
         .onDisappear {
             toolStore.currentPaperMaterial = .standard
         }
+        .onChange(of: toolStore.isFocusModeActive) { _, isActive in
+            // Toolbar opacity is driven directly by the SwiftUI toolbarOpacity
+            // binding.  The paper glow (CALayer) is handled here via the
+            // Coordinator's FocusModeEngine.
+            if isActive {
+                toolStore.toolbarOpacity = 0.35
+            } else {
+                toolStore.toolbarOpacity = 1.0
+            }
+        }
+        .onChange(of: toolStore.activeAmbientScene) { _, scene in
+            // Ambient environment scenes are driven via the Coordinator's
+            // AmbientEnvironmentEngine — all effects are GPU-composited
+            // CALayers added to the editor container layer.
+            //
+            // When an ambient scene becomes active, focus mode is
+            // deactivated (they share toolbar dimming).
+            if scene != nil {
+                if toolStore.isFocusModeActive {
+                    toolStore.isFocusModeActive = false
+                }
+            }
+        }
         // Notification-based fallback to keep undo/redo state in sync even when the
         // canvas delegate fires before the onUndoStateChanged callback is invoked.
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
@@ -340,10 +544,25 @@ struct NoteEditorView: View {
         .onDisappear {
             flushTextNow()
             toolStore.currentPaperMaterial = .standard
+            // Reset focus mode on editor tear-down so state doesn't leak.
+            if toolStore.isFocusModeActive {
+                toolStore.isFocusModeActive = false
+                toolStore.toolbarOpacity = 1.0
+            }
+            // Reset ambient scene.
+            if toolStore.activeAmbientScene != nil {
+                toolStore.activeAmbientScene = nil
+                toolStore.toolbarOpacity = 1.0
+            }
             noteStore.save()
         }
         .sheet(isPresented: $showCreateFlashcard) {
             NoteFlashcardSheet(note: note)
+        }
+        .sheet(isPresented: $showVersionHistory) {
+            VersionHistoryView(noteID: note.id)
+                .environmentObject(noteStore)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showPageOverview) {
             PageOverviewGrid(
@@ -356,6 +575,236 @@ struct NoteEditorView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(activityItems: shareItems)
         }
+        .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
+            StickerLibraryView(stickerStore: stickerStore) { asset in
+                placeSticker(asset)
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
+            WidgetPickerView { kind in
+                placeWidget(kind)
+            }
+            .presentationDetents([.medium])
+        }
+        .fileImporter(
+            isPresented: $showDocumentImporter,
+            allowedContentTypes: ImportedDocumentType.allUTTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                documentStore.importDocument(from: url)
+            }
+        }
+    }
+
+    // MARK: - Sticker Placement
+
+    /// Places a sticker asset at the center of the current page.
+    private func placeSticker(_ asset: StickerAsset) {
+        guard var updatedNote = noteStore.notes.first(where: { $0.id == note.id }) else { return }
+        let pageIdx = currentPageIndex
+
+        // Ensure stickerLayers array is sized to match pages
+        while updatedNote.stickerLayers.count < updatedNote.pages.count {
+            updatedNote.stickerLayers.append(nil)
+        }
+
+        var existing = updatedNote.stickerLayers[pageIdx] ?? []
+
+        // Enforce per-page limit
+        guard existing.count < StickerConstants.maxStickersPerPage else { return }
+
+        let maxZ = existing.map(\.zIndex).max() ?? 0
+
+        // Place at approximate center of page
+        let pageSize = CanvasView.pageSize
+        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
+
+        let instance = StickerInstance(
+            stickerID: asset.id,
+            position: center,
+            scale: 1.0,
+            rotation: 0,
+            opacity: 1.0,
+            zIndex: maxZ + 1,
+            isLocked: false
+        )
+
+        existing.append(instance)
+        updatedNote.stickerLayers[pageIdx] = existing
+        updatedNote.modifiedAt = Date()
+
+        noteStore.updateStickers(for: note.id, pageIndex: pageIdx, stickers: existing)
+    }
+
+    // MARK: - Widget Placement
+
+    /// Places a new widget of the given kind at the centre of the current page.
+    private func placeWidget(_ kind: WidgetKind) {
+        let pageIdx = currentPageIndex
+        var widgets = note.widgets(forPage: pageIdx)
+
+        // Enforce per-page limit
+        guard widgets.count < WidgetConstants.maxWidgetsPerPage else { return }
+
+        let maxZ = widgets.map(\.zIndex).max() ?? 0
+
+        // Place at approximate centre of page
+        let pageSize = CanvasView.pageSize
+        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
+
+        var widget: NoteWidget
+        switch kind {
+        case .checklist:
+            widget = NoteWidget.makeChecklist(at: center)
+        case .quickTable:
+            widget = NoteWidget.makeQuickTable(at: center)
+        case .calloutBox:
+            widget = NoteWidget.makeCalloutBox(at: center)
+        case .referenceCard:
+            widget = NoteWidget.makeReferenceCard(at: center)
+        }
+        widget.zIndex = maxZ + 1
+
+        widgets.append(widget)
+        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+
+        // Auto-select the newly placed widget
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            toolStore.activeWidgetSelection = widget.id
+            toolStore.activeShapeSelection = nil
+            toolStore.activeStickerSelection = nil
+            toolStore.activeAttachmentSelection = nil
+            toolStore.hasActiveSelection = false
+        }
+    }
+
+    // MARK: - Shape Actions
+
+    /// Handles actions from the shape action bar.
+    private func handleShapeAction(_ action: ShapeAction, for shapeID: UUID) {
+        let pageIdx = currentPageIndex
+        var shapes = note.shapes(forPage: pageIdx)
+        guard let idx = shapes.firstIndex(where: { $0.id == shapeID }) else { return }
+
+        switch action {
+        case .duplicate:
+            var copy = shapes[idx]
+            copy = ShapeInstance(
+                shapeType: copy.shapeType,
+                frame: copy.frame.offsetBy(dx: 20, dy: 20),
+                rotation: copy.rotation,
+                style: copy.style,
+                zIndex: (shapes.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false
+            )
+            shapes.append(copy)
+            toolStore.activeShapeSelection = copy.id
+
+        case .delete:
+            shapes.remove(at: idx)
+            toolStore.activeShapeSelection = nil
+
+        case .toggleLock:
+            shapes[idx].isLocked.toggle()
+
+        case .bringToFront:
+            let maxZ = shapes.map(\.zIndex).max() ?? 0
+            shapes[idx].zIndex = maxZ + 1
+
+        case .sendToBack:
+            let minZ = shapes.map(\.zIndex).min() ?? 0
+            shapes[idx].zIndex = minZ - 1
+
+        case .updateStyle(let newStyle):
+            shapes[idx].style = newStyle
+        }
+
+        noteStore.updateShapes(for: note.id, pageIndex: pageIdx, shapes: shapes)
+    }
+
+    private func handleAttachmentAction(_ action: AttachmentAction, for attachmentID: UUID) {
+        let pageIdx = currentPageIndex
+        var attachments = note.attachments(forPage: pageIdx)
+        guard let idx = attachments.firstIndex(where: { $0.id == attachmentID }) else { return }
+
+        switch action {
+        case .expand:
+            // Handled by presenting AttachmentViewerView — signal via state
+            break
+
+        case .duplicate:
+            var copy = attachments[idx]
+            copy = AttachmentObject(
+                type: copy.type,
+                frame: AttachmentFrame(
+                    position: CGPoint(
+                        x: copy.frame.position.x + AttachmentConstants.duplicateOffset,
+                        y: copy.frame.position.y + AttachmentConstants.duplicateOffset
+                    ),
+                    size: copy.frame.size
+                ),
+                label: copy.label,
+                zIndex: (attachments.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false,
+                aspectRatio: copy.aspectRatio,
+                fileExtension: copy.fileExtension,
+                linkURL: copy.linkURL
+            )
+            attachments.append(copy)
+            toolStore.activeAttachmentSelection = copy.id
+
+        case .toggleLock:
+            attachments[idx].isLocked.toggle()
+
+        case .delete:
+            let removed = attachments.remove(at: idx)
+            toolStore.activeAttachmentSelection = nil
+            AttachmentStore.shared.deleteAttachmentFiles(
+                noteID: note.id,
+                attachmentID: removed.id,
+                ext: removed.fileExtension
+            )
+        }
+
+        noteStore.updateAttachments(for: note.id, pageIndex: pageIdx, attachments: attachments)
+    }
+
+    private func handleWidgetAction(_ action: WidgetAction, for widgetID: UUID) {
+        let pageIdx = currentPageIndex
+        var widgets = note.widgets(forPage: pageIdx)
+        guard let idx = widgets.firstIndex(where: { $0.id == widgetID }) else { return }
+
+        switch action {
+        case .duplicate:
+            let source = widgets[idx]
+            let copy = NoteWidget(
+                kind: source.kind,
+                frame: WidgetFrame(
+                    position: CGPoint(
+                        x: source.frame.position.x + WidgetConstants.duplicateOffset,
+                        y: source.frame.position.y + WidgetConstants.duplicateOffset
+                    ),
+                    size: source.frame.size
+                ),
+                payload: source.payload,
+                zIndex: (widgets.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false,
+                borderColorComponents: source.borderColorComponents
+            )
+            widgets.append(copy)
+            toolStore.activeWidgetSelection = copy.id
+
+        case .toggleLock:
+            widgets[idx].isLocked.toggle()
+
+        case .delete:
+            widgets.remove(at: idx)
+            toolStore.activeWidgetSelection = nil
+        }
+
+        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
     }
 
     // MARK: - Background blend helper
@@ -464,10 +913,46 @@ struct NoteEditorView: View {
                     }
                 }
             }
+
+            Divider()
+
+            // Page colour — quick presets for the current page
+            Section("Page Colour") {
+                Button {
+                    noteStore.updatePageColor(for: note.id, pageIndex: safePageIndex, color: nil)
+                } label: {
+                    Label("Theme Default", systemImage: note.pageColor(forPage: safePageIndex) == nil
+                          ? "checkmark" : "paintbrush")
+                }
+                ForEach(pageColorPresets, id: \.name) { preset in
+                    Button {
+                        noteStore.updatePageColor(
+                            for: note.id, pageIndex: safePageIndex, color: preset.color)
+                    } label: {
+                        Label(preset.name, systemImage: "circle.fill")
+                    }
+                }
+            }
         } label: {
             Image(systemName: "doc.richtext")
                 .accessibilityLabel("Page setup")
         }
+    }
+
+    /// Quick-access page background colour presets.
+    private var pageColorPresets: [(name: String, color: UIColor)] {
+        [
+            ("White",       .white),
+            ("Cream",       UIColor(red: 0.99, green: 0.97, blue: 0.93, alpha: 1)),
+            ("Parchment",   UIColor(red: 0.96, green: 0.94, blue: 0.87, alpha: 1)),
+            ("Pale Yellow",  UIColor(red: 1.00, green: 0.99, blue: 0.88, alpha: 1)),
+            ("Pale Blue",    UIColor(red: 0.93, green: 0.96, blue: 1.00, alpha: 1)),
+            ("Pale Green",   UIColor(red: 0.93, green: 0.99, blue: 0.93, alpha: 1)),
+            ("Pale Pink",    UIColor(red: 1.00, green: 0.93, blue: 0.95, alpha: 1)),
+            ("Light Grey",   UIColor(red: 0.94, green: 0.94, blue: 0.94, alpha: 1)),
+            ("Dark Grey",    UIColor(red: 0.20, green: 0.20, blue: 0.22, alpha: 1)),
+            ("Black",        UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1)),
+        ]
     }
 
     // MARK: - Contrast banner
@@ -484,6 +969,59 @@ struct NoteEditorView: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(uiColor: effectiveDefinition.canvasBackground).opacity(0.8))
+    }
+
+    // MARK: - Focus Mode Overlay
+
+    /// Full-screen SwiftUI overlay combining background dimming and a radial
+    /// vignette.  Layered behind toolbar capsules (zIndex 0.4) but above the
+    /// canvas, so it dims chrome without intercepting touch input.
+    @ViewBuilder
+    private var focusModeOverlay: some View {
+        ZStack {
+            // Background dim — very subtle darkening of the entire view.
+            Color.black.opacity(0.08)
+                .ignoresSafeArea()
+
+            // Radial vignette — darkens edges, clear centre.
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    Color.clear,
+                    Color.clear,
+                    Color.black.opacity(0.15)
+                ]),
+                center: .center,
+                startRadius: 80,
+                endRadius: UIScreen.main.bounds.height * 0.55
+            )
+            .ignoresSafeArea()
+        }
+    }
+
+    // MARK: - Ambient Scene Overlay
+
+    /// Lightweight SwiftUI tint overlay for the active ambient scene.
+    /// The heavy lifting (rain streaks, grain, warm wash) is handled via
+    /// CALayers in `AmbientEnvironmentEngine` — this overlay just adds
+    /// a subtle colour tint that auto-sizes on rotation.
+    @ViewBuilder
+    private var ambientSceneOverlay: some View {
+        switch toolStore.activeAmbientScene {
+        case .rainStudy:
+            // Cool blue-grey tint.
+            Color(red: 0.6, green: 0.72, blue: 0.88).opacity(0.05)
+                .ignoresSafeArea()
+        case .lofiLight:
+            // Warm amber tint.
+            Color(red: 1.0, green: 0.92, blue: 0.76).opacity(0.04)
+                .ignoresSafeArea()
+        case .nightGrain:
+            // Cool dark blue tint.
+            Color(red: 0.15, green: 0.18, blue: 0.28).opacity(0.06)
+                .ignoresSafeArea()
+        case .none:
+            EmptyView()
+        }
     }
 
     // MARK: - Helpers
@@ -518,6 +1056,31 @@ struct NoteEditorView: View {
     private func refreshUndoRedoState() {
         canUndo = undoManager?.canUndo ?? false
         canRedo = undoManager?.canRedo ?? false
+    }
+
+    // MARK: - Selection Actions
+
+    /// Handles selection toolbar actions by dispatching standard edit commands
+    /// to the canvas's responder chain. PencilKit's built-in lasso selection
+    /// supports cut/copy/paste/delete through the standard UIResponder actions.
+    private func handleSelectionAction(_ action: SelectionAction) {
+        // The canvas is first responder; dispatch standard UIResponder actions
+        // which PencilKit handles for lasso selections.
+        let app = UIApplication.shared
+        switch action {
+        case .cut:
+            app.sendAction(#selector(UIResponderStandardEditActions.cut(_:)), to: nil, from: nil, for: nil)
+            toolStore.hasActiveSelection = false
+        case .copy:
+            app.sendAction(#selector(UIResponderStandardEditActions.copy(_:)), to: nil, from: nil, for: nil)
+        case .duplicate:
+            // Copy then paste in-place to duplicate selected strokes
+            app.sendAction(#selector(UIResponderStandardEditActions.copy(_:)), to: nil, from: nil, for: nil)
+            app.sendAction(#selector(UIResponderStandardEditActions.paste(_:)), to: nil, from: nil, for: nil)
+        case .delete:
+            app.sendAction(#selector(UIResponderStandardEditActions.delete(_:)), to: nil, from: nil, for: nil)
+            toolStore.hasActiveSelection = false
+        }
     }
 
     // MARK: - Export menu
@@ -564,11 +1127,17 @@ struct NoteEditorView: View {
         let pt = effectivePageType(forPage: pageIndex)
         let bg = canvasBackgroundColor
         let title = note.title.isEmpty ? "Note" : note.title
+        let attachments = note.attachments(forPage: pageIndex)
+        let widgets = note.widgets(forPage: pageIndex)
+        let nid = note.id
         isExporting = true
         Task {
             let url = await NoteExporter.exportAsPDF(
                 title: "\(title) — Page \(pageIndex + 1)",
                 pages: [pageData],
+                attachmentLayers: [attachments.isEmpty ? nil : attachments],
+                widgetLayers: [widgets.isEmpty ? nil : widgets],
+                noteID: nid,
                 backgroundColor: bg,
                 pageTypes: [pt]
             )
@@ -583,7 +1152,32 @@ struct NoteEditorView: View {
     }
 
     /// Exports every page of the note as a multi-page PDF and presents the share sheet.
+    /// When the note has a maintained backing PDF, shares it directly without re-rendering.
     private func exportAllPagesAsPDF() {
+        let attachmentLayers = note.attachmentLayers
+        let widgetLayersData = note.widgetLayers
+        let nid = note.id
+
+        // Fast path: share the maintained PDF file directly when available.
+        if let pdfURL = noteStore.notePDFURL(for: note),
+           FileManager.default.fileExists(atPath: pdfURL.path) {
+            // Force a synchronous regeneration so the PDF reflects the very latest strokes.
+            if let filename = note.pdfFilename {
+                let pageTypes = (0..<note.pageCount).map { effectivePageType(forPage: $0) }
+                NotePDFGenerator.regeneratePDF(
+                    filename: filename,
+                    pages: note.pages,
+                    attachmentLayers: attachmentLayers,
+                    noteID: nid,
+                    backgroundColor: canvasBackgroundColor,
+                    pageTypes: pageTypes
+                )
+            }
+            shareItems = [pdfURL]
+            showShareSheet = true
+            return
+        }
+        // Fallback: render a new PDF from scratch (legacy notes without backing PDF).
         let pages = note.pages
         let pageTypes = (0..<note.pageCount).map { effectivePageType(forPage: $0) }
         let bg = canvasBackgroundColor
@@ -593,6 +1187,9 @@ struct NoteEditorView: View {
             let url = await NoteExporter.exportAsPDF(
                 title: title,
                 pages: pages,
+                attachmentLayers: attachmentLayers,
+                widgetLayers: widgetLayersData,
+                noteID: nid,
                 backgroundColor: bg,
                 pageTypes: pageTypes
             )
@@ -612,10 +1209,16 @@ struct NoteEditorView: View {
         let pageData = note.pages[pageIndex]
         let pt = effectivePageType(forPage: pageIndex)
         let bg = canvasBackgroundColor
+        let attachments = note.attachments(forPage: pageIndex)
+        let widgets = note.widgets(forPage: pageIndex)
+        let nid = note.id
         isExporting = true
         Task {
             let image = await NoteExporter.exportPageAsImage(
                 pageData: pageData,
+                attachments: attachments.isEmpty ? nil : attachments,
+                widgets: widgets.isEmpty ? nil : widgets,
+                noteID: nid,
                 backgroundColor: bg,
                 pageType: pt
             )
@@ -850,7 +1453,7 @@ struct NoteEditorView: View {
 /// - Barrel-roll fountain pen (Pencil Pro, iOS 17.5+): modulates fountain-pen width.
 /// - Contextual palette: compact floating palette anchored near the Pencil tip.
 
-private struct CanvasView: UIViewRepresentable {
+struct CanvasView: UIViewRepresentable {
     let noteID: UUID
     let drawingData: Data
     let backgroundColor: UIColor
@@ -883,6 +1486,41 @@ private struct CanvasView: UIViewRepresentable {
     let onPageSwipe: ((Int) -> Void)?
     /// Called when a pinch-in gesture requests the page overview.
     let onPinchToOverview: (() -> Void)?
+    /// On-disk URL of the note's backing PDF, if available.
+    /// When non-nil the canvas renders the PDF page as background instead of the
+    /// procedural `PageBackgroundView`, giving the note a book-like appearance.
+    let pdfURL: URL?
+    /// Reference to the toolbar store, used to drive auto-fade during drawing.
+    var toolStoreForFade: DrawingToolStore?
+
+    /// Shape objects for the current page.
+    var currentPageShapes: [ShapeInstance] = []
+    /// Callback to persist shape changes.
+    var onShapesChanged: (([ShapeInstance]) -> Void)?
+
+    /// Attachment objects for the current page.
+    var currentPageAttachments: [AttachmentObject] = []
+    /// Note ID used for attachment file lookups.
+    var attachmentNoteID: UUID = UUID()
+    /// Callback to persist attachment changes.
+    var onAttachmentsChanged: (([AttachmentObject]) -> Void)?
+    /// Callback when attachment selection changes.
+    var onAttachmentSelectionChanged: ((UUID?) -> Void)?
+
+    /// Widget instances for the current page.
+    var currentPageWidgets: [NoteWidget] = []
+    /// Callback to persist widget changes.
+    var onWidgetsChanged: (([NoteWidget]) -> Void)?
+    /// Callback when widget selection changes.
+    var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+    /// Total number of pages in the note, used for adaptive effects complexity signals.
+    var pageCount: Int = 1
+
+    /// Whether Magic Mode is active (writing particles, keyword glow, highlight).
+    var isMagicModeActive: Bool = false
+    /// Whether Study Mode is active (heading glow, checklist pulse, timer pulse).
+    var isStudyModeActive: Bool = false
 
     // MARK: - Page dimensions
 
@@ -915,7 +1553,6 @@ private struct CanvasView: UIViewRepresentable {
 
         let container = UIView()
         container.backgroundColor = backgroundColor
-        container.clipsToBounds = true
 
         // ── Page background (ruling + paper tint, sits behind the canvas) ──────
         // Frame-based layout sized to the fixed page dimensions so the ruling
@@ -931,6 +1568,41 @@ private struct CanvasView: UIViewRepresentable {
         container.addSubview(pageBackground)
         context.coordinator.pageBackground = pageBackground
 
+        // ── PDF page background (book-like feel) ─────────────────────────────
+        // When the note has a backing PDF, render the template page from the PDF
+        // file so the background is a real PDF page.  This sits above the
+        // procedural PageBackgroundView and provides pixel-perfect fidelity with
+        // the exported PDF.
+        if let pdfURL,
+           let pdfDoc = PDFDocument(url: pdfURL),
+           let pdfPage = pdfDoc.page(at: pageIndex) {
+            let mediaBox = pdfPage.bounds(for: .mediaBox)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = UIScreen.main.scale
+            format.opaque = true
+            let renderer = UIGraphicsImageRenderer(size: ps, format: format)
+            let pageImage = renderer.image { ctx in
+                let cgCtx = ctx.cgContext
+                cgCtx.setFillColor(backgroundColor.cgColor)
+                cgCtx.fill(CGRect(origin: .zero, size: ps))
+                // Scale from PDF media box to canvas page size
+                let sx = ps.width / mediaBox.width
+                let sy = ps.height / mediaBox.height
+                let scale = min(sx, sy)
+                cgCtx.saveGState()
+                cgCtx.scaleBy(x: scale, y: -scale)
+                cgCtx.translateBy(x: 0, y: -mediaBox.height)
+                pdfPage.draw(with: .mediaBox, to: cgCtx)
+                cgCtx.restoreGState()
+            }
+            let pdfImageView = UIImageView(image: pageImage)
+            pdfImageView.frame = CGRect(origin: .zero, size: ps)
+            pdfImageView.contentMode = .scaleToFill
+            pdfImageView.isUserInteractionEnabled = false
+            container.addSubview(pdfImageView)
+            context.coordinator.pdfBackgroundView = pdfImageView
+        }
+
         // ── PencilKit canvas ─────────────────────────────────────────────────
         let canvas = PKCanvasView()
         canvas.delegate = context.coordinator
@@ -940,12 +1612,28 @@ private struct CanvasView: UIViewRepresentable {
         canvas.backgroundColor = .clear
         canvas.tool = currentTool
 
+        // Touch type filtering for latency reduction: when pencilOnly mode is
+        // active, restrict the drawing gesture recognizer to pencil touches only.
+        // This eliminates the ~16ms first-touch discrimination delay that
+        // PKCanvasView normally incurs waiting to decide if a touch is pencil
+        // or finger.
+        if WritingConfig.useTouchTypeFiltering && drawingPolicy == .pencilOnly {
+            canvas.drawingGestureRecognizer.allowedTouchTypes = [
+                NSNumber(value: UITouch.TouchType.pencil.rawValue)
+            ]
+        }
+
         // Zoom/pan: PKCanvasView inherits UIScrollView zoom support.
         // 0.25× minimum lets users step back for a full-page view.
         // 5×   maximum provides fine-detail writing precision.
         canvas.minimumZoomScale = 0.25
         canvas.maximumZoomScale = 5.0
         canvas.bouncesZoom = true
+
+        // Deceleration rate: fast deceleration feels more "anchored" and prevents
+        // the canvas from sliding away after a quick pan. This matches the feel
+        // of physical paper on a desk.
+        canvas.decelerationRate = .fast
 
         // Set the canvas content area to the fixed page dimensions so the user
         // can draw across the full page and scroll vertically.
@@ -994,6 +1682,78 @@ private struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.shapeOverlay = overlay
 
+        // ── Attachment canvas (attachment cards layer) ────────────────────────
+        let attachCanvas = AttachmentCanvasView(frame: .zero)
+        attachCanvas.translatesAutoresizingMaskIntoConstraints = false
+        attachCanvas.noteID = attachmentNoteID
+        attachCanvas.attachments = currentPageAttachments
+        attachCanvas.onSelectionChanged = { attachmentID in
+            context.coordinator.onAttachmentSelectionChanged?(attachmentID)
+        }
+        attachCanvas.onAttachmentTransformed = { attachment in
+            context.coordinator.handleAttachmentTransformed(attachment)
+        }
+        attachCanvas.onAttachmentsChanged = { attachments in
+            context.coordinator.handleAttachmentsChanged(attachments)
+        }
+        context.coordinator.onAttachmentsChanged = onAttachmentsChanged
+        context.coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
+        container.addSubview(attachCanvas)
+        NSLayoutConstraint.activate([
+            attachCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            attachCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            attachCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            attachCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.attachmentCanvas = attachCanvas
+
+        // ── Widget canvas (interactive widget cards layer) ───────────────────
+        let widgetCanvas = WidgetCanvasView(frame: .zero)
+        widgetCanvas.translatesAutoresizingMaskIntoConstraints = false
+        widgetCanvas.widgets = currentPageWidgets
+        widgetCanvas.onSelectionChanged = { widgetID in
+            context.coordinator.onWidgetSelectionChanged?(widgetID)
+        }
+        widgetCanvas.onWidgetTransformed = { widget in
+            context.coordinator.handleWidgetTransformed(widget)
+        }
+        widgetCanvas.onWidgetsChanged = { widgets in
+            context.coordinator.handleWidgetsChanged(widgets)
+        }
+        context.coordinator.onWidgetsChanged = onWidgetsChanged
+        context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
+        container.addSubview(widgetCanvas)
+        NSLayoutConstraint.activate([
+            widgetCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            widgetCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            widgetCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            widgetCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.widgetCanvas = widgetCanvas
+
+        // ── Shape object canvas (editable shapes layer) ──────────────────────
+        let shapeCanvas = ShapeCanvasView(frame: .zero)
+        shapeCanvas.translatesAutoresizingMaskIntoConstraints = false
+        shapeCanvas.shapes = currentPageShapes
+        shapeCanvas.isShapeToolActive = isShapeToolActive
+        shapeCanvas.onShapesChanged = { [weak shapeCanvas] shapes in
+            guard let shapeCanvas else { return }
+            context.coordinator.handleShapesChanged(shapes)
+            shapeCanvas.shapes = shapes
+        }
+        shapeCanvas.onSelectionChanged = { shapeID in
+            context.coordinator.handleShapeSelectionChanged(shapeID)
+        }
+        context.coordinator.onShapesChanged = onShapesChanged
+        container.addSubview(shapeCanvas)
+        NSLayoutConstraint.activate([
+            shapeCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            shapeCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            shapeCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            shapeCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.shapeCanvas = shapeCanvas
+
         // ── Hover overlay (non-interactive, floats above the canvas) ─────────
         let hoverOverlay = PencilHoverOverlayView(frame: .zero)
         hoverOverlay.translatesAutoresizingMaskIntoConstraints = false
@@ -1040,10 +1800,13 @@ private struct CanvasView: UIViewRepresentable {
         container.addGestureRecognizer(swipeRight)
 
         // Pinch-in opens page overview grid.
+        // The gesture delegate allows simultaneous recognition with
+        // PKCanvasView's built-in pinch-to-zoom so normal zoom still works.
         let pinchOverview = UIPinchGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handlePinchToOverview(_:))
         )
+        pinchOverview.delegate = context.coordinator
         container.addGestureRecognizer(pinchOverview)
         context.coordinator.pinchOverviewGesture = pinchOverview
 
@@ -1069,6 +1832,9 @@ private struct CanvasView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {
         guard let canvas = context.coordinator.canvas else { return }
+
+        // Wire up toolbar store reference for auto-fade (idempotent).
+        context.coordinator.toolStoreRef = toolStoreForFade
 
         // Sync container background colour when the theme/material changes.
         if uiView.backgroundColor != backgroundColor {
@@ -1096,6 +1862,22 @@ private struct CanvasView: UIViewRepresentable {
         // Sync drawing policy when the user toggles the finger/pencil preference.
         if canvas.drawingPolicy != drawingPolicy {
             canvas.drawingPolicy = drawingPolicy
+            // Update touch type filtering to match: pencilOnly → restrict to pencil
+            // touches for faster first-touch discrimination, anyInput → allow all.
+            if WritingConfig.useTouchTypeFiltering {
+                if drawingPolicy == .pencilOnly {
+                    canvas.drawingGestureRecognizer.allowedTouchTypes = [
+                        NSNumber(value: UITouch.TouchType.pencil.rawValue)
+                    ]
+                } else {
+                    canvas.drawingGestureRecognizer.allowedTouchTypes = [
+                        NSNumber(value: UITouch.TouchType.direct.rawValue),
+                        NSNumber(value: UITouch.TouchType.pencil.rawValue),
+                    ]
+                }
+            }
+            // Reset palm guard when switching modes.
+            context.coordinator.palmGuard.reset()
         }
 
         // Update the active tool from DrawingToolStore — but ONLY when:
@@ -1121,6 +1903,31 @@ private struct CanvasView: UIViewRepresentable {
             overlay.strokeWidth = CGFloat(shapeWidth)
         }
 
+        // Sync shape object canvas.
+        if let shapeCanvas = context.coordinator.shapeCanvas {
+            shapeCanvas.isShapeToolActive = isShapeToolActive
+            shapeCanvas.shapes = currentPageShapes
+            shapeCanvas.selectedShapeID = toolStoreForFade?.activeShapeSelection
+        }
+
+        // Sync attachment canvas.
+        if let attachCanvas = context.coordinator.attachmentCanvas {
+            attachCanvas.attachments = currentPageAttachments
+            attachCanvas.noteID = attachmentNoteID
+            attachCanvas.selectedAttachmentID = toolStoreForFade?.activeAttachmentSelection
+            attachCanvas.zoomScale = canvas.zoomScale
+        }
+        context.coordinator.onAttachmentsChanged = onAttachmentsChanged
+        context.coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
+
+        // Sync widget canvas.
+        if let widgetCanvas = context.coordinator.widgetCanvas {
+            widgetCanvas.widgets = currentPageWidgets
+            widgetCanvas.selectedWidgetID = toolStoreForFade?.activeWidgetSelection
+        }
+        context.coordinator.onWidgetsChanged = onWidgetsChanged
+        context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
+
         // Zoom reset: animate to 1× when the trigger value flips.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -1134,8 +1941,43 @@ private struct CanvasView: UIViewRepresentable {
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
+        // Sync adaptive effects engine with current note complexity.
+        context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
+        // Propagate intensity to sub-engines.
+        let intensity = context.coordinator.adaptiveEffectsEngine.intensity
+        context.coordinator.pageTransitionEngine.effectIntensity = intensity
+        context.coordinator.focusModeEngine.effectIntensity = intensity
+        context.coordinator.ambientEngine.effectIntensity = intensity
+        context.coordinator.magicModeEngine.effectIntensity = intensity
+        context.coordinator.studyModeEngine.effectIntensity = intensity
+        // Propagate to canvas views that own their own micro/snap engines.
+        context.coordinator.shapeCanvas?.effectIntensity = intensity
+        context.coordinator.attachmentCanvas?.effectIntensity = intensity
+        context.coordinator.widgetCanvas?.effectIntensity = intensity
+
+        // Sync magic mode engine — activate/deactivate when toggle changes.
+        let magicEngine = context.coordinator.magicModeEngine
+        if isMagicModeActive && !magicEngine.isActive {
+            magicEngine.activate(on: uiView.layer)
+        } else if !isMagicModeActive && magicEngine.isActive {
+            magicEngine.deactivate()
+        }
+        // Keep emitter frame in sync when the canvas resizes (rotation, multitasking).
+        if magicEngine.isActive {
+            magicEngine.updateLayout(containerBounds: uiView.bounds)
+        }
+
+        // Sync study mode engine — activate/deactivate when toggle changes.
+        let studyEngine = context.coordinator.studyModeEngine
+        if isStudyModeActive && !studyEngine.isActive {
+            studyEngine.activate(on: uiView.layer)
+        } else if !isStudyModeActive && studyEngine.isActive {
+            studyEngine.deactivate()
+        }
+
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
+            engine.syncLayerFrames()
             engine.configure(fx: activeFX, color: fxColor)
         }
     }
@@ -1173,7 +2015,7 @@ private struct CanvasView: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate {
+    final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         let onDrawingChanged: (Data) -> Void
         let onSaveRequested: () -> Void
         /// Page swipe callback: +1 next, −1 previous.
@@ -1184,6 +2026,8 @@ private struct CanvasView: UIViewRepresentable {
         weak var shapeOverlay: ShapeOverlayView?
         /// Page ruling / background view placed behind the canvas.
         weak var pageBackground: PageBackgroundView?
+        /// PDF page image rendered behind the canvas (book-like feel).
+        weak var pdfBackgroundView: UIImageView?
         /// Updated by updateUIView to always hold the freshest closure.
         var onUndoStateChanged: ((Bool, Bool) -> Void)?
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
@@ -1198,8 +2042,70 @@ private struct CanvasView: UIViewRepresentable {
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
 
+        /// Page transition engine for physical page-turn effects.
+        let pageTransitionEngine = PageTransitionEngine()
+
+        /// Focus mode ambient effect engine.
+        let focusModeEngine = FocusModeEngine()
+
+        /// Ambient environment scene engine (rain / lo-fi / night grain).
+        let ambientEngine = AmbientEnvironmentEngine()
+
+        /// Magic mode engine — writing particles, keyword glow, highlight.
+        let magicModeEngine = MagicModeEngine()
+
+        /// Study mode engine — heading glow, checklist pulse, timer pulse.
+        let studyModeEngine = StudyModeEngine()
+
+        /// Adaptive effects engine — evaluates context signals and sets
+        /// intensity for all effect subsystems.
+        let adaptiveEffectsEngine = AdaptiveEffectsEngine()
+
+        /// Shape objects canvas for the current page.
+        weak var shapeCanvas: ShapeCanvasView?
+
+        /// Debounce timer for persisting shape changes.
+        private var shapeDebounceTimer: Timer?
+
+        /// Callback to persist shape changes.
+        var onShapesChanged: (([ShapeInstance]) -> Void)?
+
+        /// Attachment canvas overlay for the current page.
+        weak var attachmentCanvas: AttachmentCanvasView?
+
+        /// Debounce timer for persisting attachment changes.
+        private var attachmentDebounceTimer: Timer?
+
+        /// Callback to persist attachment changes.
+        var onAttachmentsChanged: (([AttachmentObject]) -> Void)?
+
+        /// Callback when attachment selection changes.
+        var onAttachmentSelectionChanged: ((UUID?) -> Void)?
+
+        /// Widget canvas overlay for the current page.
+        weak var widgetCanvas: WidgetCanvasView?
+
+        /// Debounce timer for persisting widget changes.
+        private var widgetDebounceTimer: Timer?
+
+        /// Callback to persist widget changes.
+        var onWidgetsChanged: (([NoteWidget]) -> Void)?
+
+        /// Callback when widget selection changes.
+        var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+        /// Weak reference to the drawing tool store for toolbar auto-fade.
+        weak var toolStoreRef: DrawingToolStore?
+
+        /// Task that schedules the toolbar fade after a delay of active drawing.
+        private var fadeTask: Task<Void, Never>?
+
         /// Pinch gesture recognizer for page overview.
         var pinchOverviewGesture: UIPinchGestureRecognizer?
+
+        /// Minimum scale observed during the current pinch-to-overview gesture.
+        /// Tracked during `.changed` because `numberOfTouches` is zero at `.ended`.
+        private var pinchOverviewMinScale: CGFloat = 1.0
 
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
@@ -1219,21 +2125,32 @@ private struct CanvasView: UIViewRepresentable {
         /// Used to restore the tool when the user double-taps "switch to previous".
         private var previousInkingTool: PKTool?
 
+        /// Zoom scale captured when a stroke begins. When `WritingConfig.lockZoomDuringWriting`
+        /// is enabled, the canvas zoom is pinned to this value during active writing to
+        /// prevent accidental zoom drift from multi-touch interference.
+        private var strokeStartZoomScale: CGFloat?
+
+        /// Timer that re-enables zoom/scroll gestures after a short delay following
+        /// the end of a stroke. Prevents accidental zoom when lifting the hand
+        /// between quick successive strokes.
+        private var postStrokeZoomUnlockTimer: Timer?
+
+        /// Tracks Apple Pencil contact timing for palm rejection in `.anyInput` mode.
+        let palmGuard = PalmGuardState()
+
+        /// Tracks stroke count and data size for performance warnings.
+        let strokeMonitor = StrokePerformanceMonitor()
+
         // KVO observers that keep the page background in sync with canvas
         // scroll offset and zoom scale. Invalidated automatically on dealloc.
         private var contentOffsetObservation: NSKeyValueObservation?
         private var zoomScaleObservation: NSKeyValueObservation?
 
-        // Pre-prepared haptic generators for scratch-to-delete feedback.
-        // Preparing them eagerly avoids the latency spike that would occur if
-        // the generator were created and prepared on the first deletion event.
+        // Pre-prepared haptic generator for double-tap pencil delete feedback.
+        // Preparing eagerly avoids the latency spike that would occur if the
+        // generator were created and prepared on the first deletion event.
         private let deletionImpactGenerator: UIImpactFeedbackGenerator = {
             let g = UIImpactFeedbackGenerator(style: .medium)
-            g.prepare()
-            return g
-        }()
-        private let selectionFeedbackGenerator: UISelectionFeedbackGenerator = {
-            let g = UISelectionFeedbackGenerator()
             g.prepare()
             return g
         }()
@@ -1255,6 +2172,19 @@ private struct CanvasView: UIViewRepresentable {
         /// Two-finger swipe handler for page navigation.
         @objc func handlePageSwipe(_ gesture: UISwipeGestureRecognizer) {
             guard !isDrawing else { return }
+
+            // Play physical page-turn effect on the gesture's container layer.
+            if let container = gesture.view?.layer {
+                let direction: PageTransitionDirection =
+                    gesture.direction == .left ? .forward : .backward
+                let pageWidth = container.bounds.width
+                pageTransitionEngine.playTransition(
+                    on: container,
+                    direction: direction,
+                    pageWidth: pageWidth
+                ) { /* visual cleanup handled internally */ }
+            }
+
             switch gesture.direction {
             case .left:
                 onPageSwipe?(1)   // Next page
@@ -1267,11 +2197,32 @@ private struct CanvasView: UIViewRepresentable {
 
         /// Pinch-in handler for page overview.
         @objc func handlePinchToOverview(_ gesture: UIPinchGestureRecognizer) {
-            guard gesture.state == .ended else { return }
-            // Only trigger on pinch-in (scale < 0.7) with 2+ fingers.
-            if gesture.scale < 0.7 && gesture.numberOfTouches >= 2 {
-                onPinchToOverview?()
+            switch gesture.state {
+            case .began:
+                pinchOverviewMinScale = gesture.scale
+            case .changed:
+                pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
+            case .ended, .cancelled:
+                // Trigger overview when the user performed a clear pinch-in
+                // (fingers came together significantly).
+                if pinchOverviewMinScale < 0.7 {
+                    onPinchToOverview?()
+                }
+                pinchOverviewMinScale = 1.0
+            default:
+                break
             }
+        }
+
+        // MARK: - UIGestureRecognizerDelegate
+
+        /// Allows the page-overview pinch gesture to fire simultaneously with
+        /// PKCanvasView's built-in pinch-to-zoom so normal zoom is not blocked.
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            gestureRecognizer === pinchOverviewGesture
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
@@ -1290,6 +2241,18 @@ private struct CanvasView: UIViewRepresentable {
 
         func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = true
+            // Cancel any pending zoom-unlock timer from a previous stroke so
+            // rapid successive strokes keep zoom locked continuously.
+            postStrokeZoomUnlockTimer?.invalidate()
+            postStrokeZoomUnlockTimer = nil
+
+            // Lock zoom during writing to prevent accidental zoom drift from
+            // multi-touch interference (e.g. palm resting on screen).
+            if WritingConfig.lockZoomDuringWriting {
+                strokeStartZoomScale = canvasView.zoomScale
+                canvasView.pinchGestureRecognizer?.isEnabled = false
+            }
+
             // Capture base width for barrel-roll modulation at stroke start.
             if let inkTool = canvasView.tool as? PKInkingTool {
                 barrelRollBaseWidth = inkTool.width
@@ -1302,11 +2265,52 @@ private struct CanvasView: UIViewRepresentable {
                 let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeBegan(at: center)
             }
+            // Notify magic mode engine of stroke start for writing particles.
+            if magicModeEngine.isActive,
+               let inkTool = canvasView.tool as? PKInkingTool {
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                let vp = viewportPoint(from: center, in: canvasView)
+                magicModeEngine.strokeBegan(at: vp, inkColor: inkTool.color)
+            }
+            // Auto-fade toolbar using config constants
+            fadeTask?.cancel()
+            fadeTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(WritingConfig.toolbarFadeDelay))
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self?.toolStoreRef?.toolbarOpacity = WritingConfig.toolbarFadedOpacity
+                }
+            }
+            // Pause attachment rendering during active strokes for zero lag.
+            attachmentCanvas?.renderingPaused = true
         }
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
             barrelRollBaseWidth = nil
+
+            // Re-enable zoom after a short delay to prevent accidental zoom when
+            // lifting the hand between rapid successive strokes.
+            if WritingConfig.lockZoomDuringWriting {
+                postStrokeZoomUnlockTimer?.invalidate()
+                postStrokeZoomUnlockTimer = Timer.scheduledTimer(
+                    withTimeInterval: WritingConfig.postStrokeZoomLockDelay,
+                    repeats: false
+                ) { [weak canvasView] _ in
+                    canvasView?.pinchGestureRecognizer?.isEnabled = true
+                }
+                strokeStartZoomScale = nil
+            }
+
+            // Record pencil end time for palm guard (finger rejection window).
+            palmGuard.pencilStrokeEnded()
+
+            // Signal stroke pause to the adaptive effects engine so it can
+            // decay the smoothed writing rate and potentially restore effects.
+            Task { @MainActor [weak self] in
+                self?.adaptiveEffectsEngine.reportStrokePause()
+            }
+
             // Notify effect engine of stroke end for ripple / fire cooldown.
             if let engine = effectEngine {
                 let lastStroke = canvasView.drawing.strokes.last
@@ -1315,98 +2319,197 @@ private struct CanvasView: UIViewRepresentable {
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
-            // Scratch-to-delete: check whether the finished stroke is a scratch gesture
-            // and, if so, erase the strokes it covers.
-            performScratchDeleteIfNeeded(canvasView)
-        }
-
-        // MARK: - Scratch-to-delete
-
-        /// Returns `true` when `stroke` looks like a scratch/scribble deletion gesture.
-        ///
-        /// A scratch gesture is characterized by:
-        /// - At least 3 X-axis direction reversals (back-and-forth zigzag).
-        /// - A total path length more than twice the bounding-box width, proving the
-        ///   Pencil covered the same horizontal span multiple times.
-        /// - A minimum horizontal span of 20 pt so micro-tremors are not misread.
-        private func isScratchStroke(_ stroke: PKStroke) -> Bool {
-            let points = Array(stroke.path)
-            guard points.count >= 8 else { return false }
-
-            let bounds = stroke.renderBounds
-            guard bounds.width >= 20 else { return false }
-
-            // Count direction reversals along the X axis, ignoring sub-pixel movement.
-            var reversals = 0
-            var lastDX: CGFloat = 0
-            for i in 1 ..< points.count {
-                let dx = points[i].location.x - points[i - 1].location.x
-                guard abs(dx) > 0.5 else { continue }
-                if lastDX != 0 && (dx > 0) != (lastDX > 0) {
-                    reversals += 1
+            // Notify magic mode engine of stroke end — fires keyword glow and
+            // optional underline highlight.
+            if magicModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
+                let path = lastStroke.path
+                if let first = path.first, let last = path.last {
+                    let startVP = viewportPoint(
+                        from: CGPoint(x: first.location.x, y: first.location.y),
+                        in: canvasView
+                    )
+                    let endVP = viewportPoint(
+                        from: CGPoint(x: last.location.x, y: last.location.y),
+                        in: canvasView
+                    )
+                    let inkColor = (canvasView.tool as? PKInkingTool)?.color ?? .label
+                    magicModeEngine.strokeEnded(at: endVP, startPoint: startVP, inkColor: inkColor)
                 }
-                lastDX = dx
             }
-            guard reversals >= 3 else { return false }
-
-            // Verify path redundancy: total travel distance > 2× bbox width.
-            let totalLength = zip(points, points.dropFirst()).reduce(CGFloat(0)) { sum, pair in
-                let dx = pair.1.location.x - pair.0.location.x
-                let dy = pair.1.location.y - pair.0.location.y
-                return sum + sqrt(dx * dx + dy * dy)
+            // Notify study mode engine — check if the last stroke looks like a heading
+            // (wide horizontal span, small vertical span) and fire a subtle glow.
+            if studyModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
+                let bbox = lastStroke.renderBounds
+                let vpOrigin = viewportPoint(
+                    from: CGPoint(x: bbox.origin.x, y: bbox.origin.y),
+                    in: canvasView
+                )
+                let vpEnd = viewportPoint(
+                    from: CGPoint(x: bbox.maxX, y: bbox.maxY),
+                    in: canvasView
+                )
+                let vpRect = CGRect(
+                    x: vpOrigin.x, y: vpOrigin.y,
+                    width: vpEnd.x - vpOrigin.x,
+                    height: vpEnd.y - vpOrigin.y
+                )
+                studyModeEngine.headingGlow(at: vpRect)
             }
-            return totalLength > bounds.width * 2.0
+            // Restore toolbar opacity after drawing ends using config constants
+            fadeTask?.cancel()
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(WritingConfig.toolbarRestoreDelay))
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self?.toolStoreRef?.toolbarOpacity = WritingConfig.toolbarFullOpacity
+                }
+            }
+            // Detect lasso selection state. When the user finishes a lasso gesture
+            // the canvas holds an internal selection. We set hasActiveSelection so
+            // the floating toolbar morphs to show selection actions.
+            if canvasView.tool is PKLassoTool {
+                markLassoSelectionActive()
+            } else {
+                updateSelectionState(for: canvasView)
+            }
+            // Resume attachment rendering after a short delay (matches toolbar restore timing).
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(0.3))
+                self?.attachmentCanvas?.renderingPaused = false
+                self?.attachmentCanvas?.setNeedsDisplay()
+            }
         }
 
-        /// If the most-recently-added stroke is a scratch gesture, removes it together with
-        /// all strokes whose render bounds intersect the scratch zone.  The operation is
-        /// registered with the canvas's own `UndoManager` so it can be reversed normally.
+        /// Updates `toolStore.hasActiveSelection` based on whether the canvas
+        /// currently holds a lasso selection. Called after tool-end events and
+        /// drawing changes to keep the toolbar in sync.
         ///
-        /// Only activates for inking tools — the regular eraser tool is unaffected.
-        private func performScratchDeleteIfNeeded(_ canvasView: PKCanvasView) {
-            // Only trigger for inking tools (pen / marker / pencil / fountain pen).
-            guard canvasView.tool is PKInkingTool else { return }
-
-            let strokes = Array(canvasView.drawing.strokes)
-            guard let scratchStroke = strokes.last,
-                  isScratchStroke(scratchStroke) else { return }
-
-            // Expand the scratch bounds slightly so strokes just touching the edge
-            // of the scribble are reliably included.
-            let scratchBounds = scratchStroke.renderBounds.insetBy(dx: -4, dy: -4)
-            let scratchIndex  = strokes.count - 1
-
-            // Build the filtered stroke list: drop the scratch stroke itself and any
-            // stroke whose render bounds overlap the scratch zone.
-            let remaining = strokes.enumerated().compactMap { (i, stroke) -> PKStroke? in
-                guard i != scratchIndex else { return nil }
-                return stroke.renderBounds.intersects(scratchBounds) ? nil : stroke
+        /// Detection: when the lasso tool finishes a gesture, PencilKit holds an
+        /// internal selection. We track this via a simple flag that is set when
+        /// `canvasViewDidEndUsingTool` fires while a PKLassoTool is active, and
+        /// cleared when the drawing changes (selection committed) or the tool
+        /// switches away from lasso.
+        func updateSelectionState(for canvasView: PKCanvasView) {
+            let isLasso = canvasView.tool is PKLassoTool
+            // Only set true when lasso tool just finished a gesture (likely selected
+            // something). Reset when drawing changes or tool switches.
+            if !isLasso && toolStoreRef?.hasActiveSelection == true {
+                Task { @MainActor [weak self] in
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        self?.toolStoreRef?.hasActiveSelection = false
+                    }
+                }
             }
+        }
 
-            let deletedCount = strokes.count - 1 - remaining.count  // strokes removed (excluding scratch)
-            let oldDrawing   = canvasView.drawing
-            let newDrawing   = PKDrawing(strokes: remaining)
+        /// Marks that the lasso tool completed a selection gesture.
+        /// Called from `canvasViewDidEndUsingTool` when the active tool is a lasso.
+        func markLassoSelectionActive() {
+            guard toolStoreRef?.hasActiveSelection != true else { return }
+            Task { @MainActor [weak self] in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    self?.toolStoreRef?.hasActiveSelection = true
+                }
+            }
+        }
 
-            // Register undo so the user can restore erased strokes with the standard
-            // undo gesture or toolbar button.
-            canvasView.undoManager?.registerUndo(withTarget: canvasView) { cv in
+        /// Clears the selection state (e.g. after the drawing changes, meaning
+        /// the selection was committed or the canvas was otherwise modified).
+        func clearSelectionState() {
+            guard toolStoreRef?.hasActiveSelection != false else { return }
+            Task { @MainActor [weak self] in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    self?.toolStoreRef?.hasActiveSelection = false
+                }
+            }
+        }
+
+        // MARK: - Shape Object Handlers
+
+        /// Called when the shape canvas reports changes to shape objects.
+        func handleShapesChanged(_ shapes: [ShapeInstance]) {
+            shapeDebounceTimer?.invalidate()
+            shapeDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: ShapeConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onShapesChanged?(shapes)
+            }
+        }
+
+        /// Called when shape selection changes.
+        func handleShapeSelectionChanged(_ shapeID: UUID?) {
+            Task { @MainActor [weak self] in
+                self?.toolStoreRef?.activeShapeSelection = shapeID
+            }
+        }
+
+        // MARK: - Attachment Coordination
+
+        /// Called when an attachment is moved or resized.
+        func handleAttachmentTransformed(_ attachment: AttachmentObject) {
+            guard var attachments = attachmentCanvas?.attachments else { return }
+            if let idx = attachments.firstIndex(where: { $0.id == attachment.id }) {
+                attachments[idx] = attachment
+            }
+            handleAttachmentsChanged(attachments)
+        }
+
+        /// Debounced persistence for attachment changes.
+        func handleAttachmentsChanged(_ attachments: [AttachmentObject]) {
+            attachmentDebounceTimer?.invalidate()
+            attachmentDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: AttachmentConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onAttachmentsChanged?(attachments)
+            }
+        }
+
+        // MARK: - Widget Coordinator
+
+        func handleWidgetTransformed(_ widget: NoteWidget) {
+            guard var widgets = widgetCanvas?.widgets else { return }
+            if let idx = widgets.firstIndex(where: { $0.id == widget.id }) {
+                widgets[idx] = widget
+            }
+            handleWidgetsChanged(widgets)
+        }
+
+        /// Debounced persistence for widget changes.
+        func handleWidgetsChanged(_ widgets: [NoteWidget]) {
+            widgetDebounceTimer?.invalidate()
+            widgetDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: WidgetConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onWidgetsChanged?(widgets)
+            }
+        }
+
+        // MARK: - Double-tap pencil to delete last stroke
+
+        /// Removes the most recently drawn stroke from the canvas.
+        /// Called when the user double-taps Apple Pencil.  Registered with the
+        /// canvas's own `UndoManager` so it can be reversed with undo.
+        func deleteLastStroke() {
+            guard let canvas = canvasRef else { return }
+            let strokes = Array(canvas.drawing.strokes)
+            guard !strokes.isEmpty else { return }
+
+            let oldDrawing = canvas.drawing
+            let newDrawing = PKDrawing(strokes: Array(strokes.dropLast()))
+
+            canvas.undoManager?.registerUndo(withTarget: canvas) { cv in
                 cv.drawing = oldDrawing
             }
-            canvasView.undoManager?.setActionName(
-                NSLocalizedString("Scratch to Delete", comment: "Undo action name for scratch-to-delete")
+            canvas.undoManager?.setActionName(
+                NSLocalizedString("Delete Stroke", comment: "Undo action name for pencil double-tap delete")
             )
 
-            canvasView.drawing = newDrawing
+            canvas.drawing = newDrawing
 
-            // Haptic confirmation — medium impact when strokes were actually erased,
-            // selection click when only the scratch itself was cleaned up.
-            if deletedCount > 0 {
-                deletionImpactGenerator.impactOccurred()
-                deletionImpactGenerator.prepare()   // re-arm for the next deletion
-            } else {
-                selectionFeedbackGenerator.selectionChanged()
-                selectionFeedbackGenerator.prepare()
-            }
+            deletionImpactGenerator.impactOccurred()
+            deletionImpactGenerator.prepare()
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -1429,15 +2532,39 @@ private struct CanvasView: UIViewRepresentable {
                 }
             }
 
+            // Update magic mode particle position while writing.
+            if magicModeEngine.isActive {
+                let lastStroke = canvasView.drawing.strokes.last
+                if let lastPoint = lastStroke?.path.last {
+                    let vp = viewportPoint(
+                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                        in: canvasView
+                    )
+                    magicModeEngine.strokeMoved(to: vp)
+                }
+            }
+
             // Report undo/redo availability directly from the canvas's undo manager.
             // PKCanvasView inherits UIResponder.undoManager which traverses the responder
             // chain — the same manager PencilKit registers stroke actions against.
             let um = canvasView.undoManager
             onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
 
-            // Debounce disk writes: flush 0.8 s after the last stroke.
+            // Drawing changed — selection was committed (paste, delete, move, etc.)
+            // so clear the selection state to collapse the selection toolbar.
+            clearSelectionState()
+
+            // Update stroke performance monitor for warning thresholds.
+            let strokeCount = canvasView.drawing.strokes.count
+            Task { @MainActor [weak self] in
+                self?.strokeMonitor.update(strokeCount: strokeCount, dataSize: data.count)
+                self?.adaptiveEffectsEngine.currentPageStrokeCount = strokeCount
+                self?.adaptiveEffectsEngine.reportStrokeChange()
+            }
+
+            // Debounce disk writes using config constant.
             debounceTimer?.invalidate()
-            debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
+            debounceTimer = Timer.scheduledTimer(withTimeInterval: WritingConfig.saveDebounceInterval, repeats: false) { [weak self] _ in
                 editorSignposter.emitEvent("DrawingSaved")
                 self?.onSaveRequested()
             }
@@ -1453,6 +2580,7 @@ private struct CanvasView: UIViewRepresentable {
             }
             zoomScaleObservation = canvas.observe(\.zoomScale, options: [.new]) { [weak self] sv, _ in
                 self?.syncBackgroundWithCanvas(sv)
+                self?.centerContentDuringZoom(sv)
             }
         }
 
@@ -1478,10 +2606,12 @@ private struct CanvasView: UIViewRepresentable {
             let tx = -o.x + pw * (z - 1) / 2
             let ty = -o.y + ph * (z - 1) / 2
 
+            let xform = CGAffineTransform(scaleX: z, y: z)
+                .concatenating(CGAffineTransform(translationX: tx, y: ty))
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            bg.transform = CGAffineTransform(scaleX: z, y: z)
-                .concatenating(CGAffineTransform(translationX: tx, y: ty))
+            bg.transform = xform
+            pdfBackgroundView?.transform = xform
             CATransaction.commit()
         }
 
@@ -1489,8 +2619,17 @@ private struct CanvasView: UIViewRepresentable {
 
         /// Centers the canvas content when zoomed out below 1× so the page
         /// stays centered on screen rather than pinning to the top-left corner.
-        /// This fixes the "can only zoom into the left corner" issue.
+        /// Also called from the zoomScale KVO observer so the centering logic
+        /// fires reliably even when PKCanvasView does not forward
+        /// `UIScrollViewDelegate` callbacks.
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            centerContentDuringZoom(scrollView)
+            adaptiveEffectsEngine.zoomScale = scrollView.zoomScale
+        }
+
+        /// Adjusts content insets so the page stays centered when the scaled
+        /// content is smaller than the viewport.
+        private func centerContentDuringZoom(_ scrollView: UIScrollView) {
             let boundsSize  = scrollView.bounds.size
             let contentSize = scrollView.contentSize
 
@@ -1557,6 +2696,12 @@ extension CanvasView.Coordinator: PencilActionDelegate {
 
     func pencilDidRequestRedo() {
         canvasRef?.undoManager?.redo()
+    }
+
+    // MARK: Double-tap delete
+
+    func pencilDidRequestDeleteLastStroke() {
+        deleteLastStroke()
     }
 
     // MARK: Hover preview

@@ -2,6 +2,7 @@
 import SwiftUI
 import PencilKit
 import PDFKit
+import UniformTypeIdentifiers
 
 // MARK: - Library section
 
@@ -66,6 +67,7 @@ struct ShelfView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore:  PDFStore
     @EnvironmentObject var documentStore: DocumentStore
+    @Environment(TabWorkspaceStore.self) private var tabSession
 
     @State private var selectedSection: LibrarySection? = .allNotes
     @State private var selectedNoteID: UUID?
@@ -102,25 +104,25 @@ struct ShelfView: View {
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
-                    selectedNoteID: $selectedNoteID
+                    selectedNoteID: $selectedNoteID,
+                    onOpenNotebook: { nbID in
+                        selectedNoteID = nil
+                        selectedSection = .notebook(nbID)
+                        // Register the notebook as an open tab
+                        if let nb = noteStore.notebooks.first(where: { $0.id == nbID }) {
+                            tabSession.openNotebook(
+                                id: nbID,
+                                displayName: nb.name,
+                                coverColor: nb.cover.rgbComponents
+                            )
+                        }
+                    }
                 )
             }
         } detail: {
-            if let doc = selectedDocument {
-                DocumentViewerView(
-                    document: doc,
-                    fileURL: documentStore.storedURL(for: doc)
-                )
-                .id(doc.id)
-            } else if let record = selectedPDFRecord {
-                PDFViewerView(record: record)
-                    .id(record.id)
-            } else if let note = selectedNote {
-                NoteEditorView(note: note)
-                    .id(note.id)
-            } else {
-                ShelfDetailPlaceholder()
-            }
+            NotebookWorkspaceView(onOpenShelf: {
+                columnVisibility = .all
+            })
         }
         // Clear irrelevant selections when switching sections.
         .onChange(of: selectedSection) { _, section in
@@ -131,10 +133,44 @@ struct ShelfView: View {
             case .documentLibrary:
                 selectedNoteID = nil
                 selectedPDFID  = nil
+            case .notebook:
+                // Notebook tabs are already opened in onOpenNotebook
+                selectedPDFID  = nil
+                selectedDocumentID = nil
             default:
                 selectedPDFID  = nil
                 selectedDocumentID = nil
             }
+        }
+        // When a note is selected in the sidebar/grid, open it as a tab.
+        .onChange(of: selectedNoteID) { _, newID in
+            guard let id = newID,
+                  let note = noteStore.notes.first(where: { $0.id == id }) else { return }
+            tabSession.openTab(
+                .note(id: id),
+                displayName: note.title.isEmpty ? "Untitled Note" : note.title,
+                accentColor: [0.45, 0.45, 0.5]
+            )
+        }
+        // When a PDF is selected, open it as a tab.
+        .onChange(of: selectedPDFID) { _, newID in
+            guard let id = newID,
+                  let record = pdfStore.records.first(where: { $0.id == id }) else { return }
+            tabSession.openTab(
+                .pdf(id: id),
+                displayName: record.title,
+                accentColor: [0.8, 0.3, 0.3]
+            )
+        }
+        // When a document is selected, open it as a tab.
+        .onChange(of: selectedDocumentID) { _, newID in
+            guard let id = newID,
+                  let doc = documentStore.documents.first(where: { $0.id == id }) else { return }
+            tabSession.openTab(
+                .document(id: id),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
         }
         // If the selected note is deleted elsewhere, clear the selection.
         .onChange(of: noteStore.notes) { _, _ in
@@ -309,10 +345,18 @@ private struct ShelfSidebarView: View {
             SettingsView()
         }
         .sheet(isPresented: $showNewNotebookSheet) {
-            NotebookCreationWizard()
+            NotebookQuickCreator()
         }
         .sheet(isPresented: $showLibrarySearch) {
-            LibrarySearchView(onSelectNote: onSelectNote)
+            UniversalSearchView(
+                currentNotebookID: nil,
+                onSelectNote: onSelectNote,
+                onJumpToAnchor: { anchor in
+                    // From the shelf, select the note. Page-level navigation happens
+                    // once the notebook reader opens and resolves the anchor.
+                    onSelectNote(anchor.noteID)
+                }
+            )
         }
         .alert("Rename Notebook", isPresented: Binding(
             get: { notebookToRename != nil },
@@ -378,8 +422,12 @@ private struct NotebookSidebarRow: View {
 
 struct NoteGridView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var pdfStore: PDFStore
+    @EnvironmentObject var documentStore: DocumentStore
     let section: LibrarySection
     @Binding var selectedNoteID: UUID?
+    /// Called when the user taps a notebook cover in the shelf row.
+    var onOpenNotebook: ((UUID) -> Void)?
 
     /// Sentinel UUID used to track collapse state of the "Unsectioned" group.
     private static let unsectionedSentinel = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
@@ -395,6 +443,9 @@ struct NoteGridView: View {
     @State private var sectionRenameText = ""
     @State private var collapsedSections: Set<UUID> = []
     @State private var showManageSections = false
+    @State private var showDocImporter = false
+    @State private var showPDFImporter = false
+    @State private var versionHistoryNote: Note?
 
     /// All notes for non-notebook views (flat).
     private var notes: [Note] {
@@ -479,10 +530,15 @@ struct NoteGridView: View {
             )
         }
         .sheet(isPresented: $showNotebookWizard) {
-            NotebookCreationWizard()
+            NotebookQuickCreator()
         }
         .sheet(item: $showMoveSheet) { note in
             MoveNoteSheet(note: note)
+        }
+        .sheet(item: $versionHistoryNote) { note in
+            VersionHistoryView(noteID: note.id)
+                .environmentObject(noteStore)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showManageSections) {
             if let nbID = notebookIDForSection {
@@ -527,6 +583,24 @@ struct NoteGridView: View {
                 sectionToRename = nil
             }
             Button("Cancel", role: .cancel) { sectionToRename = nil }
+        }
+        .fileImporter(
+            isPresented: $showPDFImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                pdfStore.importPDF(from: url)
+            }
+        }
+        .fileImporter(
+            isPresented: $showDocImporter,
+            allowedContentTypes: ImportedDocumentType.allUTTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                documentStore.importDocument(from: url)
+            }
         }
     }
 
@@ -580,6 +654,20 @@ struct NoteGridView: View {
             } label: {
                 Label("New Notebook…", systemImage: "book.closed.fill")
             }
+
+            Divider()
+
+            Button {
+                showPDFImporter = true
+            } label: {
+                Label("Import PDF…", systemImage: "doc.fill")
+            }
+
+            Button {
+                showDocImporter = true
+            } label: {
+                Label("Import Document…", systemImage: "square.and.arrow.down")
+            }
         } label: {
             Image(systemName: "plus")
         }
@@ -590,15 +678,65 @@ struct NoteGridView: View {
 
     private var flatGridContent: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(notes) { note in
-                    NoteCardView(note: note, isSelected: selectedNoteID == note.id)
-                        .onTapGesture { selectedNoteID = note.id }
-                        .contextMenu { noteContextMenu(for: note) }
+            VStack(alignment: .leading, spacing: 0) {
+                // Notebook shelf — show notebook covers at the top in "All Notes" view
+                if case .allNotes = section, !noteStore.notebooks.isEmpty {
+                    notebookShelfRow
                 }
+
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(notes) { note in
+                        NoteCardView(note: note, isSelected: selectedNoteID == note.id)
+                            .onTapGesture { selectedNoteID = note.id }
+                            .contextMenu { noteContextMenu(for: note) }
+                    }
+                }
+                .padding(20)
             }
-            .padding(20)
         }
+    }
+
+    // MARK: Notebook shelf row (cover cards)
+
+    /// Horizontal scrollable row of notebook covers displayed at the top
+    /// of the "All Notes" grid, simulating a shelf of real notebooks.
+    @ViewBuilder
+    private var notebookShelfRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Notebooks")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    showNotebookWizard = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.tint)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(noteStore.notebooks) { nb in
+                        NotebookCoverCard(
+                            notebook: nb,
+                            pageCount: noteStore.notes(inNotebook: nb.id)
+                                .reduce(0) { $0 + $1.pageCount }
+                        )
+                        .onTapGesture {
+                            onOpenNotebook?(nb.id)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+            }
+        }
+        .padding(.bottom, 8)
     }
 
     // MARK: Section-grouped content (notebook views with sections)
@@ -787,6 +925,14 @@ struct NoteGridView: View {
             } label: {
                 Label("Move to Section…", systemImage: "arrow.right.doc.on.clipboard")
             }
+        }
+
+        Divider()
+
+        Button {
+            versionHistoryNote = note
+        } label: {
+            Label("Version History", systemImage: "clock.arrow.circlepath")
         }
 
         Divider()
@@ -1249,6 +1395,79 @@ private struct NoteCardView: View {
             let scale = max(200 / renderRect.width, 150 / renderRect.height) * 0.5
             return drawing.image(from: renderRect, scale: scale)
         }.value
+    }
+}
+
+// MARK: - Notebook cover card (shelf display)
+
+/// Rich notebook cover card that looks like a physical notebook on a shelf.
+/// Shows the gradient cover, notebook name, page count, and a subtle 3D effect.
+private struct NotebookCoverCard: View {
+    let notebook: Notebook
+    let pageCount: Int
+
+    @State private var isPressed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Book cover
+            ZStack(alignment: .bottomLeading) {
+                // Main cover with gradient
+                notebook.cover.gradient
+                    .frame(width: 120, height: 160)
+                    .clipShape(
+                        .rect(
+                            topLeadingRadius: 4,
+                            bottomLeadingRadius: 4,
+                            bottomTrailingRadius: 10,
+                            topTrailingRadius: 10
+                        )
+                    )
+
+                // Spine highlight (left edge)
+                Rectangle()
+                    .fill(.white.opacity(0.15))
+                    .frame(width: 6)
+                    .clipShape(
+                        .rect(topLeadingRadius: 4, bottomLeadingRadius: 4)
+                    )
+
+                // Book icon + page count
+                VStack(alignment: .leading, spacing: 4) {
+                    Spacer()
+                    Image(systemName: "book.fill")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.7))
+                    Text("\(pageCount) page\(pageCount == 1 ? "" : "s")")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                .padding(10)
+            }
+            // 3D book shadow
+            .shadow(color: .black.opacity(0.18), radius: 6, x: 2, y: 4)
+            .shadow(color: .black.opacity(0.06), radius: 1, x: 1, y: 1)
+            // Subtle 3D perspective tilt
+            .rotation3DEffect(
+                .degrees(isPressed ? 0 : 2),
+                axis: (x: 0, y: 1, z: 0),
+                anchor: .leading,
+                perspective: 0.5
+            )
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
+
+            // Notebook name
+            Text(notebook.name)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+                .frame(width: 120, alignment: .leading)
+                .padding(.top, 6)
+                .foregroundStyle(.primary)
+        }
+        .onLongPressGesture(minimumDuration: 0.5, pressing: { pressing in
+            isPressed = pressing
+        }, perform: {})
     }
 }
 

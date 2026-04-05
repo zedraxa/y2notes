@@ -14,6 +14,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     case eraser
     case lasso
     case shape
+    case sticker
 
     var id: String { rawValue }
 
@@ -26,6 +27,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .eraser:       return "Eraser"
         case .lasso:        return "Lasso"
         case .shape:        return "Shape"
+        case .sticker:      return "Sticker"
         }
     }
 
@@ -38,6 +40,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .eraser:       return "eraser"
         case .lasso:        return "lasso"
         case .shape:        return "square.on.circle"
+        case .sticker:      return "face.smiling"
         }
     }
 
@@ -45,8 +48,14 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     var isInking: Bool {
         switch self {
         case .pen, .pencil, .highlighter, .fountainPen, .shape: return true
-        case .eraser, .lasso: return false
+        case .eraser, .lasso, .sticker: return false
         }
+    }
+
+    /// The personality definition for this tool, if it is an inking tool.
+    /// Returns `nil` for eraser, lasso, and shape (which delegates to an overlay).
+    var personality: ToolPersonality? {
+        ToolPersonality.personality(for: self)
     }
 }
 
@@ -98,6 +107,27 @@ enum ShapeType: String, CaseIterable, Codable {
         case .arrow:     return "arrow.right"
         }
     }
+}
+
+// MARK: - Toolbar Mode
+
+/// Derived mode that controls which controls appear in the floating toolbar.
+/// This is never stored — it is computed from the active tool and canvas state.
+enum ToolbarMode: Equatable {
+    /// Pen / Pencil / Highlighter / Fountain Pen active — show writing tools.
+    case writing
+    /// Eraser active — show eraser mode toggle.
+    case erasing
+    /// Lasso active with a selection on canvas — show selection actions.
+    case selecting
+    /// Shape tool active — show shape picker.
+    case shaping
+    /// Page overview or page-turn gesture active — toolbar hidden.
+    case navigating
+    /// Media / sticker / attachment insertion flow — toolbar temporarily replaced.
+    case inserting
+    /// Sticker tool active — show sticker picker / library.
+    case stickering
 }
 
 // MARK: - Tool Preset

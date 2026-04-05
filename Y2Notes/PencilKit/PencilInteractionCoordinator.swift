@@ -23,6 +23,9 @@ protocol PencilActionDelegate: AnyObject {
     /// Pencil double-tap or squeeze action: trigger redo.
     func pencilDidRequestRedo()
 
+    /// Pencil double-tap: delete the most recently drawn stroke.
+    func pencilDidRequestDeleteLastStroke()
+
     /// Apple Pencil hover position changed.
     /// - Parameters:
     ///   - position: Current hover location in canvas coordinates, or `nil` when hover ends.
@@ -146,8 +149,10 @@ final class PencilInteractionCoordinator: NSObject {
 extension PencilInteractionCoordinator: UIPencilInteractionDelegate {
 
     // Double-tap — Apple Pencil 2nd gen+, iOS 12.1+ (within our iOS 16 deployment target).
+    // Always deletes the last stroke instead of respecting the system preferred
+    // action, so normal handwriting is never mistaken for a scratch gesture.
     func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
-        dispatch(preferredAction: UIPencilInteraction.preferredTapAction)
+        delegate?.pencilDidRequestDeleteLastStroke()
     }
 
     // Squeeze — Apple Pencil Pro, iOS 17.5+.

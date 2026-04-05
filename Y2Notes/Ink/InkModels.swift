@@ -26,23 +26,26 @@ enum DeviceCapabilityTier: Int, Codable, Comparable {
     }
 
     /// Detects the tier from available memory and processor count.
-    /// Memory thresholds are conservative to avoid overcommitting older hardware.
+    ///
+    /// Thresholds are set generously so that fire / glitch / blood effects are
+    /// available on all iPads from ~2018 onward (A12+).  Devices with less than
+    /// 2 GB RAM (iPad 6th gen / A10) are the only ones held to `.basic`.
     static var current: DeviceCapabilityTier {
         let memory = ProcessInfo.processInfo.physicalMemory
         let cores  = ProcessInfo.processInfo.processorCount
-        if memory >= 8_589_934_592 && cores >= 8 { return .ultra    }  // 8 GB+ / 8+ cores
-        if memory >= 4_294_967_296 && cores >= 6 { return .pro      }  // 4 GB+ / 6+ cores
-        if memory >= 3_221_225_472              { return .standard  }  // 3 GB+
+        if memory >= 8_589_934_592 && cores >= 8 { return .ultra    }  // 8 GB+ / 8+ cores  (M2+ iPad Pro)
+        if memory >= 3_221_225_472              { return .pro       }  // 3 GB+              (A12+, iPad Air 3+, mini 5+)
+        if memory >= 2_147_483_648              { return .standard  }  // 2 GB+              (A10, iPad 7th gen)
         return .basic
     }
 
-    /// Hard cap on simultaneous emitter particles.  Exceeding this budget causes
-    /// visible frame drops; the engine clamps to this value at runtime.
+    /// Hard cap on simultaneous emitter particles.  The engine clamps birth rates
+    /// to this value at runtime so the GPU stays within budget.
     var maxParticles: Int {
         switch self {
         case .basic:    return 0
-        case .standard: return 15
-        case .pro:      return 40
+        case .standard: return 30
+        case .pro:      return 50
         case .ultra:    return 80
         }
     }
@@ -203,13 +206,17 @@ enum WritingFXType: String, CaseIterable, Codable, Identifiable {
     }
 
     /// Minimum device tier required for this effect.
+    ///
+    /// All emitter-based effects (including fire, glitch, blood) run on `.standard`
+    /// and above.  Only `.basic` devices (pre-2018 iPads with < 2 GB RAM) are excluded.
+    /// The engine's per-tier `maxParticles` cap ensures older hardware stays at 60 fps.
     var minimumTier: DeviceCapabilityTier {
         switch self {
         case .none:                                   return .basic
         case .sparkle, .ripple, .rainbow,
-             .snow, .glow, .sheen, .shadow:           return .standard
-        case .fire, .glitch, .lightning,
-             .dissolve, .blood:                       return .pro
+             .snow, .glow, .sheen, .shadow,
+             .fire, .glitch, .lightning,
+             .dissolve, .blood:                       return .standard
         }
     }
 

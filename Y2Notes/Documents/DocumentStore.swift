@@ -39,7 +39,12 @@ final class DocumentStore: ObservableObject {
     /// Detects the document type from a file URL's extension.
     func documentType(for url: URL) -> ImportedDocumentType? {
         let ext = url.pathExtension.lowercased()
-        return ImportedDocumentType.allCases.first { $0.rawValue == ext }
+        // Handle common extension aliases (e.g., .jpeg → .jpg)
+        switch ext {
+        case "jpeg": return .jpg
+        case "pdf":  return .pdf
+        default:     return ImportedDocumentType.allCases.first { $0.rawValue == ext }
+        }
     }
 
     /// Imports a document from the given security-scoped URL.

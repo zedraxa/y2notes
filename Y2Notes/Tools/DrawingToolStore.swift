@@ -48,6 +48,118 @@ final class DrawingToolStore: ObservableObject {
     /// `paperMaterial` property and reset to `.standard` when no note is open.
     @Published var currentPaperMaterial: PaperMaterial = .standard
 
+    // MARK: - Floating Toolbar State
+
+    /// Opacity of the floating toolbar capsule. Animated down to 0.3 during
+    /// active Pencil contact and back to 1.0 when the stroke ends.
+    /// **Not persisted** — always starts at 1.0.
+    @Published var toolbarOpacity: Double = 1.0
+
+    /// User preference: whether the toolbar is manually minimized / auto-hidden.
+    /// Persisted so the user's choice survives app restarts.
+    @Published var isToolbarMinimized: Bool = false {
+        didSet { UserDefaults.standard.set(isToolbarMinimized, forKey: Keys.toolbarMinimized) }
+    }
+
+    /// True when the lasso tool is active and the user has selected strokes on
+    /// the canvas. Set by the CanvasView coordinator when PencilKit reports a
+    /// non-empty tool selection. Causes the floating toolbar to morph into
+    /// selection-action mode (cut / copy / delete / recolor).
+    /// **Not persisted** — always starts as false.
+    @Published var hasActiveSelection: Bool = false
+
+    // MARK: - Sticker State
+
+    /// Whether the sticker library bottom sheet is presented.
+    /// **Not persisted** — always starts as false.
+    @Published var isStickerLibraryPresented: Bool = false
+
+    /// The ID of the currently selected sticker on the canvas (for manipulation).
+    /// **Not persisted** — always starts as nil.
+    @Published var activeStickerSelection: UUID?
+
+    // MARK: - Shape Object State
+
+    /// The ID of the currently selected shape object on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeShapeSelection: UUID?
+
+    /// Convenience: true when any shape is selected (used by toolbar morphing).
+    var hasActiveShapeSelection: Bool { activeShapeSelection != nil }
+
+    // MARK: - Attachment State
+
+    /// The ID of the currently selected attachment on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeAttachmentSelection: UUID?
+
+    /// Convenience: true when any attachment is selected.
+    var hasActiveAttachmentSelection: Bool { activeAttachmentSelection != nil }
+
+    /// Whether the attachment source picker sheet is presented.
+    @Published var isAttachmentPickerPresented: Bool = false
+
+    // MARK: - Widget State
+
+    /// The ID of the currently selected widget on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeWidgetSelection: UUID?
+
+    /// Convenience: true when any widget is selected.
+    var hasActiveWidgetSelection: Bool { activeWidgetSelection != nil }
+
+    /// Whether the widget picker menu is presented.
+    /// **Not persisted** — always starts false.
+    @Published var isWidgetPickerPresented: Bool = false
+
+    // MARK: - Recording State
+
+    /// Whether an audio recording is currently in progress.
+    /// Drives the toolbar mic→stop morph. **Not persisted** — always starts false.
+    @Published var isRecording: Bool = false
+
+    /// Whether the recording session list sheet is presented.
+    /// **Not persisted** — always starts false.
+    @Published var isRecordingSessionListPresented: Bool = false
+
+    /// The live recording session (mirrors AudioRecordingStore.activeSession).
+    /// **Not persisted** — always starts nil.
+    @Published var activeRecordingSession: AudioSession?
+
+    // MARK: - Expansion Region State
+
+    /// The ID of the expansion region currently being edited, or nil for the main page.
+    /// **Not persisted** — always starts nil.
+    @Published var activeExpansionRegionID: UUID?
+
+    /// Whether edge-pull handles are shown on the current page.
+    /// **Not persisted** — always starts true (handles visible when editing).
+    @Published var isExpansionHandleVisible: Bool = true
+
+    /// Which edge is currently being dragged to create/resize an expansion.
+    /// **Not persisted** — always starts nil (no drag in progress).
+    @Published var expansionDragEdge: ExpansionEdge?
+
+    /// Whether focus mode is active — dims surroundings, adds vignette,
+    /// reduces toolbar opacity, and shows a soft page glow to boost immersion.
+    /// **Not persisted** — always starts false (normal UI).
+    @Published var isFocusModeActive: Bool = false
+
+    /// The currently active ambient environment scene (rain, lo-fi, night).
+    /// `nil` means no ambient scene is active.
+    /// **Not persisted** — always starts nil.
+    @Published var activeAmbientScene: AmbientScene?
+
+    /// Whether "Magic Mode" is active — writing particles, keyword glow,
+    /// underline highlight animation.
+    /// **Not persisted** — always starts false (default off).
+    @Published var isMagicModeActive: Bool = false
+
+    /// Whether "Study Mode" is active — heading glow, checklist completion
+    /// animation, timer completion pulse.
+    /// **Not persisted** — always starts false (default off).
+    @Published var isStudyModeActive: Bool = false
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.
@@ -79,6 +191,10 @@ final class DrawingToolStore: ObservableObject {
         case .shape:
             // The shape overlay intercepts all input; the canvas uses a pen as fallback.
             return PKInkingTool(.pen, color: inkColor, width: activeWidth)
+        case .sticker:
+            // The sticker overlay handles interaction; canvas uses lasso as fallback
+            // so accidental touches don't create ink strokes.
+            return PKLassoTool()
         }
     }
 
@@ -94,6 +210,28 @@ final class DrawingToolStore: ObservableObject {
 
     /// Convenience: only presets the user has starred.
     var favoritePresets: [ToolPreset] { presets.filter(\.isFavorite) }
+
+    // MARK: - Tool Personality Helpers
+
+    /// The personality of the currently active tool (nil for eraser/lasso).
+    var activePersonality: ToolPersonality? {
+        ToolPersonality.personality(for: activeTool)
+    }
+
+    /// Width range for the current tool, derived from its personality.
+    /// Returns a sensible default range for non-inking tools.
+    var widthRange: ClosedRange<CGFloat> {
+        guard let p = activePersonality else { return 1...20 }
+        return p.minWidth...p.maxWidth
+    }
+
+    /// Clamps `activeWidth` to the personality range when switching tools.
+    /// Call this after changing `activeTool` to ensure the width is valid.
+    func clampWidthToPersonality() {
+        guard let p = activePersonality else { return }
+        let clamped = min(max(activeWidth, Double(p.minWidth)), Double(p.maxWidth))
+        if clamped != activeWidth { activeWidth = clamped }
+    }
 
     // MARK: - Recent Colors
 
@@ -188,6 +326,7 @@ final class DrawingToolStore: ObservableObject {
         static let shapeType  = "y2notes.tool.shapeType"
         static let presets    = "y2notes.tool.presets"
         static let opacity    = "y2notes.tool.opacity"
+        static let toolbarMinimized = "y2notes.tool.toolbarMinimized"
     }
 
     // MARK: - Persistence Helpers
@@ -240,5 +379,7 @@ final class DrawingToolStore: ObservableObject {
            let loaded = try? JSONDecoder().decode([ToolPreset].self, from: data) {
             presets = loaded
         }
+
+        isToolbarMinimized = ud.bool(forKey: Keys.toolbarMinimized)
     }
 }

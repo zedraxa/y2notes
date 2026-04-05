@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 struct Note: Identifiable, Codable, Hashable {
     let id: UUID
@@ -62,6 +63,87 @@ struct Note: Identifiable, Codable, Hashable {
     /// Per-note paper material override (nil = inherit from notebook, or `.standard` for unfiled notes).
     var paperMaterial: PaperMaterial?
 
+    /// Per-page background colour overrides — parallel array to `pages`.
+    /// Each element stores RGBA components `[Double]` (0…1 range), or `nil` to
+    /// inherit from the theme.  An empty array means all pages use the theme colour.
+    var pageColors: [[Double]?]
+
+    /// Per-page sticker instances — parallel array to `pages`.
+    /// Each element is an array of stickers placed on that page, or `nil` (no stickers).
+    /// An empty outer array means no pages have stickers yet.
+    var stickerLayers: [[StickerInstance]?]
+
+    /// Per-page shape objects — parallel array to `pages`.
+    /// Each element is an array of shapes placed on that page, or `nil` (no shapes).
+    /// An empty outer array means no pages have shape objects yet.
+    var shapeLayers: [[ShapeInstance]?]
+
+    /// Per-page attachment objects — parallel array to `pages`.
+    /// Each element is an array of attachments placed on that page, or `nil` (no attachments).
+    /// An empty outer array means no pages have attachments yet.
+    var attachmentLayers: [[AttachmentObject]?]
+
+    /// Per-page widget instances — parallel array to `pages`.
+    /// Each element is an array of widgets placed on that page, or `nil` (no widgets).
+    /// An empty outer array means no pages have widgets yet.
+    var widgetLayers: [[NoteWidget]?]
+
+    /// Expandable canvas regions attached to page edges.
+    /// Sparse — only pages that have been expanded carry entries.
+    /// An empty array means no pages have expansion regions (default).
+    var expansionRegions: [PageRegion]
+
+    /// Returns the stickers for the given page index, or an empty array.
+    func stickers(forPage index: Int) -> [StickerInstance] {
+        guard index >= 0 && index < stickerLayers.count else { return [] }
+        return stickerLayers[index] ?? []
+    }
+
+    /// Returns the shape objects for the given page index, or an empty array.
+    func shapes(forPage index: Int) -> [ShapeInstance] {
+        guard index >= 0 && index < shapeLayers.count else { return [] }
+        return shapeLayers[index] ?? []
+    }
+
+    /// Returns the attachment objects for the given page index, or an empty array.
+    func attachments(forPage index: Int) -> [AttachmentObject] {
+        guard index >= 0 && index < attachmentLayers.count else { return [] }
+        return attachmentLayers[index] ?? []
+    }
+
+    /// Returns the widget instances for the given page index, or an empty array.
+    func widgets(forPage index: Int) -> [NoteWidget] {
+        guard index >= 0 && index < widgetLayers.count else { return [] }
+        return widgetLayers[index] ?? []
+    }
+
+    /// Returns the visible (non-collapsed) expansion regions for the given page index.
+    func visibleExpansions(forPage index: Int) -> [PageRegion] {
+        expansionRegions.filter { $0.pageIndex == index && !$0.isCollapsed }
+    }
+
+    /// Returns all expansion regions (including collapsed) for the given page index.
+    func allExpansions(forPage index: Int) -> [PageRegion] {
+        expansionRegions.filter { $0.pageIndex == index }
+    }
+
+    /// Returns the per-page colour for the given index, or `nil` to inherit theme.
+    func pageColor(forPage index: Int) -> UIColor? {
+        guard index >= 0 && index < pageColors.count,
+              let comps = pageColors[index], comps.count == 4 else { return nil }
+        return UIColor(
+            red: CGFloat(comps[0]), green: CGFloat(comps[1]),
+            blue: CGFloat(comps[2]), alpha: CGFloat(comps[3])
+        )
+    }
+
+    /// Basename of the automatically maintained PDF file inside `Documents/NotePDFs/`.
+    /// When non-nil the editor renders this PDF as the page background and sharing
+    /// exports the maintained file directly — giving the note a "book-like" feel.
+    /// Nil for legacy notes that predate PDF-based storage; those are migrated lazily
+    /// on first open.
+    var pdfFilename: String?
+
     /// Keyboard-typed text content for this note.
     /// Empty string = drawing-only note. Used by `SearchService` and the in-document find bar.
     var typedText: String
@@ -90,6 +172,13 @@ struct Note: Identifiable, Codable, Hashable {
         pageType: PageType? = nil,
         pageTypes: [PageType?] = [],
         paperMaterial: PaperMaterial? = nil,
+        pageColors: [[Double]?] = [],
+        stickerLayers: [[StickerInstance]?] = [],
+        shapeLayers: [[ShapeInstance]?] = [],
+        attachmentLayers: [[AttachmentObject]?] = [],
+        widgetLayers: [[NoteWidget]?] = [],
+        expansionRegions: [PageRegion] = [],
+        pdfFilename: String? = nil,
         typedText: String = "",
         ocrText: String = ""
     ) {
@@ -107,6 +196,13 @@ struct Note: Identifiable, Codable, Hashable {
         self.pageType = pageType
         self.pageTypes = pageTypes
         self.paperMaterial = paperMaterial
+        self.pageColors = pageColors
+        self.stickerLayers = stickerLayers
+        self.shapeLayers = shapeLayers
+        self.attachmentLayers = attachmentLayers
+        self.widgetLayers = widgetLayers
+        self.expansionRegions = expansionRegions
+        self.pdfFilename = pdfFilename
         self.typedText = typedText
         self.ocrText = ocrText
     }
@@ -117,7 +213,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial
+        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, expansionRegions, pdfFilename
         case typedText, ocrText
     }
 
@@ -146,6 +242,13 @@ struct Note: Identifiable, Codable, Hashable {
         pageType      = try c.decodeIfPresent(PageType.self,      forKey: .pageType)
         pageTypes     = try c.decodeIfPresent([PageType?].self,   forKey: .pageTypes)   ?? []
         paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
+        pageColors    = try c.decodeIfPresent([[Double]?].self,    forKey: .pageColors)  ?? []
+        stickerLayers = try c.decodeIfPresent([[StickerInstance]?].self, forKey: .stickerLayers) ?? []
+        shapeLayers   = try c.decodeIfPresent([[ShapeInstance]?].self,   forKey: .shapeLayers)   ?? []
+        attachmentLayers = try c.decodeIfPresent([[AttachmentObject]?].self, forKey: .attachmentLayers) ?? []
+        widgetLayers  = try c.decodeIfPresent([[NoteWidget]?].self, forKey: .widgetLayers) ?? []
+        expansionRegions = try c.decodeIfPresent([PageRegion].self, forKey: .expansionRegions) ?? []
+        pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
     }
@@ -172,6 +275,13 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encodeIfPresent(pageType,      forKey: .pageType)
         try c.encode(pageTypes,              forKey: .pageTypes)
         try c.encodeIfPresent(paperMaterial, forKey: .paperMaterial)
+        try c.encode(pageColors,              forKey: .pageColors)
+        try c.encode(stickerLayers,            forKey: .stickerLayers)
+        try c.encode(shapeLayers,              forKey: .shapeLayers)
+        try c.encode(attachmentLayers,         forKey: .attachmentLayers)
+        try c.encode(widgetLayers,             forKey: .widgetLayers)
+        try c.encode(expansionRegions,          forKey: .expansionRegions)
+        try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
         try c.encode(typedText,     forKey: .typedText)
         try c.encode(ocrText,       forKey: .ocrText)
     }

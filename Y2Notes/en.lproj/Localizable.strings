@@ -247,3 +247,18 @@
 "Export.PDFExportFailed"          = "PDF export failed";
 "Export.ImageExportFailed"        = "Image export failed";
 "Export.HandwritingOCR"           = "Recognising handwriting…";
+
+/* ── Version History ──────────────────────────────────────────── */
+
+"VersionHistory.Title"            = "Version History";
+"VersionHistory.Empty"            = "No Version History";
+"VersionHistory.EmptyDetail"      = "Versions are saved automatically as you edit. Check back after making changes.";
+"VersionHistory.Restore"          = "Restore Version";
+"VersionHistory.RestoreNote"      = "Restore Entire Note";
+"VersionHistory.RestorePage"      = "Restore Page %d Only";
+"VersionHistory.CopyToNew"        = "Copy to New Note";
+"VersionHistory.RestoredTo"       = "Restored to %@";
+"VersionHistory.PreRestoreMsg"    = "A backup of your current version will be created before restoring.";
+"VersionHistory.Manual"           = "Manual";
+"VersionHistory.PreRestore"       = "Pre-restore";
+"VersionHistory.Backup"           = "Backup";

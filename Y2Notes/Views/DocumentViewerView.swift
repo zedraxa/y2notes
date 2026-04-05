@@ -135,7 +135,7 @@ struct DocumentLibraryView: View {
                 .foregroundStyle(.secondary)
             Text("No Documents")
                 .font(.title3.weight(.semibold))
-            Text("Import Word files, ePubs, or presentations\nto view and annotate them here.")
+            Text("Import PDFs, images, Word files, ePubs,\nor presentations to view and annotate them.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

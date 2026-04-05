@@ -50,24 +50,66 @@ final class NoteStore: ObservableObject {
 
     /// True when in-memory state has been mutated but not yet flushed to disk.
     private var isDirty = false
+    /// Per-note set of page indices that have been mutated since the last snapshot.
+    /// Used by `SnapshotStore` to capture only changed pages.
+    private var dirtyPages: [UUID: Set<Int>] = [:]
+    /// The note ID currently being actively edited (set by the editor view).
+    /// Used to apply the faster 5-second autosave debounce.
+    var activeNoteID: UUID?
     /// Repeating timer that autosaves dirty state approximately every 30 s.
     private var autosaveTimer: Timer?
+    /// Per-note debounced autosave timer (5 s) for the actively edited note.
+    private var noteAutosaveTimer: Timer?
 
     /// Per-note OCR debounce timers.  A timer is started (or restarted) each time a page
     /// drawing changes, and fires 4 seconds later to trigger a background Vision pass.
     private var ocrTimers: [UUID: Timer] = [:]
 
+    /// Per-note PDF regeneration debounce timers.  Fires 2 seconds after the last drawing
+    /// change to composite page backgrounds + strokes into the backing PDF file.
+    private var pdfRegenTimers: [UUID: Timer] = [:]
+    private static let pdfRegenerationDebounceInterval: TimeInterval = 2.0
+
+    // MARK: - Last page position (notebook illusion — object permanence)
+
+    /// Remembers the last viewed flat-page index per notebook so reopening
+    /// a notebook returns the user to where they left off.
+    /// Cached in memory; persisted to UserDefaults on write.
+    private static let lastPageKey = "notebookLastPage"
+    private lazy var lastPageCache: [String: Int] = {
+        UserDefaults.standard.dictionary(forKey: Self.lastPageKey) as? [String: Int] ?? [:]
+    }()
+
+    func lastPageIndex(for notebookID: UUID) -> Int {
+        lastPageCache[notebookID.uuidString] ?? 0
+    }
+
+    func setLastPageIndex(_ index: Int, for notebookID: UUID) {
+        lastPageCache[notebookID.uuidString] = index
+        UserDefaults.standard.set(lastPageCache, forKey: Self.lastPageKey)
+    }
+
     init() {
         load()
         loadStudy()
+        ensurePDFsForLegacyNotes()
         startAutosaveTimer()
         setupLifecycleObservers()
+        writeCrashFlag()
+        checkCrashRecovery()
+        // Run snapshot compaction on background queue at launch.
+        PerformanceConstraints.storageQueue.async {
+            SnapshotStore.shared.runCompaction()
+        }
     }
 
     deinit {
         autosaveTimer?.invalidate()
+        noteAutosaveTimer?.invalidate()
         ocrTimers.values.forEach { $0.invalidate() }
+        pdfRegenTimers.values.forEach { $0.invalidate() }
         NotificationCenter.default.removeObserver(self)
+        removeCrashFlag()
     }
 
     // MARK: - Autosave / lifecycle
@@ -78,6 +120,17 @@ final class NoteStore: ObservableObject {
             self.flushToDisk()
         }
         autosaveTimer?.tolerance = 5
+    }
+
+    /// Schedules a 5-second debounced autosave for the actively edited note.
+    /// Called each time a per-note mutation marks `isDirty`.
+    private func scheduleNoteAutosave() {
+        noteAutosaveTimer?.invalidate()
+        noteAutosaveTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+            guard let self, self.isDirty else { return }
+            self.flushToDisk()
+        }
+        noteAutosaveTimer?.tolerance = 1
     }
 
     private func setupLifecycleObservers() {
@@ -91,23 +144,61 @@ final class NoteStore: ObservableObject {
 
     @objc private func handleAppWillResignActive() {
         guard isDirty else { return }
-        flushToDisk()
+        flushToDisk(trigger: .lifecycle)
+    }
+
+    // MARK: - Crash detection
+
+    private static var crashFlagURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("session_active.flag")
+    }
+
+    private func writeCrashFlag() {
+        let data = Data("active".utf8)
+        try? data.write(to: Self.crashFlagURL, options: .atomic)
+    }
+
+    private func removeCrashFlag() {
+        try? FileManager.default.removeItem(at: Self.crashFlagURL)
+    }
+
+    /// Detects if the previous session ended in a crash (flag file still present).
+    private func checkCrashRecovery() {
+        let flagURL = Self.crashFlagURL
+        guard FileManager.default.fileExists(atPath: flagURL.path) else { return }
+        // Previous session did not exit cleanly. Data is safe due to atomic writes
+        // and rolling backups. Log for diagnostics.
+        #if DEBUG
+        print("Y2Notes: crash detected — previous session did not exit cleanly. Data recovered from last save.")
+        #endif
     }
 
     // MARK: - Note CRUD
 
     /// Creates a new note, optionally filing it into a notebook and with per-note paper settings.
+    /// Generates a backing PDF template so the note is PDF-based from the start.
     @discardableResult
     func addNote(
         inNotebook notebookID: UUID? = nil,
         pageType: PageType? = nil,
         paperMaterial: PaperMaterial? = nil
     ) -> Note {
+        // Generate the template PDF before creating the note so `pdfFilename` is set immediately.
+        let effectiveType = pageType
+            ?? notebooks.first(where: { $0.id == notebookID })?.pageType
+            ?? .blank
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [effectiveType]
+        )
         let note = Note(
             title: "Note \(notes.count + 1)",
             notebookID: notebookID,
             pageType: pageType,
-            paperMaterial: paperMaterial
+            paperMaterial: paperMaterial,
+            pdfFilename: pdfFilename
         )
         notes.insert(note, at: 0)
         save()
@@ -115,12 +206,24 @@ final class NoteStore: ObservableObject {
     }
 
     func deleteNotes(at offsets: IndexSet) {
+        for i in offsets {
+            createPreDestructiveSnapshot(for: notes[i].id)
+            if let filename = notes[i].pdfFilename {
+                NotePDFGenerator.deletePDF(filename: filename)
+            }
+        }
         notes.remove(atOffsets: offsets)
         save()
     }
 
     /// Deletes notes whose IDs are in `ids`. Safe when caller holds a filtered/sorted view.
     func deleteNotes(ids: [UUID]) {
+        for note in notes where ids.contains(note.id) {
+            createPreDestructiveSnapshot(for: note.id)
+            if let filename = note.pdfFilename {
+                NotePDFGenerator.deletePDF(filename: filename)
+            }
+        }
         notes.removeAll { ids.contains($0.id) }
         save()
     }
@@ -172,6 +275,25 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    /// Sets or clears the background colour for a single page.
+    /// Pass nil to inherit from the theme.  Colour is stored as `[r, g, b, a]` in 0…1.
+    func updatePageColor(for noteID: UUID, pageIndex: Int, color: UIColor?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              notes[idx].pages.indices.contains(pageIndex) else { return }
+        while notes[idx].pageColors.count < notes[idx].pages.count {
+            notes[idx].pageColors.append(nil)
+        }
+        if let color {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            notes[idx].pageColors[pageIndex] = [Double(r), Double(g), Double(b), Double(a)]
+        } else {
+            notes[idx].pageColors[pageIndex] = nil
+        }
+        notes[idx].modifiedAt = Date()
+        save()
+    }
+
     func updateDrawing(for noteID: UUID, data: Data) {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
         notes[idx].drawingData = data
@@ -179,6 +301,9 @@ final class NoteStore: ObservableObject {
         // Mark dirty so autosave timer and willResignActive flush pick this up.
         // The canvas coordinator owns the debounced 0.8 s save trigger.
         isDirty = true
+        dirtyPages[noteID, default: []].insert(0)
+        scheduleNoteAutosave()
+        schedulePDFRegeneration(for: noteID)
     }
 
     /// Updates drawing data for a specific page within a multi-page note.
@@ -188,7 +313,112 @@ final class NoteStore: ObservableObject {
         notes[idx].pages[pageIndex] = data
         notes[idx].modifiedAt = Date()
         isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
         scheduleOCR(for: noteID)
+        schedulePDFRegeneration(for: noteID)
+    }
+
+    /// Updates the sticker instances for a specific page.
+    func updateStickers(for noteID: UUID, pageIndex: Int, stickers: [StickerInstance]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure stickerLayers array is sized to match pages
+        while notes[idx].stickerLayers.count < notes[idx].pages.count {
+            notes[idx].stickerLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].stickerLayers.count else { return }
+        notes[idx].stickerLayers[pageIndex] = stickers.isEmpty ? nil : stickers
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
+    }
+    /// Updates the shape objects for a specific page.
+    func updateShapes(for noteID: UUID, pageIndex: Int, shapes: [ShapeInstance]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure shapeLayers array is sized to match pages
+        while notes[idx].shapeLayers.count < notes[idx].pages.count {
+            notes[idx].shapeLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].shapeLayers.count else { return }
+        notes[idx].shapeLayers[pageIndex] = shapes.isEmpty ? nil : shapes
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
+    }
+
+    func updateAttachments(for noteID: UUID, pageIndex: Int, attachments: [AttachmentObject]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure attachmentLayers array is sized to match pages
+        while notes[idx].attachmentLayers.count < notes[idx].pages.count {
+            notes[idx].attachmentLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].attachmentLayers.count else { return }
+        notes[idx].attachmentLayers[pageIndex] = attachments.isEmpty ? nil : attachments
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
+    }
+
+    /// Updates the widget instances for a specific page.
+    func updateWidgets(for noteID: UUID, pageIndex: Int, widgets: [NoteWidget]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure widgetLayers array is sized to match pages
+        while notes[idx].widgetLayers.count < notes[idx].pages.count {
+            notes[idx].widgetLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].widgetLayers.count else { return }
+        notes[idx].widgetLayers[pageIndex] = widgets.isEmpty ? nil : widgets
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
+    }
+
+    // MARK: - Expansion Region Updates
+
+    /// Replaces the full set of expansion regions for a note.
+    /// Used when creating, resizing, collapsing, or deleting expansion regions.
+    func updateExpansionRegions(for noteID: UUID, regions: [PageRegion]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].expansionRegions = regions
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        scheduleNoteAutosave()
+    }
+
+    /// Updates a single expansion region identified by its ID.
+    /// If no region with the given ID exists, the update is silently ignored.
+    func updateExpansionRegion(for noteID: UUID, region: PageRegion) {
+        guard let noteIdx = notes.firstIndex(where: { $0.id == noteID }),
+              let regionIdx = notes[noteIdx].expansionRegions.firstIndex(where: { $0.id == region.id })
+        else { return }
+        notes[noteIdx].expansionRegions[regionIdx] = region
+        notes[noteIdx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(region.pageIndex)
+        scheduleNoteAutosave()
+    }
+
+    /// Adds a new expansion region to a note.
+    func addExpansionRegion(to noteID: UUID, region: PageRegion) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].expansionRegions.append(region)
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(region.pageIndex)
+        scheduleNoteAutosave()
+    }
+
+    /// Removes an expansion region by its ID, permanently deleting all contained content.
+    func removeExpansionRegion(from noteID: UUID, regionID: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].expansionRegions.removeAll { $0.id == regionID }
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        scheduleNoteAutosave()
     }
 
     /// Appends a blank page to the note and returns the new page index.
@@ -196,10 +426,16 @@ final class NoteStore: ObservableObject {
     func addPage(to noteID: UUID) -> Int? {
         guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return nil }
         notes[idx].pages.append(Data())
-        // Keep pageTypes in sync with pages so per-page ruling can be set on the new page.
-        notes[idx].pageTypes.append(nil)  // nil = inherit from note-level pageType
+        // Keep pageTypes and pageColors in sync with pages.
+        notes[idx].pageTypes.append(nil)   // nil = inherit from note-level pageType
+        notes[idx].pageColors.append(nil)  // nil = inherit from theme
+        notes[idx].stickerLayers.append(nil)  // nil = no stickers
+        notes[idx].shapeLayers.append(nil)    // nil = no shapes
+        notes[idx].attachmentLayers.append(nil) // nil = no attachments
+        notes[idx].widgetLayers.append(nil) // nil = no widgets
         notes[idx].modifiedAt = Date()
         isDirty = true
+        schedulePDFRegeneration(for: noteID)
         return notes[idx].pages.count - 1
     }
 
@@ -213,8 +449,31 @@ final class NoteStore: ObservableObject {
         if notes[idx].pageTypes.indices.contains(pageIndex) {
             notes[idx].pageTypes.remove(at: pageIndex)
         }
+        if notes[idx].pageColors.indices.contains(pageIndex) {
+            notes[idx].pageColors.remove(at: pageIndex)
+        }
+        if notes[idx].stickerLayers.indices.contains(pageIndex) {
+            notes[idx].stickerLayers.remove(at: pageIndex)
+        }
+        if notes[idx].shapeLayers.indices.contains(pageIndex) {
+            notes[idx].shapeLayers.remove(at: pageIndex)
+        }
+        if notes[idx].attachmentLayers.indices.contains(pageIndex) {
+            notes[idx].attachmentLayers.remove(at: pageIndex)
+        }
+        if notes[idx].widgetLayers.indices.contains(pageIndex) {
+            notes[idx].widgetLayers.remove(at: pageIndex)
+        }
+        // Remove expansion regions attached to the deleted page and adjust
+        // pageIndex for regions on subsequent pages.
+        notes[idx].expansionRegions.removeAll { $0.pageIndex == pageIndex }
+        for i in notes[idx].expansionRegions.indices
+        where notes[idx].expansionRegions[i].pageIndex > pageIndex {
+            notes[idx].expansionRegions[i].pageIndex -= 1
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
+        schedulePDFRegeneration(for: noteID)
     }
 
     /// Reorders pages within a note by moving a page from one index to another.
@@ -231,8 +490,31 @@ final class NoteStore: ObservableObject {
             let ptInsert = min(insertAt, notes[idx].pageTypes.count)
             notes[idx].pageTypes.insert(pt, at: ptInsert)
         }
+        if notes[idx].attachmentLayers.indices.contains(source) {
+            let al = notes[idx].attachmentLayers.remove(at: source)
+            let alInsert = min(insertAt, notes[idx].attachmentLayers.count)
+            notes[idx].attachmentLayers.insert(al, at: alInsert)
+        }
+        // Remap expansion region pageIndex values to reflect the new page order.
+        for i in notes[idx].expansionRegions.indices {
+            let pi = notes[idx].expansionRegions[i].pageIndex
+            if pi == source {
+                notes[idx].expansionRegions[i].pageIndex = insertAt
+            } else if source < insertAt {
+                // Page moved forward: pages in (source, insertAt] shift back by 1
+                if pi > source && pi <= insertAt {
+                    notes[idx].expansionRegions[i].pageIndex -= 1
+                }
+            } else {
+                // Page moved backward: pages in [insertAt, source) shift forward by 1
+                if pi >= insertAt && pi < source {
+                    notes[idx].expansionRegions[i].pageIndex += 1
+                }
+            }
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
+        schedulePDFRegeneration(for: noteID)
     }
 
     /// Duplicates a page within a note, inserting the copy immediately after the original.
@@ -252,6 +534,28 @@ final class NoteStore: ObservableObject {
             notes[idx].pageTypes.append(nil)
         }
         notes[idx].pageTypes.insert(ptCopy, at: min(insertIndex, notes[idx].pageTypes.count))
+        // Shift expansion regions on pages after the insertion point,
+        // then duplicate expansion regions from the source page for the copy.
+        for i in notes[idx].expansionRegions.indices
+        where notes[idx].expansionRegions[i].pageIndex >= insertIndex {
+            notes[idx].expansionRegions[i].pageIndex += 1
+        }
+        let sourceRegions = notes[idx].expansionRegions.filter { $0.pageIndex == pageIndex }
+        for region in sourceRegions {
+            let dup = PageRegion(
+                pageIndex: insertIndex,
+                edge: region.edge,
+                size: region.size,
+                drawingData: region.drawingData,
+                widgetLayers: region.widgetLayers,
+                stickerLayers: region.stickerLayers,
+                shapeLayers: region.shapeLayers,
+                attachmentLayers: region.attachmentLayers,
+                isCollapsed: region.isCollapsed,
+                version: 0
+            )
+            notes[idx].expansionRegions.append(dup)
+        }
         notes[idx].modifiedAt = Date()
         isDirty = true
         return insertIndex
@@ -261,6 +565,21 @@ final class NoteStore: ObservableObject {
     @discardableResult
     func duplicateNote(id: UUID) -> Note? {
         guard let original = notes.first(where: { $0.id == id }) else { return nil }
+        // Duplicate expansion regions with new IDs to avoid ID collisions.
+        let copiedRegions = original.expansionRegions.map { region in
+            PageRegion(
+                pageIndex: region.pageIndex,
+                edge: region.edge,
+                size: region.size,
+                drawingData: region.drawingData,
+                widgetLayers: region.widgetLayers,
+                stickerLayers: region.stickerLayers,
+                shapeLayers: region.shapeLayers,
+                attachmentLayers: region.attachmentLayers,
+                isCollapsed: region.isCollapsed,
+                version: 0
+            )
+        }
         let copy = Note(
             title: original.title.isEmpty ? "Copy" : "\(original.title) (Copy)",
             createdAt: Date(),
@@ -272,7 +591,8 @@ final class NoteStore: ObservableObject {
             sortOrder: original.sortOrder + 1,
             templateID: original.templateID,
             pageType: original.pageType,
-            paperMaterial: original.paperMaterial
+            paperMaterial: original.paperMaterial,
+            expansionRegions: copiedRegions
         )
         // Shift pages that follow the original so the copy slots in right after it.
         for i in notes.indices
@@ -635,7 +955,8 @@ final class NoteStore: ObservableObject {
     // MARK: - Persistence internals
 
     /// Writes all data files atomically and updates `saveState`.
-    private func flushToDisk() {
+    /// Optionally creates a snapshot for notes with dirty pages.
+    private func flushToDisk(trigger: SnapshotTrigger = .autosave) {
         saveState = .saving
         var firstError: Error?
         do {
@@ -662,22 +983,48 @@ final class NoteStore: ObservableObject {
         } else {
             saveState = .saved
         }
+
+        // Create snapshots for notes with dirty pages (background queue).
+        let pendingDirtyPages = dirtyPages
+        dirtyPages.removeAll()
+        if !pendingDirtyPages.isEmpty {
+            let notesCopy = notes
+            PerformanceConstraints.storageQueue.async {
+                for (noteID, pages) in pendingDirtyPages {
+                    guard let note = notesCopy.first(where: { $0.id == noteID }) else { continue }
+                    SnapshotStore.shared.createSnapshot(for: note, dirtyPages: pages, trigger: trigger)
+                }
+            }
+        }
     }
 
     /// Writes `data` to `url` using an atomic swap (write-to-temp + rename), while keeping
-    /// a one-generation backup at `url.bak` to allow recovery from interrupted writes.
+    /// three rolling backup generations at `url.bak.1`, `.bak.2`, `.bak.3` to allow recovery
+    /// from interrupted writes or corruption.
     fileprivate func writeAtomically(_ data: Data, to url: URL) throws {
-        let backupURL = url.appendingPathExtension("bak")
-        // Snapshot the current good file as a backup before overwriting it.
-        if FileManager.default.fileExists(atPath: url.path) {
-            try? FileManager.default.removeItem(at: backupURL)
-            if (try? FileManager.default.copyItem(at: url, to: backupURL)) == nil {
-                // Best-effort — the primary write still proceeds. Log in debug builds
-                // so disk-full or permission issues are visible during development.
+        let bak1 = url.appendingPathExtension("bak.1")
+        let bak2 = url.appendingPathExtension("bak.2")
+        let bak3 = url.appendingPathExtension("bak.3")
+        let fm = FileManager.default
+
+        // Rotate backups: bak.2 → bak.3, bak.1 → bak.2, current → bak.1.
+        if fm.fileExists(atPath: url.path) {
+            try? fm.removeItem(at: bak3)
+            if fm.fileExists(atPath: bak2.path) {
+                try? fm.moveItem(at: bak2, to: bak3)
+            }
+            if fm.fileExists(atPath: bak1.path) {
+                try? fm.moveItem(at: bak1, to: bak2)
+            }
+            if (try? fm.copyItem(at: url, to: bak1)) == nil {
                 #if DEBUG
                 print("Y2Notes: backup creation failed for \(url.lastPathComponent)")
                 #endif
             }
+            // Also maintain the legacy .bak for backward compatibility.
+            let legacyBak = url.appendingPathExtension("bak")
+            try? fm.removeItem(at: legacyBak)
+            try? fm.copyItem(at: bak1, to: legacyBak)
         }
         // .atomic writes to a temp sibling then renames into place, making the
         // final swap as close to atomic as the filesystem permits.
@@ -691,23 +1038,24 @@ final class NoteStore: ObservableObject {
     }
 
     /// Decodes `type` from `url`. On missing or corrupt primary file, falls back to
-    /// the `.bak` sibling created by `writeAtomically` so interrupted writes are recoverable.
+    /// the rolling backups created by `writeAtomically` so interrupted writes are recoverable.
     fileprivate func loadJSON<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
         if let value = attemptLoad(type, from: url) {
             return value
         }
-        // Primary missing or corrupt — try the backup.
-        let backupURL = url.appendingPathExtension("bak")
-        if let value = attemptLoad(type, from: backupURL) {
-            // Promote the backup to primary so the next save goes to the right place.
-            // If this copy fails, data is still in memory and will be written to the
-            // primary path on the very next save() call.
-            if (try? FileManager.default.copyItem(at: backupURL, to: url)) == nil {
-                #if DEBUG
-                print("Y2Notes: backup promotion failed for \(url.lastPathComponent); data will be rewritten on next save")
-                #endif
+        // Try rolling backups: bak.1, bak.2, bak.3, then legacy .bak.
+        let backupSuffixes = ["bak.1", "bak.2", "bak.3", "bak"]
+        for suffix in backupSuffixes {
+            let backupURL = url.appendingPathExtension(suffix)
+            if let value = attemptLoad(type, from: backupURL) {
+                // Promote the backup to primary so the next save goes to the right place.
+                if (try? FileManager.default.copyItem(at: backupURL, to: url)) == nil {
+                    #if DEBUG
+                    print("Y2Notes: backup promotion failed for \(url.lastPathComponent) from .\(suffix); data will be rewritten on next save")
+                    #endif
+                }
+                return value
             }
-            return value
         }
         return nil
     }
@@ -796,6 +1144,81 @@ final class NoteStore: ObservableObject {
         }
     }
 
+    // MARK: - PDF regeneration
+
+    /// Schedules a background PDF regeneration for the given note.  The timer fires 2 seconds
+    /// after the last drawing change so rapid strokes don't cause redundant PDF writes.
+    func schedulePDFRegeneration(for noteID: UUID) {
+        pdfRegenTimers[noteID]?.invalidate()
+        pdfRegenTimers[noteID] = Timer.scheduledTimer(
+            withTimeInterval: Self.pdfRegenerationDebounceInterval, repeats: false
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.pdfRegenTimers.removeValue(forKey: noteID)
+            guard let note = self.notes.first(where: { $0.id == noteID }),
+                  let filename = note.pdfFilename else { return }
+            let pages = note.pages
+            let pageTypes = self.resolvedPageTypes(for: note)
+            Task.detached(priority: .utility) {
+                NotePDFGenerator.regeneratePDF(
+                    filename: filename,
+                    pages: pages,
+                    attachmentLayers: note.attachmentLayers,
+                    noteID: note.id,
+                    backgroundColor: .white,
+                    pageTypes: pageTypes
+                )
+            }
+        }
+    }
+
+    /// Resolves the effective `PageType` array for every page of a note by cascading
+    /// per-page → note-level → notebook-level → `.blank`.
+    func resolvedPageTypes(for note: Note) -> [PageType] {
+        let notebook = notebooks.first(where: { $0.id == note.notebookID })
+        return (0 ..< note.pageCount).map { i in
+            note.pageType(forPage: i) ?? notebook?.pageType ?? .blank
+        }
+    }
+
+    /// Lazily generates backing PDFs for notes created before the PDF-based storage migration.
+    /// Called once during `init()`.  Only touches notes whose `pdfFilename` is nil.
+    private func ensurePDFsForLegacyNotes() {
+        var changed = false
+        for i in notes.indices where notes[i].pdfFilename == nil {
+            let pageTypes = resolvedPageTypes(for: notes[i])
+            if let filename = NotePDFGenerator.generateTemplatePDF(
+                pageCount: notes[i].pageCount,
+                backgroundColor: .white,
+                pageTypes: pageTypes
+            ) {
+                notes[i].pdfFilename = filename
+                changed = true
+                // Regenerate immediately with strokes if the note has drawing data.
+                let hasStrokes = notes[i].pages.contains { !$0.isEmpty }
+                if hasStrokes {
+                    NotePDFGenerator.regeneratePDF(
+                        filename: filename,
+                        pages: notes[i].pages,
+                        attachmentLayers: notes[i].attachmentLayers,
+                        noteID: notes[i].id,
+                        backgroundColor: .white,
+                        pageTypes: pageTypes
+                    )
+                }
+            }
+        }
+        if changed {
+            isDirty = true
+        }
+    }
+
+    /// Returns the on-disk PDF URL for a given note, or nil if the note has no backing PDF.
+    func notePDFURL(for note: Note) -> URL? {
+        guard let filename = note.pdfFilename else { return nil }
+        return NotePDFGenerator.pdfURL(for: filename)
+    }
+
     // MARK: - Reload from disk (Drive sync)
 
     /// Reloads all data from disk. Called after a Google Drive import or backup restore
@@ -803,6 +1226,65 @@ final class NoteStore: ObservableObject {
     func reloadFromDisk() {
         load()
         loadStudy()
+    }
+
+    // MARK: - Version history restoration
+
+    /// Replaces a note in the store with a restored version.
+    /// Used by `VersionHistoryView` to restore an entire note from a snapshot.
+    func replaceNote(_ note: Note) {
+        guard let idx = notes.firstIndex(where: { $0.id == note.id }) else { return }
+        notes[idx] = note
+        save()
+        schedulePDFRegeneration(for: note.id)
+    }
+
+    /// Restores a single page of a note from snapshot data.
+    func restorePage(
+        noteID: UUID,
+        pageIndex: Int,
+        data: Data,
+        stickers: [StickerInstance]?,
+        shapes: [ShapeInstance]?,
+        attachments: [AttachmentObject]?
+    ) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }),
+              pageIndex >= 0 && pageIndex < notes[idx].pages.count else { return }
+        notes[idx].pages[pageIndex] = data
+        // Ensure parallel arrays are sized correctly.
+        while notes[idx].stickerLayers.count < notes[idx].pages.count {
+            notes[idx].stickerLayers.append(nil)
+        }
+        notes[idx].stickerLayers[pageIndex] = stickers
+        while notes[idx].shapeLayers.count < notes[idx].pages.count {
+            notes[idx].shapeLayers.append(nil)
+        }
+        notes[idx].shapeLayers[pageIndex] = shapes
+        while notes[idx].attachmentLayers.count < notes[idx].pages.count {
+            notes[idx].attachmentLayers.append(nil)
+        }
+        notes[idx].attachmentLayers[pageIndex] = attachments
+        notes[idx].modifiedAt = Date()
+        save()
+        schedulePDFRegeneration(for: noteID)
+    }
+
+    /// Inserts a restored note (copy) into the store.
+    func insertRestoredNote(_ note: Note) {
+        notes.insert(note, at: 0)
+        save()
+    }
+
+    /// Creates a pre-destructive snapshot of a note before deletion.
+    func createPreDestructiveSnapshot(for noteID: UUID) {
+        guard let note = notes.first(where: { $0.id == noteID }) else { return }
+        PerformanceConstraints.storageQueue.async {
+            SnapshotStore.shared.createSnapshot(
+                for: note,
+                dirtyPages: Set(0 ..< note.pages.count),
+                trigger: .preDestructive
+            )
+        }
     }
 }
 

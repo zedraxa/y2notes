@@ -1,0 +1,208 @@
+import SwiftUI
+
+// MARK: - BookmarkListView
+
+/// A sheet listing all bookmarked pages for a notebook, with navigation, editing, and colour tags.
+struct BookmarkListView: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var navigationStore: NavigationStore
+    let notebook: Notebook
+    /// Flat-page navigation callback — caller resolves the anchor to a flat index.
+    let onJump: (NavigationAnchor) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            let items = navigationStore.bookmarks(for: notebook.id)
+            if items.isEmpty {
+                ContentUnavailableView(
+                    "No Bookmarks",
+                    systemImage: "bookmark",
+                    description: Text("Tap the bookmark icon on any page to save it here.")
+                )
+            } else {
+                List {
+                    ForEach(items) { bookmark in
+                        bookmarkRow(bookmark)
+                    }
+                    .onDelete { offsets in
+                        let allBookmarks = navigationStore.bookmarks(for: notebook.id)
+                        for offset in offsets {
+                            navigationStore.removeBookmark(id: allBookmarks[offset].id)
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+            }
+        }
+        .navigationTitle("Bookmarks")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
+            }
+        }
+    }
+
+    // MARK: - Row
+
+    @ViewBuilder
+    private func bookmarkRow(_ bookmark: PageBookmark) -> some View {
+        Button {
+            onJump(bookmark.anchor)
+            dismiss()
+        } label: {
+            HStack(spacing: 12) {
+                // Colour tab
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(color(for: bookmark.colorTag))
+                    .frame(width: 6, height: 36)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    let displayLabel = bookmark.label.isEmpty
+                        ? resolvedLabel(for: bookmark)
+                        : bookmark.label
+                    Text(displayLabel)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+
+                    let detail = resolvedDetail(for: bookmark)
+                    if !detail.isEmpty {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                navigationStore.removeBookmark(id: bookmark.id)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading) {
+            // Cycle colour tag
+            Button {
+                let allColors = BookmarkColor.allCases
+                if let idx = allColors.firstIndex(of: bookmark.colorTag) {
+                    let next = allColors[(idx + 1) % allColors.count]
+                    navigationStore.updateBookmarkColor(id: bookmark.id, colorTag: next)
+                }
+            } label: {
+                Label("Color", systemImage: "paintpalette")
+            }
+            .tint(.orange)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func resolvedLabel(for bookmark: PageBookmark) -> String {
+        if let note = noteStore.notes.first(where: { $0.id == bookmark.anchor.noteID }) {
+            let pageNum = bookmark.anchor.pageIndex + 1
+            if note.title.isEmpty || note.title == "New Note" {
+                return "Page \(pageNum)"
+            }
+            return "\(note.title) — p.\(pageNum)"
+        }
+        return "Page"
+    }
+
+    private func resolvedDetail(for bookmark: PageBookmark) -> String {
+        if let note = noteStore.notes.first(where: { $0.id == bookmark.anchor.noteID }),
+           let sID = note.sectionID,
+           let sec = noteStore.sections.first(where: { $0.id == sID }) {
+            return sec.name
+        }
+        return ""
+    }
+
+    private func color(for tag: BookmarkColor) -> Color {
+        switch tag {
+        case .red:    return .red
+        case .orange: return .orange
+        case .yellow: return .yellow
+        case .green:  return .green
+        case .blue:   return .blue
+        case .purple: return .purple
+        }
+    }
+}
+
+// MARK: - RecentLocationsView
+
+/// A compact popover listing recently visited pages for quick return navigation.
+struct RecentLocationsView: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var navigationStore: NavigationStore
+    let notebook: Notebook
+    let onJump: (NavigationAnchor) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let recents = navigationStore.recentLocations(for: notebook.id)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Recent Pages")
+                .font(.headline)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+            if recents.isEmpty {
+                Text("No history yet")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(recents) { entry in
+                            Button {
+                                onJump(entry.anchor)
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("Page \(entry.flatPageIndex + 1)")
+                                            .font(.subheadline)
+                                        Text(entry.visitedAt, style: .relative)
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if entry.id != recents.last?.id {
+                                Divider().padding(.leading, 40)
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 300)
+            }
+        }
+        .frame(minWidth: 220)
+        .padding(.bottom, 8)
+    }
+}

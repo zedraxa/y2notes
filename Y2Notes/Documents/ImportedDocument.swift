@@ -5,6 +5,10 @@ import UniformTypeIdentifiers
 
 /// The types of external documents that Y2Notes can import for annotation.
 enum ImportedDocumentType: String, Codable, CaseIterable {
+    case pdf   = "pdf"
+    case png   = "png"
+    case jpg   = "jpg"
+    case heic  = "heic"
     case docx  = "docx"
     case epub  = "epub"
     case pptx  = "pptx"
@@ -13,6 +17,10 @@ enum ImportedDocumentType: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
+        case .pdf:  return "PDF Document"
+        case .png:  return "PNG Image"
+        case .jpg:  return "JPEG Image"
+        case .heic: return "HEIC Image"
         case .docx: return "Word Document"
         case .epub: return "ePub Book"
         case .pptx: return "PowerPoint"
@@ -23,6 +31,10 @@ enum ImportedDocumentType: String, Codable, CaseIterable {
 
     var systemImage: String {
         switch self {
+        case .pdf:  return "doc.fill"
+        case .png:  return "photo"
+        case .jpg:  return "photo"
+        case .heic: return "photo"
         case .docx: return "doc.text.fill"
         case .epub: return "book.fill"
         case .pptx: return "rectangle.on.rectangle"
@@ -34,6 +46,14 @@ enum ImportedDocumentType: String, Codable, CaseIterable {
     /// UTType identifiers recognised for file import.
     var utTypes: [UTType] {
         switch self {
+        case .pdf:
+            return [.pdf]
+        case .png:
+            return [.png]
+        case .jpg:
+            return [.jpeg]
+        case .heic:
+            return [.heic]
         case .docx:
             return [UTType(filenameExtension: "docx") ?? .item,
                     UTType("com.microsoft.word.docx") ?? .item]
