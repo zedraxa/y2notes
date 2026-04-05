@@ -414,5 +414,9 @@
 "TextStyle.Thickness"             = "Grosor";
 "TextStyle.Corners"               = "Esquinas";
 
+/* ── Borrar trazando ──────────────────────────────────────────── */
+
+"Editor.ScratchDelete.UndoAction" = "Borrar trazando";
+
 // MARK: - Editor Actions
 "Editor.StraightenLine"           = "Enderezar línea";

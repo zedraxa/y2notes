@@ -415,5 +415,9 @@
 "TextStyle.Thickness"             = "Thickness";
 "TextStyle.Corners"               = "Corners";
 
+/* ── Scribble-to-Delete ───────────────────────────────────────── */
+
+"Editor.ScratchDelete.UndoAction" = "Scratch Delete";
+
 // MARK: - Editor Actions
 "Editor.StraightenLine"           = "Straighten Line";
