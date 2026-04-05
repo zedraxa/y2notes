@@ -80,6 +80,26 @@ struct FloatingToolbarCapsule: View {
                     InkEffectPickerView(inkStore: inkStore)
                 }
             }
+            .background { toolSwitchKeyboardShortcuts }
+    }
+
+    // MARK: - Tool-Switch Keyboard Shortcuts
+
+    /// Hidden buttons that respond to Cmd+1…8 for switching tools via the keyboard.
+    @ViewBuilder
+    private var toolSwitchKeyboardShortcuts: some View {
+        let tools: [DrawingTool] = [.pen, .pencil, .highlighter, .fountainPen, .eraser, .lasso, .shape, .sticker]
+        ForEach(Array(tools.enumerated()), id: \.offset) { index, tool in
+            Button("") {
+                toolSwitchFeedback.impactOccurred()
+                toolStore.activeTool = tool
+            }
+            .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     // MARK: - Tier 1 Content (Standard vs Selection)
@@ -342,6 +362,17 @@ struct FloatingToolbarCapsule: View {
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    modeToggleFeedback.impactOccurred()
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        toolStore.isToolbarMinimized = false
+                    }
+                }
+        )
+        .accessibilityHint(NSLocalizedString("ToolExpansion.LongPressToExpand",
+                                             comment: "Long-press to expand minimized toolbar"))
     }
 
     // MARK: - Tier 1 Tool Button

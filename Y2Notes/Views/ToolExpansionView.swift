@@ -165,6 +165,7 @@ struct ToolExpansionView: View {
             ForEach(quickWidthPresets, id: \.label) { preset in
                 let isNear = abs(toolStore.activeWidth - preset.value) < 0.75
                 Button {
+                    selectionFeedback.selectionChanged()
                     toolStore.activeWidth = preset.value
                     resetTimeout()
                 } label: {
@@ -221,6 +222,7 @@ struct ToolExpansionView: View {
                     HStack(spacing: 6) {
                         ForEach(favorites) { preset in
                             Button {
+                                selectionFeedback.selectionChanged()
                                 toolStore.applyPreset(preset)
                                 resetTimeout()
                             } label: {
@@ -307,6 +309,9 @@ struct ToolExpansionView: View {
     @ViewBuilder
     private var eraserExpansion: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Quick pixel / stroke toggle
+            eraserModeToggle
+
             // Sub-type row
             HStack(spacing: 6) {
                 ForEach(EraserSubType.allCases, id: \.rawValue) { sub in
@@ -361,6 +366,43 @@ struct ToolExpansionView: View {
             }
         }
         .frame(maxWidth: 300)
+    }
+
+    // MARK: - Eraser Mode Toggle
+
+    /// Quick segmented control that jumps between Pixel and Stroke mode,
+    /// auto-selecting the best sub-type for each mode.
+    @ViewBuilder
+    private var eraserModeToggle: some View {
+        HStack(spacing: 0) {
+            ForEach([EraserMode.bitmap, EraserMode.vector], id: \.rawValue) { mode in
+                let isActive = toolStore.eraserSubType.eraserMode == mode
+                Button {
+                    selectionFeedback.selectionChanged()
+                    // Jump to a sensible sub-type for this mode.
+                    if mode == .bitmap && toolStore.eraserSubType.eraserMode != .bitmap {
+                        toolStore.eraserSubType = .standard
+                    } else if mode == .vector && toolStore.eraserSubType.eraserMode != .vector {
+                        toolStore.eraserSubType = .stroke
+                    }
+                    resetTimeout()
+                } label: {
+                    Text(mode == .bitmap
+                         ? NSLocalizedString("ToolExpansion.Pixel", comment: "Pixel eraser mode")
+                         : NSLocalizedString("ToolExpansion.Stroke", comment: "Stroke eraser mode"))
+                        .font(.system(size: 11, weight: isActive ? .semibold : .regular))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
+                        .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(mode.displayName)
+                .accessibilityAddTraits(isActive ? .isSelected : [])
+            }
+        }
+        .background(Color(.systemGray5))
+        .clipShape(Capsule())
     }
 
     // MARK: - Shape Expansion
