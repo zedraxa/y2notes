@@ -150,6 +150,16 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts nil.
     @Published var activeAmbientScene: AmbientScene?
 
+    /// Whether "Magic Mode" is active — writing particles, keyword glow,
+    /// underline highlight animation.
+    /// **Not persisted** — always starts false (default off).
+    @Published var isMagicModeActive: Bool = false
+
+    /// Whether "Study Mode" is active — heading glow, checklist completion
+    /// animation, timer completion pulse.
+    /// **Not persisted** — always starts false (default off).
+    @Published var isStudyModeActive: Bool = false
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

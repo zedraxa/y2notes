@@ -1937,6 +1937,8 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.pageTransitionEngine.effectIntensity = intensity
         context.coordinator.focusModeEngine.effectIntensity = intensity
         context.coordinator.ambientEngine.effectIntensity = intensity
+        context.coordinator.magicModeEngine.effectIntensity = intensity
+        context.coordinator.studyModeEngine.effectIntensity = intensity
         // Propagate to canvas views that own their own micro/snap engines.
         context.coordinator.shapeCanvas?.effectIntensity = intensity
         context.coordinator.attachmentCanvas?.effectIntensity = intensity
@@ -2017,6 +2019,12 @@ struct CanvasView: UIViewRepresentable {
 
         /// Ambient environment scene engine (rain / lo-fi / night grain).
         let ambientEngine = AmbientEnvironmentEngine()
+
+        /// Magic mode engine — writing particles, keyword glow, highlight.
+        let magicModeEngine = MagicModeEngine()
+
+        /// Study mode engine — heading glow, checklist pulse, timer pulse.
+        let studyModeEngine = StudyModeEngine()
 
         /// Adaptive effects engine — evaluates context signals and sets
         /// intensity for all effect subsystems.

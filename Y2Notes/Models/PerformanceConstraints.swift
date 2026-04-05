@@ -175,6 +175,16 @@ enum PerformanceConstraints {
     /// power-state changes.
     static let adaptiveEffectsEvaluationBudgetMs: Double = 0.1
 
+    /// Magic mode effect budget per activation event.
+    /// Particle emitter + glow gradient + highlight bar — GPU-composited.
+    /// Total setup overhead < 0.4 ms, steady-state near-zero CPU.
+    static let magicModeBudgetMs: Double = 0.4
+
+    /// Study mode effect budget per activation event.
+    /// Heading glow + checklist pulse + timer overlay — GPU-composited.
+    /// Total setup overhead < 0.3 ms, all one-shot self-removing.
+    static let studyModeBudgetMs: Double = 0.3
+
     // MARK: 8. Future — Transcript Search
 
     /// Speech-to-text processing: post-recording only, `.background` QoS.

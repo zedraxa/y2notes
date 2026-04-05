@@ -185,6 +185,12 @@ struct FloatingToolbarCapsule: View {
             // Ambient environment scene
             ambientSceneButton
 
+            // Magic mode
+            magicModeButton
+
+            // Study mode
+            studyModeButton
+
             tier1Separator
 
             // Undo
@@ -460,6 +466,62 @@ struct FloatingToolbarCapsule: View {
         }
         .frame(width: 160)
         .padding(.vertical, 4)
+    }
+
+    // MARK: - Magic Mode Button
+
+    @ViewBuilder
+    private var magicModeButton: some View {
+        Button {
+            toolStore.isMagicModeActive.toggle()
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: toolStore.isMagicModeActive
+                      ? "wand.and.stars" : "wand.and.stars")
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(toolStore.isMagicModeActive
+                                     ? Color.accentColor
+                                     : Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(toolStore.isMagicModeActive
+                          ? Color.accentColor : Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Magic Mode")
+        .accessibilityAddTraits(toolStore.isMagicModeActive
+                                ? .isSelected : [])
+    }
+
+    // MARK: - Study Mode Button
+
+    @ViewBuilder
+    private var studyModeButton: some View {
+        Button {
+            toolStore.isStudyModeActive.toggle()
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: toolStore.isStudyModeActive
+                      ? "graduationcap.fill" : "graduationcap")
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(toolStore.isStudyModeActive
+                                     ? Color.accentColor
+                                     : Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(toolStore.isStudyModeActive
+                          ? Color.accentColor : Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Study Mode")
+        .accessibilityAddTraits(toolStore.isStudyModeActive
+                                ? .isSelected : [])
     }
 
     // MARK: - Recording Mic Button

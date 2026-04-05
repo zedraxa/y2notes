@@ -54,6 +54,12 @@ enum EffectIntensity: Int, Comparable, CaseIterable {
 
     /// Whether micro-interaction animations (scale, shadow, bounce) should run.
     var allowsMicroInteractions: Bool { self >= .reduced }
+
+    /// Whether magic-mode decorative effects (particles, glow, highlight) should run.
+    var allowsMagicMode: Bool { self >= .full }
+
+    /// Whether study-mode feedback effects (heading glow, checklist pulse) should run.
+    var allowsStudyMode: Bool { self >= .reduced }
 }
 
 // MARK: - Adaptive Effects Engine
