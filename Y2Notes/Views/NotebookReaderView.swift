@@ -20,7 +20,11 @@ struct NotebookReaderView: View {
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var navigationStore: NavigationStore
+    @Environment(TabWorkspaceStore.self) private var workspace
     let notebook: Notebook
+    /// The tab ID for state sync. `nil` when the reader is not hosted inside
+    /// the tab workspace (e.g. launched directly from a shortcut or widget).
+    let tabID: UUID?
 
     @State private var flatPageIndex = 0
     @State private var didRestorePosition = false
@@ -41,6 +45,8 @@ struct NotebookReaderView: View {
     @State private var showRecentLocations = false
     /// Whether the universal search sheet is shown.
     @State private var showUniversalSearch = false
+    /// Whether the notebook cover page overlay is shown.
+    @State private var isShowingCoverPage = false
 
     // MARK: - Linearised page model
 
@@ -137,7 +143,7 @@ struct NotebookReaderView: View {
     }
 
     private var effectiveTheme: AppTheme {
-        currentNote?.themeOverride ?? notebook.defaultTheme ?? themeStore.selectedTheme
+        currentNote?.themeOverride ?? notebook.defaultTheme ?? themeStore.effectiveTheme
     }
 
     private var effectiveDefinition: ThemeDefinition {
@@ -174,10 +180,17 @@ struct NotebookReaderView: View {
     var body: some View {
         let pages = allPages
         VStack(spacing: 0) {
-            // Notebook identity bar — thin gradient strip using the cover color
-            notebook.cover.gradient
-                .frame(height: 3)
-                .opacity(0.8)
+            // Notebook identity bar — gradient strip with texture hint
+            ZStack {
+                notebook.cover.gradient
+                CoverTextureOverlay(
+                    texture: notebook.coverTexture,
+                    size: CGSize(width: 600, height: 4),
+                    intensity: 0.6
+                )
+            }
+            .frame(height: 4)
+            .opacity(0.85)
 
             // Section tabs
             if sectionTabs.count > 1 {
@@ -220,6 +233,13 @@ struct NotebookReaderView: View {
                     .gesture(pageSwipeGesture(totalPages: pages.count))
                     .clipped()
 
+                    // Cover page overlay (appears on top of canvas)
+                    if isShowingCoverPage {
+                        notebookCoverPageView
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                            .zIndex(10)
+                    }
+
                     // Floating toolbar capsule — bottom-center, above page bar
                     FloatingToolbarCapsule(
                         toolStore: toolStore,
@@ -260,6 +280,17 @@ struct NotebookReaderView: View {
                 .accessibilityLabel("Go forward")
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
+                // Cover page toggle
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        isShowingCoverPage.toggle()
+                    }
+                } label: {
+                    Image(systemName: isShowingCoverPage ? "book.fill" : "book")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .accessibilityLabel(isShowingCoverPage ? "Hide cover page" : "Show cover page")
+
                 // Universal search
                 Button {
                     showUniversalSearch = true
@@ -358,7 +389,12 @@ struct NotebookReaderView: View {
         .onAppear {
             navigationStore.activateNotebook(notebook.id)
             if !didRestorePosition {
-                let saved = noteStore.lastPageIndex(for: notebook.id)
+                // Prefer the tab's persisted page index when running inside the
+                // tab workspace; fall back to the notebook-level last-page store.
+                let tabPage = tabID.flatMap { id in
+                    workspace.tabs.first(where: { $0.id == id })?.pageIndex
+                }
+                let saved = tabPage ?? noteStore.lastPageIndex(for: notebook.id)
                 let maxIdx = max(0, allPages.count - 1)
                 flatPageIndex = min(saved, maxIdx)
                 didRestorePosition = true
@@ -367,7 +403,13 @@ struct NotebookReaderView: View {
         // Persist page position on every page turn + push history
         .onChange(of: flatPageIndex) { _, newIndex in
             noteStore.setLastPageIndex(newIndex, for: notebook.id)
+            if let id = tabID {
+                workspace.updateTabState(id, pageIndex: newIndex)
+            }
             pushCurrentPageToHistory()
+            if isShowingCoverPage {
+                withAnimation(.easeOut(duration: 0.2)) { isShowingCoverPage = false }
+            }
         }
     }
 
@@ -605,14 +647,37 @@ struct NotebookReaderView: View {
             }
             .onEnded { value in
                 let threshold: CGFloat = 60
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                    dragOffset = 0
-                    if value.translation.width < -threshold {
+                if value.translation.width < -threshold {
+                    if isShowingCoverPage {
+                        // Swipe left from cover → dismiss cover
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                            dragOffset = 0
+                            isShowingCoverPage = false
+                        }
+                    } else {
                         // Swipe left → next page (or create new)
-                        turnPage(direction: 1, totalPages: totalPages)
-                    } else if value.translation.width > threshold {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                            dragOffset = 0
+                            turnPage(direction: 1, totalPages: totalPages)
+                        }
+                    }
+                } else if value.translation.width > threshold {
+                    if flatPageIndex == 0 && !isShowingCoverPage {
+                        // Swipe right at page 0 → show cover
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                            dragOffset = 0
+                            isShowingCoverPage = true
+                        }
+                    } else {
                         // Swipe right → previous page
-                        turnPage(direction: -1, totalPages: totalPages)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                            dragOffset = 0
+                            turnPage(direction: -1, totalPages: totalPages)
+                        }
+                    }
+                } else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                        dragOffset = 0
                     }
                 }
             }
@@ -654,6 +719,7 @@ struct NotebookReaderView: View {
                     ForEach(sectionTabs, id: \.firstFlatIndex) { tab in
                         let isActive = currentPage?.sectionID == tab.id
                             || (tab.id == nil && currentPage?.sectionID == nil)
+                        let tabColor = sectionColor(for: tab.id)
                         Button {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                                 flatPageIndex = tab.firstFlatIndex
@@ -661,12 +727,12 @@ struct NotebookReaderView: View {
                         } label: {
                             Text(tab.name)
                                 .font(.subheadline.weight(isActive ? .semibold : .regular))
-                                .foregroundStyle(isActive ? Color.accentColor : .secondary)
+                                .foregroundStyle(isActive ? tabColor : .secondary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
                                 .background(
                                     isActive
-                                        ? Color.accentColor.opacity(0.12)
+                                        ? tabColor.opacity(0.12)
                                         : Color.clear,
                                     in: Capsule()
                                 )
@@ -685,6 +751,13 @@ struct NotebookReaderView: View {
                 }
             }
         }
+    }
+
+    private func sectionColor(for sectionID: UUID?) -> Color {
+        guard let id = sectionID,
+              let section = noteStore.sections.first(where: { $0.id == id })
+        else { return Color.accentColor }
+        return section.colorTag.color
     }
 
     // MARK: - Section divider banner
@@ -865,6 +938,136 @@ struct NotebookReaderView: View {
         )
     }
 
+    // MARK: - Notebook cover page
+
+    // swiftlint:disable:next function_body_length
+    private var notebookCoverPageView: some View {
+        GeometryReader { geo in
+            ZStack {
+                // Full background — custom photo or built-in gradient
+                if let data = notebook.customCoverData, let uiImg = UIImage(data: data) {
+                    Image(uiImage: uiImg)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                } else {
+                    notebook.cover.gradient
+                }
+
+                // Semi-transparent scrim so text is always readable
+                LinearGradient(
+                    colors: [Color.black.opacity(0.05), Color.black.opacity(0.55)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer()
+
+                    Text(notebook.name.isEmpty ? "Untitled" : notebook.name)
+                        .font(.system(size: 34, weight: .bold, design: .serif))
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+
+                    if !notebook.description.isEmpty {
+                        Text(notebook.description)
+                            .font(.system(size: 17, weight: .light, design: .serif))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.top, 6)
+                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                    }
+
+                    Rectangle()
+                        .fill(Color.white.opacity(0.35))
+                        .frame(height: 0.5)
+                        .padding(.vertical, 16)
+
+                    let tocSections = noteStore.sections(inNotebook: notebook.id).filter { $0.kind == .section }
+                    if !tocSections.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Contents")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.6))
+                                .tracking(1.5)
+                                .textCase(.uppercase)
+                            ForEach(tocSections) { section in
+                                HStack {
+                                    Circle()
+                                        .fill(section.colorTag.color)
+                                        .frame(width: 7, height: 7)
+                                        .accessibilityLabel("\(section.colorTag.rawValue) color indicator")
+                                        .accessibilityHidden(section.colorTag == .none)
+                                    Text(section.name)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.white.opacity(0.88))
+                                    Spacer()
+                                    Text(sectionPageRangeLabel(section))
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.white.opacity(0.55))
+                                }
+                            }
+                        }
+                        .padding(.bottom, 12)
+                    }
+
+                    HStack(spacing: 20) {
+                        coverStatItem(
+                            icon: "doc.plaintext",
+                            value: "\(allPages.count)",
+                            label: "pages"
+                        )
+                        coverStatItem(
+                            icon: "calendar",
+                            value: notebook.createdAt.formatted(.dateTime.month(.abbreviated).day().year()),
+                            label: "created"
+                        )
+                    }
+                    .padding(.bottom, 32)
+                }
+                .padding(.horizontal, 28)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 4)
+        .padding(.horizontal, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                isShowingCoverPage = false
+            }
+        }
+        .accessibilityHint("Double tap to dismiss cover page")
+        .allowsHitTesting(true)
+    }
+
+    private func coverStatItem(icon: String, value: String, label: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.6))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.footnote.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+        }
+    }
+
+    private func sectionPageRangeLabel(_ section: NotebookSection) -> String {
+        let pages = allPages.filter { $0.sectionID == section.id }
+        guard !pages.isEmpty,
+              let first = allPages.firstIndex(where: { $0.sectionID == section.id })
+        else { return "—" }
+        let last = first + pages.count - 1
+        if first == last { return "p. \(first + 1)" }
+        return "pp. \(first + 1)–\(last + 1)"
+    }
+
     // MARK: - Jump to page popover
 
     private func jumpToPagePopover(totalPages: Int) -> some View {
@@ -1003,6 +1206,14 @@ struct NotebookReaderView: View {
                 .foregroundStyle(.secondary.opacity(0.3))
         case .dot:
             Image(systemName: "circle.grid.3x3")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .cornell:
+            Image(systemName: "rectangle.split.2x1")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .music:
+            Image(systemName: "music.note.list")
                 .font(.title3)
                 .foregroundStyle(.secondary.opacity(0.3))
         case .blank:

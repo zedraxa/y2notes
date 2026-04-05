@@ -45,6 +45,11 @@ struct FloatingToolbarCapsule: View {
     /// so tapping the "previous ink" button returns to it.
     @State private var previousInkTool: DrawingTool = .pen
 
+    // MARK: - Haptics
+
+    private let toolSwitchFeedback = UIImpactFeedbackGenerator(style: .light)
+    private let modeToggleFeedback = UIImpactFeedbackGenerator(style: .medium)
+
     // MARK: - Tier 1 Tools
 
     /// The 5 tools shown in Tier 1. The first slot shows the "active ink" tool
@@ -235,7 +240,7 @@ struct FloatingToolbarCapsule: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
     }
 
     // MARK: - Tier 1 Tool Button
@@ -262,6 +267,10 @@ struct FloatingToolbarCapsule: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tool.displayName)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .accessibilityHint(isActive
+            ? NSLocalizedString("ToolExpansion.TapToExpand", comment: "Tap to expand tool options")
+            : NSLocalizedString("ToolExpansion.TapToActivate", comment: "Tap to activate tool"))
     }
 
     // MARK: - Inspector Group
@@ -370,6 +379,7 @@ struct FloatingToolbarCapsule: View {
     @ViewBuilder
     private var focusModeButton: some View {
         Button {
+            modeToggleFeedback.impactOccurred()
             toolStore.isFocusModeActive.toggle()
         } label: {
             VStack(spacing: 2) {
@@ -402,6 +412,7 @@ struct FloatingToolbarCapsule: View {
         Button {
             if toolStore.activeAmbientScene != nil {
                 // If active, tap deactivates.
+                modeToggleFeedback.impactOccurred()
                 toolStore.activeAmbientScene = nil
             } else {
                 showAmbientPicker = true
@@ -436,6 +447,7 @@ struct FloatingToolbarCapsule: View {
         VStack(spacing: 0) {
             ForEach(AmbientScene.allCases) { scene in
                 Button {
+                    modeToggleFeedback.impactOccurred()
                     toolStore.activeAmbientScene = scene
                     showAmbientPicker = false
                 } label: {
@@ -463,8 +475,33 @@ struct FloatingToolbarCapsule: View {
                     Divider().padding(.leading, 48)
                 }
             }
+
+            Divider()
+
+            // Sound toggle row.
+            Button {
+                toolStore.isAmbientSoundEnabled.toggle()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: toolStore.isAmbientSoundEnabled
+                          ? "speaker.wave.2" : "speaker.slash")
+                        .font(.system(size: 16))
+                        .frame(width: 24)
+                        .foregroundStyle(toolStore.isAmbientSoundEnabled
+                                         ? Color.accentColor
+                                         : Color(uiColor: .secondaryLabel))
+                    Text("Sound")
+                        .font(.subheadline)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color(uiColor: .label))
         }
-        .frame(width: 160)
+        .frame(width: 180)
         .padding(.vertical, 4)
     }
 
@@ -473,6 +510,7 @@ struct FloatingToolbarCapsule: View {
     @ViewBuilder
     private var magicModeButton: some View {
         Button {
+            modeToggleFeedback.impactOccurred()
             toolStore.isMagicModeActive.toggle()
         } label: {
             VStack(spacing: 2) {
@@ -501,6 +539,7 @@ struct FloatingToolbarCapsule: View {
     @ViewBuilder
     private var studyModeButton: some View {
         Button {
+            modeToggleFeedback.impactOccurred()
             toolStore.isStudyModeActive.toggle()
         } label: {
             VStack(spacing: 2) {
@@ -582,6 +621,7 @@ struct FloatingToolbarCapsule: View {
     private func handleToolTap(_ tool: DrawingTool) {
         if toolStore.activeTool == tool {
             // Already active — toggle Tier 2 expansion
+            toolSwitchFeedback.impactOccurred(intensity: 0.5)
             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                 if expandedTool == tool {
                     expandedTool = nil
@@ -591,6 +631,7 @@ struct FloatingToolbarCapsule: View {
             }
         } else {
             // Switch tool
+            toolSwitchFeedback.impactOccurred()
             toolStore.activeTool = tool
             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                 expandedTool = nil

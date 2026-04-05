@@ -262,3 +262,84 @@
 "VersionHistory.Manual"           = "Manual";
 "VersionHistory.PreRestore"       = "Pre-restore";
 "VersionHistory.Backup"           = "Backup";
+
+/* ── General ──────────────────────────────────────────────────── */
+
+"General.Done"                    = "Done";
+"General.Cancel"                  = "Cancel";
+
+/* ── Writing Insights ─────────────────────────────────────────── */
+
+"Insights.Title"                  = "Writing Insights";
+"Insights.TotalNotes"             = "Total Notes";
+"Insights.TotalPages"             = "Total Pages";
+"Insights.TotalWords"             = "Total Words";
+"Insights.Notebooks"              = "Notebooks";
+"Insights.AvgPages"               = "Avg Pages / Note";
+"Insights.AvgWords"               = "Avg Words / Note";
+"Insights.Streaks"                = "Writing Streaks";
+"Insights.CurrentStreak"          = "Current Streak";
+"Insights.LongestStreak"          = "Longest Streak";
+"Insights.Activity"               = "Activity (Last 90 Days)";
+"Insights.ActivitySubtitle"       = "Each square represents one day — darker means more edits.";
+"Insights.PerNotebook"            = "Per Notebook";
+"Insights.NoNotebooks"            = "No notebooks yet. Create one to see per-notebook stats.";
+
+/* ── Command Palette ──────────────────────────────────────────── */
+
+"CommandPalette.Title"            = "Quick Actions";
+"CommandPalette.Placeholder"      = "Search actions…";
+"CommandPalette.ClearSearch"      = "Clear search";
+"CommandPalette.NoResults"        = "No matching actions";
+"CommandPalette.TryDifferent"     = "Try different keywords";
+
+/* ── Open Source Credits ──────────────────────────────────────── */
+
+"Credits.Title"                   = "Open Source Inspirations";
+"Credits.Intro"                   = "Y2Notes is built entirely with Apple-native frameworks. No third-party libraries are bundled. The following open-source projects and patterns inspired features and design decisions.";
+"Credits.InspirationHeader"       = "Projects That Inspired Us";
+"Credits.PatternsHeader"          = "Design Patterns Adopted";
+"Credits.Footer"                  = "We gratefully acknowledge these projects and the wider open-source community.";
+
+/* ── Tool Expansion ──────────────────────────────────────────── */
+
+"ToolExpansion.PenType"           = "Pen Type";
+"ToolExpansion.Width"             = "Stroke Width";
+"ToolExpansion.Opacity"           = "Opacity";
+"ToolExpansion.EraserWidth"       = "Eraser Width";
+"ToolExpansion.RecentColor"       = "Recent color";
+
+/* ── Widget Editor ───────────────────────────────────────────── */
+
+"WidgetEditor.AddItem"            = "Add Item";
+"WidgetEditor.AddItemHint"        = "Adds a new checklist item";
+"WidgetEditor.ItemChecked"        = "Checked";
+"WidgetEditor.ItemUnchecked"      = "Unchecked";
+"WidgetEditor.ToggleHint"         = "Toggles item completion";
+"WidgetEditor.Priority"           = "Priority: ";
+"WidgetEditor.ResetHint"          = "Resets progress to zero";
+"WidgetEditor.CompleteHint"       = "Sets progress to the goal";
+
+/* ── Bookmarks ───────────────────────────────────────────────── */
+
+"Bookmarks.Title"                 = "Bookmarks";
+"Bookmarks.NoBookmarks"           = "No Bookmarks";
+"Bookmarks.EmptyHint"             = "Tap the bookmark icon on any page to save it here.";
+"Bookmarks.RecentPages"           = "Recent Pages";
+"Bookmarks.NoHistory"             = "No history yet";
+"Bookmarks.Delete"                = "Delete";
+"Bookmarks.ChangeColor"           = "Change color tag";
+"Bookmarks.ColorHint"             = "Cycles through available bookmark colors";
+"Bookmarks.NavigateHint"          = "Navigates to this bookmarked page";
+
+/* ── Theme Picker ────────────────────────────────────────────── */
+
+"ThemePicker.Title"               = "Theme";
+"ThemePicker.AutoSchedule"        = "Auto Schedule";
+"ThemePicker.Day"                 = "Day";
+"ThemePicker.Night"               = "Night";
+
+/* ── Floating Toolbar ────────────────────────────────────────── */
+
+"ToolExpansion.TapToExpand"       = "Tap to expand tool options";
+"ToolExpansion.TapToActivate"     = "Tap to activate tool";

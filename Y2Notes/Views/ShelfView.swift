@@ -13,6 +13,8 @@ enum LibrarySection: Hashable {
     case notebook(UUID)
     case pdfLibrary
     case documentLibrary
+    /// Filter to notes that carry a specific tag.
+    case tag(String)
 }
 
 // MARK: - Cover gradients (SwiftUI extension on model type)
@@ -100,7 +102,7 @@ struct ShelfView: View {
             if case .pdfLibrary = selectedSection {
                 PDFLibraryView(selectedPDFID: $selectedPDFID)
             } else if case .documentLibrary = selectedSection {
-                DocumentLibraryView()
+                DocumentLibraryView(selectedDocumentID: $selectedDocumentID)
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
@@ -135,6 +137,9 @@ struct ShelfView: View {
                 selectedPDFID  = nil
             case .notebook:
                 // Notebook tabs are already opened in onOpenNotebook
+                selectedPDFID  = nil
+                selectedDocumentID = nil
+            case .tag:
                 selectedPDFID  = nil
                 selectedDocumentID = nil
             default:
@@ -199,6 +204,8 @@ private struct ShelfSidebarView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore:  PDFStore
     @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var toolStore: DrawingToolStore
+    @EnvironmentObject var themeStore: ThemeStore
     @Binding var selectedSection: LibrarySection?
 
     @State private var showNewNotebookSheet = false
@@ -207,6 +214,8 @@ private struct ShelfSidebarView: View {
     @State private var showLibrarySearch = false
     @State private var showSettings = false
     @State private var sidebarManageSectionsNotebook: Notebook?
+    @State private var showCommandPalette = false
+    @State private var showWritingInsights = false
 
     // Binding passed down from ShelfView so tapping a search result selects the note.
     var onSelectNote: (UUID) -> Void
@@ -235,6 +244,22 @@ private struct ShelfSidebarView: View {
                 Label("Documents", systemImage: "doc.fill")
                     .tag(LibrarySection.documentLibrary)
                     .badge(documentStore.documents.count)
+            }
+
+            // ── Tags ─────────────────────────────────────────────────────
+            if !noteStore.allTags.isEmpty {
+                Section("Tags") {
+                    ForEach(noteStore.allTags, id: \.self) { tag in
+                        Label {
+                            Text(tag)
+                        } icon: {
+                            Image(systemName: "tag.fill")
+                                .foregroundStyle(.tint)
+                        }
+                        .tag(LibrarySection.tag(tag))
+                        .badge(noteStore.notes(withTag: tag).count)
+                    }
+                }
             }
 
             // ── Study ─────────────────────────────────────────────────────
@@ -270,6 +295,18 @@ private struct ShelfSidebarView: View {
                             }
                         } label: {
                             Label("Change Cover", systemImage: "paintpalette")
+                        }
+
+                        Menu {
+                            ForEach(CoverTexture.allCases) { tex in
+                                Button {
+                                    noteStore.updateNotebookTexture(id: notebook.id, texture: tex)
+                                } label: {
+                                    Label(tex.displayName, systemImage: tex.systemImage)
+                                }
+                            }
+                        } label: {
+                            Label("Cover Texture", systemImage: "rectangle.pattern.checkered")
                         }
 
                         Button {
@@ -316,6 +353,16 @@ private struct ShelfSidebarView: View {
                         Image(systemName: "externaldrive.fill")
                     }
                 }
+                if syncEngine.authManager.isAuthenticated {
+                    NavigationLink(destination: GoogleDriveFileBrowserView()) {
+                        Label {
+                            Text("My Drive")
+                        } icon: {
+                            Image(systemName: "folder.fill")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
                 GoogleDriveSyncStatusView()
             }
         }
@@ -323,6 +370,13 @@ private struct ShelfSidebarView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
+                    Button {
+                        showCommandPalette = true
+                    } label: {
+                        Image(systemName: "command")
+                    }
+                    .accessibilityLabel("Command Palette")
+                    .keyboardShortcut("k", modifiers: .command)
                     Button {
                         showSettings = true
                     } label: {
@@ -375,6 +429,29 @@ private struct ShelfSidebarView: View {
         .sheet(item: $sidebarManageSectionsNotebook) { notebook in
             ManageSectionsSheet(notebookID: notebook.id)
         }
+        .sheet(isPresented: $showCommandPalette) {
+            CommandPaletteView(actions: buildQuickActions())
+        }
+        .sheet(isPresented: $showWritingInsights) {
+            WritingInsightsView()
+        }
+    }
+
+    // MARK: - Command Palette Actions
+
+    private func buildQuickActions() -> [QuickAction] {
+        QuickActionRegistry.actions(
+            onNewNote: { noteStore.addNote() },
+            onNewNotebook: { showNewNotebookSheet = true },
+            onOpenSettings: { showSettings = true },
+            onOpenSearch: { showLibrarySearch = true },
+            onOpenStudy: { selectedSection = .allNotes },
+            onToggleFocusMode: { toolStore.isFocusModeActive.toggle() },
+            onToggleMagicMode: { toolStore.isMagicModeActive.toggle() },
+            onToggleStudyMode: { toolStore.isStudyModeActive.toggle() },
+            onCycleTheme: { themeStore.cycleToNext() },
+            onShowInsights: { showWritingInsights = true }
+        )
     }
 }
 
@@ -387,16 +464,32 @@ private struct NotebookSidebarRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // Mini cover swatch
-            RoundedRectangle(cornerRadius: 5)
-                .fill(notebook.cover.gradient)
-                .frame(width: 28, height: 36)
-                .overlay(
-                    Image(systemName: "book.closed.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.85))
+            // Mini cover swatch with texture + custom photo
+            ZStack {
+                if let data = notebook.customCoverData,
+                   let uiImg = UIImage(data: data) {
+                    Image(uiImage: uiImg)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 28, height: 36)
+                        .clipped()
+                } else {
+                    notebook.cover.gradient
+                }
+
+                CoverTextureOverlay(
+                    texture: notebook.coverTexture,
+                    size: CGSize(width: 28, height: 36),
+                    intensity: 0.7
                 )
-                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .frame(width: 28, height: 36)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(notebook.name)
@@ -424,6 +517,7 @@ struct NoteGridView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore: PDFStore
     @EnvironmentObject var documentStore: DocumentStore
+    @Environment(TabWorkspaceStore.self) private var tabSession
     let section: LibrarySection
     @Binding var selectedNoteID: UUID?
     /// Called when the user taps a notebook cover in the shelf row.
@@ -446,6 +540,7 @@ struct NoteGridView: View {
     @State private var showDocImporter = false
     @State private var showPDFImporter = false
     @State private var versionHistoryNote: Note?
+    @State private var tagPickerNote: Note?
 
     /// All notes for non-notebook views (flat).
     private var notes: [Note] {
@@ -458,6 +553,8 @@ struct NoteGridView: View {
             return noteStore.favoritedNotes
         case .notebook(let id):
             return noteStore.notes(inNotebook: id).sorted { $0.modifiedAt > $1.modifiedAt }
+        case .tag(let tag):
+            return noteStore.notes(withTag: tag).sorted { $0.modifiedAt > $1.modifiedAt }
         case .pdfLibrary:
             return []
         case .documentLibrary:
@@ -489,6 +586,7 @@ struct NoteGridView: View {
         case .favorites:          return "Favorites"
         case .notebook(let id):
             return noteStore.notebooks.first { $0.id == id }?.name ?? "Notebook"
+        case .tag(let tag):       return "#\(tag)"
         case .pdfLibrary:         return "PDF Documents"
         case .documentLibrary:    return "Documents"
         }
@@ -519,7 +617,11 @@ struct NoteGridView: View {
             }
             if let nb = notebookForSection {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    NotebookCoverBadge(cover: nb.cover)
+                    NotebookCoverBadge(
+                        cover: nb.cover,
+                        customCoverData: nb.customCoverData,
+                        coverTexture: nb.coverTexture
+                    )
                 }
             }
         }
@@ -539,6 +641,12 @@ struct NoteGridView: View {
             VersionHistoryView(noteID: note.id)
                 .environmentObject(noteStore)
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $tagPickerNote) { note in
+            TagPickerSheet(note: note)
+                .environmentObject(noteStore)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showManageSections) {
             if let nbID = notebookIDForSection {
@@ -590,7 +698,13 @@ struct NoteGridView: View {
             allowsMultipleSelection: false
         ) { result in
             if case .success(let urls) = result, let url = urls.first {
-                pdfStore.importPDF(from: url)
+                if let record = pdfStore.importPDF(from: url) {
+                    tabSession.openTab(
+                        .pdf(id: record.id),
+                        displayName: record.title,
+                        accentColor: [0.8, 0.3, 0.3]
+                    )
+                }
             }
         }
         .fileImporter(
@@ -599,7 +713,13 @@ struct NoteGridView: View {
             allowsMultipleSelection: false
         ) { result in
             if case .success(let urls) = result, let url = urls.first {
-                documentStore.importDocument(from: url)
+                if let doc = documentStore.importDocument(from: url) {
+                    tabSession.openTab(
+                        .document(id: doc.id),
+                        displayName: doc.displayName,
+                        accentColor: [0.3, 0.5, 0.7]
+                    )
+                }
             }
         }
     }
@@ -752,10 +872,12 @@ struct NoteGridView: View {
                         isCollapsed: collapsedSections.contains(Self.unsectionedSentinel),
                         systemImage: "tray",
                         onToggle: {
-                            if collapsedSections.contains(Self.unsectionedSentinel) {
-                                collapsedSections.remove(Self.unsectionedSentinel)
-                            } else {
-                                collapsedSections.insert(Self.unsectionedSentinel)
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                if collapsedSections.contains(Self.unsectionedSentinel) {
+                                    collapsedSections.remove(Self.unsectionedSentinel)
+                                } else {
+                                    collapsedSections.insert(Self.unsectionedSentinel)
+                                }
                             }
                         }
                     )
@@ -772,6 +894,7 @@ struct NoteGridView: View {
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
 
@@ -798,10 +921,12 @@ struct NoteGridView: View {
                             isCollapsed: collapsedSections.contains(nbSection.id),
                             systemImage: "folder.fill",
                             onToggle: {
-                                if collapsedSections.contains(nbSection.id) {
-                                    collapsedSections.remove(nbSection.id)
-                                } else {
-                                    collapsedSections.insert(nbSection.id)
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    if collapsedSections.contains(nbSection.id) {
+                                        collapsedSections.remove(nbSection.id)
+                                    } else {
+                                        collapsedSections.insert(nbSection.id)
+                                    }
                                 }
                             }
                         )
@@ -830,15 +955,17 @@ struct NoteGridView: View {
 
                         if !collapsedSections.contains(nbSection.id) {
                             if sectionNotes.isEmpty {
-                                HStack {
-                                    Spacer()
+                                VStack(spacing: 8) {
+                                    Image(systemName: "doc.text")
+                                        .font(.system(size: 28, weight: .ultraLight))
+                                        .foregroundStyle(.quaternary)
                                     Text("No notes in this section")
                                         .font(.callout)
                                         .foregroundStyle(.tertiary)
-                                    Spacer()
                                 }
-                                .padding(.vertical, 16)
-                                .padding(.horizontal, 20)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             } else {
                                 LazyVGrid(columns: columns, spacing: 16) {
                                     ForEach(sectionNotes) { note in
@@ -849,6 +976,7 @@ struct NoteGridView: View {
                                 }
                                 .padding(.horizontal, 20)
                                 .padding(.top, 12)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             }
                         }
                     }
@@ -870,6 +998,7 @@ struct NoteGridView: View {
         }
 
         Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             noteStore.toggleFavorite(id: note.id)
         } label: {
             Label(
@@ -929,6 +1058,46 @@ struct NoteGridView: View {
 
         Divider()
 
+        // ── Tags & Colour Label ───────────────────────────────────────────
+        Button {
+            tagPickerNote = note
+        } label: {
+            Label("Tags…", systemImage: "tag")
+        }
+
+        Menu {
+            // Clear label
+            if note.colorLabel != nil {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    noteStore.updateColorLabel(for: note.id, colorLabel: nil)
+                } label: {
+                    Label("None", systemImage: "xmark.circle")
+                }
+                Divider()
+            }
+            ForEach(NoteColorLabel.allCases) { label in
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    noteStore.updateColorLabel(
+                        for: note.id,
+                        colorLabel: note.colorLabel == label ? nil : label
+                    )
+                } label: {
+                    HStack {
+                        Text(label.displayName)
+                        if note.colorLabel == label {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label("Color Label", systemImage: "circle.fill")
+        }
+
+        Divider()
+
         Button {
             versionHistoryNote = note
         } label: {
@@ -938,6 +1107,7 @@ struct NoteGridView: View {
         Divider()
 
         Button(role: .destructive) {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
             if selectedNoteID == note.id { selectedNoteID = nil }
             noteStore.deleteNotes(ids: [note.id])
         } label: {
@@ -948,6 +1118,7 @@ struct NoteGridView: View {
     /// Quick Note — creates a note instantly with the notebook's paper settings (or blank for unfiled).
     /// GoodNotes equivalent: "Quick Note" from the "+" menu.
     private func quickNote() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         let nbID = notebookIDForSection
         // Inherit paper settings from the notebook when inside one.
         let nb = nbID.flatMap { id in noteStore.notebooks.first { $0.id == id } }
@@ -1012,6 +1183,7 @@ struct NoteGridView: View {
         case .recents:   return "clock"
         case .favorites: return "star"
         case .notebook:  return "book.closed"
+        case .tag:       return "tag"
         case .pdfLibrary: return "doc.richtext"
         case .documentLibrary: return "doc.fill"
         }
@@ -1023,6 +1195,7 @@ struct NoteGridView: View {
         case .recents:   return "No Recent Notes"
         case .favorites: return "No Favorites Yet"
         case .notebook:  return "Empty Notebook"
+        case .tag(let t): return "No Notes Tagged with "#\(t)""
         case .pdfLibrary: return "No PDFs Yet"
         case .documentLibrary: return "No Documents Yet"
         }
@@ -1034,6 +1207,7 @@ struct NoteGridView: View {
         case .recents:   return "Notes you open recently will appear here."
         case .favorites: return "Tap ★ in a note's menu to collect favorites here."
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
+        case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
         case .documentLibrary: return "Import a document to get started."
         }
@@ -1303,17 +1477,61 @@ private struct ManageSectionsSheet: View {
 
 private struct NotebookCoverBadge: View {
     let cover: NotebookCover
+    var customCoverData: Data?
+    var coverTexture: CoverTexture = .smooth
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(cover.gradient)
-            .frame(width: 22, height: 28)
-            .overlay(
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.85))
+        ZStack {
+            if let data = customCoverData,
+               let uiImg = UIImage(data: data) {
+                Image(uiImage: uiImg)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 22, height: 28)
+                    .clipped()
+            } else {
+                cover.gradient
+            }
+
+            CoverTextureOverlay(
+                texture: coverTexture,
+                size: CGSize(width: 22, height: 28),
+                intensity: 0.7
             )
-            .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .frame(width: 22, height: 28)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+    }
+}
+
+// MARK: - Shimmer loading placeholder
+
+private struct ShimmerView: View {
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(uiColor: .systemFill)
+                LinearGradient(
+                    colors: [.clear, Color(uiColor: .secondarySystemBackground).opacity(0.55), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: geo.size.width * 0.55)
+                .offset(x: (geo.size.width * 1.55) * phase - geo.size.width * 0.28)
+            }
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
+                phase = 1
+            }
+        }
     }
 }
 
@@ -1324,6 +1542,8 @@ private struct NoteCardView: View {
     let isSelected: Bool
 
     @State private var thumbnail: UIImage?
+    @GestureState private var isPressing: Bool = false
+    @State private var selectionFeedback = UISelectionFeedbackGenerator()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1341,12 +1561,33 @@ private struct NoteCardView: View {
                         .font(.system(size: 30, weight: .ultraLight))
                         .foregroundStyle(.quaternary)
                 } else {
-                    ProgressView()
-                        .scaleEffect(0.75)
+                    ShimmerView()
+                }
+
+                // Color label stripe — top-right corner dot
+                if let label = note.colorLabel {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Circle()
+                                .fill(label.color)
+                                .frame(width: 11, height: 11)
+                                .shadow(color: label.color.opacity(0.5), radius: 3, y: 1)
+                                .padding(8)
+                        }
+                        Spacer()
+                    }
                 }
             }
             .frame(height: 130)
             .frame(maxWidth: .infinity)
+
+            // Color label bar — bottom of the thumbnail area
+            if let label = note.colorLabel {
+                label.color
+                    .frame(height: 3)
+                    .frame(maxWidth: .infinity)
+            }
 
             Divider()
 
@@ -1367,6 +1608,12 @@ private struct NoteCardView: View {
                 Text(note.modifiedAt, style: .relative)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+
+                // Tag chips (up to 2, then overflow count)
+                if !note.tags.isEmpty {
+                    TagChipsRow(tags: note.tags, maxVisible: 2)
+                        .padding(.top, 2)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -1380,7 +1627,20 @@ private struct NoteCardView: View {
                     lineWidth: isSelected ? 2 : 0.5
                 )
         )
-        .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
+        .shadow(
+            color: isSelected ? Color.accentColor.opacity(0.28) : .black.opacity(0.06),
+            radius: isSelected ? 10 : 5,
+            y: isSelected ? 0 : 2
+        )
+        .scaleEffect(isPressing ? 0.95 : (isSelected ? 1.02 : 1.0))
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressing)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressing) { _, state, _ in state = true }
+                .onEnded { _ in selectionFeedback.selectionChanged() }
+        )
+        .onAppear { selectionFeedback.prepare() }
         .task(id: note.drawingData) {
             thumbnail = await makeThumbnail(from: note.drawingData)
         }
@@ -1398,23 +1658,77 @@ private struct NoteCardView: View {
     }
 }
 
+// MARK: - Tag chips row
+
+/// Renders up to `maxVisible` tag pills and an overflow "+N" chip.
+private struct TagChipsRow: View {
+    let tags: [String]
+    var maxVisible: Int = 3
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(tags.prefix(maxVisible), id: \.self) { tag in
+                Text("#\(tag)")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.tint)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(.tint.opacity(0.10), in: Capsule())
+                    .lineLimit(1)
+            }
+            if tags.count > maxVisible {
+                Text("+\(tags.count - maxVisible)")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color(uiColor: .secondaryLabel).opacity(0.10), in: Capsule())
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
 // MARK: - Notebook cover card (shelf display)
 
 /// Rich notebook cover card that looks like a physical notebook on a shelf.
-/// Shows the gradient cover, notebook name, page count, and a subtle 3D effect.
+/// Shows the gradient cover with texture overlay, embossed title, page edge
+/// effect, and a subtle 3D perspective tilt.
 private struct NotebookCoverCard: View {
     let notebook: Notebook
     let pageCount: Int
 
     @State private var isPressed = false
 
+    private let coverWidth: CGFloat = 120
+    private let coverHeight: CGFloat = 160
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Book cover
-            ZStack(alignment: .bottomLeading) {
-                // Main cover with gradient
-                notebook.cover.gradient
-                    .frame(width: 120, height: 160)
+            HStack(alignment: .top, spacing: 0) {
+                // Page edge (visible pages on the right of the book)
+                CoverPageEdge(height: coverHeight)
+                    .offset(x: 2)
+
+                // Book cover
+                ZStack(alignment: .bottomLeading) {
+                    // Main cover surface
+                    coverSurface
+                        .frame(width: coverWidth, height: coverHeight)
+                        .clipShape(
+                            .rect(
+                                topLeadingRadius: 4,
+                                bottomLeadingRadius: 4,
+                                bottomTrailingRadius: 10,
+                                topTrailingRadius: 10
+                            )
+                        )
+
+                    // Texture overlay
+                    CoverTextureOverlay(
+                        texture: notebook.coverTexture,
+                        size: CGSize(width: coverWidth, height: coverHeight)
+                    )
                     .clipShape(
                         .rect(
                             topLeadingRadius: 4,
@@ -1424,28 +1738,48 @@ private struct NotebookCoverCard: View {
                         )
                     )
 
-                // Spine highlight (left edge)
-                Rectangle()
-                    .fill(.white.opacity(0.15))
-                    .frame(width: 6)
+                    // Spine with stitching
+                    ZStack {
+                        LinearGradient(
+                            colors: [.white.opacity(0.18), .black.opacity(0.06), .clear],
+                            startPoint: .leading,
+                            endPoint: .init(x: 0.15, y: 0)
+                        )
+                        .frame(width: coverWidth, height: coverHeight)
+
+                        CoverSpineStitching(height: coverHeight)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 1)
+                    }
                     .clipShape(
                         .rect(topLeadingRadius: 4, bottomLeadingRadius: 4)
                     )
+                    .frame(width: coverWidth, height: coverHeight)
 
-                // Book icon + page count
-                VStack(alignment: .leading, spacing: 4) {
-                    Spacer()
-                    Image(systemName: "book.fill")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
-                    Text("\(pageCount) page\(pageCount == 1 ? "" : "s")")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.6))
+                    // Book icon + page count + embossed title
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Embossed title at top
+                        if !notebook.name.isEmpty {
+                            CoverEmbossedTitle(text: notebook.name, maxWidth: coverWidth - 20)
+                                .padding(.top, 14)
+                                .padding(.horizontal, 10)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text("\(pageCount) page\(pageCount == 1 ? "" : "s")")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .padding(10)
                 }
-                .padding(10)
             }
             // 3D book shadow
-            .shadow(color: .black.opacity(0.18), radius: 6, x: 2, y: 4)
+            .shadow(color: .black.opacity(0.22), radius: 8, x: 2, y: 5)
             .shadow(color: .black.opacity(0.06), radius: 1, x: 1, y: 1)
             // Subtle 3D perspective tilt
             .rotation3DEffect(
@@ -1461,13 +1795,27 @@ private struct NotebookCoverCard: View {
             Text(notebook.name)
                 .font(.caption.weight(.medium))
                 .lineLimit(1)
-                .frame(width: 120, alignment: .leading)
+                .frame(width: coverWidth + 8, alignment: .leading)
                 .padding(.top, 6)
                 .foregroundStyle(.primary)
         }
         .onLongPressGesture(minimumDuration: 0.5, pressing: { pressing in
             isPressed = pressing
         }, perform: {})
+    }
+
+    @ViewBuilder
+    private var coverSurface: some View {
+        if let data = notebook.customCoverData,
+           let uiImg = UIImage(data: data) {
+            Image(uiImage: uiImg)
+                .resizable()
+                .scaledToFill()
+                .frame(width: coverWidth, height: coverHeight)
+                .clipped()
+        } else {
+            notebook.cover.gradient
+        }
     }
 }
 
@@ -1678,6 +2026,132 @@ private struct ShelfDetailPlaceholder: View {
     }
 }
 
+
+
+// MARK: - Tag picker sheet
+
+/// GoodNotes / Apple Notes–style tag picker sheet.
+/// Lets the user toggle existing tags on/off and create new tags for a note.
+private struct TagPickerSheet: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @Environment(\.dismiss) private var dismiss
+    let note: Note
+
+    @State private var newTagText = ""
+    @State private var searchText = ""
+
+    private var noteTags: Set<String> {
+        Set(noteStore.notes.first(where: { $0.id == note.id })?.tags ?? [])
+    }
+
+    private var filteredTags: [String] {
+        if searchText.isEmpty { return noteStore.allTags }
+        return noteStore.allTags.filter { $0.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // ── New tag ──────────────────────────────────────────
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(.tint)
+                            .font(.body)
+                        TextField("New tag…", text: $newTagText)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .submitLabel(.done)
+                            .onSubmit { commitNewTag() }
+                        if !newTagText.isEmpty {
+                            Button {
+                                commitNewTag()
+                            } label: {
+                                Text("Add")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.tint)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } header: {
+                    Text("Create New Tag")
+                }
+
+                // ── Existing tags ─────────────────────────────────────
+                if !noteStore.allTags.isEmpty {
+                    Section {
+                        ForEach(filteredTags, id: \.self) { tag in
+                            let isActive = noteTags.contains(tag)
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                if isActive {
+                                    noteStore.removeTag(tag, from: note.id)
+                                } else {
+                                    noteStore.addTag(tag, to: note.id)
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(isActive ? .tint : .secondary)
+                                        .font(.body)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("#\(tag)")
+                                            .font(.body)
+                                            .foregroundStyle(.primary)
+                                        Text("\(noteStore.notes(withTag: tag).count) note\(noteStore.notes(withTag: tag).count == 1 ? "" : "s")")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        Text("All Tags")
+                    }
+                } else if newTagText.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Image(systemName: "tag")
+                                    .font(.system(size: 32, weight: .ultraLight))
+                                    .foregroundStyle(.tertiary)
+                                Text("No Tags Yet")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                Text("Type a name above to create your first tag.")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.vertical, 16)
+                            Spacer()
+                        }
+                    }
+                }
+            }
+            .searchable(text: $searchText, prompt: "Search tags")
+            .navigationTitle("Tags")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func commitNewTag() {
+        let trimmed = newTagText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        noteStore.addTag(trimmed, to: note.id)
+        newTagText = ""
+    }
+}
 
 // MARK: - Move Note sheet
 

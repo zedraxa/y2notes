@@ -164,6 +164,27 @@ struct WritingEffectConfig: Codable, Equatable {
     /// Gradient ink mapping source.
     var gradientSource: GradientSource = .velocity
 
+    // ── Pen sub-type physics ──────────────────────────────────────────────────
+
+    /// Pressure response curve.  Overrides `PressureSpreadParams.defaultCurveExponent`
+    /// when the pressure-spread core effect is enabled.
+    var pressureCurve: PressureCurvePreset = .balanced
+
+    /// Ink flow characteristics derived from the active pen sub-type.
+    /// Scales micro-texture, opacity variance, velocity ceiling, and pooling.
+    var inkFlow: InkFlowParams = .default
+
+    /// When `true`, a short fade-in/fade-out overlay is rendered at the stroke
+    /// start and end, simulating ink loading and taper.  Requires `.standard`
+    /// tier minimum.  Disabled automatically when `ReduceMotion` is on.
+    var strokeTaperEnabled: Bool = false
+
+    /// When `true` and `inkFlow.poolingStrength > 0`, the glow layer expands
+    /// briefly when the nib velocity drops near zero, simulating ink pooling.
+    /// Only visible when `glowPenEnabled` is also `true`, or automatically
+    /// activated by the pipeline when poolingStrength > 0.
+    var inkPoolingEnabled: Bool = false
+
     // MARK: - Convenience
 
     /// Whether any core effect is active.
@@ -175,6 +196,7 @@ struct WritingEffectConfig: Codable, Equatable {
     /// Whether any advanced effect is active.
     var hasAdvancedEffects: Bool {
         glowPenEnabled || neonInkEnabled || gradientInkEnabled || inkTrailFadeEnabled
+            || strokeTaperEnabled || inkPoolingEnabled
     }
 
     /// Returns the set of active core effects for iteration.
@@ -205,6 +227,11 @@ struct WritingEffectConfig: Codable, Equatable {
         if !AdvancedWritingEffect.neonInk.isSupported(on: tier)      { copy.neonInkEnabled = false }
         if !AdvancedWritingEffect.gradientInk.isSupported(on: tier)  { copy.gradientInkEnabled = false }
         if !AdvancedWritingEffect.inkTrailFade.isSupported(on: tier) { copy.inkTrailFadeEnabled = false }
+        // Taper and pooling overlays require at least .standard to keep 120 fps headroom.
+        if tier < .standard {
+            copy.strokeTaperEnabled = false
+            copy.inkPoolingEnabled  = false
+        }
         return copy
     }
 
@@ -221,6 +248,8 @@ struct WritingEffectConfig: Codable, Equatable {
             copy.neonInkEnabled      = false
             copy.gradientInkEnabled  = false
             copy.inkTrailFadeEnabled = false
+            copy.strokeTaperEnabled  = false
+            copy.inkPoolingEnabled   = false
         }
         if intensity == .minimal {
             copy.microTextureEnabled       = false
@@ -306,8 +335,9 @@ enum PressureSpreadParams {
     static let minMultiplier: CGFloat = 1.0
     /// Maximum width multiplier at full force.
     static let maxMultiplier: CGFloat = 2.4
-    /// Response curve exponent (< 1 = more sensitive at light pressure).
-    static let curveExponent: CGFloat = 0.7
+    /// Default response curve exponent (< 1 = more sensitive at light pressure).
+    /// Overridden at runtime by `WritingEffectConfig.pressureCurve`.
+    static let defaultCurveExponent: CGFloat = 0.7
     /// Force normalisation ceiling (points above this are clamped to 1.0).
     static let forceCeiling: CGFloat = 4.0
 }
@@ -396,4 +426,223 @@ enum InkTrailFadeParams {
     static let startOpacity: CGFloat = 0.4
     /// Prune interval — how often expired segments are removed (seconds).
     static let pruneInterval: TimeInterval = 0.3
+}
+
+// MARK: - Pressure Curve Preset
+
+/// User-selectable pressure response presets that control how hard the user
+/// needs to press before ink reaches full width.
+///
+/// Each case maps to a curve exponent used in the PressureSpread core effect.
+/// `flat` disables all pressure variation — useful for technical / drafting work.
+enum PressureCurvePreset: String, CaseIterable, Codable {
+    /// Very sensitive — a light touch already produces thick strokes.
+    case light
+    /// Natural, default feel — moderate responsiveness.
+    case balanced
+    /// Requires deliberate pressure for maximum width.
+    case firm
+    /// No pressure variation — constant width regardless of Pencil force.
+    case flat
+
+    /// Response curve exponent.  Applied to the normalised Apple Pencil force
+    /// value before computing the width multiplier.  Values < 1 boost
+    /// sensitivity at light pressures; values > 1 require heavier contact.
+    /// A value of 0 (flat) is treated specially: pressure spread is disabled.
+    var curveExponent: CGFloat {
+        switch self {
+        case .light:    return 0.4
+        case .balanced: return 0.7
+        case .firm:     return 1.2
+        case .flat:     return 0.0
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .light:    return "Light"
+        case .balanced: return "Balanced"
+        case .firm:     return "Firm"
+        case .flat:     return "Flat"
+        }
+    }
+
+    var tagline: String {
+        switch self {
+        case .light:    return "Very sensitive to light pressure"
+        case .balanced: return "Natural, default feel"
+        case .firm:     return "Requires deliberate pressure"
+        case .flat:     return "Constant width — no variation"
+        }
+    }
+}
+
+// MARK: - Ink Fluid Physics Parameters
+
+/// Physical ink-flow parameters that simulate fluid dynamics on paper.
+///
+/// These parameters model real ink behaviour: ink pools when the nib moves
+/// slowly (accumulating pigment), thins when the nib moves fast (stretching
+/// the fluid), and responds to surface tension and viscosity.
+///
+/// The engine evaluates these per stroke segment (< 0.1 ms) to modulate
+/// width, opacity, and colour density.  All parameters are normalised to
+/// 0…1 ranges where applicable.
+enum InkFluidPhysicsParams {
+    // ── Pooling (ink accumulates at low velocity) ────────────────────────
+
+    /// Velocity (points/s) below which ink begins to pool.
+    static let poolingVelocityThreshold: CGFloat = 150.0
+    /// Maximum width multiplier from pooling (at zero velocity).
+    static let poolingMaxWidthMultiplier: CGFloat = 1.6
+    /// Maximum opacity boost from pooling (ink darkens when pooled).
+    static let poolingMaxOpacityBoost: CGFloat = 0.12
+    /// Response curve exponent for pooling (< 1 = more sensitive near threshold).
+    static let poolingCurveExponent: CGFloat = 0.8
+
+    // ── Thinning (ink stretches at high velocity) ────────────────────────
+
+    /// Velocity (points/s) above which ink begins to thin.
+    static let thinningVelocityThreshold: CGFloat = 800.0
+    /// Minimum width factor from thinning (at maximum velocity).
+    static let thinningMinWidthFactor: CGFloat = 0.45
+    /// Response curve exponent for thinning (> 1 = gradual onset, sharp at high speed).
+    static let thinningCurveExponent: CGFloat = 1.4
+
+    // ── Surface tension (ink beads at stroke start/end) ──────────────────
+
+    /// Width multiplier at stroke start (ink beads before flowing).
+    static let startBeadMultiplier: CGFloat = 1.25
+    /// Number of points over which the start bead fades to normal width.
+    static let startBeadFadePoints: Int = 6
+    /// Width multiplier at stroke end (ink beads as nib lifts).
+    static let endBeadMultiplier: CGFloat = 1.15
+    /// Number of points over which the end bead builds up.
+    static let endBeadRampPoints: Int = 4
+
+    // ── Viscosity response ───────────────────────────────────────────────
+
+    /// How much `InkMaterialTraits.viscosity` amplifies pooling effects.
+    /// High viscosity → more pronounced pooling (thick, gloopy ink).
+    static let viscosityPoolingScale: CGFloat = 1.5
+    /// How much viscosity dampens thinning.
+    /// High viscosity → ink resists thinning (stays thicker at speed).
+    static let viscosityThinningDamping: CGFloat = 0.6
+}
+
+// MARK: - Pressure Response Curve
+
+/// Multi-segment pressure response curve for non-linear pencil force mapping.
+///
+/// Instead of a single power-curve exponent, this provides a three-segment
+/// piecewise-linear mapping that gives:
+/// - **Light touch zone** (0…0.2 force): expanded sensitivity for fine detail
+/// - **Normal zone** (0.2…0.7 force): linear response for everyday writing
+/// - **Heavy zone** (0.7…1.0 force): compressed range to avoid jumps
+///
+/// The engine evaluates this in < 0.05 ms via two comparisons + lerp.
+enum PressureResponseCurve {
+    // ── Breakpoints (normalised force 0…1) ───────────────────────────────
+
+    /// Force boundary between light and normal zones.
+    static let lightNormalBreak: CGFloat = 0.20
+    /// Force boundary between normal and heavy zones.
+    static let normalHeavyBreak: CGFloat = 0.70
+
+    // ── Output multipliers at each breakpoint ────────────────────────────
+
+    /// Width multiplier at zero force.
+    static let outputAtZero: CGFloat = 0.85
+    /// Width multiplier at the light/normal boundary.
+    static let outputAtLightNormal: CGFloat = 1.10
+    /// Width multiplier at the normal/heavy boundary.
+    static let outputAtNormalHeavy: CGFloat = 1.80
+    /// Width multiplier at maximum force.
+    static let outputAtMax: CGFloat = 2.40
+
+    /// Evaluates the pressure curve for a normalised force value (0…1).
+    ///
+    /// - Parameter force: Normalised Apple Pencil force (0…1).
+    /// - Returns: Width multiplier.
+    static func evaluate(force: CGFloat) -> CGFloat {
+        let f = min(max(force, 0), 1)
+        if f <= lightNormalBreak {
+            let t = f / lightNormalBreak
+            return outputAtZero + t * (outputAtLightNormal - outputAtZero)
+        } else if f <= normalHeavyBreak {
+            let t = (f - lightNormalBreak) / (normalHeavyBreak - lightNormalBreak)
+            return outputAtLightNormal + t * (outputAtNormalHeavy - outputAtLightNormal)
+        } else {
+            let t = (f - normalHeavyBreak) / (1.0 - normalHeavyBreak)
+            return outputAtNormalHeavy + t * (outputAtMax - outputAtNormalHeavy)
+        }
+    }
+}
+
+// MARK: - Ink Flow Parameters
+
+/// Per-pen-sub-type ink flow characteristics that scale core writing effects.
+///
+/// These parameters do not add new overlay layers — they modulate the intensity
+/// of existing core effects (micro texture, opacity fluctuation, velocity
+/// thickness) and govern optional pooling / taper overlays in
+/// `WritingEffectsPipeline`.
+struct InkFlowParams: Codable, Equatable {
+
+    /// Scales the micro-texture grain relative to its base opacity.
+    /// Values > 1 increase texture (e.g. sketchy pen); < 1 clean it up (gel).
+    var microTextureMultiplier: CGFloat
+
+    /// Scales per-segment opacity variance relative to `OpacityFluctuationParams.maxDeviation`.
+    /// 0 = perfectly uniform; 3 = exaggerated organic variation.
+    var opacityVarianceMultiplier: CGFloat
+
+    /// Velocity ceiling override (pts/s) for the VelocityThickness core effect.
+    /// Lower values cause strokes to thin out at slower speeds.
+    var velocityCeiling: CGFloat
+
+    /// Ink pooling glow expansion factor when the nib slows to near-zero.
+    /// 0 = no visible pooling; 1 = large glow bloom.  Only has visible effect
+    /// when `WritingEffectConfig.inkPoolingEnabled` is `true`.
+    var poolingStrength: CGFloat
+
+    init(
+        microTextureMultiplier: CGFloat  = 1.0,
+        opacityVarianceMultiplier: CGFloat = 1.0,
+        velocityCeiling: CGFloat         = VelocityThicknessParams.velocityCeiling,
+        poolingStrength: CGFloat         = 0.0
+    ) {
+        self.microTextureMultiplier     = microTextureMultiplier
+        self.opacityVarianceMultiplier  = opacityVarianceMultiplier
+        self.velocityCeiling            = velocityCeiling
+        self.poolingStrength            = poolingStrength
+    }
+
+    /// Default flow — matches ballpoint / balanced behaviour.
+    static let `default` = InkFlowParams()
+}
+
+// MARK: - Velocity-Aligned Texture Rotation
+
+/// Parameters for aligning the micro-texture grain with stroke direction.
+///
+/// When enabled, the 64×64 grain tile rotates to match the writing direction,
+/// creating more realistic paper-fibre interaction — ink picks up grain
+/// parallel to the stroke, not randomly.
+enum VelocityAlignmentParams {
+    /// Whether velocity alignment is enabled.  Disabled by default for
+    /// backward compatibility; can be enabled per-preset.
+    static let enabledByDefault: Bool = false
+
+    /// Smoothing factor for direction angle (0…1, higher = more responsive).
+    /// Lower values prevent jitter when the nib changes direction.
+    static let angleSmoothingFactor: CGFloat = 0.25
+
+    /// Minimum velocity (points/s) before alignment activates.
+    /// Below this the texture stays at its previous angle.
+    static let minimumVelocity: CGFloat = 50.0
+
+    /// How much the grain rotates relative to the stroke angle.
+    /// 1.0 = fully aligned, 0.5 = half-aligned, 0 = no rotation.
+    static let alignmentStrength: CGFloat = 0.75
 }

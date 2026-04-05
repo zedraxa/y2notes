@@ -59,11 +59,47 @@ enum NotebookCover: String, CaseIterable, Codable {
     }
 }
 
+// MARK: - Cover texture
+
+/// Physical surface texture applied on top of the cover gradient or photo.
+/// Each texture draws a procedural pattern via SwiftUI Canvas — no bitmap assets.
+enum CoverTexture: String, CaseIterable, Identifiable, Codable {
+    case smooth
+    case leather
+    case linen
+    case canvas
+    case cloth
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .smooth:  return "Smooth"
+        case .leather: return "Leather"
+        case .linen:   return "Linen"
+        case .canvas:  return "Canvas"
+        case .cloth:   return "Cloth"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .smooth:  return "circle.fill"
+        case .leather: return "rectangle.pattern.checkered"
+        case .linen:   return "line.3.horizontal"
+        case .canvas:  return "square.grid.3x3.fill"
+        case .cloth:   return "rectangle.split.3x1"
+        }
+    }
+}
+
 // MARK: - Notebook model
 
 struct Notebook: Identifiable, Codable, Hashable {
     let id: UUID
     var name: String
+    /// Optional subtitle or tagline shown on the notebook cover page.
+    var description: String
     var createdAt: Date
     var modifiedAt: Date
     var cover: NotebookCover
@@ -81,10 +117,13 @@ struct Notebook: Identifiable, Codable, Hashable {
     var paperMaterial: PaperMaterial
     /// JPEG-compressed custom cover image chosen from the photo library. nil = use built-in gradient.
     var customCoverData: Data?
+    /// Physical surface texture rendered over the cover gradient or photo.
+    var coverTexture: CoverTexture
 
     init(
         id: UUID = UUID(),
         name: String,
+        description: String = "",
         createdAt: Date = Date(),
         modifiedAt: Date = Date(),
         cover: NotebookCover = .ocean,
@@ -93,10 +132,12 @@ struct Notebook: Identifiable, Codable, Hashable {
         orientation: PageOrientation = .portrait,
         defaultTheme: AppTheme? = nil,
         paperMaterial: PaperMaterial = .standard,
-        customCoverData: Data? = nil
+        customCoverData: Data? = nil,
+        coverTexture: CoverTexture = .smooth
     ) {
         self.id = id
         self.name = name
+        self.description = description
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
         self.cover = cover
@@ -106,19 +147,22 @@ struct Notebook: Identifiable, Codable, Hashable {
         self.defaultTheme = defaultTheme
         self.paperMaterial = paperMaterial
         self.customCoverData = customCoverData
+        self.coverTexture = coverTexture
     }
 
     // MARK: Codable — custom decoder for backward compatibility with saves that pre-date
-    // the pageType / pageSize / orientation / defaultTheme / paperMaterial / customCoverData fields.
+    // the pageType / pageSize / orientation / defaultTheme / paperMaterial / customCoverData / coverTexture fields.
     enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, modifiedAt, cover
+        case id, name, description, createdAt, modifiedAt, cover
         case pageType, pageSize, orientation, defaultTheme, paperMaterial, customCoverData
+        case coverTexture
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id              = try c.decode(UUID.self,          forKey: .id)
         name            = try c.decode(String.self,        forKey: .name)
+        description     = try c.decodeIfPresent(String.self,         forKey: .description)     ?? ""
         createdAt       = try c.decode(Date.self,          forKey: .createdAt)
         modifiedAt      = try c.decode(Date.self,          forKey: .modifiedAt)
         cover           = try c.decode(NotebookCover.self, forKey: .cover)
@@ -128,6 +172,7 @@ struct Notebook: Identifiable, Codable, Hashable {
         defaultTheme    = try c.decodeIfPresent(AppTheme.self,        forKey: .defaultTheme)
         paperMaterial   = try c.decodeIfPresent(PaperMaterial.self,   forKey: .paperMaterial) ?? .standard
         customCoverData = try c.decodeIfPresent(Data.self,            forKey: .customCoverData)
+        coverTexture    = try c.decodeIfPresent(CoverTexture.self,    forKey: .coverTexture)  ?? .smooth
     }
 
     // MARK: Hashable — identity only.

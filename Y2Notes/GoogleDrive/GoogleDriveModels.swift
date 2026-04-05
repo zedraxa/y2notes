@@ -100,6 +100,42 @@ struct OfflineOperation: Identifiable, Codable, Equatable {
     }
 }
 
+// MARK: - Storage quota
+
+/// Represents the user's Google Drive storage quota.
+struct DriveStorageQuota: Equatable {
+    /// Total storage limit in bytes (–1 if unlimited).
+    var limitBytes: Int64
+    /// Total bytes used across Drive, Gmail, and Photos.
+    var usageBytes: Int64
+    /// Bytes used specifically in Google Drive.
+    var usageInDriveBytes: Int64
+    /// Bytes used in Trash.
+    var usageInDriveTrashBytes: Int64
+
+    var usedFraction: Double {
+        guard limitBytes > 0 else { return 0 }
+        return Double(usageBytes) / Double(limitBytes)
+    }
+}
+
+// MARK: - Paged file listing
+
+/// A paginated result from the Drive Files API.
+struct DrivePagedFileList {
+    var files: [DriveFileMetadata]
+    /// Token for fetching the next page. `nil` when there are no more results.
+    var nextPageToken: String?
+}
+
+// MARK: - Breadcrumb entry
+
+/// A lightweight entry representing a folder in the navigation stack.
+struct DriveBreadcrumb: Identifiable, Equatable {
+    let id: String   // Drive folder ID
+    let name: String // Display name
+}
+
 // MARK: - Sync manifest
 
 /// Per-resource metadata that tracks the last synced version so the engine can

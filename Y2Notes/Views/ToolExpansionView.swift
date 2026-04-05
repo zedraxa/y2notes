@@ -19,6 +19,11 @@ struct ToolExpansionView: View {
 
     @State private var dismissTask: Task<Void, Never>?
 
+    // MARK: - Haptics
+
+    private let selectionFeedback = UISelectionFeedbackGenerator()
+    private let lightImpact = UIImpactFeedbackGenerator(style: .light)
+
     // MARK: - Color Binding
 
     private var colorBinding: Binding<Color> {
@@ -47,7 +52,8 @@ struct ToolExpansionView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
         .onAppear { resetTimeout() }
         .onDisappear { dismissTask?.cancel() }
     }
@@ -65,6 +71,11 @@ struct ToolExpansionView: View {
 
             // Opacity slider
             opacityRow
+
+            // Pen sub-type picker (only for the pen tool)
+            if expandedTool == .pen {
+                penSubTypeRow
+            }
         }
         .frame(maxWidth: 280)
     }
@@ -81,9 +92,11 @@ struct ToolExpansionView: View {
                             .strokeBorder(Color.accentColor, lineWidth: isSameColor(color, toolStore.activeColor) ? 2 : 0)
                     )
                     .onTapGesture {
+                        selectionFeedback.selectionChanged()
                         toolStore.activeColor = color
                         resetTimeout()
                     }
+                    .accessibilityLabel(NSLocalizedString("ToolExpansion.RecentColor", comment: "Recent colour swatch"))
             }
 
             Spacer(minLength: 4)
@@ -101,8 +114,13 @@ struct ToolExpansionView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Slider(value: $toolStore.activeWidth, in: 1...30, step: 0.5) { editing in
-                if !editing { resetTimeout() }
+                if !editing {
+                    lightImpact.impactOccurred(intensity: 0.4)
+                    resetTimeout()
+                }
             }
+            .accessibilityLabel(NSLocalizedString("ToolExpansion.Width", comment: "Stroke width slider"))
+            .accessibilityValue("\(String(format: "%.0f", toolStore.activeWidth)) pt")
             Text("\(String(format: "%.0f", toolStore.activeWidth))pt")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -117,8 +135,13 @@ struct ToolExpansionView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Slider(value: $toolStore.activeOpacity, in: 0.05...1.0, step: 0.05) { editing in
-                if !editing { resetTimeout() }
+                if !editing {
+                    lightImpact.impactOccurred(intensity: 0.4)
+                    resetTimeout()
+                }
             }
+            .accessibilityLabel(NSLocalizedString("ToolExpansion.Opacity", comment: "Opacity slider"))
+            .accessibilityValue("\(Int(toolStore.activeOpacity * 100))%")
             Text("\(Int(toolStore.activeOpacity * 100))%")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -126,32 +149,118 @@ struct ToolExpansionView: View {
         }
     }
 
+    @ViewBuilder
+    private var penSubTypeRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(NSLocalizedString("ToolExpansion.PenType", comment: "Pen type section header"))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.3)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(PenSubType.allCases) { sub in
+                        let isSelected = toolStore.activePenSubType == sub
+                        Button {
+                            selectionFeedback.selectionChanged()
+                            toolStore.activePenSubType = sub
+                            resetTimeout()
+                        } label: {
+                            VStack(spacing: 3) {
+                                Image(systemName: sub.systemImage)
+                                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                                    .frame(height: 16)
+                                Text(sub.displayName)
+                                    .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(
+                                isSelected
+                                    ? Color.accentColor.opacity(0.15)
+                                    : Color(.systemGray5)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .foregroundStyle(
+                                isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .strokeBorder(
+                                        isSelected ? Color.accentColor.opacity(0.5) : Color.clear,
+                                        lineWidth: 1
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(sub.displayName): \(sub.tagline)")
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Eraser Expansion
 
     @ViewBuilder
     private var eraserExpansion: some View {
-        HStack(spacing: 6) {
-            ForEach(EraserMode.allCases, id: \.rawValue) { mode in
-                let isSelected = toolStore.eraserMode == mode
-                Button {
-                    toolStore.eraserMode = mode
-                    resetTimeout()
-                } label: {
-                    Text(mode.displayName)
-                        .font(.caption.weight(isSelected ? .semibold : .regular))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+        VStack(alignment: .leading, spacing: 8) {
+            // Sub-type row
+            HStack(spacing: 6) {
+                ForEach(EraserSubType.allCases, id: \.rawValue) { sub in
+                    let isSelected = toolStore.eraserSubType == sub
+                    Button {
+                        selectionFeedback.selectionChanged()
+                        toolStore.eraserSubType = sub
+                        resetTimeout()
+                    } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: sub.systemImage)
+                                .font(.system(size: 13))
+                            Text(sub.displayName)
+                                .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
+                        }
+                        .frame(width: 50, height: 42)
                         .background(
                             isSelected
                                 ? Color.accentColor.opacity(0.15)
                                 : Color(.systemGray5)
                         )
-                        .clipShape(Capsule())
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+            }
+
+            // Width slider — only for pixel-mode sub-types
+            if toolStore.eraserSubType.supportsWidthAdjustment {
+                HStack(spacing: 6) {
+                    Image(systemName: "eraser")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Slider(
+                        value: $toolStore.eraserWidth,
+                        in: toolStore.eraserSubType.minWidth...toolStore.eraserSubType.maxWidth,
+                        step: 1
+                    ) { editing in
+                        if !editing {
+                            lightImpact.impactOccurred(intensity: 0.4)
+                            resetTimeout()
+                        }
+                    }
+                    .accessibilityLabel(NSLocalizedString("ToolExpansion.EraserWidth", comment: "Eraser width slider"))
+                    .accessibilityValue("\(Int(toolStore.eraserWidth)) pt")
+                    Text("\(Int(toolStore.eraserWidth))pt")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, alignment: .trailing)
+                }
             }
         }
+        .frame(maxWidth: 300)
     }
 
     // MARK: - Shape Expansion
@@ -162,6 +271,7 @@ struct ToolExpansionView: View {
             ForEach(ShapeType.allCases, id: \.rawValue) { shape in
                 let isSelected = toolStore.activeShapeType == shape
                 Button {
+                    selectionFeedback.selectionChanged()
                     toolStore.activeShapeType = shape
                     resetTimeout()
                 } label: {
@@ -177,6 +287,8 @@ struct ToolExpansionView: View {
                         .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(shape.displayName)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
     }

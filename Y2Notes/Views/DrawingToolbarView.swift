@@ -45,15 +45,20 @@ struct DrawingToolbarView: View {
             if toolStore.activeTool == .eraser {
                 rowDivider
                 eraserSubPicker
+                    .transition(.move(edge: .top).combined(with: .opacity))
             } else if toolStore.activeTool == .shape {
                 rowDivider
                 shapeSubPicker
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
             if !toolStore.presets.isEmpty {
                 rowDivider
                 presetsStrip
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toolStore.activeTool)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toolStore.presets.isEmpty)
         .background(.bar)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 12)
@@ -197,6 +202,9 @@ struct DrawingToolbarView: View {
     private func toolButton(_ tool: DrawingTool) -> some View {
         let isActive = toolStore.activeTool == tool
         Button {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.prepare()
+            impact.impactOccurred()
             toolStore.activeTool = tool
         } label: {
             Image(systemName: tool.systemImage)
@@ -253,6 +261,8 @@ struct DrawingToolbarView: View {
                         .foregroundStyle(.secondary)
                     Slider(value: $toolStore.activeWidth, in: 1...30, step: 0.5)
                         .frame(minWidth: 200)
+                        .accessibilityLabel("Stroke width")
+                        .accessibilityValue("\(String(format: "%.1f", toolStore.activeWidth)) points")
                     Text("30")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -275,6 +285,8 @@ struct DrawingToolbarView: View {
                         .foregroundStyle(.secondary)
                     Slider(value: $toolStore.activeOpacity, in: 0.05...1.0, step: 0.05)
                         .frame(minWidth: 200)
+                        .accessibilityLabel("Stroke opacity")
+                        .accessibilityValue("\(Int(toolStore.activeOpacity * 100)) percent")
                     Text("100%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -303,27 +315,33 @@ struct DrawingToolbarView: View {
 
     private var eraserSubPicker: some View {
         HStack(spacing: 6) {
-            Text("Mode:")
+            Text("Type:")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            ForEach(EraserMode.allCases, id: \.rawValue) { mode in
-                let isSelected = toolStore.eraserMode == mode
+            ForEach(EraserSubType.allCases, id: \.rawValue) { sub in
+                let isSelected = toolStore.eraserSubType == sub
                 Button {
-                    toolStore.eraserMode = mode
+                    toolStore.eraserSubType = sub
                 } label: {
-                    Text(mode.displayName)
-                        .font(.caption.weight(isSelected ? .semibold : .regular))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(
-                            isSelected
-                                ? Color.accentColor.opacity(0.15)
-                                : Color(.systemGray5)
-                        )
-                        .clipShape(Capsule())
-                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+                    HStack(spacing: 4) {
+                        Image(systemName: sub.systemImage)
+                            .font(.caption2)
+                        Text(sub.displayName)
+                            .font(.caption.weight(isSelected ? .semibold : .regular))
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(
+                        isSelected
+                            ? Color.accentColor.opacity(0.15)
+                            : Color(.systemGray5)
+                    )
+                    .clipShape(Capsule())
+                    .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("\(mode.displayName) eraser")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
             Spacer()
         }
@@ -360,6 +378,8 @@ struct DrawingToolbarView: View {
                     .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("\(shape.displayName) shape")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
             Spacer()
         }
