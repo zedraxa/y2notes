@@ -2045,11 +2045,9 @@ struct CanvasView: UIViewRepresentable {
             intensity: intensity,
             shapeCanvas: context.coordinator.shapeCanvas,
             attachmentCanvas: context.coordinator.attachmentCanvas,
-            widgetCanvas: context.coordinator.widgetCanvas
+            widgetCanvas: context.coordinator.widgetCanvas,
+            stickerCanvas: context.coordinator.stickerCanvas
         )
-        // StickerCanvasView is propagated separately because EffectsCoordinator.distribute
-        // accepts the original three drawing-layer canvases; stickers are on a later overlay.
-        context.coordinator.stickerCanvas?.effectIntensity = intensity
 
         // Sync magic mode engine — activate/deactivate when toggle changes.
         context.coordinator.effects.setMagicMode(active: isMagicModeActive, on: uiView.layer)

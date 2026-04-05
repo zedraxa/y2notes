@@ -80,7 +80,8 @@ final class EffectsCoordinator {
         intensity: EffectIntensity,
         shapeCanvas: (any EffectIntensityReceiver)? = nil,
         attachmentCanvas: (any EffectIntensityReceiver)? = nil,
-        widgetCanvas: (any EffectIntensityReceiver)? = nil
+        widgetCanvas: (any EffectIntensityReceiver)? = nil,
+        stickerCanvas: (any EffectIntensityReceiver)? = nil
     ) {
         pageTransitionEngine.effectIntensity = intensity
         focusModeEngine.effectIntensity = intensity
@@ -91,6 +92,7 @@ final class EffectsCoordinator {
         shapeCanvas?.effectIntensity = intensity
         attachmentCanvas?.effectIntensity = intensity
         widgetCanvas?.effectIntensity = intensity
+        stickerCanvas?.effectIntensity = intensity
     }
 
     // MARK: - Mode Lifecycle
