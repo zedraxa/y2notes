@@ -54,8 +54,18 @@ final class InkEffectEngine {
         return v
     }()
 
-    // Emitter (fire / sparkle / rainbow / snow / dissolve / glow)
+    // Emitter (fire / sparkle / rainbow / snow / dissolve / glow / sheen / blood)
     private let emitterLayer = CAEmitterLayer()
+
+    // Shadow smoke — dedicated layer so it can use normal compositing instead of
+    // additive blending.  Additive mode makes dark particles invisible on white paper;
+    // normal mode lets semi-transparent grey puffs composite correctly.
+    private let shadowEmitterLayer: CAEmitterLayer = {
+        let l = CAEmitterLayer()
+        l.renderMode = .unordered   // standard compositing — correct grey-on-white appearance
+        l.isHidden   = true
+        return l
+    }()
 
     // Glitch
     private let glitchLayer  = CALayer()
@@ -90,10 +100,14 @@ final class InkEffectEngine {
     init(tier: DeviceCapabilityTier) {
         self.tier = tier
 
-        // Emitter layer — shared between all emitter-based effects
+        // Emitter layer — shared between all emitter-based effects except shadow
         emitterLayer.renderMode = .additive
         emitterLayer.isHidden   = true
         overlayView.layer.addSublayer(emitterLayer)
+
+        // Shadow smoke emitter — added on top of the shared emitter so smoke
+        // composites over fire/sparkle effects if both were ever active.
+        overlayView.layer.addSublayer(shadowEmitterLayer)
 
         // Glitch layer — full-bounds, initially hidden
         glitchLayer.isHidden = true
@@ -153,8 +167,10 @@ final class InkEffectEngine {
         guard resolved != activeFX else {
             // Same FX, but colour might have changed — recolour emitter cells.
             switch resolved {
-            case .fire, .sparkle, .snow, .dissolve, .rainbow, .shadow, .blood:
+            case .fire, .sparkle, .snow, .dissolve, .rainbow, .blood:
                 recolourEmitter(color: color)
+            case .shadow:
+                recolourShadowEmitter(color: color)
             case .sheen:
                 sheenHueOffset = 0  // hue cycles automatically in onStrokeUpdated
             case .glow:
@@ -192,10 +208,14 @@ final class InkEffectEngine {
     func onStrokeBegan(at point: CGPoint) {
         guard activeFX != .none else { return }
         switch activeFX {
-        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .shadow, .blood:
+        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood:
             emitterLayer.isHidden   = false
             emitterLayer.birthRate  = 1
             updateEmitterPosition(point)
+        case .shadow:
+            shadowEmitterLayer.isHidden  = false
+            shadowEmitterLayer.birthRate = 1
+            updateShadowEmitterPosition(point)
         case .glitch:
             glitchLayer.isHidden = false
             triggerGlitchPulse()
@@ -211,8 +231,10 @@ final class InkEffectEngine {
     func onStrokeUpdated(at point: CGPoint) {
         guard activeFX != .none else { return }
         switch activeFX {
-        case .fire, .sparkle, .snow, .dissolve, .shadow, .blood:
+        case .fire, .sparkle, .snow, .dissolve, .blood:
             updateEmitterPosition(point)
+        case .shadow:
+            updateShadowEmitterPosition(point)
         case .rainbow:
             rainbowHueOffset += 0.02
             if rainbowHueOffset > 1.0 { rainbowHueOffset -= 1.0 }
@@ -235,8 +257,11 @@ final class InkEffectEngine {
     /// Call when the pencil lifts (stroke finished).
     func onStrokeEnded(at point: CGPoint) {
         switch activeFX {
-        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .shadow, .blood:
+        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood:
             emitterLayer.birthRate = 0
+        case .shadow:
+            // Stop emitting; existing puffs/wisps linger naturally until their lifetime expires.
+            shadowEmitterLayer.birthRate = 0
         case .ripple:
             triggerRipple(at: point)
         case .lightning:
@@ -655,6 +680,10 @@ final class InkEffectEngine {
         emitterLayer.emitterCells = []
         emitterLayer.isHidden     = true
 
+        shadowEmitterLayer.birthRate    = 0
+        shadowEmitterLayer.emitterCells = []
+        shadowEmitterLayer.isHidden     = true
+
         glitchLayer.removeAllAnimations()
         glitchLayer.isHidden = true
 
@@ -707,42 +736,114 @@ final class InkEffectEngine {
         return cell
     }
 
-    // MARK: - Private: Shadow (dark smoke trailing behind strokes)
+    // MARK: - Private: Shadow (billowing smoke cloud behind strokes)
+    //
+    // Design goals:
+    //   • Looks like real smoke — large grey puffs that rise and expand, plus fine
+    //     erratic wisps that disperse laterally.
+    //   • Uses `shadowEmitterLayer` (renderMode .unordered) so semi-transparent grey
+    //     particles composite correctly on white paper.  The shared emitterLayer uses
+    //     additive blending which makes dark particles invisible on light backgrounds.
+    //   • Two-cell system: primary billowing puffs + secondary wispy tendrils.
+    //   • Particles survive after pen lifts (birthRate→0) and drift away naturally.
 
     private func setupShadowEmitter(color: UIColor) {
-        let physics = ParticlePhysics.shadowPhysics
-        emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 6, height: 6)
-        emitterLayer.isHidden     = false
-        emitterLayer.emitterCells = [makeShadowCell(color: color, physics: physics)]
-        emitterLayer.birthRate    = 0
+        shadowEmitterLayer.emitterShape = .point
+        shadowEmitterLayer.emitterSize  = CGSize(width: 8, height: 8)
+        shadowEmitterLayer.emitterCells = [
+            makeShadowPuffCell(color: color),
+            makeShadowWispCell(color: color)
+        ]
+        shadowEmitterLayer.birthRate = 0   // enabled on stroke begin
+        shadowEmitterLayer.isHidden  = false
     }
 
-    private func makeShadowCell(color: UIColor, physics: ParticlePhysics) -> CAEmitterCell {
+    /// Large, slow, billowing primary smoke puffs.
+    private func makeShadowPuffCell(color: UIColor) -> CAEmitterCell {
+        let physics = ParticlePhysics.shadowPhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 35)) * 0.6
-        cell.lifetime          = 0.80
+        // Budget: simultaneous particles ≈ birthRate × lifetime.  Reserve 60% of the
+        // tier's budget for puffs so the combined total (puffs + wisps) stays ≤ maxParticles.
+        //   birthRate = maxParticles × 0.60 / lifetime  →  simultaneous ≈ maxParticles × 0.60
+        let puffLifetime: Float = 1.40
+        cell.birthRate         = Float(tier.maxParticles) * 0.60 / puffLifetime
+        cell.lifetime          = puffLifetime
+        cell.lifetimeRange     = 0.45
+        cell.velocity          = 18               // slow initial drift
+        cell.velocityRange     = CGFloat(physics.turbulence) * 0.55
+        cell.yAcceleration     = physics.gravity  // negative = gentle upward float
+        cell.xAcceleration     = physics.wind     // lateral spread
+        cell.emissionRange     = .pi * 2          // omnidirectional — smoke billows in all directions
+        cell.scale             = 0.20             // start as a large, visible puff
+        cell.scaleRange        = 0.08
+        cell.scaleSpeed        = 0.022            // expands as it rises — realistic smoke expansion
+        // Fade rate derived from starting alpha and lifetime:
+        //   alphaSpeed = -startAlpha / puffLifetime ≈ -0.40 / 1.40 ≈ −0.286
+        //   Rounded to −0.29 so the particle is nearly transparent exactly at lifetime.
+        cell.alphaSpeed        = -0.29
+        cell.spin              = 0.5
+        cell.spinRange         = physics.spinRange
+
+        // Colour: mid-grey with a subtle cool tint and a hint of the user's ink colour.
+        // Normal blend mode means these are truly grey on white paper (not invisible).
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let pr = 0.30 + r * 0.12
+        let pg = 0.30 + g * 0.12
+        let pb = 0.34 + b * 0.10   // slight cool/blue tint — classic smoke hue
+        cell.color    = UIColor(red: pr, green: pg, blue: pb, alpha: 0.40).cgColor
+        cell.contents = smokeCloudCGImage(diameter: 36)
+        return cell
+    }
+
+    /// Small, fast, erratic secondary wisps that give smoke its tendrilly character.
+    private func makeShadowWispCell(color: UIColor) -> CAEmitterCell {
+        let physics = ParticlePhysics.shadowWispPhysics
+        let cell               = CAEmitterCell()
+        // Reserve the remaining 40% of the tier budget for wisps.
+        //   birthRate = maxParticles × 0.40 / lifetime  →  simultaneous ≈ maxParticles × 0.40
+        // Combined with puffs (60%) the total simultaneous count ≈ maxParticles × 1.0.
+        let wispLifetime: Float = 0.75
+        cell.birthRate         = Float(tier.maxParticles) * 0.40 / wispLifetime
+        cell.lifetime          = wispLifetime
         cell.lifetimeRange     = 0.30
-        cell.velocity          = 25
+        cell.velocity          = 30               // faster initial burst
         cell.velocityRange     = CGFloat(physics.turbulence)
         cell.yAcceleration     = physics.gravity
         cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi / 2  // mostly sideways / slightly upward
-        cell.emissionLongitude = -.pi / 6 // slight upward bias before gravity pulls down
+        cell.emissionRange     = .pi * 2
         cell.scale             = 0.07
         cell.scaleRange        = 0.03
-        cell.scaleSpeed        = 0.012   // puffs grow then fade — smoke billowing
-        cell.alphaSpeed        = -1.3
-        cell.spin              = 0.4
+        cell.scaleSpeed        = 0.018            // wisps also expand slightly
+        // Fade rate: -startAlpha / wispLifetime ≈ -0.25 / 0.75 ≈ −0.333 → −0.34
+        cell.alphaSpeed        = -0.34
+        cell.spin              = 1.0
         cell.spinRange         = physics.spinRange
-        // Shadow ink is always dark regardless of user color —
-        // mix 80% black with 20% of the chosen colour for a subtle tint.
+
+        // Slightly lighter than the main puffs so they feel like wispy tendrils.
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let sr = r * 0.2,  sg = g * 0.2,  sb = b * 0.2
-        cell.color      = UIColor(red: sr, green: sg, blue: sb, alpha: 0.55).cgColor
-        cell.contents   = circleCGImage(diameter: 18)
+        let wr = 0.42 + r * 0.10
+        let wg = 0.42 + g * 0.10
+        let wb = 0.46 + b * 0.08
+        cell.color    = UIColor(red: wr, green: wg, blue: wb, alpha: 0.25).cgColor
+        cell.contents = smokeCloudCGImage(diameter: 16)
         return cell
+    }
+
+    /// Rebuilds the shadow emitter cells when the ink colour changes mid-session.
+    private func recolourShadowEmitter(color: UIColor) {
+        shadowEmitterLayer.emitterCells = [
+            makeShadowPuffCell(color: color),
+            makeShadowWispCell(color: color)
+        ]
+    }
+
+    private func updateShadowEmitterPosition(_ point: CGPoint) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        shadowEmitterLayer.emitterPosition = point
+        CATransaction.commit()
     }
 
     // MARK: - Private: Blood (viscous crimson drips)
@@ -788,6 +889,42 @@ final class InkEffectEngine {
         return renderer.image { _ in
             UIColor.white.setFill()
             UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
+        }.cgImage
+    }
+
+    /// Soft-edged smoke cloud bitmap: white at the centre fading to transparent at the
+    /// perimeter.  This feathered gradient makes overlapping puffs blend smoothly,
+    /// giving the emitter system a volumetric, cloud-like appearance.
+    private func smokeCloudCGImage(diameter: CGFloat) -> CGImage? {
+        let size   = CGSize(width: diameter, height: diameter)
+        let center = CGPoint(x: diameter / 2, y: diameter / 2)
+        let radius = diameter / 2
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            let cgCtx       = ctx.cgContext
+            let colorSpace  = CGColorSpaceCreateDeviceRGB()
+            // Radial gradient: opaque white at the centre → fully transparent at the edge.
+            // When CAEmitterCell tints this white image with cell.color, the soft edge
+            // blends naturally with neighbouring particles and the page background.
+            let colors: [CGFloat] = [
+                1.0, 1.0, 1.0, 0.90,   // centre: near-opaque white
+                1.0, 1.0, 1.0, 0.40,   // mid-point: partial opacity for soft shoulder
+                1.0, 1.0, 1.0, 0.00    // edge: fully transparent
+            ]
+            let locations: [CGFloat] = [0.0, 0.5, 1.0]
+            if let gradient = CGGradient(
+                colorSpace: colorSpace,
+                colorComponents: colors,
+                locations: locations,
+                count: 3
+            ) {
+                cgCtx.drawRadialGradient(
+                    gradient,
+                    startCenter: center, startRadius: 0,
+                    endCenter:   center, endRadius:   radius,
+                    options:     []
+                )
+            }
         }.cgImage
     }
 

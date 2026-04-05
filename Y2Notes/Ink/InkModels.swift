@@ -327,13 +327,25 @@ struct ParticlePhysics: Equatable {
     )
 
     static let shadowPhysics = ParticlePhysics(
-        gravity: 15,          // smoke sinks slowly
-        wind: 5,              // slight horizontal drift
-        turbulence: 25,       // wispy billowing
-        drag: 0.94,
+        gravity: -22,         // smoke rises gently (negative = upward on screen)
+        wind: 10,             // lateral drift for natural dispersion
+        turbulence: 50,       // strong billowing / chaotic expansion
+        drag: 0.97,           // gentle deceleration — puffs linger and drift
         bounceOffBounds: false,
         bounciness: 0,
-        spinRange: 0.8,
+        spinRange: 2.0,       // organic tumbling rotation
+        fadeOut: true
+    )
+
+    /// Fine wisp particles that trail away more erratically than the main puffs.
+    static let shadowWispPhysics = ParticlePhysics(
+        gravity: -8,          // wisps barely rise — they spread laterally
+        wind: 18,             // strong lateral spread for tendrils
+        turbulence: 65,       // highly chaotic for wispy, thread-like tendrils
+        drag: 0.95,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 3.0,       // fast spin gives tendrils their curling look
         fadeOut: true
     )
 
