@@ -188,12 +188,14 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
 
     /// Graduated grain intensity (0.0 = no grain, 1.0 = full grain).
     /// Used by `PageBackgroundView` to render multi-octave paper tooth noise.
-    /// Replaces the former Boolean `hasGrainTexture`.
+    /// `PageBackgroundView.drawGrain` multiplies this by 0.045 to produce the
+    /// final alpha, so values in the 0–1 range yield subtle but visible grain.
     var grainIntensity: Double {
         switch self {
+        case .textured: return 1.00
         case .craft:    return 0.70
         case .recycled: return 0.50
-        case .textured: return 1.00
+        case .premium:  return 0.20
         default:        return 0.00
         }
     }
@@ -201,13 +203,23 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
     /// `true` when the material carries any grain texture (convenience wrapper).
     var hasGrainTexture: Bool { grainIntensity > 0 }
 
-    /// Optional tint applied to accent ruling elements (margin lines, Cornell
-    /// separators).  `nil` means use the default contrasting `lineColor`.
+    // MARK: Ruling line colour hooks
+
+    // Named tint colours — defined at call-site to keep the enum self-contained.
+    private static let sepiaTint    = UIColor(red: 0.55, green: 0.35, blue: 0.10, alpha: 1.0)
+    private static let slateTint    = UIColor(red: 0.30, green: 0.42, blue: 0.48, alpha: 1.0)
+    private static let lavenderTint = UIColor(red: 0.45, green: 0.35, blue: 0.65, alpha: 1.0)
+
+    /// Optional hue bias blended into ruling lines at low weight (~18 %) to
+    /// give each material a subtle colour character.  `nil` means no tinting
+    /// (pure luminance-derived colour is used as-is).
     var rulingTint: UIColor? {
         switch self {
-        case .craft:    return UIColor(red: 0.52, green: 0.36, blue: 0.18, alpha: 1.0)
-        case .recycled: return UIColor(red: 0.44, green: 0.44, blue: 0.36, alpha: 1.0)
+        case .craft:    return PaperMaterial.sepiaTint
+        case .recycled: return PaperMaterial.slateTint
+        case .premium:  return PaperMaterial.lavenderTint
         default:        return nil
         }
     }
+
 }

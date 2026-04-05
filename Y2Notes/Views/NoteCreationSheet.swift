@@ -222,23 +222,91 @@ private struct PaperTypeCard: View {
                     }
                     y += spacing
                 }
+            case .cornell:
+                // Vertical margin line + header + summary + light body ruling
+                let marginX: CGFloat = size.width * 0.28
+                let headerY: CGFloat = 16
+                let summaryY: CGFloat = size.height - 12
+                // Structure lines
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: marginX, y: 0)); p.addLine(to: .init(x: marginX, y: size.height)) },
+                    with: .color(lineColor), lineWidth: 0.75
+                )
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: 0, y: headerY)); p.addLine(to: .init(x: size.width, y: headerY)) },
+                    with: .color(lineColor), lineWidth: 0.75
+                )
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: 0, y: summaryY)); p.addLine(to: .init(x: size.width, y: summaryY)) },
+                    with: .color(lineColor), lineWidth: 0.75
+                )
+                // Body ruling
+                let spacing: CGFloat = 12
+                var y: CGFloat = headerY + spacing
+                while y < summaryY - 1 {
+                    ctx.stroke(
+                        Path { p in p.move(to: .init(x: marginX, y: y)); p.addLine(to: .init(x: size.width - 4, y: y)) },
+                        with: .color(lineColor), lineWidth: 0.5
+                    )
+                    y += spacing
+                }
+            case .hexagonal:
+                let r: CGFloat = 8.0
+                let colStep = r * sqrt(3.0)
+                let rowStep = r * 1.5
+                let cols = Int(ceil(size.width  / colStep)) + 2
+                let rows = Int(ceil(size.height / rowStep)) + 2
+                for row in -1 ..< rows {
+                    for col in -1 ..< cols {
+                        let ox: CGFloat = (row & 1) != 0 ? colStep * 0.5 : 0
+                        let cx = CGFloat(col) * colStep + ox
+                        let cy = CGFloat(row) * rowStep
+                        var hex = Path()
+                        let start: CGFloat = .pi / 2
+                        let step2: CGFloat = .pi / 3
+                        hex.move(to: .init(x: cx + r * cos(start), y: cy - r * sin(start)))
+                        for i in 1 ..< 6 {
+                            let a = start + CGFloat(i) * step2
+                            hex.addLine(to: .init(x: cx + r * cos(a), y: cy - r * sin(a)))
+                        }
+                        hex.closeSubpath()
+                        ctx.stroke(hex, with: .color(lineColor), lineWidth: 0.5)
+                    }
+                }
+            case .music:
+                let lineGap:   CGFloat = 4
+                let staffGap:  CGFloat = 18
+                let staffH:    CGFloat = lineGap * 4
+                let pitch:     CGFloat = staffH + staffGap
+                var topY: CGFloat = staffGap * 0.5
+                while topY <= size.height + pitch {
+                    for lineIdx in 0 ..< 5 {
+                        let y = topY + CGFloat(lineIdx) * lineGap
+                        guard y <= size.height else { break }
+                        ctx.stroke(
+                            Path { p in p.move(to: .init(x: 4, y: y)); p.addLine(to: .init(x: size.width - 4, y: y)) },
+                            with: .color(lineColor), lineWidth: 0.5
+                        )
+                    }
+                    topY += pitch
+                }
             case .grid:
-                let spacing: CGFloat = 10
-                var pos: CGFloat = spacing
+                let gridSpacing: CGFloat = 10
+                var pos: CGFloat = gridSpacing
                 while pos < size.width {
                     ctx.stroke(
                         Path { p in p.move(to: .init(x: pos, y: 0)); p.addLine(to: .init(x: pos, y: size.height)) },
                         with: .color(lineColor), lineWidth: 0.5
                     )
-                    pos += spacing
+                    pos += gridSpacing
                 }
-                pos = spacing
+                pos = gridSpacing
                 while pos < size.height {
                     ctx.stroke(
                         Path { p in p.move(to: .init(x: 0, y: pos)); p.addLine(to: .init(x: size.width, y: pos)) },
                         with: .color(lineColor), lineWidth: 0.5
                     )
-                    pos += spacing
+                    pos += gridSpacing
                 }
             case .cornell:
                 let cueX: CGFloat = size.width * 0.3

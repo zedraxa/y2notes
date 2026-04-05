@@ -775,6 +775,7 @@ final class MicroInteractionEngine {
         layer.add(anim, forKey: "buttonRelease")
     }
 
+
     // MARK: - Velocity-Dependent Spring Profiles (AGENT-22)
 
     /// Parameterised spring profile that adapts to gesture velocity and device tier.

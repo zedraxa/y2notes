@@ -147,7 +147,10 @@ final class PageBackgroundView: UIView {
             drawGrain(in: ctx, rect: rect)
         }
 
-        // 4. Draw a very subtle border so the page edge is perceptible on
+        // 4. Subtle edge vignette to give the page physical depth.
+        drawPageEdgeShadow(in: ctx, rect: rect)
+
+        // 5. Draw a very subtle border so the page edge is perceptible on
         //    the desk surface, especially when zoomed out.
         ctx.saveGState()
         ctx.setStrokeColor(UIColor.label.withAlphaComponent(0.07).cgColor)
@@ -174,10 +177,12 @@ final class PageBackgroundView: UIView {
         ctx.strokePath()
 
         // Left margin line — the traditional pink/red vertical line that
-        // marks the writing margin on physical ruled notebooks.
+        // marks the writing margin on physical ruled notebooks.  Uses the
+        // material's accent tint (sepia for craft, slate for recycled, etc.)
+        // so the margin feels native to the paper surface.
         let marginX = rect.minX + leftMarginOffset
         if marginX < rect.maxX {
-            ctx.setStrokeColor(UIColor.systemRed.withAlphaComponent(0.22).cgColor)
+            ctx.setStrokeColor(accentLineColor(alpha: 0.22).cgColor)
             ctx.setLineWidth(0.75)
             ctx.move(to: CGPoint(x: marginX, y: rect.minY))
             ctx.addLine(to: CGPoint(x: marginX, y: rect.maxY))
@@ -403,9 +408,10 @@ final class PageBackgroundView: UIView {
             s ^= s << 5
             pixels[i] = UInt8(s & 0xFF)
         }
+
         let colorSpace = CGColorSpaceCreateDeviceGray()
         let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
-        let provider = CGDataProvider(data: Data(pixels) as CFData)!
+        let provider   = CGDataProvider(data: Data(pixels) as CFData)!
         let image = CGImage(
             width: side, height: side,
             bitsPerComponent: 8, bitsPerPixel: 8,
@@ -438,3 +444,4 @@ final class PageBackgroundView: UIView {
             : UIColor.systemRed.withAlphaComponent(alpha)
     }
 }
+
