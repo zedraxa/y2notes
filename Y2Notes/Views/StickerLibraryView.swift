@@ -136,6 +136,8 @@ struct StickerLibraryView: View {
                 .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(title) stickers")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Sticker Grid

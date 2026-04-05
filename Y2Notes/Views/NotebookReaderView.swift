@@ -180,10 +180,17 @@ struct NotebookReaderView: View {
     var body: some View {
         let pages = allPages
         VStack(spacing: 0) {
-            // Notebook identity bar — thin gradient strip using the cover color
-            notebook.cover.gradient
-                .frame(height: 3)
-                .opacity(0.8)
+            // Notebook identity bar — gradient strip with texture hint
+            ZStack {
+                notebook.cover.gradient
+                CoverTextureOverlay(
+                    texture: notebook.coverTexture,
+                    size: CGSize(width: 600, height: 4),
+                    intensity: 0.6
+                )
+            }
+            .frame(height: 4)
+            .opacity(0.85)
 
             // Section tabs
             if sectionTabs.count > 1 {
