@@ -153,6 +153,10 @@ final class AmbientEnvironmentEngine {
         static let rainSoundName:  String = "ambient_rain"
         static let lofiSoundName:  String = "ambient_lofi"
         static let nightSoundName: String = "ambient_night"
+
+        /// Audio file extensions tried in order when resolving a scene's
+        /// sound asset from the bundle.
+        static let soundExtensions: [String] = ["m4a", "mp3", "wav", "caf", "aiff"]
     }
 
     // MARK: - State
@@ -466,9 +470,8 @@ final class AmbientEnvironmentEngine {
 
         // Look up the audio file in the main bundle.  Supported extensions
         // are tried in order; the first match wins.
-        let supportedExtensions = ["m4a", "mp3", "wav", "caf", "aiff"]
         var audioURL: URL?
-        for ext in supportedExtensions {
+        for ext in Tuning.soundExtensions {
             if let url = Bundle.main.url(forResource: resourceName, withExtension: ext) {
                 audioURL = url
                 break
