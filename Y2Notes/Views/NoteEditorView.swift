@@ -2684,6 +2684,8 @@ struct CanvasView: UIViewRepresentable {
                     )
                     // Derive inter-point velocity from the stroke path spacing.
                     // PKStrokePoint.timeOffset is in seconds from the stroke start.
+                    // The fallback represents a moderate hand speed when timing data is unavailable.
+                    let pipelineFallbackVelocity: CGFloat = VelocityThicknessParams.velocityCeiling / 4
                     let velocity: CGFloat
                     if let path = lastStroke?.path, path.count >= 2 {
                         let prev = path[path.count - 2]
@@ -2694,10 +2696,10 @@ struct CanvasView: UIViewRepresentable {
                             let dy = curr.location.y - prev.location.y
                             velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
                         } else {
-                            velocity = 500
+                            velocity = pipelineFallbackVelocity
                         }
                     } else {
-                        velocity = 500
+                        velocity = pipelineFallbackVelocity
                     }
                     let pressure = lastStroke?.path.last?.force ?? 1.0
                     writingPipeline.onStrokeUpdated(at: vp, pressure: pressure, velocity: velocity)
