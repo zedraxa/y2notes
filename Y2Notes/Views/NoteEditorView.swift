@@ -134,7 +134,7 @@ struct NoteEditorView: View {
     // MARK: - Effective theme
 
     private var effectiveTheme: AppTheme {
-        note.themeOverride ?? themeStore.selectedTheme
+        note.themeOverride ?? themeStore.effectiveTheme
     }
 
     private var effectiveDefinition: ThemeDefinition {
@@ -418,6 +418,7 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
                         toolStore.activeWidgetSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
@@ -434,9 +435,31 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
                         toolStore.activeAttachmentSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
+            },
+            isTextToolActive: toolStore.activeTool == .text,
+            currentPageTextObjects: note.textObjects(forPage: safePageIndex),
+            onTextObjectsChanged: { textObjects in
+                noteStore.updateTextObjects(for: note.id, pageIndex: safePageIndex, textObjects: textObjects)
+            },
+            onTextObjectSelectionChanged: { textObjectID in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeTextObjectSelection = textObjectID
+                    // Clear other selections when a text object is selected
+                    if textObjectID != nil {
+                        toolStore.activeShapeSelection = nil
+                        toolStore.activeStickerSelection = nil
+                        toolStore.activeAttachmentSelection = nil
+                        toolStore.activeWidgetSelection = nil
+                        toolStore.hasActiveSelection = false
+                    }
+                }
+            },
+            onPlaceTextObject: { point in
+                placeTextObject(at: point)
             },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
@@ -545,6 +568,24 @@ struct NoteEditorView: View {
             }
             .padding(.top, 60)
             .zIndex(0.75)
+        }
+
+        // Text object action bar
+        if toolStore.hasActiveTextObjectSelection,
+           let selectedID = toolStore.activeTextObjectSelection,
+           let selectedTextObject = note.textObjects(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+            VStack {
+                TextObjectHandlesView(
+                    textObject: selectedTextObject,
+                    onAction: { action in
+                        handleTextObjectAction(action, for: selectedID)
+                    }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                Spacer()
+            }
+            .padding(.top, 60)
+            .zIndex(0.8)
         }
     }
 
@@ -761,6 +802,47 @@ struct NoteEditorView: View {
             toolStore.activeShapeSelection = nil
             toolStore.activeStickerSelection = nil
             toolStore.activeAttachmentSelection = nil
+            toolStore.activeTextObjectSelection = nil
+            toolStore.hasActiveSelection = false
+        }
+    }
+
+    // MARK: - Text Object Placement
+
+    /// Places a new empty text box anchored at the given page-coordinate point.
+    private func placeTextObject(at tapPoint: CGPoint) {
+        let pageIdx = currentPageIndex
+        var objects = note.textObjects(forPage: pageIdx)
+
+        // Enforce per-page limit
+        guard objects.count < TextObjectConstants.maxTextObjectsPerPage else { return }
+
+        let maxZ = objects.map(\.zIndex).max() ?? 0
+        let size = TextObjectConstants.defaultSize
+        // Centre the box on the tap point
+        let origin = CGPoint(x: tapPoint.x - size.width / 2, y: tapPoint.y - size.height / 2)
+        let frame = CGRect(origin: origin, size: size)
+
+        let obj = TextObject(
+            frame: frame,
+            fontSize: toolStore.activeTextFontSize,
+            fontFamily: toolStore.activeTextFontFamily,
+            isBold: toolStore.activeTextBold,
+            textColor: .label,
+            alignment: toolStore.activeTextAlignment,
+            zIndex: maxZ + 1
+        )
+
+        objects.append(obj)
+        noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: objects)
+
+        // Auto-select so the user can immediately start editing
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            toolStore.activeTextObjectSelection = obj.id
+            toolStore.activeShapeSelection = nil
+            toolStore.activeStickerSelection = nil
+            toolStore.activeAttachmentSelection = nil
+            toolStore.activeWidgetSelection = nil
             toolStore.hasActiveSelection = false
         }
     }
@@ -907,6 +989,99 @@ struct NoteEditorView: View {
         noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
     }
 
+    /// Handles actions from the text object action bar.
+    private func handleTextObjectAction(_ action: TextObjectAction, for textObjectID: UUID) {
+        let pageIdx = currentPageIndex
+        var textObjects = note.textObjects(forPage: pageIdx)
+        guard let idx = textObjects.firstIndex(where: { $0.id == textObjectID }) else { return }
+
+        switch action {
+        case .duplicate:
+            let source = textObjects[idx]
+            let copy = TextObject(
+                content: source.content,
+                frame: source.frame.offsetBy(dx: 20, dy: 20),
+                fontSize: source.fontSize,
+                fontFamily: source.fontFamily,
+                isBold: source.isBold,
+                textColor: source.textColor,
+                backgroundColor: source.backgroundColor,
+                alignment: source.textAlignment,
+                rotation: source.rotation,
+                opacity: source.opacity,
+                zIndex: (textObjects.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false,
+                borderRadius: source.borderRadius,
+                borderColor: source.borderColor,
+                borderWidth: source.borderWidth
+            )
+            textObjects.append(copy)
+            toolStore.activeTextObjectSelection = copy.id
+
+        case .delete:
+            textObjects.remove(at: idx)
+            toolStore.activeTextObjectSelection = nil
+
+        case .toggleLock:
+            textObjects[idx].isLocked.toggle()
+
+        case .bringToFront:
+            let maxZ = textObjects.map(\.zIndex).max() ?? 0
+            textObjects[idx].zIndex = maxZ + 1
+
+        case .sendToBack:
+            let minZ = textObjects.map(\.zIndex).min() ?? 0
+            textObjects[idx].zIndex = minZ - 1
+
+        case .updateFontSize(let size):
+            textObjects[idx].fontSize = size
+
+        case .updateFontFamily(let family):
+            textObjects[idx].fontFamily = family
+
+        case .toggleBold:
+            textObjects[idx].isBold.toggle()
+
+        case .updateAlignment(let alignment):
+            switch alignment {
+            case .center: textObjects[idx].alignmentRaw = 1
+            case .right:  textObjects[idx].alignmentRaw = 2
+            default:      textObjects[idx].alignmentRaw = 0
+            }
+
+        case .updateTextColor(let color):
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            textObjects[idx].textColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+
+        case .updateBackgroundColor(let color):
+            if let bg = color {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                bg.getRed(&r, green: &g, blue: &b, alpha: &a)
+                textObjects[idx].backgroundColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+            } else {
+                textObjects[idx].backgroundColorComponents = nil
+            }
+
+        case .updateBorderRadius(let radius):
+            textObjects[idx].borderRadius = radius
+
+        case .updateBorderColor(let color):
+            if let bc = color {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                bc.getRed(&r, green: &g, blue: &b, alpha: &a)
+                textObjects[idx].borderColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+            } else {
+                textObjects[idx].borderColorComponents = nil
+            }
+
+        case .updateBorderWidth(let width):
+            textObjects[idx].borderWidth = width
+        }
+
+        noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: textObjects)
+    }
+
     // MARK: - Background blend helper
 
     /// Blends the theme's canvas background colour with the paper material's
@@ -1044,7 +1219,6 @@ struct NoteEditorView: View {
         [
             ("White",       .white),
             ("Cream",       UIColor(red: 0.99, green: 0.97, blue: 0.93, alpha: 1)),
-            ("Parchment",   UIColor(red: 0.96, green: 0.94, blue: 0.87, alpha: 1)),
             ("Pale Yellow",  UIColor(red: 1.00, green: 0.99, blue: 0.88, alpha: 1)),
             ("Pale Blue",    UIColor(red: 0.93, green: 0.96, blue: 1.00, alpha: 1)),
             ("Pale Green",   UIColor(red: 0.93, green: 0.99, blue: 0.93, alpha: 1)),
@@ -1623,6 +1797,17 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Whether the text tool is active (text canvas overlay intercepts touches).
+    var isTextToolActive: Bool = false
+    /// Text objects for the current page.
+    var currentPageTextObjects: [TextObject] = []
+    /// Callback to persist text object changes.
+    var onTextObjectsChanged: (([TextObject]) -> Void)?
+    /// Callback when text object selection changes.
+    var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+    /// Called when the user taps an empty area while the text tool is active.
+    var onPlaceTextObject: ((CGPoint) -> Void)?
+
     /// Total number of pages in the note, used for adaptive effects complexity signals.
     var pageCount: Int = 1
 
@@ -1871,6 +2056,35 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.widgetCanvas = widgetCanvas
 
+        // ── Text object canvas (anchored text boxes layer) ───────────────────
+        let textCanvas = TextCanvasView(frame: .zero)
+        textCanvas.translatesAutoresizingMaskIntoConstraints = false
+        textCanvas.isTextToolActive = isTextToolActive
+        textCanvas.textObjects = currentPageTextObjects
+        textCanvas.onSelectionChanged = { textObjectID in
+            context.coordinator.onTextObjectSelectionChanged?(textObjectID)
+        }
+        textCanvas.onTextObjectsChanged = { textObjects in
+            context.coordinator.handleTextObjectsChanged(textObjects)
+        }
+        textCanvas.onPlaceTextObject = { point in
+            context.coordinator.onPlaceTextObject?(point)
+        }
+        textCanvas.onTextObjectTransformed = { textObject in
+            context.coordinator.handleTextObjectTransformed(textObject)
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onPlaceTextObject = onPlaceTextObject
+        container.addSubview(textCanvas)
+        NSLayoutConstraint.activate([
+            textCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            textCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            textCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            textCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.textCanvas = textCanvas
+
         // ── Shape object canvas (editable shapes layer) ──────────────────────
         let shapeCanvas = ShapeCanvasView(frame: .zero)
         shapeCanvas.translatesAutoresizingMaskIntoConstraints = false
@@ -1935,6 +2149,13 @@ struct CanvasView: UIViewRepresentable {
         engine.configure(fx: activeFX, color: fxColor)
         engine.attach(to: container)
         context.coordinator.effectEngine = engine
+
+        // ── Writing Effects Pipeline (glow, neon, trail, taper, pooling) ───
+        context.coordinator.writingPipeline.attach(to: container)
+        context.coordinator.writingPipeline.configure(
+            config: toolStoreForFade?.writingEffectConfig ?? .default,
+            color: toolStoreForFade?.activeColor ?? .black
+        )
 
         // ── Page gestures (two-finger pan + three-finger pinch) ──────────────
         // Two-finger horizontal pan navigates pages.  Using a pan recogniser
@@ -2099,6 +2320,16 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
 
+        // Sync text object canvas.
+        if let textCanvas = context.coordinator.textCanvas {
+            textCanvas.isTextToolActive = isTextToolActive
+            textCanvas.textObjects = currentPageTextObjects
+            textCanvas.selectedTextObjectID = toolStoreForFade?.activeTextObjectSelection
+        }
+        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
+        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        context.coordinator.onPlaceTextObject = onPlaceTextObject
+
         // Zoom reset: animate to fit-to-width when the trigger value flips.
         // "Fit to width" is more useful than a fixed 1× scale because it adapts
         // to the current screen size and orientation.
@@ -2158,11 +2389,31 @@ struct CanvasView: UIViewRepresentable {
             ambientEngine.updateLayout(containerBounds: uiView.bounds)
         }
 
+        // Sync ambient environment engine — activate/deactivate as the
+        // selected scene changes.  The engine owns rain-streak / grain /
+        // warm-wash CALayers and the looping ambient soundscape.
+        let ambientEngine = context.coordinator.ambientEngine
+        if let scene = activeAmbientScene {
+            if ambientEngine.activeScene != scene {
+                // Scene changed (or was nil) — (re-)activate with the new scene.
+                ambientEngine.activate(scene, on: uiView.layer, toolStore: toolStoreForFade ?? DrawingToolStore())
+            }
+            ambientEngine.updateLayout(containerBounds: uiView.bounds)
+        } else if ambientEngine.activeScene != nil {
+            ambientEngine.deactivate(toolStore: toolStoreForFade ?? DrawingToolStore())
+        }
+
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
             engine.syncLayerFrames()
             engine.configure(fx: activeFX, color: fxColor)
         }
+
+        // Sync writing effects pipeline when the pen tool or colour changes.
+        context.coordinator.writingPipeline.configure(
+            config: toolStoreRef?.writingEffectConfig ?? .default,
+            color: toolStoreRef?.activeColor ?? .black
+        )
     }
 
     // MARK: - Ruling line color helper
@@ -2247,9 +2498,11 @@ struct CanvasView: UIViewRepresentable {
         var magicModeEngine: MagicModeEngine           { effects.magicModeEngine }
         var studyModeEngine: StudyModeEngine           { effects.studyModeEngine }
         var adaptiveEffectsEngine: AdaptiveEffectsEngine { effects.adaptiveEngine }
+        var writingPipeline: WritingEffectsPipeline    { effects.writingEffectsPipeline }
         var microInteractionEngine: MicroInteractionEngine { effects.microInteractionEngine }
         var snapAlignEffectEngine: SnapAlignEffectEngine { effects.snapAlignEffectEngine }
         var interactionFeedback: InteractionFeedbackEngine { effects.interactionFeedbackEngine }
+
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
@@ -2283,6 +2536,24 @@ struct CanvasView: UIViewRepresentable {
 
         /// Callback when widget selection changes.
         var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+        /// Text object canvas overlay for the current page.
+        weak var textCanvas: TextCanvasView?
+
+        /// Debounce timer for persisting text object changes.
+        private var textDebounceTimer: Timer?
+
+        /// Callback to persist text object changes.
+        var onTextObjectsChanged: (([TextObject]) -> Void)?
+
+        /// Callback when text object selection changes.
+        var onTextObjectSelectionChanged: ((UUID?) -> Void)?
+
+        /// Called when the user taps empty space with the text tool active.
+        var onPlaceTextObject: ((CGPoint) -> Void)?
+
+        /// Callback to propagate text object transform to the view.
+        var onTextObjectTransformed: ((TextObject) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
@@ -2578,6 +2849,11 @@ struct CanvasView: UIViewRepresentable {
                 let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeBegan(at: center)
             }
+            // Notify writing effects pipeline of stroke start (taper, pooling, glow).
+            do {
+                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+                writingPipeline.onStrokeBegan(at: center)
+            }
             // Notify magic mode engine of stroke start for writing particles.
             if magicModeEngine.isActive,
                let inkTool = canvasView.tool as? PKInkingTool {
@@ -2645,6 +2921,8 @@ struct CanvasView: UIViewRepresentable {
                 } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
                 engine.onStrokeEnded(at: point)
             }
+            // Notify writing effects pipeline of stroke end (taper tail, glow fade).
+            writingPipeline.onStrokeEnded()
             // Notify magic mode engine of stroke end — fires keyword glow and
             // optional underline highlight.
             if magicModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
@@ -2812,6 +3090,28 @@ struct CanvasView: UIViewRepresentable {
             }
         }
 
+        // MARK: - Text Object Coordinator
+
+        /// Called when a text object is moved, resized, or rotated.
+        func handleTextObjectTransformed(_ textObject: TextObject) {
+            guard var textObjects = textCanvas?.textObjects else { return }
+            if let idx = textObjects.firstIndex(where: { $0.id == textObject.id }) {
+                textObjects[idx] = textObject
+            }
+            handleTextObjectsChanged(textObjects)
+        }
+
+        /// Debounced persistence for text object changes.
+        func handleTextObjectsChanged(_ textObjects: [TextObject]) {
+            textDebounceTimer?.invalidate()
+            textDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: TextObjectConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onTextObjectsChanged?(textObjects)
+            }
+        }
+
         // MARK: - Double-tap pencil to delete last stroke
 
         /// Removes the most recently drawn stroke from the canvas.
@@ -2855,6 +3155,38 @@ struct CanvasView: UIViewRepresentable {
                         in: canvasView
                     )
                     engine.onStrokeUpdated(at: vp)
+                }
+            }
+
+            // Feed latest stroke point to the writing effects pipeline (glow, trail, pooling).
+            do {
+                let lastStroke = canvasView.drawing.strokes.last
+                if let lastPoint = lastStroke?.path.last {
+                    let vp = viewportPoint(
+                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                        in: canvasView
+                    )
+                    // Derive inter-point velocity from the stroke path spacing.
+                    // PKStrokePoint.timeOffset is in seconds from the stroke start.
+                    // The fallback represents a moderate hand speed when timing data is unavailable.
+                    let pipelineFallbackVelocity: CGFloat = VelocityThicknessParams.velocityCeiling / 4
+                    let velocity: CGFloat
+                    if let path = lastStroke?.path, path.count >= 2 {
+                        let prev = path[path.count - 2]
+                        let curr = path[path.count - 1]
+                        let dt = curr.timeOffset - prev.timeOffset
+                        if dt > 0 {
+                            let dx = curr.location.x - prev.location.x
+                            let dy = curr.location.y - prev.location.y
+                            velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
+                        } else {
+                            velocity = pipelineFallbackVelocity
+                        }
+                    } else {
+                        velocity = pipelineFallbackVelocity
+                    }
+                    let pressure = lastStroke?.path.last?.force ?? 1.0
+                    writingPipeline.onStrokeUpdated(at: vp, pressure: pressure, velocity: velocity)
                 }
             }
 
@@ -3079,6 +3411,23 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             eraserCursorOverlay?.update(position: position, subType: sub, eraserWidth: width)
             hoverOverlay?.update(position: nil, altitude: altitude, azimuth: azimuth)
         } else {
+            // Sync the ghost-nib appearance with the current tool state on every hover
+            // event.  This is cheap and ensures the nib reflects a colour/width change
+            // made while the pencil was already hovering.
+            if let ts = toolStoreRef {
+                let personality = ts.activePersonality
+                let info = HoverToolInfo(
+                    tool: ts.activeTool,
+                    color: ts.activeColor,
+                    width: CGFloat(ts.activeWidth),
+                    opacity: CGFloat(ts.activeOpacity),
+                    widthMultiplier: CGFloat(personality?.widthMultiplier ?? 1.0),
+                    showsAzimuthLine: personality?.usesTiltShading == true
+                                   || personality?.usesBarrelRoll  == true,
+                    eraserMode: ts.eraserMode
+                )
+                hoverOverlay?.configure(with: info)
+            }
             // Show ghost-nib; hide eraser ring.
             hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
             eraserCursorOverlay?.update(position: nil, subType: .standard, eraserWidth: 0)

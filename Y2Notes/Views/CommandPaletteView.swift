@@ -104,6 +104,7 @@ struct CommandPaletteView: View {
                                 actionRow(action)
                             }
                         }
+                        .accessibilityLabel("Results in \(category.rawValue)")
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -143,6 +144,9 @@ struct CommandPaletteView: View {
             Text(NSLocalizedString("CommandPalette.NoResults", comment: ""))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            Text(NSLocalizedString("CommandPalette.TryDifferent", comment: ""))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.top, 60)

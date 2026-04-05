@@ -1,3 +1,4 @@
+import AVFoundation
 import UIKit
 import QuartzCore
 import AVFoundation
@@ -621,6 +622,127 @@ final class AmbientEnvironmentEngine {
         layer.opacity    = opacity
 
         return layer
+    }
+
+    // MARK: - Sound Playback
+
+    /// Starts looping audio for the given scene.
+    ///
+    /// Uses `AVAudioSession.Category.ambient` so the soundscape mixes with
+    /// the user's own music / podcasts and does not interrupt other apps.
+    /// Audio is silenced entirely when `effectIntensity` is `.minimal` (e.g.
+    /// very high writing velocity or low-power mode override) and reduced in
+    /// volume at `.reduced` intensity.
+    private func startAudio(for scene: AmbientScene) {
+        // Determine the target volume; skip playback at minimal intensity.
+        let targetVolume = resolvedSoundVolume
+        guard targetVolume > 0 else { return }
+
+        // Resolve bundle resource name for the scene.
+        let resourceName: String
+        switch scene {
+        case .rainStudy:  resourceName = Tuning.rainSoundName
+        case .lofiLight:  resourceName = Tuning.lofiSoundName
+        case .nightGrain: resourceName = Tuning.nightSoundName
+        }
+
+        // Look up the audio file in the main bundle.  Supported extensions
+        // are tried in order; the first match wins.
+        let supportedExtensions = ["m4a", "mp3", "wav", "caf", "aiff"]
+        var audioURL: URL?
+        for ext in supportedExtensions {
+            if let url = Bundle.main.url(forResource: resourceName, withExtension: ext) {
+                audioURL = url
+                break
+            }
+        }
+        guard let url = audioURL else {
+            // Audio asset not present in bundle — degrade gracefully to
+            // visuals-only.  This is expected in builds without audio assets.
+            return
+        }
+
+        do {
+            // Configure AVAudioSession to use the ambient category so that:
+            // • the soundscape mixes with background music / media apps, and
+            // • playback respects the hardware ringer/silent switch.
+            try AVAudioSession.sharedInstance().setCategory(
+                .ambient,
+                mode: .default,
+                options: []
+            )
+            try AVAudioSession.sharedInstance().setActive(true)
+
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.numberOfLoops = -1  // Negative value = loop indefinitely (AVAudioPlayer API contract).
+            player.volume = targetVolume
+            player.prepareToPlay()
+            player.play()
+            audioPlayer = player
+        } catch {
+            // Failed to initialise — proceed without audio.
+            audioPlayer = nil
+        }
+    }
+
+    /// Stops the active audio player, optionally fading the volume to zero
+    /// first so the cut-off isn't abrupt.
+    private func stopAudio(fade: Bool) {
+        // Cancel any in-flight fade.
+        fadeTimer?.invalidate()
+        fadeTimer = nil
+
+        guard let player = audioPlayer else { return }
+
+        if fade && player.isPlaying {
+            // Gradually reduce volume in small steps over `soundFadeDuration`.
+            let stepInterval = Tuning.soundFadeStepInterval
+            let steps = max(1, Int(Tuning.soundFadeDuration / stepInterval))
+            let volumeStep = player.volume / Float(steps)
+
+            // Explicitly schedule on RunLoop.main so the timer fires reliably
+            // regardless of which thread this method is called from.
+            let timer = Timer(
+                timeInterval: stepInterval,
+                repeats: true
+            ) { [weak self, weak player] timer in
+                guard let player else {
+                    timer.invalidate()
+                    self?.fadeTimer = nil
+                    return
+                }
+                player.volume = max(0, player.volume - volumeStep)
+                if player.volume <= 0 {
+                    timer.invalidate()
+                    self?.fadeTimer = nil
+                    self?.finaliseStop(player: player)
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            fadeTimer = timer
+        } else {
+            finaliseStop(player: player)
+        }
+    }
+
+    /// Stops `player` and clears the `audioPlayer` reference.
+    private func finaliseStop(player: AVAudioPlayer) {
+        player.stop()
+        audioPlayer = nil
+    }
+
+    /// Volume for the current effect intensity, also considering low power
+    /// mode — halves the master volume when the device is in low-power mode.
+    private var resolvedSoundVolume: Float {
+        let lowPowerMultiplier: Float = ProcessInfo.processInfo.isLowPowerModeEnabled ? 0.5 : 1.0
+        switch effectIntensity {
+        case .minimal:
+            return 0
+        case .reduced:
+            return Tuning.soundVolume * Tuning.soundReducedMultiplier * lowPowerMultiplier
+        case .full:
+            return Tuning.soundVolume * lowPowerMultiplier
+        }
     }
 
     // MARK: - Opacity Animation

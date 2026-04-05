@@ -16,9 +16,9 @@ struct BookmarkListView: View {
             let items = navigationStore.bookmarks(for: notebook.id)
             if items.isEmpty {
                 ContentUnavailableView(
-                    "No Bookmarks",
+                    NSLocalizedString("Bookmarks.NoBookmarks", comment: ""),
                     systemImage: "bookmark",
-                    description: Text("Tap the bookmark icon on any page to save it here.")
+                    description: Text(NSLocalizedString("Bookmarks.EmptyHint", comment: ""))
                 )
             } else {
                 List {
@@ -35,7 +35,7 @@ struct BookmarkListView: View {
                 .listStyle(.insetGrouped)
             }
         }
-        .navigationTitle("Bookmarks")
+        .navigationTitle(NSLocalizedString("Bookmarks.Title", comment: ""))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -83,11 +83,13 @@ struct BookmarkListView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(bookmark.label.isEmpty ? resolvedLabel(for: bookmark) : bookmark.label)
+        .accessibilityHint(NSLocalizedString("Bookmarks.NavigateHint", comment: ""))
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 navigationStore.removeBookmark(id: bookmark.id)
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label(NSLocalizedString("Bookmarks.Delete", comment: ""), systemImage: "trash")
             }
         }
         .swipeActions(edge: .leading) {
@@ -99,9 +101,11 @@ struct BookmarkListView: View {
                     navigationStore.updateBookmarkColor(id: bookmark.id, colorTag: next)
                 }
             } label: {
-                Label("Color", systemImage: "paintpalette")
+                Label(NSLocalizedString("Bookmarks.ChangeColor", comment: ""), systemImage: "paintpalette")
             }
             .tint(.orange)
+            .accessibilityLabel(NSLocalizedString("Bookmarks.ChangeColor", comment: ""))
+            .accessibilityHint(NSLocalizedString("Bookmarks.ColorHint", comment: ""))
         }
     }
 
@@ -152,14 +156,14 @@ struct RecentLocationsView: View {
     var body: some View {
         let recents = navigationStore.recentLocations(for: notebook.id)
         VStack(alignment: .leading, spacing: 0) {
-            Text("Recent Pages")
+            Text(NSLocalizedString("Bookmarks.RecentPages", comment: ""))
                 .font(.headline)
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
             if recents.isEmpty {
-                Text("No history yet")
+                Text(NSLocalizedString("Bookmarks.NoHistory", comment: ""))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)

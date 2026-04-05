@@ -59,6 +59,22 @@ final class WritingEffectsPipeline {
         // ── Gradient Ink ─────────────────────────────────────────────────
         static let gradientVelocityCeiling: CGFloat = VelocityThicknessParams.velocityCeiling
 
+        // ── Stroke Taper ─────────────────────────────────────────────────
+        /// Diameter of the taper dot rendered at stroke start/end (points).
+        static let taperDotDiameter: CGFloat       = 6.0
+        /// Alpha of the taper dot at its most visible.
+        static let taperDotPeakOpacity: Float      = 0.55
+        /// Duration of the taper dot fade animation (seconds).
+        static let taperFadeDuration: CFTimeInterval = 0.18
+
+        // ── Ink Pooling ──────────────────────────────────────────────────
+        /// Velocity (pts/s) below which ink pooling is triggered.
+        static let poolingVelocityThreshold: CGFloat = 80.0
+        /// Maximum extra radius added by pooling (fraction of glow base size).
+        static let poolingMaxRadiusScale: CGFloat  = 1.8
+        /// Duration of the pooling expand/contract animation (seconds).
+        static let poolingAnimDuration: CFTimeInterval = 0.12
+
         // ── General ──────────────────────────────────────────────────────
         static let transitionDuration: CFTimeInterval = 0.25
     }
@@ -99,6 +115,12 @@ final class WritingEffectsPipeline {
 
     /// Pending trail segments: (path, layer, birthTime).
     private var trailSegments: [(path: CGPath, layer: CAShapeLayer, born: TimeInterval)] = []
+
+    /// Ephemeral dot layer rendered at stroke start for taper-start simulation.
+    private weak var taperStartLayer: CAShapeLayer?
+
+    /// Whether the pooling glow is currently expanded (to avoid redundant animations).
+    private var isPoolingExpanded: Bool = false
 
     // MARK: - Computed Helpers
 
@@ -165,8 +187,12 @@ final class WritingEffectsPipeline {
     /// Call when the Apple Pencil touches the canvas.
     func onStrokeBegan(at point: CGPoint, pressure: CGFloat = 1.0) {
         lastNibPoint = point
+        isPoolingExpanded = false
         if effectiveConfig.glowPenEnabled {
             updateGlowLayer(at: point, pressure: pressure)
+        }
+        if effectiveConfig.strokeTaperEnabled {
+            renderTaperDot(at: point)
         }
     }
 
@@ -181,6 +207,11 @@ final class WritingEffectsPipeline {
             updateGlowLayer(at: point, pressure: pressure)
         }
 
+        // ── Ink Pooling: expand glow when nib slows near-zero ───────────
+        if cfg.inkPoolingEnabled, cfg.inkFlow.poolingStrength > 0 {
+            updatePooling(at: point, velocity: velocity)
+        }
+
         // ── Ink Trail: add a new segment ────────────────────────────────
         if cfg.inkTrailFadeEnabled, let prev = lastNibPoint {
             addTrailSegment(from: prev, to: point)
@@ -189,7 +220,13 @@ final class WritingEffectsPipeline {
 
     /// Call when the Apple Pencil lifts from the canvas.
     func onStrokeEnded() {
+        let cfg = effectiveConfig
+        if cfg.strokeTaperEnabled, let last = lastNibPoint {
+            renderTaperDot(at: last, isTail: true)
+        }
         lastNibPoint = nil
+        isPoolingExpanded = false
+        contractPoolingGlow()
         fadeOutGlowLayer()
     }
 
@@ -332,6 +369,131 @@ final class WritingEffectsPipeline {
         }
     }
 
+    // MARK: - Stroke Taper
+
+    /// Renders a small dot at `point` that pulses in (stroke start) or fades out
+    /// (stroke end), simulating the ink loading / taper characteristic of rollerball
+    /// and sketchy sub-types.
+    private func renderTaperDot(at point: CGPoint, isTail: Bool = false) {
+        guard !shouldSuppressAnimations else { return }
+
+        let dot = CAShapeLayer()
+        let r = Tuning.taperDotDiameter / 2
+        dot.path = CGPath(
+            ellipseIn: CGRect(x: point.x - r, y: point.y - r, width: Tuning.taperDotDiameter, height: Tuning.taperDotDiameter),
+            transform: nil
+        )
+        dot.fillColor = inkColor.cgColor
+        dot.opacity = 0
+
+        overlayView.layer.addSublayer(dot)
+
+        if isTail {
+            // Fade out a dot at the stroke end (taper tail)
+            dot.opacity = Tuning.taperDotPeakOpacity
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = Tuning.taperDotPeakOpacity
+            fade.toValue = 0.0
+            fade.duration = Tuning.taperFadeDuration
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            fade.fillMode = .forwards
+            fade.isRemovedOnCompletion = false
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { dot.removeFromSuperlayer() }
+            dot.add(fade, forKey: "taperTailFade")
+            CATransaction.commit()
+        } else {
+            // Pulse in a dot at the stroke head (taper start)
+            taperStartLayer?.removeFromSuperlayer()
+            taperStartLayer = dot
+            let appear = CABasicAnimation(keyPath: "opacity")
+            appear.fromValue = Tuning.taperDotPeakOpacity
+            appear.toValue = 0.0
+            appear.duration = Tuning.taperFadeDuration
+            appear.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            appear.fillMode = .forwards
+            appear.isRemovedOnCompletion = false
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { [weak dot] in dot?.removeFromSuperlayer() }
+            dot.add(appear, forKey: "taperHeadFade")
+            CATransaction.commit()
+        }
+    }
+
+    // MARK: - Ink Pooling
+
+    /// Expands or contracts the glow layer based on nib velocity, simulating
+    /// ink pooling when the pen slows near-zero.
+    private func updatePooling(at point: CGPoint, velocity: CGFloat) {
+        guard !shouldSuppressAnimations else { return }
+
+        let isSlowEnough = velocity < Tuning.poolingVelocityThreshold
+        guard isSlowEnough != isPoolingExpanded else { return }
+        isPoolingExpanded = isSlowEnough
+
+        // Ensure glow layer exists (create it even if glowPenEnabled is false so
+        // pooling can appear independently).
+        if glowLayer == nil {
+            let newLayer = makeGlowLayer()
+            newLayer.opacity = 0   // start invisible
+            overlayView.layer.addSublayer(newLayer)
+            glowLayer = newLayer
+        }
+        guard let layer = glowLayer else { return }
+
+        let pooling = effectiveConfig.inkFlow.poolingStrength
+        let targetScale = isSlowEnough
+            ? 1.0 + Float(pooling) * Float(Tuning.poolingMaxRadiusScale - 1.0)
+            : 1.0
+        let targetOpacity = isSlowEnough
+            ? Tuning.glowBaseOpacity + Float(pooling) * (Tuning.glowMaxOpacity - Tuning.glowBaseOpacity)
+            : Tuning.glowBaseOpacity
+
+        let scaleAnim = CABasicAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue = layer.presentation()?.value(forKeyPath: "transform.scale") ?? 1.0
+        scaleAnim.toValue = targetScale
+        scaleAnim.duration = Tuning.poolingAnimDuration
+        scaleAnim.timingFunction = CAMediaTimingFunction(name: isSlowEnough ? .easeOut : .easeIn)
+        scaleAnim.fillMode = .forwards
+        scaleAnim.isRemovedOnCompletion = false
+
+        let opacityAnim = CABasicAnimation(keyPath: "opacity")
+        opacityAnim.fromValue = layer.presentation()?.opacity ?? layer.opacity
+        opacityAnim.toValue = targetOpacity
+        opacityAnim.duration = Tuning.poolingAnimDuration
+        opacityAnim.fillMode = .forwards
+        opacityAnim.isRemovedOnCompletion = false
+
+        let group = CAAnimationGroup()
+        group.animations = [scaleAnim, opacityAnim]
+        group.duration = Tuning.poolingAnimDuration
+        group.fillMode = .forwards
+        group.isRemovedOnCompletion = false
+
+        layer.add(group, forKey: "pooling")
+
+        // Reposition to current nib location.
+        let size = Tuning.glowLayerSize
+        let half = size / 2
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.frame = CGRect(x: point.x - half, y: point.y - half, width: size, height: size)
+        CATransaction.commit()
+    }
+
+    private func contractPoolingGlow() {
+        guard isPoolingExpanded, let layer = glowLayer else { return }
+        isPoolingExpanded = false
+        let anim = CABasicAnimation(keyPath: "transform.scale")
+        anim.fromValue = layer.presentation()?.value(forKeyPath: "transform.scale") ?? 1.0
+        anim.toValue = 1.0
+        anim.duration = Tuning.poolingAnimDuration
+        anim.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        anim.fillMode = .forwards
+        anim.isRemovedOnCompletion = false
+        layer.add(anim, forKey: "poolingContract")
+    }
+
     // MARK: - Gradient Ink Color
 
     /// Returns the ink colour to use for the current stroke point, accounting
@@ -356,10 +518,11 @@ final class WritingEffectsPipeline {
         let t: CGFloat
         switch cfg.gradientSource {
         case .velocity:
-            // Fast stroke → startColor, slow stroke → endColor
-            t = 1.0 - min(velocity / Tuning.gradientVelocityCeiling, 1.0)
+            // Fast stroke → startColor, slow stroke → endColor.
+            // Use the ink-flow velocity ceiling so sub-type tunes gradient response.
+            let ceiling = cfg.inkFlow.velocityCeiling > 0 ? cfg.inkFlow.velocityCeiling : Tuning.gradientVelocityCeiling
+            t = 1.0 - min(velocity / ceiling, 1.0)
         case .pressure:
-            // Light pressure → startColor, heavy pressure → endColor
             t = min(pressure, 1.0)
         }
 

@@ -85,8 +85,34 @@ struct SettingsView: View {
             }
             .accessibilityLabel("App theme")
 
-            // Contrast row — shows the primary text ratio alongside the pass/fail badge.
+            // Active theme indicator when scheduling is on.
+            if themeStore.autoScheduleEnabled {
+                HStack {
+                    Label("Active", systemImage: "clock.arrow.2.circlepath")
+                        .font(.subheadline)
+                    Spacer()
+                    Text(themeStore.effectiveTheme.displayName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Auto-schedule active. Current theme is \(themeStore.effectiveTheme.displayName).")
+            }
+
+            // Colour palette preview.
             let def = themeStore.definition
+            HStack(spacing: 6) {
+                Text("Palette")
+                Spacer()
+                paletteCircle(def.canvasBackgroundColor, border: true)
+                paletteCircle(def.primaryTextColor)
+                paletteCircle(def.secondaryTextColor)
+                paletteCircle(def.accentColor)
+                paletteCircle(def.toolbarBackgroundColor, border: true)
+                paletteCircle(def.surfaceSwiftUIColor, border: true)
+            }
+            .accessibilityHidden(true)
+
+            // Contrast row — shows the primary text ratio alongside the pass/fail badge.
             HStack {
                 Text("Contrast")
                 Spacer()
@@ -113,6 +139,16 @@ struct SettingsView: View {
         } header: {
             Text("Appearance")
         }
+    }
+
+    private func paletteCircle(_ color: Color, border: Bool = false) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 18, height: 18)
+            .overlay(
+                Circle()
+                    .strokeBorder(Color(uiColor: .separator).opacity(border ? 0.4 : 0), lineWidth: 0.5)
+            )
     }
 
     // MARK: - Document Defaults
