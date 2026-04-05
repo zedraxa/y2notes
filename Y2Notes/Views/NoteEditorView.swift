@@ -1821,6 +1821,9 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
 
+        // Pre-warm all haptic generators for interaction feedback (AGENT-23).
+        context.coordinator.interactionFeedback.prepareAll()
+
         // ── Ink effect engine (fire / sparkle / glitch / ripple) ────────────
         let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
         engine.configure(fx: activeFX, color: fxColor)
@@ -1934,6 +1937,13 @@ struct CanvasView: UIViewRepresentable {
             if context.coordinator.lastToolSnapshot != snapshot {
                 canvas.tool = currentTool
                 context.coordinator.lastToolSnapshot = snapshot
+
+                // ── Interaction feedback for tool switch (AGENT-23) ─────
+                if currentTool is PKEraserTool {
+                    context.coordinator.interactionFeedback.play(.eraserEngage, on: canvas.layer)
+                } else {
+                    context.coordinator.interactionFeedback.play(.toolSwitch, on: canvas.layer)
+                }
             }
         }
         canvas.isUserInteractionEnabled = !isShapeToolActive
@@ -2101,6 +2111,9 @@ struct CanvasView: UIViewRepresentable {
         var magicModeEngine: MagicModeEngine           { effects.magicModeEngine }
         var studyModeEngine: StudyModeEngine           { effects.studyModeEngine }
         var adaptiveEffectsEngine: AdaptiveEffectsEngine { effects.adaptiveEngine }
+        var microInteractionEngine: MicroInteractionEngine { effects.microInteractionEngine }
+        var snapAlignEffectEngine: SnapAlignEffectEngine { effects.snapAlignEffectEngine }
+        var interactionFeedback: InteractionFeedbackEngine { effects.interactionFeedbackEngine }
 
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
@@ -2778,6 +2791,8 @@ struct CanvasView: UIViewRepresentable {
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             centerContentDuringZoom(scrollView)
             adaptiveEffectsEngine.zoomScale = scrollView.zoomScale
+            // Zoom detent haptic + visual feedback (AGENT-23).
+            interactionFeedback.updateZoom(scrollView.zoomScale, on: scrollView.layer)
         }
 
         /// Adjusts content insets so the page stays centered when the scaled
@@ -2814,6 +2829,8 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             previousInkingTool = canvas.tool
         }
         canvas.tool = PKEraserTool(toolStoreRef?.eraserMode.pkEraserType ?? .vector)
+        // Interaction feedback for eraser engage (AGENT-23).
+        interactionFeedback.play(.eraserEngage, on: canvas.layer)
     }
 
     func pencilDidRequestSwitchToPreviousTool() {
@@ -2825,6 +2842,8 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             // No previous tool recorded — toggle from eraser to default pen.
             canvas.tool = PKInkingTool(.pen, color: .label, width: 2)
         }
+        // Interaction feedback for eraser disengage (AGENT-23).
+        interactionFeedback.play(.eraserDisengage, on: canvas.layer)
     }
 
     // MARK: Contextual palette
@@ -2846,10 +2865,20 @@ extension CanvasView.Coordinator: PencilActionDelegate {
 
     func pencilDidRequestUndo() {
         canvasRef?.undoManager?.undo()
+        // Interaction feedback for undo (AGENT-23).
+        if let layer = canvasRef?.layer {
+            interactionFeedback.play(.undo, on: layer)
+            microInteractionEngine.playUndoFlash(in: layer, isUndo: true)
+        }
     }
 
     func pencilDidRequestRedo() {
         canvasRef?.undoManager?.redo()
+        // Interaction feedback for redo (AGENT-23).
+        if let layer = canvasRef?.layer {
+            interactionFeedback.play(.redo, on: layer)
+            microInteractionEngine.playUndoFlash(in: layer, isUndo: false)
+        }
     }
 
     // MARK: Double-tap delete
