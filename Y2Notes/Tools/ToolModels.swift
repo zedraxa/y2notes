@@ -62,6 +62,154 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+// MARK: - Pen Sub-Type
+
+/// Defines the physical character of the pen tool, tuning pressure response,
+/// velocity sensitivity, ink flow, and texture for six distinct pen feels.
+///
+/// Each sub-type maps to a preset `WritingEffectConfig` (pressure curve, ink
+/// flow params, stroke taper) that is automatically applied when the user
+/// selects it.  The underlying `PKInkingTool` remains `.pen` in all cases —
+/// the differences are expressed through overlay physics, not PencilKit ink types.
+enum PenSubType: String, CaseIterable, Codable, Identifiable {
+    /// Everyday ballpoint: crisp, consistent, moderate pressure response.
+    case ballpoint
+    /// Gel pen: smooth flow, vibrant colour, slightly wet character.
+    case gel
+    /// Felt-tip marker: broad, soft-edged strokes, easy edge-fade.
+    case feltTip
+    /// Rollerball: fluid and even; thins noticeably at high velocity.
+    case rollerball
+    /// Technical/drafting pen: hairline precision, zero pressure variation.
+    case technicalPen
+    /// Sketchy/organic: rough texture, natural opacity variation, expressive.
+    case sketchy
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .ballpoint:    return "Ballpoint"
+        case .gel:          return "Gel"
+        case .feltTip:      return "Felt Tip"
+        case .rollerball:   return "Rollerball"
+        case .technicalPen: return "Technical"
+        case .sketchy:      return "Sketchy"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .ballpoint:    return "pencil.tip"
+        case .gel:          return "pencil.and.outline"
+        case .feltTip:      return "paintbrush.pointed"
+        case .rollerball:   return "scribble.variable"
+        case .technicalPen: return "ruler"
+        case .sketchy:      return "scribble"
+        }
+    }
+
+    /// Short user-facing tagline shown below the sub-type name.
+    var tagline: String {
+        switch self {
+        case .ballpoint:    return "Crisp, consistent everyday writing"
+        case .gel:          return "Smooth flow, vivid colour"
+        case .feltTip:      return "Bold, soft-edged strokes"
+        case .rollerball:   return "Fluid, even ink at any speed"
+        case .technicalPen: return "Hairline precision, no variation"
+        case .sketchy:      return "Organic, hand-drawn character"
+        }
+    }
+
+    // MARK: - Physics properties
+
+    /// Applied to the user's selected width before passing to `PKInkingTool`.
+    /// Felt-tip is widened by default; technical pen is narrowed.
+    var widthMultiplier: CGFloat {
+        switch self {
+        case .ballpoint:    return 1.0
+        case .gel:          return 1.1
+        case .feltTip:      return 1.6
+        case .rollerball:   return 1.05
+        case .technicalPen: return 0.65
+        case .sketchy:      return 1.2
+        }
+    }
+
+    /// Pressure response preset for this sub-type.
+    var pressureCurvePreset: PressureCurvePreset {
+        switch self {
+        case .ballpoint:    return .balanced
+        case .gel:          return .firm
+        case .feltTip:      return .light
+        case .rollerball:   return .balanced
+        case .technicalPen: return .flat
+        case .sketchy:      return .light
+        }
+    }
+
+    /// Velocity ceiling override (pts/s). Lower = more taper at speed.
+    var velocityCeiling: CGFloat {
+        switch self {
+        case .ballpoint:    return 2000
+        case .gel:          return 1500
+        case .feltTip:      return 2500
+        case .rollerball:   return 1200
+        case .technicalPen: return 5000
+        case .sketchy:      return 1000
+        }
+    }
+
+    /// Scales the micro-texture grain relative to its base opacity (1.0 = normal).
+    var microTextureMultiplier: CGFloat {
+        switch self {
+        case .ballpoint:    return 1.0
+        case .gel:          return 0.4
+        case .feltTip:      return 1.4
+        case .rollerball:   return 0.7
+        case .technicalPen: return 0.1
+        case .sketchy:      return 2.5
+        }
+    }
+
+    /// Scales per-segment opacity variance (1.0 = default ±3 %).
+    var opacityVarianceMultiplier: CGFloat {
+        switch self {
+        case .ballpoint:    return 1.0
+        case .gel:          return 0.4
+        case .feltTip:      return 1.4
+        case .rollerball:   return 0.7
+        case .technicalPen: return 0.0
+        case .sketchy:      return 3.0
+        }
+    }
+
+    /// Whether the stroke start/end should fade in/out (taper simulation).
+    var strokeTaperEnabled: Bool {
+        switch self {
+        case .ballpoint, .gel, .feltTip, .technicalPen: return false
+        case .rollerball, .sketchy:                      return true
+        }
+    }
+
+    /// Whether ink should visually pool (glow expands) when the nib slows.
+    var inkPoolingEnabled: Bool {
+        switch self {
+        case .gel, .feltTip:                                         return true
+        case .ballpoint, .rollerball, .technicalPen, .sketchy:       return false
+        }
+    }
+
+    /// Pooling glow expansion factor (0 = none, 1 = large pool).
+    var poolingStrength: CGFloat {
+        switch self {
+        case .gel:     return 0.55
+        case .feltTip: return 0.80
+        default:       return 0.0
+        }
+    }
+}
+
 // MARK: - Eraser Mode
 
 /// Whether the eraser removes individual pixels or entire strokes.
@@ -246,8 +394,9 @@ enum TextObjectAction {
 
 // MARK: - Tool Preset
 
-/// A saved combination of drawing tool, colour, stroke width, and opacity that
-/// the user can apply with a single tap and optionally mark as a favourite.
+/// A saved combination of drawing tool, colour, stroke width, opacity, and —
+/// for pen tools — the active pen sub-type character.  Apply with a single tap
+/// and optionally mark as a favourite.
 struct ToolPreset: Identifiable, Codable, Equatable {
     var id: UUID
     var name: String
@@ -258,6 +407,9 @@ struct ToolPreset: Identifiable, Codable, Equatable {
     /// Stroke opacity applied as alpha on the ink colour (0.05–1.0). Default 1.0.
     var opacity: Double
     var isFavorite: Bool
+    /// The pen sub-type to restore when this preset is applied.
+    /// `nil` for non-pen tools or presets saved before sub-types were introduced.
+    var penSubType: PenSubType?
 
     init(
         id: UUID = UUID(),
@@ -266,7 +418,8 @@ struct ToolPreset: Identifiable, Codable, Equatable {
         color: UIColor = .black,
         width: Double = 3.0,
         opacity: Double = 1.0,
-        isFavorite: Bool = false
+        isFavorite: Bool = false,
+        penSubType: PenSubType? = nil
     ) {
         self.id = id
         self.name = name
@@ -274,6 +427,7 @@ struct ToolPreset: Identifiable, Codable, Equatable {
         self.width = width
         self.opacity = opacity
         self.isFavorite = isFavorite
+        self.penSubType = penSubType
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
         self.colorComponents = [Double(r), Double(g), Double(b), Double(a)]
@@ -289,10 +443,10 @@ struct ToolPreset: Identifiable, Codable, Equatable {
         )
     }
 
-    // MARK: - Codable (manual to handle missing `opacity` in older stored data)
+    // MARK: - Codable (manual to handle missing keys in older stored data)
 
     enum CodingKeys: String, CodingKey {
-        case id, name, tool, colorComponents, width, opacity, isFavorite
+        case id, name, tool, colorComponents, width, opacity, isFavorite, penSubType
     }
 
     init(from decoder: Decoder) throws {
@@ -302,8 +456,9 @@ struct ToolPreset: Identifiable, Codable, Equatable {
         tool            = try c.decode(DrawingTool.self, forKey: .tool)
         colorComponents = try c.decode([Double].self,    forKey: .colorComponents)
         width           = try c.decode(Double.self,      forKey: .width)
-        opacity         = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1.0
+        opacity         = try c.decodeIfPresent(Double.self,      forKey: .opacity)     ?? 1.0
         isFavorite      = try c.decode(Bool.self,        forKey: .isFavorite)
+        penSubType      = try c.decodeIfPresent(PenSubType.self,  forKey: .penSubType)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -315,5 +470,34 @@ struct ToolPreset: Identifiable, Codable, Equatable {
         try c.encode(width,           forKey: .width)
         try c.encode(opacity,         forKey: .opacity)
         try c.encode(isFavorite,      forKey: .isFavorite)
+        try c.encodeIfPresent(penSubType, forKey: .penSubType)
+    }
+}
+
+// MARK: - PenSubType → WritingEffectConfig
+
+extension PenSubType {
+
+    /// Builds a `WritingEffectConfig` that reflects the physical character of
+    /// this pen sub-type.
+    ///
+    /// User-toggled advanced effects (`glowPenEnabled`, `neonInkEnabled`, etc.)
+    /// are copied from `base` unchanged — the sub-type only overrides the physics
+    /// parameters (pressure curve, ink flow, taper, pooling).
+    ///
+    /// - Parameter base: The existing config to preserve advanced-effect toggles from.
+    ///                   Defaults to `.default` (all advanced effects off).
+    func makeWritingEffectConfig(preservingUserToggles base: WritingEffectConfig = .default) -> WritingEffectConfig {
+        var c = base
+        c.pressureCurve    = pressureCurvePreset
+        c.strokeTaperEnabled = strokeTaperEnabled
+        c.inkPoolingEnabled  = inkPoolingEnabled
+        c.inkFlow = InkFlowParams(
+            microTextureMultiplier:    microTextureMultiplier,
+            opacityVarianceMultiplier: opacityVarianceMultiplier,
+            velocityCeiling:           velocityCeiling,
+            poolingStrength:           poolingStrength
+        )
+        return c
     }
 }

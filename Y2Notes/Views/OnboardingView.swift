@@ -88,7 +88,8 @@ struct OnboardingView: View {
             .tint(.white.opacity(0.6))
             .padding(.horizontal, 60)
             .padding(.top, 12)
-            .accessibilityLabel("Pencil-only drawing. When enabled, finger input pans and zooms instead of drawing.")
+            .accessibilityLabel("Pencil-only drawing")
+            .accessibilityHint("When enabled, finger input pans and zooms instead of drawing. You can change this later in Settings.")
 
             Spacer()
         }
@@ -144,7 +145,7 @@ struct OnboardingView: View {
 
     private func themeCard(_ theme: AppTheme) -> some View {
         let def = theme.definition
-        let isSelected = themeStore.selectedTheme == theme
+        let isSelected = themeStore.effectiveTheme == theme
         return Button {
             selectionFeedback.selectionChanged()
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -173,13 +174,25 @@ struct OnboardingView: View {
 
     private var bottomBar: some View {
         HStack {
-            // Skip button (hidden on last page)
-            if currentPage < pageCount - 1 {
+            // Back / Skip button
+            if currentPage == 0 {
                 Button("Skip") {
                     completeOnboarding()
                 }
                 .foregroundStyle(.white.opacity(0.7))
                 .accessibilityLabel("Skip onboarding")
+            } else if currentPage < pageCount - 1 {
+                Button {
+                    withAnimation { currentPage -= 1 }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.caption.bold())
+                        Text("Back")
+                    }
+                }
+                .foregroundStyle(.white.opacity(0.7))
+                .accessibilityLabel("Go to previous page")
             } else {
                 Spacer().frame(width: 60)
             }
