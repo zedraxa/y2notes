@@ -6,6 +6,9 @@ import QuartzCore
 /// Attaches a non-interactive `UIView` above the canvas container to render:
 /// - **Sparkle / Fire / Rainbow / Snow / Dissolve / Glow / Sheen / Shadow / Blood** —
 ///   `CAEmitterLayer` with physics-informed parameters and per-tier particle budget.
+///   **Fire** uses three emitter cells — bright yellow-white core, orange mid-flame,
+///   and rare ember sparks — plus a dedicated warm amber `CAGradientLayer` glow aura
+///   that follows the nib while writing and fades on pencil-lift.
 /// - **Glitch** — `CAAnimationGroup` on a full-bounds layer (horizontal shift +
 ///   transient colour tint) triggered each time a stroke event fires.
 /// - **Ripple** — expanding `CAShapeLayer` ring at the stroke endpoint.
@@ -70,6 +73,16 @@ final class InkEffectEngine {
         return g
     }()
 
+    // Fire glow — warm amber radial aura that follows the nib while writing with fire
+    private let fireGlowLayer: CAGradientLayer = {
+        let g = CAGradientLayer()
+        g.type = .radial
+        g.startPoint = CGPoint(x: 0.5, y: 0.5)
+        g.endPoint   = CGPoint(x: 1.0, y: 1.0)
+        g.isHidden   = true
+        return g
+    }()
+
     // Ripple (created per-stroke, up to 3 live at once)
     private var rippleLayers: [CAShapeLayer] = []
 
@@ -104,6 +117,12 @@ final class InkEffectEngine {
         glowLayer.cornerRadius = 30
         glowLayer.isHidden = true
         overlayView.layer.addSublayer(glowLayer)
+
+        // Fire glow layer — 80×80 warm amber aura, initially hidden
+        fireGlowLayer.bounds = CGRect(x: 0, y: 0, width: 80, height: 80)
+        fireGlowLayer.cornerRadius = 40
+        fireGlowLayer.isHidden = true
+        overlayView.layer.addSublayer(fireGlowLayer)
     }
 
     // MARK: - Attach / Detach
@@ -153,7 +172,9 @@ final class InkEffectEngine {
         guard resolved != activeFX else {
             // Same FX, but colour might have changed — recolour emitter cells.
             switch resolved {
-            case .fire, .sparkle, .snow, .dissolve, .rainbow, .shadow, .blood:
+            case .fire:
+                recolourFireEmitter(color: color)
+            case .sparkle, .snow, .dissolve, .rainbow, .shadow, .blood:
                 recolourEmitter(color: color)
             case .sheen:
                 sheenHueOffset = 0  // hue cycles automatically in onStrokeUpdated
@@ -196,6 +217,10 @@ final class InkEffectEngine {
             emitterLayer.isHidden   = false
             emitterLayer.birthRate  = 1
             updateEmitterPosition(point)
+            if activeFX == .fire {
+                fireGlowLayer.isHidden = false
+                updateFireGlowPosition(point)
+            }
         case .glitch:
             glitchLayer.isHidden = false
             triggerGlitchPulse()
@@ -213,6 +238,9 @@ final class InkEffectEngine {
         switch activeFX {
         case .fire, .sparkle, .snow, .dissolve, .shadow, .blood:
             updateEmitterPosition(point)
+            if activeFX == .fire {
+                updateFireGlowPosition(point)
+            }
         case .rainbow:
             rainbowHueOffset += 0.02
             if rainbowHueOffset > 1.0 { rainbowHueOffset -= 1.0 }
@@ -237,6 +265,23 @@ final class InkEffectEngine {
         switch activeFX {
         case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .shadow, .blood:
             emitterLayer.birthRate = 0
+            if activeFX == .fire {
+                let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
+                fadeAnim.fromValue             = Float(1)
+                fadeAnim.toValue               = Float(0)
+                fadeAnim.duration              = 0.35
+                fadeAnim.fillMode              = .forwards
+                fadeAnim.isRemovedOnCompletion = false
+                let glow = fireGlowLayer
+                CATransaction.begin()
+                CATransaction.setCompletionBlock {
+                    glow.isHidden = true
+                    glow.opacity  = 1
+                    glow.removeAnimation(forKey: "fireGlowFade")
+                }
+                fireGlowLayer.add(fadeAnim, forKey: "fireGlowFade")
+                CATransaction.commit()
+            }
         case .ripple:
             triggerRipple(at: point)
         case .lightning:
@@ -265,45 +310,104 @@ final class InkEffectEngine {
         overlayView.isHidden = true
     }
 
-    // MARK: - Private: Fire (physics-driven)
+    // MARK: - Private: Fire (multi-layer physics-driven)
 
     private func setupFireEmitter(color: UIColor) {
         emitterLayer.emitterShape = .point
         emitterLayer.emitterSize  = CGSize(width: 4, height: 4)
         emitterLayer.isHidden     = false
-        emitterLayer.emitterCells = [makeFireCell(color: color)]
-        emitterLayer.birthRate    = 0  // enabled on stroke begin
+        emitterLayer.emitterCells = [
+            makeCoreFlameCell(),
+            makeMidFlameCell(color: color),
+            makeFireEmberCell()
+        ]
+        emitterLayer.birthRate = 0  // enabled on stroke begin
+        configureFireGlow(color: color)
     }
 
-    private func makeFireCell(color: UIColor) -> CAEmitterCell {
+    /// Bright yellow-white inner core: the hottest, fastest-rising column.
+    private func makeCoreFlameCell() -> CAEmitterCell {
+        let physics = ParticlePhysics.fireCorePhysics
+        let cell               = CAEmitterCell()
+        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.35
+        cell.lifetime          = 0.28
+        cell.lifetimeRange     = 0.12
+        cell.velocity          = 95
+        cell.velocityRange     = CGFloat(physics.turbulence)
+        cell.yAcceleration     = physics.gravity  // strong upward rise
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi / 8          // tight column
+        cell.emissionLongitude = -.pi / 2         // straight up
+        cell.scale             = 0.040
+        cell.scaleRange        = 0.012
+        cell.scaleSpeed        = -0.022            // shrinks as it cools
+        cell.alphaSpeed        = -3.5              // fades fast — hot core is brief
+        cell.spin              = 0.8
+        cell.spinRange         = physics.spinRange
+        // Pale yellow-white: inner fire colour
+        cell.color             = UIColor(red: 1.0, green: 0.96, blue: 0.62, alpha: 0.95).cgColor
+        cell.redRange          = 0.04
+        cell.greenRange        = 0.06
+        cell.contents          = circleCGImage(diameter: 8)
+        return cell
+    }
+
+    /// Orange mid-flame: main visible body; hue is biased from the user's ink colour.
+    private func makeMidFlameCell(color: UIColor) -> CAEmitterCell {
         let physics = ParticlePhysics.firePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.8
-        cell.lifetime          = 0.45
+        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.70
+        cell.lifetime          = 0.50
         cell.lifetimeRange     = 0.25
-        cell.velocity          = 70
+        cell.velocity          = 68
         cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity     // negative = rise (flames go up)
+        cell.yAcceleration     = physics.gravity
         cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi / 5
-        cell.emissionLongitude = -.pi / 2  // upward
-        cell.scale             = 0.05
-        cell.scaleRange        = 0.02
-        cell.scaleSpeed        = -0.015
-        cell.alphaSpeed        = -2.2
-        cell.spin              = 0.5
+        cell.emissionRange     = .pi / 4           // wider than core
+        cell.emissionLongitude = -.pi / 2
+        cell.scale             = 0.055
+        cell.scaleRange        = 0.022
+        cell.scaleSpeed        = -0.012
+        cell.alphaSpeed        = -1.8
+        cell.spin              = 0.6
         cell.spinRange         = physics.spinRange
-
-        // Boost fire-orange bias while preserving the user's hue intent
+        // Bias user hue strongly toward fire orange-red
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let fr = min(1.0, r + 0.30)
-        let fg = min(1.0, g + 0.10)
-        let fb = max(0.0, b - 0.20)
-        cell.color      = UIColor(red: fr, green: fg, blue: fb, alpha: 0.90).cgColor
-        cell.redRange   = 0.30
-        cell.greenRange = 0.20
-        cell.contents   = circleCGImage(diameter: 12)
+        let fr = min(1.0, r * 0.35 + 0.72)
+        let fg = min(1.0, g * 0.25 + 0.22)
+        let fb = max(0.0, b * 0.08)
+        cell.color             = UIColor(red: fr, green: fg, blue: fb, alpha: 0.90).cgColor
+        cell.redRange          = 0.16
+        cell.greenRange        = 0.18
+        cell.contents          = circleCGImage(diameter: 14)
+        return cell
+    }
+
+    /// Ember sparks: occasional bright orange flecks that scatter and fall.
+    private func makeFireEmberCell() -> CAEmitterCell {
+        let physics = ParticlePhysics.fireEmberPhysics
+        let cell               = CAEmitterCell()
+        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.10  // rare
+        cell.lifetime          = 0.75
+        cell.lifetimeRange     = 0.30
+        cell.velocity          = 60
+        cell.velocityRange     = CGFloat(physics.turbulence)
+        cell.yAcceleration     = physics.gravity  // positive = downward after initial rise
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi * 0.9        // wide scatter
+        cell.emissionLongitude = -.pi / 2
+        cell.scale             = 0.018
+        cell.scaleRange        = 0.010
+        cell.scaleSpeed        = -0.008
+        cell.alphaSpeed        = -1.3
+        cell.spin              = 2.2
+        cell.spinRange         = physics.spinRange
+        // Vivid deep-orange ember — independent of user colour
+        cell.color             = UIColor(red: 1.0, green: 0.50, blue: 0.04, alpha: 0.95).cgColor
+        cell.redRange          = 0.08
+        cell.greenRange        = 0.20
+        cell.contents          = circleCGImage(diameter: 6)
         return cell
     }
 
@@ -559,6 +663,41 @@ final class InkEffectEngine {
         emitterLayer.emitterCells = [cell]
     }
 
+    /// Updates only the mid-flame cell colour on fire ink-colour change,
+    /// preserving the fixed core (yellow-white) and ember (deep orange) colours.
+    private func recolourFireEmitter(color: UIColor) {
+        guard var cells = emitterLayer.emitterCells, cells.count >= 2 else { return }
+        // Cell index 1 = mid flame (the only cell that uses user colour)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let fr = min(1.0, r * 0.35 + 0.72)
+        let fg = min(1.0, g * 0.25 + 0.22)
+        let fb = max(0.0, b * 0.08)
+        cells[1].color = UIColor(red: fr, green: fg, blue: fb, alpha: 0.90).cgColor
+        emitterLayer.emitterCells = cells
+        configureFireGlow(color: color)
+    }
+
+    /// Configures the fire glow gradient colours from the user's ink colour
+    /// biased toward warm amber-orange fire hues.
+    private func configureFireGlow(color: UIColor) {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: nil)
+        let gr = min(1.0, r * 0.25 + 0.88)
+        let gg = min(1.0, g * 0.20 + 0.32)
+        let gb = max(0.0, b * 0.06)
+        let glowColor = UIColor(red: gr, green: gg, blue: gb, alpha: 0.32)
+        fireGlowLayer.colors = [glowColor.cgColor, UIColor.clear.cgColor]
+        fireGlowLayer.locations = [0.0, 1.0]
+    }
+
+    private func updateFireGlowPosition(_ point: CGPoint) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fireGlowLayer.position = point
+        CATransaction.commit()
+    }
+
     private func updateEmitterPosition(_ point: CGPoint) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -660,6 +799,10 @@ final class InkEffectEngine {
 
         glowLayer.removeAllAnimations()
         glowLayer.isHidden = true
+
+        fireGlowLayer.removeAllAnimations()
+        fireGlowLayer.isHidden = true
+        fireGlowLayer.opacity  = 1
 
         rippleLayers.forEach { $0.removeFromSuperlayer() }
         rippleLayers.removeAll()

@@ -249,14 +249,39 @@ struct ParticlePhysics: Equatable {
 
     // MARK: Named presets
 
+    /// Mid-flame physics — the main visible orange body of the fire.
     static let firePhysics = ParticlePhysics(
-        gravity: -120,        // flames rise
+        gravity: -110,        // flames rise (slightly less than core)
         wind: 0,
-        turbulence: 35,       // flickering
-        drag: 0.92,
+        turbulence: 50,       // more organic flickering
+        drag: 0.90,
         bounceOffBounds: false,
         bounciness: 0,
-        spinRange: 2.0,
+        spinRange: 1.8,
+        fadeOut: true
+    )
+
+    /// Core-flame physics — the bright inner column, hottest and fastest rising.
+    static let fireCorePhysics = ParticlePhysics(
+        gravity: -190,        // hottest core shoots upward fastest
+        wind: 0,
+        turbulence: 22,       // tight columnar spread
+        drag: 0.95,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.0,
+        fadeOut: true
+    )
+
+    /// Ember physics — occasional bright sparks that scatter outward then fall.
+    static let fireEmberPhysics = ParticlePhysics(
+        gravity: 55,          // embers rise on initial velocity then fall with gravity
+        wind: 0,
+        turbulence: 70,       // chaotic outward scatter
+        drag: 0.80,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 4.5,
         fadeOut: true
     )
 
