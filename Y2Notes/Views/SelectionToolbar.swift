@@ -39,6 +39,7 @@ struct SelectionToolbar: View {
     private func actionButton(_ icon: String, label: String, hint: String, action: @escaping () -> Void) -> some View {
         Button {
             let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.prepare()
             impact.impactOccurred()
             action()
         } label: {

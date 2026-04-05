@@ -140,6 +140,7 @@ struct StudySessionView: View {
             ForEach(ReviewRating.allCases) { rating in
                 Button {
                     let impact = UIImpactFeedbackGenerator(style: .medium)
+                    impact.prepare()
                     impact.impactOccurred()
                     rate(card: card, rating: rating)
                 } label: {
@@ -342,6 +343,7 @@ struct StudySessionView: View {
 
     private func flipCard() {
         let impact = UIImpactFeedbackGenerator(style: .light)
+        impact.prepare()
         impact.impactOccurred()
         withAnimation(.interpolatingSpring(stiffness: 180, damping: 20)) {
             flipDegrees += 180

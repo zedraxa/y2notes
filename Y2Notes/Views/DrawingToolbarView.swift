@@ -203,6 +203,7 @@ struct DrawingToolbarView: View {
         let isActive = toolStore.activeTool == tool
         Button {
             let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.prepare()
             impact.impactOccurred()
             toolStore.activeTool = tool
         } label: {
