@@ -19,7 +19,7 @@ private extension StickyNoteColor {
 
 /// A UIView overlay that renders widget cards using Core Graphics and handles
 /// finger-based hit-test, selection, move, and resize gestures.
-final class WidgetCanvasView: UIView {
+final class WidgetCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - Public State
 

@@ -135,15 +135,10 @@ final class AmbientEnvironmentEngine {
 
     // MARK: - State
 
-    private let reduceMotion: Bool
     private(set) var activeScene: AmbientScene?
 
     /// Container holding all ambient sublayers — removed on deactivate.
     private weak var ambientContainer: CALayer?
-
-    init() {
-        reduceMotion = UIAccessibility.isReduceMotionEnabled
-    }
 
     /// Current adaptive effect intensity.  Updated by the owning view.
     var effectIntensity: EffectIntensity = .full
@@ -151,7 +146,7 @@ final class AmbientEnvironmentEngine {
     // MARK: - Transition Duration
 
     private var fadeDuration: CFTimeInterval {
-        reduceMotion ? Tuning.reducedMotionDuration
+        ReduceMotionObserver.shared.isEnabled ? Tuning.reducedMotionDuration
         : (effectIntensity.allowsAmbientAnimations ? Tuning.transitionDuration
            : Tuning.reducedMotionDuration)
     }
@@ -263,7 +258,7 @@ final class AmbientEnvironmentEngine {
             streak.cornerRadius = Tuning.rainStreakWidth / 2
             group.addSublayer(streak)
 
-            if !reduceMotion && effectIntensity.allowsAmbientAnimations {
+            if !ReduceMotionObserver.shared.isEnabled && effectIntensity.allowsAmbientAnimations {
                 let drift = CABasicAnimation(keyPath: "position.y")
                 drift.fromValue = -h / 2
                 drift.toValue = bounds.height + h / 2
@@ -290,7 +285,7 @@ final class AmbientEnvironmentEngine {
         group.addSublayer(wash)
 
         // 2. Slow brightness pulse.
-        if !reduceMotion && effectIntensity.allowsAmbientAnimations {
+        if !ReduceMotionObserver.shared.isEnabled && effectIntensity.allowsAmbientAnimations {
             let pulse = CABasicAnimation(keyPath: "opacity")
             pulse.fromValue = Tuning.lofiWashOpacity - Tuning.lofiPulseAmplitude
             pulse.toValue   = Tuning.lofiWashOpacity + Tuning.lofiPulseAmplitude
@@ -322,7 +317,7 @@ final class AmbientEnvironmentEngine {
         group.addSublayer(grain)
 
         // 3. Slow parallax drift on the grain layer.
-        if !reduceMotion && effectIntensity.allowsAmbientAnimations {
+        if !ReduceMotionObserver.shared.isEnabled && effectIntensity.allowsAmbientAnimations {
             let driftX = CABasicAnimation(keyPath: "position.x")
             driftX.fromValue = grain.position.x
             driftX.toValue   = grain.position.x + Tuning.nightGrainDriftSpeed * CGFloat(Tuning.nightGrainDriftDuration)

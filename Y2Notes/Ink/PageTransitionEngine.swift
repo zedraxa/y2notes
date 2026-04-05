@@ -74,15 +74,10 @@ final class PageTransitionEngine {
 
     // MARK: - State
 
-    private let reduceMotion: Bool
     private var isTransitioning: Bool = false
 
     /// Current adaptive effect intensity.  Updated by the owning view.
     var effectIntensity: EffectIntensity = .full
-
-    init() {
-        reduceMotion = UIAccessibility.isReduceMotionEnabled
-    }
 
     // MARK: - Public API
 
@@ -113,7 +108,7 @@ final class PageTransitionEngine {
         }
         isTransitioning = true
 
-        if reduceMotion || !effectIntensity.allowsPageTurnPhysics {
+        if ReduceMotionObserver.shared.isEnabled || !effectIntensity.allowsPageTurnPhysics {
             playReducedMotionTransition(on: layer, completion: completion)
             return
         }
