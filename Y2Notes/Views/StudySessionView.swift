@@ -30,6 +30,13 @@ struct StudySessionView: View {
     @State private var ratingCounts: [ReviewRating: Int] = [:]
     // Session start time for duration tracking.
     @State private var sessionStartTime: Date = Date()
+    // Staggered entrance for finished view.
+    @State private var showFinishedContent = false
+
+    // Haptic generators.
+    private let flipImpact = UIImpactFeedbackGenerator(style: .medium)
+    private let ratingImpact = UIImpactFeedbackGenerator(style: .light)
+    private let completionFeedback = UINotificationFeedbackGenerator()
 
     var body: some View {
         NavigationStack {
@@ -139,9 +146,6 @@ struct StudySessionView: View {
         HStack(spacing: 12) {
             ForEach(ReviewRating.allCases) { rating in
                 Button {
-                    let impact = UIImpactFeedbackGenerator(style: .medium)
-                    impact.prepare()
-                    impact.impactOccurred()
                     rate(card: card, rating: rating)
                 } label: {
                     VStack(spacing: 4) {
@@ -155,7 +159,7 @@ struct StudySessionView: View {
                     .background(ratingColor(rating).opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
                     .foregroundStyle(ratingColor(rating))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(RatingButtonStyle(color: ratingColor(rating)))
                 .accessibilityLabel("Rate \(rating.displayName)")
                 .accessibilityHint("Rates this card as \(rating.displayName) and moves to the next card")
             }
@@ -206,6 +210,7 @@ struct StudySessionView: View {
                     Capsule()
                         .fill(Color.accentColor)
                         .frame(width: max(geo.size.width * fraction, 0), height: 6)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: fraction)
                 }
             }
             .frame(height: 6)
@@ -250,11 +255,19 @@ struct StudySessionView: View {
                 Image(systemName: "star.fill")
                     .font(.system(size: 64))
                     .foregroundStyle(.yellow)
+                    .scaleEffect(showFinishedContent ? 1.0 : 0.3)
+                    .opacity(showFinishedContent ? 1 : 0)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.6), value: showFinishedContent)
                 Text("Session Complete!")
                     .font(.title.weight(.bold))
+                    .opacity(showFinishedContent ? 1 : 0)
+                    .offset(y: showFinishedContent ? 0 : 12)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(0.1), value: showFinishedContent)
                 Text("You reviewed \(completedCount) card\(completedCount == 1 ? "" : "s").")
                     .font(.title3)
                     .foregroundStyle(.secondary)
+                    .opacity(showFinishedContent ? 1 : 0)
+                    .animation(.easeOut(duration: 0.3).delay(0.2), value: showFinishedContent)
 
                 // Session stats
                 LazyVGrid(columns: [
@@ -342,9 +355,7 @@ struct StudySessionView: View {
     // MARK: Actions
 
     private func flipCard() {
-        let impact = UIImpactFeedbackGenerator(style: .light)
-        impact.prepare()
-        impact.impactOccurred()
+        flipImpact.impactOccurred()
         withAnimation(.interpolatingSpring(stiffness: 180, damping: 20)) {
             flipDegrees += 180
         }
@@ -354,6 +365,11 @@ struct StudySessionView: View {
     }
 
     private func rate(card: StudyCard, rating: ReviewRating) {
+        switch rating {
+        case .easy:  completionFeedback.notificationOccurred(.success)
+        case .again: completionFeedback.notificationOccurred(.warning)
+        default:     ratingImpact.impactOccurred()
+        }
         noteStore.recordReview(cardID: card.id, rating: rating)
         ratingCounts[rating, default: 0] += 1
 
@@ -373,8 +389,14 @@ struct StudySessionView: View {
                 againCards = []
                 currentIndex = 0
             } else {
+                completionFeedback.notificationOccurred(.success)
                 sessionFinished = true
+                showFinishedContent = false
                 queue = []
+                // Stagger the celebration entrance.
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.15)) {
+                    showFinishedContent = true
+                }
                 return
             }
         }
@@ -384,5 +406,18 @@ struct StudySessionView: View {
         // Reset flip state for the next card.
         isFlipped = false
         flipDegrees = 0
+    }
+}
+
+// MARK: - Rating button press style
+
+/// Provides a scale-down press effect for study rating buttons.
+private struct RatingButtonStyle: ButtonStyle {
+    let color: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }

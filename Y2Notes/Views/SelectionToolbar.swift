@@ -10,6 +10,9 @@ struct SelectionToolbar: View {
     @ObservedObject var toolStore: DrawingToolStore
     var onAction: (SelectionAction) -> Void
 
+    private let actionImpact = UIImpactFeedbackGenerator(style: .medium)
+    private let destructiveImpact = UINotificationFeedbackGenerator()
+
     // MARK: - Body
 
     var body: some View {
@@ -23,10 +26,10 @@ struct SelectionToolbar: View {
     @ViewBuilder
     private var selectionCapsule: some View {
         HStack(spacing: 6) {
-            actionButton("scissors", label: "Cut", hint: "Cut selected strokes to clipboard") { onAction(.cut) }
-            actionButton("doc.on.doc", label: "Copy", hint: "Copy selected strokes to clipboard") { onAction(.copy) }
-            actionButton("plus.square.on.square", label: "Duplicate", hint: "Duplicate selected strokes in place") { onAction(.duplicate) }
-            actionButton("trash", label: "Delete", hint: "Delete selected strokes") { onAction(.delete) }
+            actionButton("scissors", label: "Cut", hint: "Cut selected strokes to clipboard") { fireAction(.cut) }
+            actionButton("doc.on.doc", label: "Copy", hint: "Copy selected strokes to clipboard") { fireAction(.copy) }
+            actionButton("plus.square.on.square", label: "Duplicate", hint: "Duplicate selected strokes in place") { fireAction(.duplicate) }
+            actionButton("trash", label: "Delete", hint: "Delete selected strokes") { fireAction(.delete) }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
@@ -54,22 +57,38 @@ struct SelectionToolbar: View {
 
     // MARK: - Helpers
 
+    private func fireAction(_ action: SelectionAction) {
+        if action == .delete {
+            destructiveImpact.notificationOccurred(.warning)
+        } else {
+            actionImpact.impactOccurred()
+        }
+        onAction(action)
+    }
+
     @ViewBuilder
     private func actionButton(_ icon: String, label: String, hint: String, action: @escaping () -> Void) -> some View {
-        Button {
-            let impact = UIImpactFeedbackGenerator(style: .light)
-            impact.prepare()
-            impact.impactOccurred()
-            action()
-        } label: {
+        Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .medium))
                 .frame(width: 34, height: 34)
                 .foregroundStyle(Color(uiColor: .label))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SelectionActionButtonStyle())
         .accessibilityLabel(label)
         .accessibilityHint(hint)
+    }
+}
+
+// MARK: - Selection Action Button Style
+
+/// Press-scale style for selection toolbar buttons.
+private struct SelectionActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.85 : 1.0)
+            .opacity(configuration.isPressed ? 0.6 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
