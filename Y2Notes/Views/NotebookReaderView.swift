@@ -977,6 +977,8 @@ struct NotebookReaderView: View {
                                     Circle()
                                         .fill(section.colorTag.color)
                                         .frame(width: 7, height: 7)
+                                        .accessibilityLabel("\(section.colorTag.rawValue) colour indicator")
+                                        .accessibilityHidden(section.colorTag == .none)
                                     Text(section.name)
                                         .font(.subheadline)
                                         .foregroundStyle(.white.opacity(0.88))
@@ -1017,6 +1019,7 @@ struct NotebookReaderView: View {
                 isShowingCoverPage = false
             }
         }
+        .accessibilityHint("Double tap to dismiss cover page")
         .allowsHitTesting(true)
     }
 
