@@ -88,6 +88,10 @@ final class SearchIndex {
     /// Indexes combined primary+secondary text per entry UUID.
     private let trie = TrieIndex()
 
+    /// Bidirectional map between trie docIDs and entry keys for O(1) reverse lookup.
+    private var trieDocToEntry: [UUID: String] = [:]
+    private var entryToTrieDoc: [String: UUID] = [:]
+
     /// Timestamp of the last full rebuild — callers can skip rebuild if data hasn't changed.
     private(set) var lastFullRebuild: Date = .distantPast
 
@@ -111,6 +115,8 @@ final class SearchIndex {
     ) {
         entries.removeAll(keepingCapacity: true)
         trie.clear()
+        trieDocToEntry.removeAll(keepingCapacity: true)
+        entryToTrieDoc.removeAll(keepingCapacity: true)
 
         // Index notebooks
         for nb in notebooks {
@@ -194,7 +200,11 @@ final class SearchIndex {
         let prefix = "note-\(note.id.uuidString)"
         let keysToRemove = entries.keys.filter { $0.hasPrefix(prefix) }
         for key in keysToRemove {
-            trie.removeDocument(id: UUID(uuidString: key.replacingOccurrences(of: "-", with: "")) ?? note.id)
+            if let docID = entryToTrieDoc[key] {
+                trie.removeDocument(id: docID)
+                trieDocToEntry.removeValue(forKey: docID)
+                entryToTrieDoc.removeValue(forKey: key)
+            }
             entries.removeValue(forKey: key)
         }
         // Re-index
@@ -211,7 +221,11 @@ final class SearchIndex {
         let prefix = "note-\(noteID.uuidString)"
         let keysToRemove = entries.keys.filter { $0.hasPrefix(prefix) }
         for key in keysToRemove {
-            trie.removeDocument(id: makeTrieDocID(for: key))
+            if let docID = entryToTrieDoc[key] {
+                trie.removeDocument(id: docID)
+                trieDocToEntry.removeValue(forKey: docID)
+                entryToTrieDoc.removeValue(forKey: key)
+            }
             entries.removeValue(forKey: key)
         }
     }
@@ -664,8 +678,12 @@ final class SearchIndex {
     /// Called after a full rebuild or bulk import.
     private func rebuildTrie() {
         trie.clear()
+        trieDocToEntry.removeAll(keepingCapacity: true)
+        entryToTrieDoc.removeAll(keepingCapacity: true)
         for (key, entry) in entries {
-            let docID = makeTrieDocID(for: key)
+            let docID = computeTrieDocID(for: key)
+            trieDocToEntry[docID] = key
+            entryToTrieDoc[key] = docID
             let text = [entry.primaryText, entry.secondaryText]
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
@@ -673,9 +691,19 @@ final class SearchIndex {
         }
     }
 
-    /// Derives a stable UUID for the Trie from a string entry key.
-    /// Uses a deterministic hash so the same key always maps to the same UUID.
+    /// Derives a stable UUID for the Trie from a string entry key using FNV-1a.
     private func makeTrieDocID(for entryKey: String) -> UUID {
+        let docID = computeTrieDocID(for: entryKey)
+        // Register in bidirectional map so reverse lookup is O(1).
+        if trieDocToEntry[docID] == nil {
+            trieDocToEntry[docID] = entryKey
+            entryToTrieDoc[entryKey] = docID
+        }
+        return docID
+    }
+
+    /// Pure hash computation — no side effects on the bidirectional map.
+    private func computeTrieDocID(for entryKey: String) -> UUID {
         // Fold the key's UTF-8 bytes into a 128-bit UUID via FNV-1a.
         var hash0: UInt64 = 14695981039346656037
         var hash1: UInt64 = 14695981039346656037
@@ -707,13 +735,8 @@ final class SearchIndex {
         ))
     }
 
-    /// Converts a Trie docID back to the original entry key.
-    /// Since the mapping is one-way (hash), this resolves via the entries dictionary
-    /// by re-hashing all keys and matching — only called on search hits, not in hot paths.
+    /// Converts a Trie docID back to the original entry key in O(1) using the bidirectional map.
     private func trieDocIDToEntryID(_ docID: UUID) -> String {
-        for key in entries.keys {
-            if makeTrieDocID(for: key) == docID { return key }
-        }
-        return ""
+        trieDocToEntry[docID] ?? ""
     }
 }

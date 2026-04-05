@@ -196,7 +196,7 @@ enum ColorHarmony {
 
     /// Complementary: opposite hue (180° rotation).
     static func complementary(of color: UIColor) -> UIColor {
-        return rotateHue(color, by: .pi)
+        rotateHue(color, by: .pi)
     }
 
     /// Analogous: two neighbors at ±30° on the hue wheel.

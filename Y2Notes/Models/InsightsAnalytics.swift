@@ -410,7 +410,7 @@ enum MovingWindowStats {
         let w = Double(windowSize)
         var prevMean = sum / w
 
-        for i in windowSize...values.count {
+        for windowEnd in windowSize..<values.count {
             let mean = sum / w
             let variance = max(0, (sumSq / w) - mean * mean)
             let stdDev = variance.squareRoot()
@@ -424,13 +424,24 @@ enum MovingWindowStats {
 
             prevMean = mean
 
-            // Slide window forward.
-            if i < values.count {
-                let outgoing = values[i - windowSize]
-                let incoming = values[i]
-                sum += incoming - outgoing
-                sumSq += incoming * incoming - outgoing * outgoing
-            }
+            // Slide window forward: remove outgoing element, add incoming.
+            let outgoing = values[windowEnd - windowSize]
+            let incoming = values[windowEnd]
+            sum += incoming - outgoing
+            sumSq += incoming * incoming - outgoing * outgoing
+        }
+
+        // Append stats for the final window position.
+        if values.count >= windowSize {
+            let mean = sum / w
+            let variance = max(0, (sumSq / w) - mean * mean)
+            let stdDev = variance.squareRoot()
+            let momentum = mean - prevMean
+            results.append(WindowResult(
+                windowMean: mean,
+                windowStdDev: stdDev,
+                momentum: momentum
+            ))
         }
 
         return results
