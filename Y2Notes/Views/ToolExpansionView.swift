@@ -65,6 +65,11 @@ struct ToolExpansionView: View {
 
             // Opacity slider
             opacityRow
+
+            // Pen sub-type picker (only for the pen tool)
+            if expandedTool == .pen {
+                penSubTypeRow
+            }
         }
         .frame(maxWidth: 280)
     }
@@ -123,6 +128,58 @@ struct ToolExpansionView: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: 32, alignment: .trailing)
+        }
+    }
+
+    @ViewBuilder
+    private var penSubTypeRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Pen Type")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.3)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(PenSubType.allCases) { sub in
+                        let isSelected = toolStore.activePenSubType == sub
+                        Button {
+                            toolStore.activePenSubType = sub
+                            resetTimeout()
+                        } label: {
+                            VStack(spacing: 3) {
+                                Image(systemName: sub.systemImage)
+                                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                                    .frame(height: 16)
+                                Text(sub.displayName)
+                                    .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(
+                                isSelected
+                                    ? Color.accentColor.opacity(0.15)
+                                    : Color(.systemGray5)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .foregroundStyle(
+                                isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .strokeBorder(
+                                        isSelected ? Color.accentColor.opacity(0.5) : Color.clear,
+                                        lineWidth: 1
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(sub.displayName): \(sub.tagline)")
+                    }
+                }
+            }
         }
     }
 
