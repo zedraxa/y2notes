@@ -72,7 +72,7 @@ struct DocumentLibraryView: View {
 
     @EnvironmentObject var documentStore: DocumentStore
 
-    @State private var selectedDocumentID: UUID?
+    @Binding var selectedDocumentID: UUID?
     @State private var showImporter = false
     @State private var importError: String?
 
@@ -108,7 +108,9 @@ struct DocumentLibraryView: View {
             switch result {
             case .success(let urls):
                 if let url = urls.first {
-                    if documentStore.importDocument(from: url) == nil {
+                    if let doc = documentStore.importDocument(from: url) {
+                        selectedDocumentID = doc.id
+                    } else {
                         importError = "Unable to import \"\(url.lastPathComponent)\". The file format may not be supported."
                     }
                 }
