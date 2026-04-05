@@ -247,9 +247,9 @@ struct NoteEditorView: View {
                                 }
                             }
                         },
+                        pageCount: note.pageCount,
                         isMagicModeActive: toolStore.isMagicModeActive,
-                        isStudyModeActive: toolStore.isStudyModeActive,
-                        pageCount: note.pageCount
+                        isStudyModeActive: toolStore.isStudyModeActive
                     )
                     // Force recreation on page change so makeUIView loads the new drawing.
                     .id("\(note.id)-\(safePageIndex)")
