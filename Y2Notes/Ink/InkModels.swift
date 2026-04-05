@@ -437,36 +437,53 @@ struct ParticlePhysics: Equatable {
 
     /// Core bright-sparkle physics for sheen — tight cluster near the nib.
     static let sheenCorePhysics = ParticlePhysics(
-        gravity: -18,         // ethereal rise, snaps upward for a light-catching glitter
+        gravity: -22,         // stronger ethereal rise for light-catching glitter
         wind: 0,
-        turbulence: 28,       // moderate scatter keeps sparks close to the nib
-        drag: 0.94,
+        turbulence: 35,       // moderate scatter keeps sparks close to the nib
+        drag: 0.92,
         bounceOffBounds: false,
         bounciness: 0,
-        spinRange: 3.0,       // fast spin gives each diamond a glittering rotation
+        spinRange: 4.0,       // fast spin gives each diamond a glittering rotation
         fadeOut: true,
-        mass: 0.5,            // light — core diamonds drift upward
-        attractorStrength: 0.35, // strong inward pull keeps diamonds tight to the nib
-        noiseFrequency: 6.0,  // faster oscillation for a glittering shimmer
-        noiseAmplitude: 6.0,  // moderate displacement — visible but controlled
-        velocitySpawnSpread: .pi / 8  // tight emission cone keeps core cluster compact
+        mass: 0.4,            // light — core diamonds drift upward
+        attractorStrength: 0.40, // strong inward pull keeps diamonds tight to the nib
+        noiseFrequency: 8.0,  // faster oscillation for a glittering shimmer
+        noiseAmplitude: 8.0,  // moderate displacement — visible but controlled
+        velocitySpawnSpread: .pi / 6  // tight emission cone keeps core cluster compact
+    )
+
+    /// Prismatic flare physics for sheen — medium-range streaks between core and dust.
+    static let sheenFlarePhysics = ParticlePhysics(
+        gravity: -8,          // gentle upward drift for floating streaks
+        wind: 5,              // slight lateral drift for prismatic spread
+        turbulence: 40,       // moderate scatter for streak dispersion
+        drag: 0.91,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 5.0,       // very fast spin creates twinkling flare effect
+        fadeOut: true,
+        mass: 0.45,           // between core and dust
+        attractorStrength: 0.15, // mild inward pull — streaks drift moderately
+        noiseFrequency: 7.0,  // fast oscillation for sparkle-like motion
+        noiseAmplitude: 10.0, // visible displacement for directional shimmer
+        velocitySpawnSpread: .pi / 5  // medium emission cone
     )
 
     /// Outer shimmer-dust physics for sheen — loose halo that fans away from the nib.
     static let sheenDustPhysics = ParticlePhysics(
-        gravity: 10,          // slight downward drift so dust drifts off the trail
+        gravity: 12,          // slight downward drift so dust drifts off the trail
         wind: 0,
-        turbulence: 50,       // wide scatter creates the broad iridescent halo
-        drag: 0.90,
+        turbulence: 60,       // wide scatter creates the broad iridescent halo
+        drag: 0.88,
         bounceOffBounds: false,
         bounciness: 0,
-        spinRange: 1.8,
+        spinRange: 2.0,
         fadeOut: true,
-        mass: 0.3,            // very light — dust particles float and fan outward
-        attractorStrength: -0.1, // gentle outward push widens the halo
-        noiseFrequency: 3.0,  // slower oscillation for a cloud-like drift
-        noiseAmplitude: 12.0, // strong displacement expands the iridescent halo
-        velocitySpawnSpread: .pi / 4  // wider cone — fast strokes fan dust broadly
+        mass: 0.25,           // very light — dust particles float and fan outward
+        attractorStrength: -0.15, // gentle outward push widens the halo
+        noiseFrequency: 4.0,  // slower oscillation for a cloud-like drift
+        noiseAmplitude: 16.0, // strong displacement expands the iridescent halo
+        velocitySpawnSpread: .pi / 3  // wider cone — fast strokes fan dust broadly
     )
 
     static let shadowPhysics = ParticlePhysics(
