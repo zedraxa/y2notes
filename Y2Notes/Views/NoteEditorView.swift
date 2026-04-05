@@ -697,6 +697,12 @@ struct NoteEditorView: View {
             widget = NoteWidget.makeCalloutBox(at: center)
         case .referenceCard:
             widget = NoteWidget.makeReferenceCard(at: center)
+        case .stickyNote:
+            widget = NoteWidget.makeStickyNote(at: center)
+        case .flashcard:
+            widget = NoteWidget.makeFlashcard(at: center)
+        case .progressTracker:
+            widget = NoteWidget.makeProgressTracker(at: center)
         }
         widget.zIndex = maxZ + 1
 
