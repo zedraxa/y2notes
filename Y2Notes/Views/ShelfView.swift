@@ -100,7 +100,7 @@ struct ShelfView: View {
             if case .pdfLibrary = selectedSection {
                 PDFLibraryView(selectedPDFID: $selectedPDFID)
             } else if case .documentLibrary = selectedSection {
-                DocumentLibraryView()
+                DocumentLibraryView(selectedDocumentID: $selectedDocumentID)
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
@@ -424,6 +424,7 @@ struct NoteGridView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore: PDFStore
     @EnvironmentObject var documentStore: DocumentStore
+    @Environment(TabWorkspaceStore.self) private var tabSession
     let section: LibrarySection
     @Binding var selectedNoteID: UUID?
     /// Called when the user taps a notebook cover in the shelf row.
@@ -590,7 +591,13 @@ struct NoteGridView: View {
             allowsMultipleSelection: false
         ) { result in
             if case .success(let urls) = result, let url = urls.first {
-                pdfStore.importPDF(from: url)
+                if let record = pdfStore.importPDF(from: url) {
+                    tabSession.openTab(
+                        .pdf(id: record.id),
+                        displayName: record.title,
+                        accentColor: [0.8, 0.3, 0.3]
+                    )
+                }
             }
         }
         .fileImporter(
@@ -599,7 +606,13 @@ struct NoteGridView: View {
             allowsMultipleSelection: false
         ) { result in
             if case .success(let urls) = result, let url = urls.first {
-                documentStore.importDocument(from: url)
+                if let doc = documentStore.importDocument(from: url) {
+                    tabSession.openTab(
+                        .document(id: doc.id),
+                        displayName: doc.displayName,
+                        accentColor: [0.3, 0.5, 0.7]
+                    )
+                }
             }
         }
     }
