@@ -390,3 +390,7 @@
 "TextStyle.BorderColour"          = "Color de borde";
 "TextStyle.Thickness"             = "Grosor";
 "TextStyle.Corners"               = "Esquinas";
+
+/* ── Borrar trazando ──────────────────────────────────────────── */
+
+"Editor.ScratchDelete.UndoAction" = "Borrar trazando";

@@ -2203,6 +2203,22 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
 
+        // ── Scratch-to-delete gesture recognizer ─────────────────────────────
+        // ScribbleDeleteRecognizer is a fully passive observer: it never cancels
+        // or prevents PKCanvasView's own drawing recognizer.  When a rapid
+        // back-and-forth pencil motion is detected, the matching ink strokes are
+        // removed via deleteScratchStrokes(in:).  The deletion is dispatched
+        // asynchronously to guarantee PKCanvasView has committed the stroke before
+        // we modify canvas.drawing.
+        let scratchRecognizer = ScribbleDeleteRecognizer()
+        scratchRecognizer.onScratchDetected = { [weak coordinator = context.coordinator] viewportRect in
+            DispatchQueue.main.async {
+                coordinator?.deleteScratchStrokes(in: viewportRect)
+            }
+        }
+        canvas.addGestureRecognizer(scratchRecognizer)
+        context.coordinator.scratchDeleteRecognizer = scratchRecognizer
+
         // Pre-warm all haptic generators for interaction feedback (AGENT-23).
         context.coordinator.interactionFeedback.prepareAll()
 
@@ -2545,6 +2561,8 @@ struct CanvasView: UIViewRepresentable {
         var pencilCoordinator: PencilInteractionCoordinator?
         var hoverOverlay: PencilHoverOverlayView?
         var eraserCursorOverlay: EraserCursorOverlay?
+        /// Passive gesture recognizer that detects scratch-to-delete gestures.
+        var scratchDeleteRecognizer: ScribbleDeleteRecognizer?
         weak var canvasRef: PKCanvasView?
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
@@ -3198,6 +3216,84 @@ struct CanvasView: UIViewRepresentable {
 
             deletionImpactGenerator.impactOccurred()
             deletionImpactGenerator.prepare()
+        }
+
+        // MARK: - Scratch-to-delete
+
+        /// Removes every PKStroke whose render bounds intersect the scratch region
+        /// described by `viewportRect` (in the canvas scroll-view's bounds coordinates).
+        ///
+        /// This is called by ``ScribbleDeleteRecognizer`` after it confirms that the
+        /// user drew a rapid back-and-forth scratch gesture.  Because the scratch was
+        /// drawn with the active inking tool it becomes a regular PKStroke — that
+        /// stroke's render bounds lie within `viewportRect`, so it is included in the
+        /// set of strokes to remove alongside any pre-existing strokes it overlaps.
+        ///
+        /// The operation is registered with the canvas's `UndoManager` so it can be
+        /// reversed with a standard Undo gesture or Cmd-Z.
+        func deleteScratchStrokes(in viewportRect: CGRect) {
+            guard let canvas = canvasRef else { return }
+
+            // Expand the hit region slightly to account for stroke width — strokes
+            // are compared by their render bounds, which already includes the ink
+            // radius, but a small inset guards against sub-pixel rounding gaps.
+            let contentRect = self.contentRect(from: viewportRect, in: canvas)
+            let hitRect     = contentRect.insetBy(dx: -10, dy: -10)
+
+            let allStrokes = Array(canvas.drawing.strokes)
+            let remaining  = allStrokes.filter { !$0.renderBounds.intersects(hitRect) }
+
+            // Nothing to delete — either the scratch was over empty space or the
+            // detection fired erroneously.  Bail early without touching undo stack.
+            guard remaining.count < allStrokes.count else { return }
+
+            let oldDrawing = canvas.drawing
+            let newDrawing = PKDrawing(strokes: remaining)
+
+            canvas.undoManager?.registerUndo(withTarget: canvas) { cv in
+                cv.drawing = oldDrawing
+            }
+            canvas.undoManager?.setActionName(
+                NSLocalizedString("Editor.ScratchDelete.UndoAction",
+                                  comment: "Undo action name for scribble-to-delete")
+            )
+
+            canvas.drawing = newDrawing
+
+            // Scale haptic weight with the number of strokes removed: a single
+            // scratch stroke that erases only itself gets a normal impact, while
+            // removing several strokes at once gets a heavier double-impact.
+            let deletedCount = allStrokes.count - remaining.count
+            deletionImpactGenerator.impactOccurred()
+            if deletedCount > 2 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+                    self?.deletionImpactGenerator.impactOccurred()
+                }
+            }
+            deletionImpactGenerator.prepare()
+        }
+
+        /// Converts a rectangle from the canvas scroll-view's **viewport** (bounds)
+        /// coordinate space into the PKDrawing **content** coordinate space.
+        ///
+        /// PKStroke.renderBounds lives in content space; gesture touch locations are
+        /// reported in the scroll-view's bounds space.  The mapping is:
+        ///
+        ///     contentPoint.x = (viewportPoint.x + contentOffset.x) / zoomScale
+        ///
+        /// which is the inverse of `viewportPoint(from:in:)` defined nearby.
+        private func contentRect(from viewportRect: CGRect, in canvasView: PKCanvasView) -> CGRect {
+            let z = canvasView.zoomScale
+            let o = canvasView.contentOffset
+            let origin = CGPoint(
+                x: (viewportRect.minX + o.x) / z,
+                y: (viewportRect.minY + o.y) / z
+            )
+            let size = CGSize(
+                width:  viewportRect.width  / z,
+                height: viewportRect.height / z
+            )
+            return CGRect(origin: origin, size: size)
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {

@@ -391,3 +391,7 @@
 "TextStyle.BorderColour"          = "Border Colour";
 "TextStyle.Thickness"             = "Thickness";
 "TextStyle.Corners"               = "Corners";
+
+/* ── Scribble-to-Delete ───────────────────────────────────────── */
+
+"Editor.ScratchDelete.UndoAction" = "Scratch Delete";
