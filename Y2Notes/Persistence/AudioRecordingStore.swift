@@ -1,5 +1,8 @@
 import AVFoundation
 import Foundation
+import os
+
+private let recordingLogger = Logger(subsystem: "com.y2notes", category: "AudioRecording")
 
 /// Singleton-style store that manages audio recording lifecycle, file storage,
 /// and session persistence.  Wraps `AVAudioRecorder` with a pre-warm pattern
@@ -157,7 +160,7 @@ final class AudioRecordingStore: ObservableObject {
             try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true)
         } catch {
-            print("[AudioRecordingStore] Failed to configure AVAudioSession: \(error)")
+            recordingLogger.error("Failed to configure AVAudioSession: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -173,7 +176,7 @@ final class AudioRecordingStore: ObservableObject {
             recorder = try AVAudioRecorder(url: url, settings: quality.settings)
             recorder?.prepareToRecord()
         } catch {
-            print("[AudioRecordingStore] Pre-warm failed: \(error)")
+            recordingLogger.error("Pre-warm failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -193,12 +196,12 @@ final class AudioRecordingStore: ObservableObject {
             recorder = try AVAudioRecorder(url: url, settings: quality.settings)
             recorder?.prepareToRecord()
         } catch {
-            print("[AudioRecordingStore] Recorder init failed: \(error)")
+            recordingLogger.error("Recorder init failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
 
         guard recorder?.record() == true else {
-            print("[AudioRecordingStore] record() returned false")
+            recordingLogger.error("recorder.record() returned false")
             return nil
         }
 

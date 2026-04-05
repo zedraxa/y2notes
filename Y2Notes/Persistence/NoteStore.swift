@@ -1,6 +1,9 @@
 import Foundation
 import Combine
 import UIKit
+import os
+
+private let storeLogger = Logger(subsystem: "com.y2notes", category: "NoteStore")
 
 // MARK: - Save state
 
@@ -169,9 +172,7 @@ final class NoteStore: ObservableObject {
         guard FileManager.default.fileExists(atPath: flagURL.path) else { return }
         // Previous session did not exit cleanly. Data is safe due to atomic writes
         // and rolling backups. Log for diagnostics.
-        #if DEBUG
-        print("Y2Notes: crash detected — previous session did not exit cleanly. Data recovered from last save.")
-        #endif
+        storeLogger.warning("Crash detected — previous session did not exit cleanly. Data recovered from last save.")
     }
 
     // MARK: - Note CRUD
@@ -1210,9 +1211,7 @@ final class NoteStore: ObservableObject {
                 try? fm.moveItem(at: bak1, to: bak2)
             }
             if (try? fm.copyItem(at: url, to: bak1)) == nil {
-                #if DEBUG
-                print("Y2Notes: backup creation failed for \(url.lastPathComponent)")
-                #endif
+                storeLogger.error("Backup creation failed for \(url.lastPathComponent, privacy: .public)")
             }
             // Also maintain the legacy .bak for backward compatibility.
             let legacyBak = url.appendingPathExtension("bak")
@@ -1243,9 +1242,7 @@ final class NoteStore: ObservableObject {
             if let value = attemptLoad(type, from: backupURL) {
                 // Promote the backup to primary so the next save goes to the right place.
                 if (try? FileManager.default.copyItem(at: backupURL, to: url)) == nil {
-                    #if DEBUG
-                    print("Y2Notes: backup promotion failed for \(url.lastPathComponent) from .\(suffix); data will be rewritten on next save")
-                    #endif
+                    storeLogger.warning("Backup promotion failed for \(url.lastPathComponent, privacy: .public) from .\(suffix, privacy: .public); data will be rewritten on next save")
                 }
                 return value
             }

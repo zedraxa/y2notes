@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let navLogger = Logger(subsystem: "com.y2notes", category: "NavigationStore")
 
 // MARK: - NavigationStore
 
@@ -233,7 +236,7 @@ final class NavigationStore: ObservableObject {
             try data.write(to: bookmarksURL, options: .atomic)
         } catch {
             #if DEBUG
-            print("NavigationStore: bookmark save failed — \(error)")
+            navLogger.error("Bookmark save failed: \(error.localizedDescription, privacy: .public)")
             #endif
         }
     }
@@ -245,7 +248,7 @@ final class NavigationStore: ObservableObject {
             bookmarks = try JSONDecoder().decode([PageBookmark].self, from: data)
         } catch {
             #if DEBUG
-            print("NavigationStore: bookmark load failed — \(error)")
+            navLogger.error("Bookmark load failed: \(error.localizedDescription, privacy: .public)")
             #endif
             bookmarks = []
         }

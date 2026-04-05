@@ -1,5 +1,8 @@
 import Foundation
 import UIKit
+import os
+
+private let stickerLogger = Logger(subsystem: "com.y2notes", category: "StickerStore")
 
 /// Manages the sticker asset library: built-in manifest, custom imports,
 /// favorites, and recents.  Persists lightweight JSON indices to Documents.
@@ -136,7 +139,7 @@ final class StickerStore: ObservableObject {
             try pngData.write(to: fileURL, options: .atomic)
         } catch {
             #if DEBUG
-            print("StickerStore: failed to write custom sticker — \(error)")
+            stickerLogger.error("Failed to write custom sticker: \(error.localizedDescription, privacy: .public)")
             #endif
             return nil
         }

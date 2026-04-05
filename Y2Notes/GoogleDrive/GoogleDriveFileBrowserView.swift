@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 // MARK: - File Browser View
 
@@ -278,6 +279,8 @@ struct GoogleDriveFileBrowserView: View {
 
 // MARK: - View Model
 
+private let driveLogger = Logger(subsystem: "com.y2notes", category: "GoogleDrive")
+
 @MainActor
 final class DriveFileBrowserViewModel: ObservableObject {
 
@@ -461,7 +464,7 @@ final class DriveFileBrowserViewModel: ObservableObject {
             storageQuota = try await GoogleDriveClient.getStorageQuota(accessToken: token)
         } catch {
             // Non-critical — quota display is cosmetic.
-            print("Y2Notes: Failed to load Drive storage quota — \(error.localizedDescription)")
+            driveLogger.error("Failed to load Drive storage quota — \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -501,7 +504,7 @@ final class DriveFileBrowserViewModel: ObservableObject {
 
         do {
             try data.write(to: target, options: .atomic)
-            print("Y2Notes: Imported Drive file → \(target.lastPathComponent)")
+            driveLogger.info("Imported Drive file → \(target.lastPathComponent, privacy: .public)")
         } catch {
             errorMessage = "Failed to save file: \(error.localizedDescription)"
             showError = true
