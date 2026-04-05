@@ -12,9 +12,11 @@ struct CoverTextureOverlay: View {
     /// Master opacity for the entire texture layer (0…1).
     var intensity: Double = 1.0
 
+    @ViewBuilder
     var body: some View {
-        if texture == .smooth { Color.clear.frame(width: size.width, height: size.height) }
-        else {
+        if texture == .smooth {
+            Color.clear.frame(width: size.width, height: size.height)
+        } else {
             Canvas { context, canvasSize in
                 switch texture {
                 case .smooth:
@@ -160,9 +162,11 @@ struct CoverEmbossedTitle: View {
     let text: String
     let maxWidth: CGFloat
 
+    @ViewBuilder
     var body: some View {
-        if text.isEmpty { EmptyView() }
-        else {
+        if text.isEmpty {
+            EmptyView()
+        } else {
             ZStack {
                 // Shadow layer (pushed inward)
                 Text(text)
