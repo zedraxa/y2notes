@@ -128,7 +128,9 @@ struct WidgetEditorView: View {
             Button {
                 var updated = items
                 updated.append(ChecklistItem())
-                widget.payload = .checklist(title: title, items: updated)
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    widget.payload = .checklist(title: title, items: updated)
+                }
                 selectionFeedback.selectionChanged()
             } label: {
                 Label(NSLocalizedString("WidgetEditor.AddItem", comment: "Add Item"), systemImage: "plus.circle.fill")
@@ -144,7 +146,9 @@ struct WidgetEditorView: View {
         if let idx = updated.firstIndex(where: { $0.id == item.id }) {
             updated[idx].isChecked.toggle()
         }
-        widget.payload = .checklist(title: title, items: updated)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            widget.payload = .checklist(title: title, items: updated)
+        }
     }
 
     private func itemTextBinding(_ item: ChecklistItem, items: [ChecklistItem], title: String) -> Binding<String> {
@@ -228,7 +232,11 @@ struct WidgetEditorView: View {
         Section("Style") {
             Picker("Style", selection: Binding(
                 get: { style },
-                set: { widget.payload = .calloutBox(title: title, body: body, style: $0) }
+                set: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        widget.payload = .calloutBox(title: title, body: body, style: $0)
+                    }
+                }
             )) {
                 ForEach(CalloutStyle.allCases, id: \.self) { s in
                     Text(s.displayName).tag(s)
@@ -273,7 +281,11 @@ struct WidgetEditorView: View {
         Section("Color") {
             Picker("Color", selection: Binding(
                 get: { color },
-                set: { widget.payload = .stickyNote(body: body, color: $0) }
+                set: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        widget.payload = .stickyNote(body: body, color: $0)
+                    }
+                }
             )) {
                 ForEach(StickyNoteColor.allCases, id: \.self) { c in
                     Text(c.displayName).tag(c)
@@ -316,13 +328,17 @@ struct WidgetEditorView: View {
                 ForEach(1...4, id: \.self) { i in
                     Button {
                         let newLevel = i == confidenceLevel ? 0 : i
-                        widget.payload = .flashcard(front: front, back: back, isFlipped: isFlipped,
-                                                    confidenceLevel: newLevel)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            widget.payload = .flashcard(front: front, back: back, isFlipped: isFlipped,
+                                                        confidenceLevel: newLevel)
+                        }
                         selectionFeedback.selectionChanged()
                     } label: {
                         Image(systemName: i <= confidenceLevel ? "star.fill" : "star")
                             .foregroundStyle(i <= confidenceLevel ? Color.yellow : Color.secondary)
                             .font(.title3)
+                            .scaleEffect(i <= confidenceLevel ? 1.0 : 0.85)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: confidenceLevel)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(i) \(i == 1 ? "star" : "stars")")
@@ -332,6 +348,8 @@ struct WidgetEditorView: View {
                 Text(confidenceName(confidenceLevel))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.2), value: confidenceLevel)
             }
         } header: {
             Text("Confidence")
@@ -369,7 +387,9 @@ struct WidgetEditorView: View {
 
             HStack {
                 Button("Reset") {
-                    widget.payload = .progressTracker(title: title, current: 0, total: total)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        widget.payload = .progressTracker(title: title, current: 0, total: total)
+                    }
                     selectionFeedback.selectionChanged()
                 }
                 .foregroundStyle(.orange)
@@ -378,7 +398,9 @@ struct WidgetEditorView: View {
                 Spacer()
 
                 Button("Mark Complete") {
-                    widget.payload = .progressTracker(title: title, current: total, total: total)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        widget.payload = .progressTracker(title: title, current: total, total: total)
+                    }
                     successFeedback.notificationOccurred(.success)
                 }
                 .foregroundStyle(.green)

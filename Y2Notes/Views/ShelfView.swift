@@ -1556,6 +1556,7 @@ private struct NoteCardView: View {
                         .resizable()
                         .scaledToFit()
                         .padding(10)
+                        .transition(.opacity.animation(.easeIn(duration: 0.25)))
                 } else if note.drawingData.isEmpty {
                     Image(systemName: "pencil.and.scribble")
                         .font(.system(size: 30, weight: .ultraLight))

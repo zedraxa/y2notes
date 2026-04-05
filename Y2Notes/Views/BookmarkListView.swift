@@ -11,6 +11,8 @@ struct BookmarkListView: View {
     let onJump: (NavigationAnchor) -> Void
     @Environment(\.dismiss) private var dismiss
 
+    @State private var rowsAppeared = false
+
     var body: some View {
         NavigationStack {
             let items = navigationStore.bookmarks(for: notebook.id)
@@ -22,17 +24,27 @@ struct BookmarkListView: View {
                 )
             } else {
                 List {
-                    ForEach(items) { bookmark in
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, bookmark in
                         bookmarkRow(bookmark)
+                            .opacity(rowsAppeared ? 1 : 0)
+                            .offset(y: rowsAppeared ? 0 : 12)
+                            .animation(
+                                .spring(response: 0.35, dampingFraction: 0.8)
+                                    .delay(Double(index) * 0.05),
+                                value: rowsAppeared
+                            )
                     }
                     .onDelete { offsets in
                         let allBookmarks = navigationStore.bookmarks(for: notebook.id)
-                        for offset in offsets {
-                            navigationStore.removeBookmark(id: allBookmarks[offset].id)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            for offset in offsets {
+                                navigationStore.removeBookmark(id: allBookmarks[offset].id)
+                            }
                         }
                     }
                 }
                 .listStyle(.insetGrouped)
+                .onAppear { rowsAppeared = true }
             }
         }
         .navigationTitle(NSLocalizedString("Bookmarks.Title", comment: ""))
@@ -57,6 +69,7 @@ struct BookmarkListView: View {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(color(for: bookmark.colorTag))
                     .frame(width: 6, height: 36)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: bookmark.colorTag)
 
                 VStack(alignment: .leading, spacing: 2) {
                     let displayLabel = bookmark.label.isEmpty
@@ -98,7 +111,9 @@ struct BookmarkListView: View {
                 let allColors = BookmarkColor.allCases
                 if let idx = allColors.firstIndex(of: bookmark.colorTag) {
                     let next = allColors[(idx + 1) % allColors.count]
-                    navigationStore.updateBookmarkColor(id: bookmark.id, colorTag: next)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        navigationStore.updateBookmarkColor(id: bookmark.id, colorTag: next)
+                    }
                 }
             } label: {
                 Label(NSLocalizedString("Bookmarks.ChangeColor", comment: ""), systemImage: "paintpalette")

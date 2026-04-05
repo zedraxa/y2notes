@@ -9,6 +9,7 @@ struct ThemePickerView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let selectionFeedback = UISelectionFeedbackGenerator()
+    @State private var cardsAppeared = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,7 @@ struct ThemePickerView: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .onAppear { cardsAppeared = true }
     }
 
     // MARK: - Schedule Section
@@ -136,8 +138,15 @@ struct ThemePickerView: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
-                ForEach(themes) { theme in
+                ForEach(Array(themes.enumerated()), id: \.element) { index, theme in
                     themeCard(theme)
+                        .opacity(cardsAppeared ? 1 : 0)
+                        .offset(y: cardsAppeared ? 0 : 12)
+                        .animation(
+                            .spring(response: 0.35, dampingFraction: 0.8)
+                                .delay(Double(index) * 0.04),
+                            value: cardsAppeared
+                        )
                 }
             }
         }

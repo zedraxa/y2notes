@@ -18,6 +18,7 @@ struct NoteCreationSheet: View {
 
     @State private var selectedPageType: PageType = .ruled
     @State private var selectedMaterial: PaperMaterial = .standard
+    @State private var gridAppeared = false
 
     private let selectionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let confirmFeedback   = UINotificationFeedbackGenerator()
@@ -41,7 +42,7 @@ struct NoteCreationSheet: View {
                             .padding(.horizontal, 4)
 
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(PageType.allCases) { pt in
+                            ForEach(Array(PageType.allCases.enumerated()), id: \.element) { index, pt in
                                 PaperTypeCard(
                                     pageType: pt,
                                     isSelected: selectedPageType == pt
@@ -49,9 +50,18 @@ struct NoteCreationSheet: View {
                                 .onTapGesture {
                                     if selectedPageType != pt {
                                         selectionFeedback.impactOccurred()
-                                        selectedPageType = pt
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            selectedPageType = pt
+                                        }
                                     }
                                 }
+                                .opacity(gridAppeared ? 1 : 0)
+                                .offset(y: gridAppeared ? 0 : 16)
+                                .animation(
+                                    .spring(response: 0.4, dampingFraction: 0.8)
+                                        .delay(Double(index) * 0.06),
+                                    value: gridAppeared
+                                )
                             }
                         }
                     }
@@ -94,10 +104,13 @@ struct NoteCreationSheet: View {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
-                            .transition(.opacity)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.97)),
+                                removal: .opacity
+                            ))
                             .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
-                            .animation(.easeInOut(duration: 0.2), value: selectedPageType)
-                            .animation(.easeInOut(duration: 0.2), value: selectedMaterial)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedPageType)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedMaterial)
                     }
                 }
                 .padding(20)
@@ -117,6 +130,7 @@ struct NoteCreationSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .onAppear { gridAppeared = true }
     }
 
     private func createNote() {

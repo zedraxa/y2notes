@@ -40,6 +40,8 @@ struct ToolExpansionView: View {
 
     // MARK: - Body
 
+    @State private var panelAppeared = false
+
     var body: some View {
         Group {
             if expandedTool.isInking {
@@ -54,7 +56,13 @@ struct ToolExpansionView: View {
         .padding(.vertical, 8)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
-        .onAppear { resetTimeout() }
+        .scaleEffect(panelAppeared ? 1.0 : 0.92)
+        .opacity(panelAppeared ? 1.0 : 0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: panelAppeared)
+        .onAppear {
+            panelAppeared = true
+            resetTimeout()
+        }
         .onDisappear { dismissTask?.cancel() }
     }
 
