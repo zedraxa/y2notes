@@ -300,6 +300,36 @@
 "Credits.PatternsHeader"          = "Patrones de diseño adoptados";
 "Credits.Footer"                  = "Agradecemos a estos proyectos y a la comunidad de código abierto.";
 
+/* ── Document Import ──────────────────────────────────────────── */
+
+"Documents.Title"                 = "Documentos";
+"Documents.ImportDocument"        = "Importar documento";
+"Documents.NoDocuments"           = "Sin documentos";
+"Documents.NoDocumentsSubtitle"   = "Importa PDFs, imágenes, archivos Word, ePubs o presentaciones para ver y anotar.";
+"Documents.NoResults"             = "Sin resultados";
+"Documents.SortDocuments"         = "Ordenar documentos";
+"Documents.Rename"                = "Renombrar documento";
+"Documents.Share"                 = "Compartir";
+"Documents.Delete"                = "Eliminar";
+"Documents.AddFavorite"           = "Añadir a favoritos";
+"Documents.RemoveFavorite"        = "Quitar de favoritos";
+"Documents.GridView"              = "Cambiar a vista de cuadrícula";
+"Documents.ListView"              = "Cambiar a vista de lista";
+
+/* ── Companion Notes ──────────────────────────────────────────── */
+
+"Companion.CreateNote"            = "Crear nota de acompañamiento";
+"Companion.OpenNote"              = "Abrir nota de acompañamiento";
+"Companion.LinkedTo"              = "Vinculado a %@";
+"Companion.LinkedToImport"        = "Vinculado a importación";
+"Companion.OpenLinked"            = "Abrir importación vinculada";
+
+/* ── Import Notes ─────────────────────────────────────────────── */
+
+"ImportNotes.Title"               = "Notas de importación";
+"ImportNotes.Empty"               = "Aún no hay notas de importación";
+"ImportNotes.EmptySubtitle"       = "Crea una nota de acompañamiento desde un visor de PDF o documento para verla aquí.";
+
 /* ── Tool Expansion ──────────────────────────────────────────── */
 
 "ToolExpansion.PenType"           = "Tipo de pluma";

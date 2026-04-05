@@ -196,6 +196,7 @@ final class InkEffectEngine {
         fireGlowLayer.cornerRadius = 40
         fireGlowLayer.isHidden = true
         overlayView.layer.addSublayer(fireGlowLayer)
+    }
 
         // Sheen glow layer — iridescent radial gradient, initially hidden
         let sd = SheenTuning.glowDiameter

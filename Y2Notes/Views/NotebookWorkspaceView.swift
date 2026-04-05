@@ -90,7 +90,9 @@ struct NotebookWorkspaceView: View {
     @ViewBuilder
     private func pdfContent(id: UUID, tab: TabSession) -> some View {
         if let record = pdfStore.records.first(where: { $0.id == id }) {
-            PDFViewerView(record: record, tab: tab)
+            PDFViewerView(record: record, tab: tab, onOpenCompanionNote: { noteID in
+                openCompanionNote(noteID)
+            })
         } else {
             deletedContentPlaceholder(tab: tab)
         }
@@ -101,11 +103,24 @@ struct NotebookWorkspaceView: View {
         if let doc = documentStore.documents.first(where: { $0.id == id }) {
             DocumentViewerView(
                 document: doc,
-                fileURL: documentStore.storedURL(for: doc)
+                fileURL: documentStore.storedURL(for: doc),
+                onOpenCompanionNote: { noteID in
+                    openCompanionNote(noteID)
+                }
             )
         } else {
             deletedContentPlaceholder(tab: tab)
         }
+    }
+
+    /// Opens a companion note in a new tab.
+    private func openCompanionNote(_ noteID: UUID) {
+        guard let note = noteStore.notes.first(where: { $0.id == noteID }) else { return }
+        workspace.openTab(
+            .note(id: noteID),
+            displayName: note.title.isEmpty ? "Untitled Note" : note.title,
+            accentColor: [0.45, 0.45, 0.5]
+        )
     }
 
     // MARK: - Deleted Content

@@ -74,6 +74,18 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// One-line description shown in the theme picker beneath the theme name.
+    var description: String {
+        switch self {
+        case .system:   return "Follows your device's Light or Dark setting"
+        case .light:    return "Crisp white canvas for everyday note-taking"
+        case .dark:     return "Easy on the eyes in low-light environments"
+        case .sepia:    return "Warm parchment tones for long writing sessions"
+        case .midnight: return "Deep navy that reduces eye strain at night"
+        case .ocean:    return "Cool pale-blue calm for focused study"
+        }
+    }
+
     var systemImage: String {
         switch self {
         case .system:   return "iphone"

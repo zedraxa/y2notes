@@ -23,6 +23,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var documentStore: DocumentStore
     @EnvironmentObject var stickerStore: StickerStore
+    @EnvironmentObject var pdfStore: PDFStore
     @Environment(\.undoManager) private var undoManager
     @Environment(TabWorkspaceStore.self) private var workspace
     let note: Note
@@ -85,6 +86,11 @@ struct NoteEditorView: View {
 
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
+
+    /// Set to `true` immediately before navigating to a freshly created page
+    /// so the canvas plays its paper-settle reveal animation.  Reset shortly
+    /// after to avoid replaying the animation on subsequent re-renders.
+    @State private var isNewPageJustAdded = false
 
     /// Widget being edited in the inline editor sheet.
     @State private var widgetToEdit: NoteWidget?
@@ -299,10 +305,10 @@ struct NoteEditorView: View {
             .fileImporter(
                 isPresented: $showDocumentImporter,
                 allowedContentTypes: ImportedDocumentType.allUTTypes,
-                allowsMultipleSelection: false
+                allowsMultipleSelection: true
             ) { result in
-                if case .success(let urls) = result, let url = urls.first {
-                    documentStore.importDocument(from: url)
+                if case .success(let urls) = result {
+                    documentStore.importDocuments(from: urls)
                 }
             }
     }
@@ -324,6 +330,9 @@ struct NoteEditorView: View {
     private var mainContentStack: some View {
         VStack(spacing: 0) {
             titleField
+            if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                linkedImportBanner
+            }
             if effectiveDefinition.canvasIsDark && !isTextMode {
                 contrastBanner
             }
@@ -464,7 +473,8 @@ struct NoteEditorView: View {
             isMagicModeActive: toolStore.isMagicModeActive,
             isStudyModeActive: toolStore.isStudyModeActive,
             activeAmbientScene: toolStore.activeAmbientScene,
-            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled
+            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled,
+            isNewPage: isNewPageJustAdded
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
@@ -1244,6 +1254,58 @@ struct NoteEditorView: View {
         .background(Color(uiColor: effectiveDefinition.canvasBackground).opacity(0.8))
     }
 
+    // MARK: - Linked import banner
+
+    /// Shows a tappable banner when this note is a companion to a PDF or imported document.
+    private var linkedImportBanner: some View {
+        Button(action: openLinkedImport) {
+            HStack(spacing: 6) {
+                Image(systemName: "paperclip")
+                    .font(.caption2)
+                Text(linkedImportLabel)
+                    .font(.caption2)
+                Spacer()
+                Image(systemName: "arrow.up.forward")
+                    .font(.caption2)
+            }
+            .foregroundStyle(.accentColor)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(Color.accentColor.opacity(0.08))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open linked import")
+    }
+
+    private var linkedImportLabel: String {
+        if let pdfID = note.linkedPDFID,
+           let rec = pdfStore.records.first(where: { $0.id == pdfID }) {
+            return "Linked to \(rec.title)"
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return "Linked to \(doc.displayName)"
+        }
+        return "Linked to import"
+    }
+
+    private func openLinkedImport() {
+        if let pdfID = note.linkedPDFID {
+            workspace.openTab(
+                .pdf(id: pdfID),
+                displayName: pdfStore.records.first(where: { $0.id == pdfID })?.title ?? "PDF",
+                accentColor: [0.85, 0.25, 0.25]
+            )
+        } else if let docID = note.linkedDocumentID,
+                  let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            workspace.openTab(
+                .document(id: docID),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
+        }
+    }
+
     // MARK: - Focus Mode Overlay
 
     /// Full-screen SwiftUI overlay combining background dimming and a radial
@@ -1674,8 +1736,17 @@ struct NoteEditorView: View {
             // Add page
             Button {
                 if let newIndex = noteStore.addPage(to: note.id) {
+                    isNewPageJustAdded = true
                     withAnimation(.easeInOut(duration: 0.25)) {
                         currentPageIndex = newIndex
+                    }
+                    // Reset the flag after the CA reveal animation completes.
+                    // The delay (0.55 s) intentionally exceeds the SwiftUI navigation
+                    // animation (0.25 s) to ensure the new CanvasView is fully
+                    // displayed before the flag resets, preventing a double-reveal
+                    // if SwiftUI re-renders during the transition.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                        isNewPageJustAdded = false
                     }
                 }
             } label: {
@@ -1811,6 +1882,10 @@ struct CanvasView: UIViewRepresentable {
     /// Whether ambient soundscapes are enabled.
     var isAmbientSoundEnabled: Bool = true
 
+    /// When `true`, `makeUIView` plays a paper-settle reveal animation on the
+    /// container layer to celebrate the addition of a brand-new blank page.
+    var isNewPage: Bool = false
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
@@ -1854,6 +1929,7 @@ struct CanvasView: UIViewRepresentable {
         pageBackground.pageType     = pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
         pageBackground.grainIntensity = paperMaterial.grainIntensity
+        pageBackground.rulingTint   = paperMaterial.rulingTint
         pageBackground.isUserInteractionEnabled = false
 
         // Give the page a soft drop-shadow so it looks like a physical sheet
@@ -2194,6 +2270,11 @@ struct CanvasView: UIViewRepresentable {
             editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - complete")
         }
 
+        // Play a paper-settle reveal when this canvas represents a newly added page.
+        if isNewPage {
+            PageTransitionEngine.playNewPageReveal(on: container.layer)
+        }
+
         return container
     }
 
@@ -2212,9 +2293,13 @@ struct CanvasView: UIViewRepresentable {
             if bg.pageType != pageType {
                 bg.pageType = pageType
             }
-            let grainWanted = paperMaterial.grainIntensity
-            if bg.grainIntensity != grainWanted {
-                bg.grainIntensity = grainWanted
+            let wantedIntensity = paperMaterial.grainIntensity
+            if bg.grainIntensity != wantedIntensity {
+                bg.grainIntensity = wantedIntensity
+            }
+            let wantedTint = paperMaterial.rulingTint
+            if bg.rulingTint != wantedTint {
+                bg.rulingTint = wantedTint
             }
             // Re-sync position/scale in case SwiftUI re-rendered while
             // the canvas was scrolled or zoomed.
