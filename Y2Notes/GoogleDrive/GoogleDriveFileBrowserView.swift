@@ -157,7 +157,7 @@ struct GoogleDriveFileBrowserView: View {
                         .foregroundStyle(.primary)
 
                     HStack(spacing: 8) {
-                        if let size = file.size, size > 0 {
+                        if let size = file.size {
                             Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
                         }
                         Text(file.modifiedTime, style: .date)
@@ -311,6 +311,7 @@ final class DriveFileBrowserViewModel: ObservableObject {
 
     private var nextPageToken: String?
     private var isSearchMode = false
+    private var lastSearchQuery = ""
 
     // MARK: - Load root
 
@@ -342,6 +343,7 @@ final class DriveFileBrowserViewModel: ObservableObject {
         guard let token = await validToken() else { return }
 
         isSearchMode = true
+        lastSearchQuery = query
         isLoading = true
         files = []
         nextPageToken = nil
@@ -387,10 +389,8 @@ final class DriveFileBrowserViewModel: ObservableObject {
         do {
             let result: DrivePagedFileList
             if isSearchMode {
-                // Continue search pagination — we don't have the original query stored,
-                // so we fall back to listing the current folder.
-                result = try await GoogleDriveClient.listUserFiles(
-                    inFolder: breadcrumbs.last?.id ?? "root",
+                result = try await GoogleDriveClient.searchUserFiles(
+                    query: lastSearchQuery,
                     pageToken: pageToken,
                     accessToken: token
                 )
