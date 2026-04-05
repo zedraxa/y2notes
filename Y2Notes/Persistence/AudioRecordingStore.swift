@@ -124,7 +124,6 @@ final class AudioRecordingStore: ObservableObject {
         loadQuality()
         loadSessions()
         mergeRecoveredSessions()
-        configureAudioSession()
     }
 
     /// Checks the storage manager for sessions recovered from interrupted
@@ -183,6 +182,9 @@ final class AudioRecordingStore: ObservableObject {
     @discardableResult
     func startRecording(notebookID: UUID, noteID: UUID, pageIndex: Int) -> AudioSession? {
         guard !isRecording else { return activeSession }
+
+        // Configure audio session for recording (lazy — only when actually needed).
+        configureAudioSession()
 
         let sessionID = UUID()
         let url = audioFileURL(for: sessionID)

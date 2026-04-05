@@ -4,6 +4,7 @@ import PencilKit
 import PDFKit
 import OSLog
 import UniformTypeIdentifiers
+import AVFoundation
 
 // MARK: - Performance instrumentation
 
@@ -89,6 +90,9 @@ struct NoteEditorView: View {
     /// Widget being edited in the inline editor sheet.
     @State private var widgetToEdit: NoteWidget?
 
+    /// Audio recording store — owns AVAudioRecorder lifecycle and session persistence.
+    @StateObject private var recordingStore = AudioRecordingStore()
+
     private let searchService = SearchService()
 
     init(note: Note, tab: TabSession? = nil) {
@@ -173,9 +177,18 @@ struct NoteEditorView: View {
                 toolStore.currentPaperMaterial = .standard
             }
             // Sync tab navigation state back to the workspace store on every change.
-            .onChange(of: currentPageIndex) { _, newIndex in
+            .onChange(of: currentPageIndex) { oldIndex, newIndex in
                 if let id = tabID {
                     workspace.updateTabState(id, pageIndex: newIndex)
+                }
+                // Emit page change event for active audio recording timeline.
+                if recordingStore.isRecording {
+                    recordingStore.emitPageEvent(
+                        noteID: note.id,
+                        fromPage: oldIndex,
+                        toPage: newIndex,
+                        trigger: .swipe
+                    )
                 }
             }
             .onChange(of: showAdvancedPanel) { _, isOpen in
@@ -248,6 +261,10 @@ struct NoteEditorView: View {
                     toolStore.activeAmbientScene = nil
                     toolStore.toolbarOpacity = 1.0
                 }
+                // Stop any active recording when leaving the editor.
+                if recordingStore.isRecording {
+                    stopAudioRecording()
+                }
                 noteStore.save()
             }
             .sheet(isPresented: $showCreateFlashcard) {
@@ -301,6 +318,10 @@ struct NoteEditorView: View {
                     documentStore.importDocument(from: url)
                 }
             }
+            .sheet(isPresented: $toolStore.isRecordingSessionListPresented) {
+                RecordingSessionListView(recordingStore: recordingStore)
+                    .presentationDetents([.medium, .large])
+            }
     }
 
     // MARK: - Body sub-views (extracted to help Swift type-checker)
@@ -313,6 +334,13 @@ struct NoteEditorView: View {
             selectionActionBars
             advancedPanelOverlay
             effectOverlays
+            // Recording indicator — always above all other overlays
+            RecordingIndicatorView(recordingStore: recordingStore) {
+                toolStore.isRecordingSessionListPresented = true
+            }
+            .padding(.top, 8)
+            .padding(.trailing, 12)
+            .zIndex(2)
         }
     }
 
@@ -437,7 +465,9 @@ struct NoteEditorView: View {
             isMagicModeActive: toolStore.isMagicModeActive,
             isStudyModeActive: toolStore.isStudyModeActive,
             activeAmbientScene: toolStore.activeAmbientScene,
-            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled
+            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled,
+            recordingStoreForTimeline: recordingStore,
+            timelineNoteID: note.id
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
@@ -461,6 +491,7 @@ struct NoteEditorView: View {
                     toolStore: toolStore,
                     inkStore: inkStore,
                     stickerStore: stickerStore,
+                    recordingStore: recordingStore,
                     canUndo: canUndo,
                     canRedo: canRedo,
                     onUndo: { undoManager?.undo() },
@@ -469,6 +500,12 @@ struct NoteEditorView: View {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                             showAdvancedPanel.toggle()
                         }
+                    },
+                    onStartRecording: {
+                        startAudioRecording()
+                    },
+                    onStopRecording: {
+                        stopAudioRecording()
                     },
                     onSelectionAction: { action in
                         handleSelectionAction(action)
@@ -1151,6 +1188,32 @@ struct NoteEditorView: View {
         canRedo = undoManager?.canRedo ?? false
     }
 
+    // MARK: - Audio Recording
+
+    /// Starts an audio recording session, requesting microphone permission if needed.
+    private func startAudioRecording() {
+        AVAudioApplication.requestRecordPermission { granted in
+            DispatchQueue.main.async {
+                guard granted else { return }
+                let notebookID = note.notebookID ?? note.id
+                recordingStore.startRecording(
+                    notebookID: notebookID,
+                    noteID: note.id,
+                    pageIndex: currentPageIndex
+                )
+                toolStore.isRecording = true
+                toolStore.activeRecordingSession = recordingStore.activeSession
+            }
+        }
+    }
+
+    /// Stops the active audio recording session.
+    private func stopAudioRecording() {
+        recordingStore.stopRecording()
+        toolStore.isRecording = false
+        toolStore.activeRecordingSession = nil
+    }
+
     // MARK: - Selection Actions
 
     /// Handles selection toolbar actions by dispatching standard edit commands
@@ -1619,6 +1682,11 @@ struct CanvasView: UIViewRepresentable {
     /// Whether ambient soundscapes are enabled.
     var isAmbientSoundEnabled: Bool = true
 
+    /// Reference to the audio recording store for timeline event emission.
+    var recordingStoreForTimeline: AudioRecordingStore?
+    /// Note ID used for timeline event context.
+    var timelineNoteID: UUID?
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
@@ -1975,6 +2043,11 @@ struct CanvasView: UIViewRepresentable {
         // Wire up toolbar store reference for auto-fade (idempotent).
         context.coordinator.toolStoreRef = toolStoreForFade
 
+        // Wire up audio recording store reference for timeline events (idempotent).
+        context.coordinator.recordingStoreRef = recordingStoreForTimeline
+        context.coordinator.activeNoteID = timelineNoteID
+        context.coordinator.activePageIndex = pageIndex
+
         // Sync page background (ruling view).
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
@@ -2256,6 +2329,13 @@ struct CanvasView: UIViewRepresentable {
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
+
+        /// Reference to the audio recording store for timeline event emission.
+        var recordingStoreRef: AudioRecordingStore?
+
+        /// Note ID and page index used for timeline event context.
+        var activeNoteID: UUID?
+        var activePageIndex: Int = 0
 
         /// Task that schedules the toolbar fade after a delay of active drawing.
         private var fadeTask: Task<Void, Never>?
@@ -2856,6 +2936,21 @@ struct CanvasView: UIViewRepresentable {
                 self?.strokeMonitor.update(strokeCount: strokeCount, dataSize: data.count)
                 self?.adaptiveEffectsEngine.currentPageStrokeCount = strokeCount
                 self?.adaptiveEffectsEngine.reportStrokeChange()
+            }
+
+            // Emit timeline stroke event for active audio recording.
+            if let recStore = recordingStoreRef, recStore.isRecording,
+               let noteID = activeNoteID {
+                let bounds = canvasView.drawing.bounds
+                recStore.emitStrokeEvent(
+                    noteID: noteID,
+                    pageIndex: activePageIndex,
+                    regionX: bounds.origin.x,
+                    regionY: bounds.origin.y,
+                    regionWidth: bounds.width,
+                    regionHeight: bounds.height,
+                    toolName: canvasView.tool is PKInkingTool ? "ink" : "eraser"
+                )
             }
 
             // Debounce disk writes using config constant.
