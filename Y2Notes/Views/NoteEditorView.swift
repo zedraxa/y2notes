@@ -82,6 +82,11 @@ struct NoteEditorView: View {
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
+    /// Set to `true` immediately before navigating to a freshly created page
+    /// so the canvas plays its paper-settle reveal animation.  Reset shortly
+    /// after to avoid replaying the animation on subsequent re-renders.
+    @State private var isNewPageJustAdded = false
+
     private let searchService = SearchService()
 
     init(note: Note) {
@@ -399,7 +404,8 @@ struct NoteEditorView: View {
             },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
-            isStudyModeActive: toolStore.isStudyModeActive
+            isStudyModeActive: toolStore.isStudyModeActive,
+            isNewPage: isNewPageJustAdded
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
@@ -1441,8 +1447,14 @@ struct NoteEditorView: View {
             // Add page
             Button {
                 if let newIndex = noteStore.addPage(to: note.id) {
+                    isNewPageJustAdded = true
                     withAnimation(.easeInOut(duration: 0.25)) {
                         currentPageIndex = newIndex
+                    }
+                    // Reset the flag after the reveal animation completes so
+                    // subsequent re-renders don't replay it.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                        isNewPageJustAdded = false
                     }
                 }
             } label: {
@@ -1563,6 +1575,10 @@ struct CanvasView: UIViewRepresentable {
     /// Whether Study Mode is active (heading glow, checklist pulse, timer pulse).
     var isStudyModeActive: Bool = false
 
+    /// When `true`, `makeUIView` plays a paper-settle reveal animation on the
+    /// container layer to celebrate the addition of a brand-new blank page.
+    var isNewPage: Bool = false
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
@@ -1603,7 +1619,8 @@ struct CanvasView: UIViewRepresentable {
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
-        pageBackground.showGrain    = paperMaterial.hasGrainTexture
+        pageBackground.grainIntensity = paperMaterial.grainIntensity
+        pageBackground.rulingTint   = paperMaterial.rulingTint
         pageBackground.isUserInteractionEnabled = false
 
         container.addSubview(pageBackground)
@@ -1864,6 +1881,11 @@ struct CanvasView: UIViewRepresentable {
             editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - complete")
         }
 
+        // Play a paper-settle reveal when this canvas represents a newly added page.
+        if isNewPage {
+            PageTransitionEngine.playNewPageReveal(on: container.layer)
+        }
+
         return container
     }
 
@@ -1887,9 +1909,13 @@ struct CanvasView: UIViewRepresentable {
             if bg.pageType != pageType {
                 bg.pageType = pageType
             }
-            let grainWanted = paperMaterial.hasGrainTexture
-            if bg.showGrain != grainWanted {
-                bg.showGrain = grainWanted
+            let wantedIntensity = paperMaterial.grainIntensity
+            if bg.grainIntensity != wantedIntensity {
+                bg.grainIntensity = wantedIntensity
+            }
+            let wantedTint = paperMaterial.rulingTint
+            if bg.rulingTint != wantedTint {
+                bg.rulingTint = wantedTint
             }
             // Re-sync position/scale in case SwiftUI re-rendered while
             // the canvas was scrolled or zoomed.

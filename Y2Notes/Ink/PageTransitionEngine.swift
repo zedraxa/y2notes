@@ -105,6 +105,71 @@ final class PageTransitionEngine {
 
     // MARK: - Public API
 
+    // MARK: New-page reveal
+
+    /// Plays a "paper settle" reveal animation on a freshly created page layer.
+    ///
+    /// The effect simulates a blank sheet of paper being placed on the desk:
+    /// - The layer slides gently upward from 10 pts below its resting position.
+    /// - It scales from 0.98 → 1.0 with a spring bounce.
+    /// - It fades from 0 → 1 over the first portion of the animation.
+    ///
+    /// Under **Reduce Motion** the reveal is a simple 0.15 s cross-fade.
+    ///
+    /// - Parameter layer: The container `CALayer` for the new page canvas.
+    static func playNewPageReveal(on layer: CALayer) {
+        if ReduceMotionObserver.shared.isEnabled {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0.0
+            fade.toValue   = 1.0
+            fade.duration  = 0.15
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            fade.fillMode  = .backwards
+            layer.add(fade, forKey: "newPageReveal")
+            return
+        }
+
+        // Spring parameters tuned for a light, crisp paper-settle feel.
+        let mass:      CGFloat = 0.9
+        let stiffness: CGFloat = 300
+        let damping:   CGFloat = 24
+
+        // Slide up from +10 pts below
+        let slide = CASpringAnimation(keyPath: "transform.translation.y")
+        slide.fromValue         = 10.0
+        slide.toValue           = 0.0
+        slide.mass              = mass
+        slide.stiffness         = stiffness
+        slide.damping           = damping
+        slide.initialVelocity   = 0
+        slide.fillMode          = .backwards
+        slide.isRemovedOnCompletion = true
+
+        // Scale from 0.985 → 1.0
+        let scale = CASpringAnimation(keyPath: "transform.scale")
+        scale.fromValue         = 0.985
+        scale.toValue           = 1.0
+        scale.mass              = mass
+        scale.stiffness         = stiffness
+        scale.damping           = damping
+        scale.initialVelocity   = 0
+        scale.fillMode          = .backwards
+        scale.isRemovedOnCompletion = true
+
+        // Fade in over 0.20 s
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue          = 0.0
+        fade.toValue            = 1.0
+        fade.duration           = 0.20
+        fade.timingFunction     = CAMediaTimingFunction(name: .easeOut)
+        fade.fillMode           = .backwards
+        fade.isRemovedOnCompletion = true
+
+        layer.add(slide, forKey: "newPageSlide")
+        layer.add(scale, forKey: "newPageScale")
+        layer.add(fade,  forKey: "newPageFade")
+    }
+
     /// Plays a physical page transition on the given container layer.
     ///
     /// The engine creates ephemeral sublayers for the shadow and bend
