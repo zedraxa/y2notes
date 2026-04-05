@@ -154,7 +154,7 @@ final class AudioRecordingStore: ObservableObject {
     private func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true)
         } catch {
             print("[AudioRecordingStore] Failed to configure AVAudioSession: \(error)")
@@ -320,7 +320,7 @@ final class AudioRecordingStore: ObservableObject {
         regionHeight: Double,
         toolName: String
     ) {
-        guard isRecording, let session = activeSession else { return }
+        guard isRecording, let _ = activeSession else { return }
         let now = Date()
 
         // Coalesce rapid strokes

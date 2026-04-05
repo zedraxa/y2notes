@@ -242,7 +242,6 @@ final class AmbientEnvironmentEngine {
         tint.frame = bounds
         tint.backgroundColor = UIColor(red: 0.6, green: 0.75, blue: 0.95, alpha: 1.0).cgColor
         tint.opacity = Tuning.rainTintOpacity
-        tint.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         group.addSublayer(tint)
 
         // 2. Heavier vignette.
@@ -288,7 +287,6 @@ final class AmbientEnvironmentEngine {
         wash.frame = bounds
         wash.backgroundColor = Tuning.lofiWarmColor.cgColor
         wash.opacity = Tuning.lofiWashOpacity
-        wash.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         group.addSublayer(wash)
 
         // 2. Slow brightness pulse.
@@ -316,7 +314,6 @@ final class AmbientEnvironmentEngine {
         tint.frame = bounds
         tint.backgroundColor = Tuning.nightTintColor.cgColor
         tint.opacity = Tuning.nightTintOpacity
-        tint.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         group.addSublayer(tint)
 
         // 2. Film grain texture.
@@ -413,7 +410,6 @@ final class AmbientEnvironmentEngine {
         let layer = CAGradientLayer()
         layer.type = .radial
         layer.frame = bounds
-        layer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
 
         let clear = UIColor.clear.cgColor
         let dark  = UIColor.black.cgColor

@@ -761,10 +761,10 @@ final class AudioStorageManager {
     }
 
     private static func audioDuration(at url: URL) -> TimeInterval? {
-        let asset = AVAsset(url: url)
-        let duration = asset.duration
-        guard duration.timescale > 0 else { return nil }
-        return CMTimeGetSeconds(duration)
+        guard let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
+        let duration = player.duration
+        guard duration > 0 else { return nil }
+        return duration
     }
 
     static func formattedBytes(_ bytes: Int64) -> String {
