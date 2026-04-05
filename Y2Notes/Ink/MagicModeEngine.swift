@@ -312,7 +312,7 @@ final class MagicModeEngine {
     }
 
     /// A 12×12 soft circle rendered once and reused for the primary sparkle.
-    private static let particleImage: UIImage = {
+    static let particleImage: UIImage = {
         let size = CGSize(width: 12, height: 12)
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { ctx in
