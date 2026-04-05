@@ -540,7 +540,7 @@ final class SearchIndex {
             let itemTexts = items.map(\.text).filter { !$0.isEmpty }
             return ([title] + itemTexts).joined(separator: " ")
 
-        case .quickTable(let title, _, _, let cells):
+        case .quickTable(let title, _, _, let cells, _):
             let cellTexts = cells.map(\.text).filter { !$0.isEmpty }
             return ([title] + cellTexts).joined(separator: " ")
 
@@ -549,6 +549,15 @@ final class SearchIndex {
 
         case .referenceCard(let title, let body):
             return [title, body].filter { !$0.isEmpty }.joined(separator: " ")
+
+        case .stickyNote(let body, _):
+            return body
+
+        case .flashcard(let front, let back, _, _):
+            return [front, back].filter { !$0.isEmpty }.joined(separator: " ")
+
+        case .progressTracker(let title, _, _):
+            return title
         }
     }
 

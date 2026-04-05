@@ -82,6 +82,9 @@ struct NoteEditorView: View {
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
+    /// Widget being edited in the inline editor sheet.
+    @State private var widgetToEdit: NoteWidget?
+
     private let searchService = SearchService()
 
     init(note: Note) {
@@ -255,6 +258,17 @@ struct NoteEditorView: View {
                     placeWidget(kind)
                 }
                 .presentationDetents([.medium])
+            }
+            .sheet(item: $widgetToEdit) { widget in
+                WidgetEditorView(widget: widget) { updated in
+                    let pageIdx = currentPageIndex
+                    var widgets = note.widgets(forPage: pageIdx)
+                    if let idx = widgets.firstIndex(where: { $0.id == updated.id }) {
+                        widgets[idx] = updated
+                        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+                    }
+                }
+                .presentationDetents([.medium, .large])
             }
             .fileImporter(
                 isPresented: $showDocumentImporter,
@@ -615,7 +629,7 @@ struct NoteEditorView: View {
             } label: {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
             }
-            .accessibilityLabel("Reset zoom to 100%")
+            .accessibilityLabel("Fit page to screen")
 
             Button {
                 undoManager?.undo()
@@ -820,6 +834,9 @@ struct NoteEditorView: View {
         guard let idx = widgets.firstIndex(where: { $0.id == widgetID }) else { return }
 
         switch action {
+        case .edit:
+            widgetToEdit = widgets[idx]
+
         case .duplicate:
             let source = widgets[idx]
             let copy = NoteWidget(
@@ -841,6 +858,18 @@ struct NoteEditorView: View {
 
         case .toggleLock:
             widgets[idx].isLocked.toggle()
+
+        case .bringForward:
+            let maxZ = widgets.map(\.zIndex).max() ?? 0
+            if widgets[idx].zIndex < maxZ {
+                widgets[idx].zIndex += 1
+            }
+
+        case .sendBack:
+            let minZ = widgets.map(\.zIndex).min() ?? 0
+            if widgets[idx].zIndex > minZ {
+                widgets[idx].zIndex -= 1
+            }
 
         case .delete:
             widgets.remove(at: idx)
@@ -1599,7 +1628,9 @@ struct CanvasView: UIViewRepresentable {
         editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - begin")
 
         let container = UIView()
-        container.backgroundColor = backgroundColor
+        // The container is the "desk surface" — it shows around the page when
+        // zoomed out.  The paper colour is rendered by PageBackgroundView instead.
+        container.backgroundColor = Self.deskSurfaceColor
 
         // ── Page background (ruling + paper tint, sits behind the canvas) ──────
         // Frame-based layout sized to the fixed page dimensions so the ruling
@@ -1611,6 +1642,17 @@ struct CanvasView: UIViewRepresentable {
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
         pageBackground.showGrain    = paperMaterial.hasGrainTexture
         pageBackground.isUserInteractionEnabled = false
+
+        // Give the page a soft drop-shadow so it looks like a physical sheet
+        // resting on the desk surface.  An explicit shadow path avoids the
+        // expensive offscreen-composite pass that Core Animation would otherwise
+        // need for a view with a non-opaque background.
+        pageBackground.layer.shadowColor   = UIColor.black.cgColor
+        pageBackground.layer.shadowOpacity = 0.18
+        pageBackground.layer.shadowRadius  = 12
+        pageBackground.layer.shadowOffset  = CGSize(width: 0, height: 3)
+        pageBackground.layer.shadowPath    =
+            UIBezierPath(rect: CGRect(origin: .zero, size: ps)).cgPath
 
         container.addSubview(pageBackground)
         context.coordinator.pageBackground = pageBackground
@@ -1654,7 +1696,8 @@ struct CanvasView: UIViewRepresentable {
         let canvas = PKCanvasView()
         canvas.delegate = context.coordinator
         canvas.drawingPolicy = drawingPolicy
-        canvas.alwaysBounceVertical = true
+        canvas.alwaysBounceVertical   = true
+        canvas.alwaysBounceHorizontal = true
         // Canvas is transparent so the page background shows through.
         canvas.backgroundColor = .clear
         canvas.tool = currentTool
@@ -1767,6 +1810,14 @@ struct CanvasView: UIViewRepresentable {
         widgetCanvas.onWidgetsChanged = { widgets in
             context.coordinator.handleWidgetsChanged(widgets)
         }
+        // Study mode: fire checklist completion animation.
+        widgetCanvas.onChecklistCompleted = { _, center in
+            context.coordinator.studyModeEngine.checklistComplete(at: center)
+        }
+        // Study mode: fire timer/progress completion animation.
+        widgetCanvas.onTimerCompleted = { _, _ in
+            context.coordinator.studyModeEngine.timerComplete()
+        }
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
         container.addSubview(widgetCanvas)
@@ -1814,6 +1865,19 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.hoverOverlay = hoverOverlay
 
+        // ── Eraser cursor overlay (non-interactive, shows ring sized to eraser width) ──
+        let eraserCursor = EraserCursorOverlay(frame: .zero)
+        eraserCursor.translatesAutoresizingMaskIntoConstraints = false
+        eraserCursor.isUserInteractionEnabled = false
+        canvas.addSubview(eraserCursor)
+        NSLayoutConstraint.activate([
+            eraserCursor.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
+            eraserCursor.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
+            eraserCursor.topAnchor.constraint(equalTo: canvas.topAnchor),
+            eraserCursor.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
+        ])
+        context.coordinator.eraserCursorOverlay = eraserCursor
+
         // ── Apple Pencil interaction coordinator ─────────────────────────────
         let pencilCoordinator = PencilInteractionCoordinator()
         pencilCoordinator.delegate = context.coordinator
@@ -1857,10 +1921,8 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.pinchOverviewGesture = pinchOverview
 
         // ── Book feel: page shadow ──────────────────────────────────────────
-        container.layer.shadowColor   = UIColor.black.cgColor
-        container.layer.shadowOpacity = 0.12
-        container.layer.shadowRadius  = 8
-        container.layer.shadowOffset  = CGSize(width: 0, height: 2)
+        // Shadow is on the pageBackground layer (see above) so it follows the
+        // page rather than the full-screen container.
 
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
@@ -1869,6 +1931,16 @@ struct CanvasView: UIViewRepresentable {
         // Become first responder so Apple Pencil is ready immediately.
         DispatchQueue.main.async {
             canvas.becomeFirstResponder()
+            // Set initial zoom so the page width fits the visible canvas exactly.
+            // This ensures the user sees a complete, correctly-proportioned page on
+            // first open regardless of device orientation or screen size.
+            let canvasW = canvas.bounds.width
+            if canvasW > 0 {
+                let fitZoom = canvasW / CanvasView.pageSize.width
+                let clamped = max(canvas.minimumZoomScale,
+                                  min(canvas.maximumZoomScale, fitZoom))
+                canvas.setZoomScale(clamped, animated: false)
+            }
             editorSignposter.endInterval("CanvasSetup", setupState)
             editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - complete")
         }
@@ -1881,11 +1953,6 @@ struct CanvasView: UIViewRepresentable {
 
         // Wire up toolbar store reference for auto-fade (idempotent).
         context.coordinator.toolStoreRef = toolStoreForFade
-
-        // Sync container background colour when the theme/material changes.
-        if uiView.backgroundColor != backgroundColor {
-            uiView.backgroundColor = backgroundColor
-        }
 
         // Sync page background (ruling view).
         if let bg = context.coordinator.pageBackground {
@@ -1981,13 +2048,19 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
 
-        // Zoom reset: animate to 1× when the trigger value flips.
+        // Zoom reset: animate to fit-to-width when the trigger value flips.
+        // "Fit to width" is more useful than a fixed 1× scale because it adapts
+        // to the current screen size and orientation.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
             // Dispatch to avoid mutating scroll state mid-layout-pass.
             DispatchQueue.main.async {
-                canvas.setZoomScale(1.0, animated: true)
-                editorLogger.debug("[\(noteID, privacy: .public)] zoom reset to 1×")
+                let canvasW = canvas.bounds.width
+                let fitZoom = canvasW > 0 ? canvasW / CanvasView.pageSize.width : 1.0
+                let clamped = max(canvas.minimumZoomScale,
+                                  min(canvas.maximumZoomScale, fitZoom))
+                canvas.setZoomScale(clamped, animated: true)
+                editorLogger.debug("[\(noteID, privacy: .public)] zoom reset to fit-width (\(clamped, format: .fixed(precision: 2))×)")
             }
         }
 
@@ -2072,6 +2145,17 @@ struct CanvasView: UIViewRepresentable {
             : UIColor.label.withAlphaComponent(0.10)
     }
 
+    // MARK: - Desk surface color
+
+    /// The background color shown outside the page boundaries (the "desk" surface).
+    /// Uses a neutral warm-gray that contrasts with the paper in both light and
+    /// dark appearances, giving the canvas the look of a real page resting on a table.
+    private static let deskSurfaceColor: UIColor = UIColor { tc in
+        tc.userInterfaceStyle == .dark
+            ? UIColor(white: 0.13, alpha: 1)
+            : UIColor(white: 0.86, alpha: 1)
+    }
+
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
@@ -2096,6 +2180,7 @@ struct CanvasView: UIViewRepresentable {
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
         var hoverOverlay: PencilHoverOverlayView?
+        var eraserCursorOverlay: EraserCursorOverlay?
         weak var canvasRef: PKCanvasView?
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
@@ -2828,7 +2913,12 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             // Remember current inking tool before switching to eraser.
             previousInkingTool = canvas.tool
         }
-        canvas.tool = PKEraserTool(toolStoreRef?.eraserMode.pkEraserType ?? .vector)
+        canvas.tool = toolStoreRef?.makeEraserTool() ?? {
+            if #available(iOS 16.4, *) {
+                return PKEraserTool(.bitmap, width: EraserSubType.standard.defaultWidth)
+            }
+            return PKEraserTool(.bitmap)
+        }()
         // Interaction feedback for eraser engage (AGENT-23).
         interactionFeedback.play(.eraserEngage, on: canvas.layer)
     }
@@ -2857,7 +2947,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             at: windowPoint,
             in: window,
             canvas: canvas,
-            eraserType: toolStoreRef?.eraserMode.pkEraserType ?? .vector
+            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector
         )
     }
 
@@ -2890,7 +2980,18 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Hover preview
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
-        hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+        let isErasing = canvasRef?.tool is PKEraserTool
+        if isErasing {
+            // Show sized eraser ring; hide ghost-nib overlay.
+            let sub   = toolStoreRef?.eraserSubType ?? .standard
+            let width = toolStoreRef?.eraserWidth   ?? sub.defaultWidth
+            eraserCursorOverlay?.update(position: position, subType: sub, eraserWidth: width)
+            hoverOverlay?.update(position: nil, altitude: altitude, azimuth: azimuth)
+        } else {
+            // Show ghost-nib; hide eraser ring.
+            hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+            eraserCursorOverlay?.update(position: nil, subType: .standard, eraserWidth: 0)
+        }
     }
 
     // MARK: Barrel-roll fountain pen (Apple Pencil Pro, iOS 17.5+)
