@@ -86,6 +86,8 @@ struct StudySessionView: View {
             }
             .rotation3DEffect(.degrees(flipDegrees), axis: (x: 0, y: 1, z: 0))
             .onTapGesture { flipCard() }
+            .accessibilityLabel(isFlipped ? "Answer: \(card.back)" : "Question: \(card.front)")
+            .accessibilityHint(isFlipped ? "Swipe right to rate this card" : "Double-tap to reveal the answer")
             .frame(maxWidth: 600)
             .padding(.horizontal)
 
@@ -137,6 +139,8 @@ struct StudySessionView: View {
         HStack(spacing: 12) {
             ForEach(ReviewRating.allCases) { rating in
                 Button {
+                    let impact = UIImpactFeedbackGenerator(style: .medium)
+                    impact.impactOccurred()
                     rate(card: card, rating: rating)
                 } label: {
                     VStack(spacing: 4) {
@@ -151,6 +155,8 @@ struct StudySessionView: View {
                     .foregroundStyle(ratingColor(rating))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Rate \(rating.displayName)")
+                .accessibilityHint("Rates this card as \(rating.displayName) and moves to the next card")
             }
         }
     }
@@ -335,6 +341,8 @@ struct StudySessionView: View {
     // MARK: Actions
 
     private func flipCard() {
+        let impact = UIImpactFeedbackGenerator(style: .light)
+        impact.impactOccurred()
         withAnimation(.interpolatingSpring(stiffness: 180, damping: 20)) {
             flipDegrees += 180
         }

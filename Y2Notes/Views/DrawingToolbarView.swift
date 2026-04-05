@@ -45,15 +45,20 @@ struct DrawingToolbarView: View {
             if toolStore.activeTool == .eraser {
                 rowDivider
                 eraserSubPicker
+                    .transition(.move(edge: .top).combined(with: .opacity))
             } else if toolStore.activeTool == .shape {
                 rowDivider
                 shapeSubPicker
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
             if !toolStore.presets.isEmpty {
                 rowDivider
                 presetsStrip
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toolStore.activeTool)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toolStore.presets.isEmpty)
         .background(.bar)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 12)
@@ -197,6 +202,8 @@ struct DrawingToolbarView: View {
     private func toolButton(_ tool: DrawingTool) -> some View {
         let isActive = toolStore.activeTool == tool
         Button {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
             toolStore.activeTool = tool
         } label: {
             Image(systemName: tool.systemImage)

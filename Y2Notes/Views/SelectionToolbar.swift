@@ -14,6 +14,7 @@ struct SelectionToolbar: View {
 
     var body: some View {
         selectionCapsule
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
     }
 
     // MARK: - Selection Capsule
@@ -21,10 +22,10 @@ struct SelectionToolbar: View {
     @ViewBuilder
     private var selectionCapsule: some View {
         HStack(spacing: 6) {
-            actionButton("scissors", label: "Cut") { onAction(.cut) }
-            actionButton("doc.on.doc", label: "Copy") { onAction(.copy) }
-            actionButton("plus.square.on.square", label: "Duplicate") { onAction(.duplicate) }
-            actionButton("trash", label: "Delete") { onAction(.delete) }
+            actionButton("scissors", label: "Cut", hint: "Cut selected strokes to clipboard") { onAction(.cut) }
+            actionButton("doc.on.doc", label: "Copy", hint: "Copy selected strokes to clipboard") { onAction(.copy) }
+            actionButton("plus.square.on.square", label: "Duplicate", hint: "Duplicate selected strokes in place") { onAction(.duplicate) }
+            actionButton("trash", label: "Delete", hint: "Delete selected strokes") { onAction(.delete) }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
@@ -35,8 +36,12 @@ struct SelectionToolbar: View {
     // MARK: - Helpers
 
     @ViewBuilder
-    private func actionButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func actionButton(_ icon: String, label: String, hint: String, action: @escaping () -> Void) -> some View {
+        Button {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
+            action()
+        } label: {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .medium))
                 .frame(width: 34, height: 34)
@@ -44,6 +49,7 @@ struct SelectionToolbar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+        .accessibilityHint(hint)
     }
 }
 

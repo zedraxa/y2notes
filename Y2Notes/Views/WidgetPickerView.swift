@@ -74,6 +74,7 @@ struct WidgetPickerView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(displayName(for: kind))
+        .accessibilityHint(subtitle(for: kind))
     }
 
     // MARK: - Metadata
