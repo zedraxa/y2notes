@@ -355,30 +355,6 @@ struct ParticlePhysics: Equatable {
         fadeOut: true
     )
 
-    /// Hot core flames — tighter upward cone, faster rise than mid-flame.
-    static let fireCorePhysics = ParticlePhysics(
-        gravity: -150,        // core rises faster than mid-flame
-        wind: 0,
-        turbulence: 20,       // tight column, less chaotic
-        drag: 0.90,
-        bounceOffBounds: false,
-        bounciness: 0,
-        spinRange: 1.5,
-        fadeOut: true
-    )
-
-    /// Ember sparks — fall after leaving the flame, chaotic scatter.
-    static let fireEmberPhysics = ParticlePhysics(
-        gravity: 60,          // embers drift downward after launch
-        wind: 0,
-        turbulence: 80,       // very chaotic — embers scatter randomly
-        drag: 0.82,
-        bounceOffBounds: false,
-        bounciness: 0,
-        spinRange: 5.0,
-        fadeOut: true
-    )
-
     static let sparklePhysics = ParticlePhysics(
         gravity: 40,          // sparks fall lightly
         wind: 0,
