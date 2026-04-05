@@ -235,8 +235,10 @@ final class DrawingToolStore: ObservableObject {
 
     /// Whether ambient soundscapes are enabled.
     /// When `false` the `AmbientEnvironmentEngine` plays no audio even if a
-    /// scene is active.  **Not persisted** — defaults to `true`.
-    @Published var isAmbientSoundEnabled: Bool = true
+    /// scene is active.  Persisted in UserDefaults — defaults to `true`.
+    @Published var isAmbientSoundEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(isAmbientSoundEnabled, forKey: Keys.ambientSoundEnabled) }
+    }
 
     /// Whether "Magic Mode" is active — writing particles, keyword glow,
     /// underline highlight animation.
@@ -460,6 +462,7 @@ final class DrawingToolStore: ObservableObject {
         static let penSubType = "y2notes.tool.penSubType"
         static let magicModeActive  = "y2notes.tool.magicModeActive"
         static let studyModeActive  = "y2notes.tool.studyModeActive"
+        static let ambientSoundEnabled = "y2notes.tool.ambientSoundEnabled"
         static let textFontSize     = "y2notes.tool.textFontSize"
         static let textAlignment    = "y2notes.tool.textAlignment"
         static let textFontFamily   = "y2notes.tool.textFontFamily"
@@ -584,6 +587,11 @@ final class DrawingToolStore: ObservableObject {
         // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
         isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)
         isStudyModeActive = ud.bool(forKey: Keys.studyModeActive)
+
+        // Ambient sound (default on — true when key is missing).
+        if ud.object(forKey: Keys.ambientSoundEnabled) != nil {
+            isAmbientSoundEnabled = ud.bool(forKey: Keys.ambientSoundEnabled)
+        }
 
         // Text tool defaults.
         let tf = ud.double(forKey: Keys.textFontSize)

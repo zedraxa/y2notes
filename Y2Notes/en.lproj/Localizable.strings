@@ -301,6 +301,28 @@
 "Credits.PatternsHeader"          = "Design Patterns Adopted";
 "Credits.Footer"                  = "We gratefully acknowledge these projects and the wider open-source community.";
 
+/* ── Audio Recording ──────────────────────────────────────────── */
+
+"Recording.ListTitle"                 = "Recordings";
+"Recording.RenameTitle"               = "Rename Recording";
+"Recording.RenameField"               = "Title";
+"Recording.RenameMessage"             = "Enter a new name for this recording.";
+"Recording.Rename"                    = "Rename";
+"Recording.Share"                     = "Share";
+"Recording.NowPlaying"               = "Now Playing";
+"Recording.Play"                      = "Play";
+"Recording.Pause"                     = "Pause";
+"Recording.Stop"                      = "Stop";
+"Recording.EmptyTitle"                = "No recordings yet";
+"Recording.EmptyHint"                 = "Tap the microphone button in the toolbar to start recording.";
+"Recording.InProgress"                = "Recording in progress";
+"Recording.TapToViewList"             = "Tap to view recordings";
+"Recording.PermissionDenied.Title"    = "Microphone Access Required";
+"Recording.PermissionDenied.Message"  = "To record audio notes, please enable microphone access in Settings.";
+"Recording.PermissionDenied.Settings" = "Open Settings";
+"Recording.StartAccessibility"        = "Start recording";
+"Recording.StopAccessibility"         = "Stop recording";
+
 /* ── Document Import ──────────────────────────────────────────── */
 
 "Documents.Title"                 = "Documents";

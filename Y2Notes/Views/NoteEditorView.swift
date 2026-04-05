@@ -4,6 +4,7 @@ import PencilKit
 import PDFKit
 import OSLog
 import UniformTypeIdentifiers
+import AVFoundation
 
 // MARK: - Performance instrumentation
 
@@ -95,6 +96,27 @@ struct NoteEditorView: View {
     /// Widget being edited in the inline editor sheet.
     @State private var widgetToEdit: NoteWidget?
 
+    /// Audio recording store — owns AVAudioRecorder lifecycle and session persistence.
+    @StateObject private var recordingStore = AudioRecordingStore()
+
+    /// Whether the microphone permission denied alert is showing.
+    @State private var showMicPermissionDeniedAlert = false
+
+    /// Bidirectional audio ↔ note timeline linking controller.
+    /// Wired to `recordingStore` whenever a session is playing so that
+    /// playback drives page switches and canvas highlights, and tapping a
+    /// stroke can seek the audio to the matching recording moment.
+    @State private var timelineController = AudioTimelineLinkingController()
+
+    /// Opacity of the transient canvas highlight flash driven by the timeline controller.
+    @State private var timelineHighlightOpacity: Double = 0
+
+    /// Color of the transient canvas highlight flash.
+    @State private var timelineHighlightColor: Color = .white
+
+    /// Tracks scene phase for audio checkpoint on backgrounding.
+    @Environment(\.scenePhase) private var scenePhase
+
     private let searchService = SearchService()
 
     init(note: Note, tab: TabSession? = nil) {
@@ -179,15 +201,54 @@ struct NoteEditorView: View {
                 toolStore.currentPaperMaterial = .standard
             }
             // Sync tab navigation state back to the workspace store on every change.
-            .onChange(of: currentPageIndex) { _, newIndex in
+            .onChange(of: currentPageIndex) { oldIndex, newIndex in
                 if let id = tabID {
                     workspace.updateTabState(id, pageIndex: newIndex)
+                }
+                // Emit page change event for active audio recording timeline.
+                if recordingStore.isRecording {
+                    recordingStore.emitPageEvent(
+                        noteID: note.id,
+                        fromPage: oldIndex,
+                        toPage: newIndex,
+                        trigger: .swipe
+                    )
                 }
             }
             .onChange(of: showAdvancedPanel) { _, isOpen in
                 if let id = tabID {
                     workspace.updateTabState(id, showAdvancedPanel: isOpen)
                 }
+            }
+            // Audio timeline sync: attach/detach linking controller as sessions play.
+            .onChange(of: recordingStore.playingSession) { _, session in
+                if let session {
+                    let events = recordingStore.loadEvents(for: session.id)
+                    timelineController.attach(session: session, events: events)
+                    timelineController.isAudioDriving = true
+                    timelineController.onSeekAudio = { offset in
+                        recordingStore.seekPlayback(to: offset)
+                    }
+                    recordingStore.onPlaybackPositionChanged = { offset in
+                        timelineController.updatePlaybackPosition(offset)
+                    }
+                } else {
+                    timelineController.detach()
+                    recordingStore.onPlaybackPositionChanged = nil
+                }
+            }
+            // Drive page switching from audio playback position.
+            .onChange(of: timelineController.requestedPageSwitch) { _, request in
+                guard let request else { return }
+                if request.noteID == note.id {
+                    currentPageIndex = request.pageIndex
+                }
+                timelineController.acknowledgePageSwitch()
+            }
+            // Show canvas highlight flash when timeline emits a highlight moment.
+            .onChange(of: timelineController.highlightMoment) { _, moment in
+                guard let moment, moment.noteID == note.id else { return }
+                applyTimelineHighlight(for: moment)
             }
             .onChange(of: toolStore.isFocusModeActive) { _, isActive in
                 // Toolbar opacity is driven directly by the SwiftUI toolbarOpacity
@@ -258,6 +319,17 @@ struct NoteEditorView: View {
                     toolStore.activeAmbientScene = nil
                     toolStore.toolbarOpacity = 1.0
                 }
+                // Stop any active recording when leaving the editor.
+                if recordingStore.isRecording {
+                    stopAudioRecording()
+                }
+                // Stop audio playback when leaving the editor.
+                if recordingStore.isPlaying {
+                    recordingStore.stopPlayback()
+                }
+                // Detach timeline linking controller and clear its callback.
+                timelineController.detach()
+                recordingStore.onPlaybackPositionChanged = nil
                 noteStore.save()
             }
             .sheet(isPresented: $showCreateFlashcard) {
@@ -311,6 +383,32 @@ struct NoteEditorView: View {
                     documentStore.importDocuments(from: urls)
                 }
             }
+            .sheet(isPresented: $toolStore.isRecordingSessionListPresented) {
+                RecordingSessionListView(recordingStore: recordingStore)
+                    .presentationDetents([.medium, .large])
+            }
+            .alert(
+                NSLocalizedString("Recording.PermissionDenied.Title", comment: ""),
+                isPresented: $showMicPermissionDeniedAlert
+            ) {
+                Button(NSLocalizedString("Recording.PermissionDenied.Settings", comment: "")) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button(NSLocalizedString("Common.Cancel", comment: ""), role: .cancel) { }
+            } message: {
+                Text(NSLocalizedString("Recording.PermissionDenied.Message", comment: ""))
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background, recordingStore.isRecording {
+                    recordingStore.checkpoint()
+                }
+                // Stop playback when backgrounding to avoid unexpected audio.
+                if phase == .background, recordingStore.isPlaying {
+                    recordingStore.pausePlayback()
+                }
+            }
     }
 
     // MARK: - Body sub-views (extracted to help Swift type-checker)
@@ -323,6 +421,19 @@ struct NoteEditorView: View {
             selectionActionBars
             advancedPanelOverlay
             effectOverlays
+            // Transient canvas highlight driven by audio timeline sync
+            timelineHighlightColor
+                .opacity(timelineHighlightOpacity)
+                .allowsHitTesting(false)
+                .ignoresSafeArea()
+                .zIndex(1.5)
+            // Recording indicator — always above all other overlays
+            RecordingIndicatorView(recordingStore: recordingStore) {
+                toolStore.isRecordingSessionListPresented = true
+            }
+            .padding(.top, 8)
+            .padding(.trailing, 12)
+            .zIndex(2)
         }
     }
 
@@ -474,6 +585,8 @@ struct NoteEditorView: View {
             isStudyModeActive: toolStore.isStudyModeActive,
             activeAmbientScene: toolStore.activeAmbientScene,
             isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled,
+            recordingStoreForTimeline: recordingStore,
+            timelineNoteID: note.id,
             isNewPage: isNewPageJustAdded
         )
         // Force recreation on page change so makeUIView loads the new drawing.
@@ -498,6 +611,7 @@ struct NoteEditorView: View {
                     toolStore: toolStore,
                     inkStore: inkStore,
                     stickerStore: stickerStore,
+                    recordingStore: recordingStore,
                     canUndo: canUndo,
                     canRedo: canRedo,
                     onUndo: { undoManager?.undo() },
@@ -506,6 +620,12 @@ struct NoteEditorView: View {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                             showAdvancedPanel.toggle()
                         }
+                    },
+                    onStartRecording: {
+                        startAudioRecording()
+                    },
+                    onStopRecording: {
+                        stopAudioRecording()
                     },
                     onSelectionAction: { action in
                         handleSelectionAction(action)
@@ -1394,6 +1514,69 @@ struct NoteEditorView: View {
         canRedo = undoManager?.canRedo ?? false
     }
 
+    // MARK: - Audio Recording
+
+    private let recordingFeedback = UINotificationFeedbackGenerator()
+    private let recordingImpact = UIImpactFeedbackGenerator(style: .medium)
+
+    /// Starts an audio recording session, requesting microphone permission if needed.
+    private func startAudioRecording() {
+        AVAudioApplication.requestRecordPermission { granted in
+            DispatchQueue.main.async {
+                guard granted else {
+                    // Permission denied — show an alert guiding the user to Settings.
+                    self.showMicPermissionDeniedAlert = true
+                    return
+                }
+                let notebookID = note.notebookID ?? note.id
+                recordingStore.startRecording(
+                    notebookID: notebookID,
+                    noteID: note.id,
+                    pageIndex: currentPageIndex
+                )
+                toolStore.isRecording = true
+                toolStore.activeRecordingSession = recordingStore.activeSession
+                recordingImpact.impactOccurred()
+            }
+        }
+    }
+
+    /// Stops the active audio recording session.
+    private func stopAudioRecording() {
+        recordingStore.stopRecording()
+        toolStore.isRecording = false
+        toolStore.activeRecordingSession = nil
+        recordingFeedback.notificationOccurred(.success)
+    }
+
+    /// Applies a transient canvas highlight flash driven by the audio timeline controller.
+    ///
+    /// - For `.strokePulse` events the canvas flashes with the accent color so the
+    ///   user knows which writing moment the audio is playing back.
+    /// - For `.fullPageFlash` / `.objectHighlight` events a softer white flash marks
+    ///   a page turn or placed object in the recording.
+    ///
+    /// The animation is: fast fade-in (0.1 s) → hold (0.25 s) → fade-out (0.2 s).
+    /// After the full cycle the controller's `highlightMoment` is cleared so the
+    /// same event can trigger again on the next playback pass.
+    private func applyTimelineHighlight(for moment: HighlightMoment) {
+        switch moment.style {
+        case .strokePulse:
+            timelineHighlightColor = Color.accentColor
+        case .fullPageFlash, .objectHighlight:
+            timelineHighlightColor = .white
+        }
+        withAnimation(.easeIn(duration: 0.1)) {
+            timelineHighlightOpacity = 0.18
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                self.timelineHighlightOpacity = 0
+            }
+            self.timelineController.clearHighlight()
+        }
+    }
+
     // MARK: - Selection Actions
 
     /// Handles selection toolbar actions by dispatching standard edit commands
@@ -1882,6 +2065,10 @@ struct CanvasView: UIViewRepresentable {
     /// Whether ambient soundscapes are enabled.
     var isAmbientSoundEnabled: Bool = true
 
+    /// Reference to the audio recording store for timeline event emission.
+    var recordingStoreForTimeline: AudioRecordingStore?
+    /// Note ID used for timeline event context.
+    var timelineNoteID: UUID?
     /// When `true`, `makeUIView` plays a paper-settle reveal animation on the
     /// container layer to celebrate the addition of a brand-new blank page.
     var isNewPage: Bool = false
@@ -2284,6 +2471,11 @@ struct CanvasView: UIViewRepresentable {
         // Wire up toolbar store reference for auto-fade (idempotent).
         context.coordinator.toolStoreRef = toolStoreForFade
 
+        // Wire up audio recording store reference for timeline events (idempotent).
+        context.coordinator.recordingStoreRef = recordingStoreForTimeline
+        context.coordinator.activeNoteID = timelineNoteID
+        context.coordinator.activePageIndex = pageIndex
+
         // Sync page background (ruling view).
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
@@ -2619,6 +2811,13 @@ struct CanvasView: UIViewRepresentable {
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
+
+        /// Reference to the audio recording store for timeline event emission.
+        var recordingStoreRef: AudioRecordingStore?
+
+        /// Note ID and page index used for timeline event context.
+        var activeNoteID: UUID?
+        var activePageIndex: Int = 0
 
         /// Task that schedules the toolbar fade after a delay of active drawing.
         private var fadeTask: Task<Void, Never>?
@@ -3280,6 +3479,21 @@ struct CanvasView: UIViewRepresentable {
                 self?.strokeMonitor.update(strokeCount: strokeCount, dataSize: data.count)
                 self?.adaptiveEffectsEngine.currentPageStrokeCount = strokeCount
                 self?.adaptiveEffectsEngine.reportStrokeChange()
+            }
+
+            // Emit timeline stroke event for active audio recording.
+            if let recStore = recordingStoreRef, recStore.isRecording,
+               let noteID = activeNoteID {
+                let bounds = canvasView.drawing.bounds
+                recStore.emitStrokeEvent(
+                    noteID: noteID,
+                    pageIndex: activePageIndex,
+                    regionX: bounds.origin.x,
+                    regionY: bounds.origin.y,
+                    regionWidth: bounds.width,
+                    regionHeight: bounds.height,
+                    toolName: canvasView.tool is PKInkingTool ? "ink" : "eraser"
+                )
             }
 
             // Debounce disk writes using config constant.

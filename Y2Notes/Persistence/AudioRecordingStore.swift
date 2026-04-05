@@ -34,6 +34,40 @@ final class AudioRecordingStore: ObservableObject {
     /// Timeline events for the active session (in-memory, flushed on stop).
     @Published private(set) var activeEvents: [TimelineEvent] = []
 
+    // MARK: - Playback State
+
+    /// True while audio is being played back.
+    @Published private(set) var isPlaying: Bool = false
+
+    /// The session currently being played (nil when idle).
+    @Published private(set) var playingSession: AudioSession?
+
+    /// Current playback position in seconds.
+    @Published private(set) var playbackPosition: TimeInterval = 0
+
+    /// Total duration of the currently-playing audio file.
+    @Published private(set) var playbackDuration: TimeInterval = 0
+
+    /// Normalised playback progress (0…1).
+    var playbackProgress: Double {
+        guard playbackDuration > 0 else { return 0 }
+        return min(playbackPosition / playbackDuration, 1)
+    }
+
+    /// Formatted playback position string (mm:ss).
+    var formattedPlaybackPosition: String {
+        Self.formatTime(playbackPosition)
+    }
+
+    /// Formatted playback remaining string (−mm:ss).
+    var formattedPlaybackRemaining: String {
+        let remaining = max(playbackDuration - playbackPosition, 0)
+        return "-" + Self.formatTime(remaining)
+    }
+
+    /// Normalised audio level during recording (0…1), updated ~10 Hz.
+    @Published private(set) var audioLevel: Float = 0
+
     // MARK: - Recording Quality
 
     enum RecordingQuality: String, CaseIterable, Identifiable {
@@ -85,6 +119,16 @@ final class AudioRecordingStore: ObservableObject {
     private var pendingStrokeRegion: (x: Double, y: Double, w: Double, h: Double)?
     private var pendingStrokeCount: Int = 0
 
+    /// Audio player for session playback.
+    private var player: AVAudioPlayer?
+    /// Display-link timer for playback position updates (~15 Hz).
+    private var playbackTimer: Timer?
+    /// Metering timer for audio level visualisation during recording (~10 Hz).
+    private var meteringTimer: Timer?
+
+    /// Tracks whether the audio session has been configured to avoid redundant setup.
+    private var isAudioSessionConfigured = false
+
     /// The storage manager handles file layout, autosave, recovery, and compression.
     private let storageManager = AudioStorageManager.shared
 
@@ -94,6 +138,9 @@ final class AudioRecordingStore: ObservableObject {
     /// Called after a recording session is stopped and finalized.
     /// Use to trigger incremental search re-indexing (§6 Rule 2).
     var onSessionRecorded: ((AudioSession) -> Void)?
+
+    /// Called whenever playback position changes (for AudioTimelineLinkingController).
+    var onPlaybackPositionChanged: ((_ offset: TimeInterval) -> Void)?
 
     // MARK: - Paths
 
@@ -124,7 +171,6 @@ final class AudioRecordingStore: ObservableObject {
         loadQuality()
         loadSessions()
         mergeRecoveredSessions()
-        configureAudioSession()
     }
 
     /// Checks the storage manager for sessions recovered from interrupted
@@ -152,10 +198,12 @@ final class AudioRecordingStore: ObservableObject {
     // MARK: - Audio Session Configuration
 
     private func configureAudioSession() {
+        guard !isAudioSessionConfigured else { return }
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true)
+            isAudioSessionConfigured = true
         } catch {
             print("[AudioRecordingStore] Failed to configure AVAudioSession: \(error)")
         }
@@ -184,6 +232,9 @@ final class AudioRecordingStore: ObservableObject {
     func startRecording(notebookID: UUID, noteID: UUID, pageIndex: Int) -> AudioSession? {
         guard !isRecording else { return activeSession }
 
+        // Configure audio session for recording (lazy — only when actually needed).
+        configureAudioSession()
+
         let sessionID = UUID()
         let url = audioFileURL(for: sessionID)
         let now = Date()
@@ -191,6 +242,7 @@ final class AudioRecordingStore: ObservableObject {
         // Create recorder if not pre-warmed or URL changed
         do {
             recorder = try AVAudioRecorder(url: url, settings: quality.settings)
+            recorder?.isMeteringEnabled = true
             recorder?.prepareToRecord()
         } catch {
             print("[AudioRecordingStore] Recorder init failed: \(error)")
@@ -231,6 +283,7 @@ final class AudioRecordingStore: ObservableObject {
         )
 
         startElapsedTimer()
+        startMeteringTimer()
 
         return session
     }
@@ -244,6 +297,7 @@ final class AudioRecordingStore: ObservableObject {
 
         recorder?.stop()
         stopElapsedTimer()
+        stopMeteringTimer()
 
         // End autosave and collect any remaining events
         _ = storageManager.endAutosave()
@@ -306,6 +360,113 @@ final class AudioRecordingStore: ObservableObject {
               let events = try? JSONDecoder().decode([TimelineEvent].self, from: data)
         else { return [] }
         return events
+    }
+
+    // MARK: - Playback
+
+    /// Begins playing back a saved session's audio file.
+    func startPlayback(session: AudioSession) {
+        // Stop any active recording first
+        if isRecording { stopRecording() }
+        // Stop any existing playback
+        if isPlaying { stopPlayback() }
+
+        let url = audioFileURL(for: session.id)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            print("[AudioRecordingStore] Audio file not found: \(url.path)")
+            return
+        }
+
+        // Configure for playback
+        let avSession = AVAudioSession.sharedInstance()
+        do {
+            try avSession.setCategory(.playback, options: [.mixWithOthers])
+            try avSession.setActive(true)
+        } catch {
+            print("[AudioRecordingStore] Playback session config failed: \(error)")
+        }
+
+        do {
+            player = try AVAudioPlayer(contentsOf: url)
+            player?.prepareToPlay()
+            player?.play()
+        } catch {
+            print("[AudioRecordingStore] Player init failed: \(error)")
+            return
+        }
+
+        playingSession = session
+        isPlaying = true
+        playbackDuration = player?.duration ?? session.duration
+        playbackPosition = 0
+        startPlaybackTimer()
+    }
+
+    /// Pauses playback (can be resumed).
+    func pausePlayback() {
+        player?.pause()
+        isPlaying = false
+        stopPlaybackTimer()
+    }
+
+    /// Resumes paused playback.
+    func resumePlayback() {
+        guard player != nil, playingSession != nil else { return }
+        player?.play()
+        isPlaying = true
+        startPlaybackTimer()
+    }
+
+    /// Toggles between play and pause.
+    func togglePlayback(session: AudioSession) {
+        if playingSession?.id == session.id {
+            if isPlaying {
+                pausePlayback()
+            } else {
+                resumePlayback()
+            }
+        } else {
+            startPlayback(session: session)
+        }
+    }
+
+    /// Stops playback and clears the player state.
+    func stopPlayback() {
+        player?.stop()
+        player = nil
+        stopPlaybackTimer()
+        isPlaying = false
+        playingSession = nil
+        playbackPosition = 0
+        playbackDuration = 0
+    }
+
+    /// Seeks playback to a specific position in seconds.
+    func seekPlayback(to offset: TimeInterval) {
+        let clamped = max(0, min(offset, playbackDuration))
+        player?.currentTime = clamped
+        playbackPosition = clamped
+        onPlaybackPositionChanged?(clamped)
+    }
+
+    private func startPlaybackTimer() {
+        playbackTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 15.0, repeats: true) { [weak self] _ in
+            guard let self, let player = self.player else { return }
+            DispatchQueue.main.async {
+                self.playbackPosition = player.currentTime
+                self.onPlaybackPositionChanged?(player.currentTime)
+                // Auto-stop at end
+                if !player.isPlaying && self.isPlaying {
+                    self.isPlaying = false
+                    self.stopPlaybackTimer()
+                }
+            }
+        }
+    }
+
+    private func stopPlaybackTimer() {
+        playbackTimer?.invalidate()
+        playbackTimer = nil
     }
 
     // MARK: - Timeline Event Emission
@@ -484,6 +645,37 @@ final class AudioRecordingStore: ObservableObject {
     private func stopElapsedTimer() {
         elapsedTimer?.invalidate()
         elapsedTimer = nil
+    }
+
+    private func startMeteringTimer() {
+        meteringTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self, let recorder = self.recorder, recorder.isRecording else { return }
+            recorder.updateMeters()
+            let db = recorder.averagePower(forChannel: 0) // −160…0 dB
+            // Normalise to 0…1: −60 dB floor, 0 dB ceiling.
+            let normalised = max(0, min(1, (db + 60) / 60))
+            DispatchQueue.main.async {
+                self.audioLevel = normalised
+            }
+        }
+    }
+
+    private func stopMeteringTimer() {
+        meteringTimer?.invalidate()
+        meteringTimer = nil
+        audioLevel = 0
+    }
+
+    /// Helper: formats seconds as mm:ss or h:mm:ss.
+    private static func formatTime(_ time: TimeInterval) -> String {
+        let t = max(0, Int(time))
+        let s = t % 60
+        let m = (t / 60) % 60
+        let h = t / 3600
+        if h > 0 {
+            return String(format: "%d:%02d:%02d", h, m, s)
+        }
+        return String(format: "%d:%02d", m, s)
     }
 
     // MARK: - Persistence
