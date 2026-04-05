@@ -396,6 +396,25 @@ struct NoteEditorView: View {
                     }
                 }
             },
+            currentPageStickers: note.stickers(forPage: safePageIndex),
+            onStickersChanged: { stickers in
+                noteStore.updateStickers(for: note.id, pageIndex: safePageIndex, stickers: stickers)
+            },
+            onStickerSelectionChanged: { stickerID in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeStickerSelection = stickerID
+                    if stickerID != nil {
+                        toolStore.activeShapeSelection = nil
+                        toolStore.activeAttachmentSelection = nil
+                        toolStore.activeWidgetSelection = nil
+                        toolStore.hasActiveSelection = false
+                    }
+                }
+            },
+            stickerImageProvider: { id in
+                guard let asset = stickerStore.asset(for: id) else { return nil }
+                return stickerStore.image(for: asset)
+            },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
             isStudyModeActive: toolStore.isStudyModeActive
@@ -1547,6 +1566,15 @@ struct CanvasView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Sticker instances for the current page.
+    var currentPageStickers: [StickerInstance] = []
+    /// Callback to persist sticker changes.
+    var onStickersChanged: (([StickerInstance]) -> Void)?
+    /// Callback when sticker selection changes.
+    var onStickerSelectionChanged: ((UUID?) -> Void)?
+    /// Image provider for rendering sticker assets.
+    var stickerImageProvider: ((String) -> UIImage?)?
+
     /// Total number of pages in the note, used for adaptive effects complexity signals.
     var pageCount: Int = 1
 
@@ -1787,6 +1815,29 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.shapeCanvas = shapeCanvas
 
+        // ── Sticker canvas overlay ─────────────────────────────────────────
+        let stickerCanvas = StickerCanvasView(frame: .zero)
+        stickerCanvas.translatesAutoresizingMaskIntoConstraints = false
+        stickerCanvas.stickers = currentPageStickers
+        stickerCanvas.imageProvider = stickerImageProvider
+        stickerCanvas.onStickerTransformed = { sticker in
+            context.coordinator.handleStickerTransformed(sticker)
+        }
+        stickerCanvas.onStickerDeleted = { stickerID in
+            context.coordinator.handleStickerDeleted(stickerID)
+        }
+        stickerCanvas.onStickerSelected = { stickerID in
+            context.coordinator.handleStickerSelectionChanged(stickerID)
+        }
+        container.addSubview(stickerCanvas)
+        NSLayoutConstraint.activate([
+            stickerCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            stickerCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stickerCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stickerCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.stickerCanvas = stickerCanvas
+
         // ── Hover overlay (non-interactive, floats above the canvas) ─────────
         let hoverOverlay = PencilHoverOverlayView(frame: .zero)
         hoverOverlay.translatesAutoresizingMaskIntoConstraints = false
@@ -1961,6 +2012,15 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
 
+        // Sync sticker canvas.
+        if let stickerCanvas = context.coordinator.stickerCanvas {
+            stickerCanvas.stickers = currentPageStickers
+            stickerCanvas.imageProvider = stickerImageProvider
+            stickerCanvas.selectedStickerID = toolStoreForFade?.activeStickerSelection
+        }
+        context.coordinator.onStickersChanged = onStickersChanged
+        context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
+
         // Zoom reset: animate to 1× when the trigger value flips.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -2126,6 +2186,18 @@ struct CanvasView: UIViewRepresentable {
 
         /// Callback when widget selection changes.
         var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+        /// Sticker canvas overlay for the current page.
+        weak var stickerCanvas: StickerCanvasView?
+
+        /// Debounce timer for persisting sticker changes.
+        private var stickerDebounceTimer: Timer?
+
+        /// Callback to persist sticker changes.
+        var onStickersChanged: (([StickerInstance]) -> Void)?
+
+        /// Callback when sticker selection changes.
+        var onStickerSelectionChanged: ((UUID?) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
@@ -2517,6 +2589,35 @@ struct CanvasView: UIViewRepresentable {
             ) { [weak self] _ in
                 self?.onWidgetsChanged?(widgets)
             }
+        }
+
+        func handleStickersChanged(_ stickers: [StickerInstance]) {
+            stickerDebounceTimer?.invalidate()
+            stickerDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: StickerConstants.saveDebounce,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onStickersChanged?(stickers)
+            }
+        }
+
+        func handleStickerTransformed(_ sticker: StickerInstance) {
+            guard let stickerCanvas = stickerCanvas else { return }
+            // Update the in-memory array on the canvas
+            if let idx = stickerCanvas.stickers.firstIndex(where: { $0.id == sticker.id }) {
+                stickerCanvas.stickers[idx] = sticker
+            }
+            handleStickersChanged(stickerCanvas.stickers)
+        }
+
+        func handleStickerDeleted(_ stickerID: UUID) {
+            guard let stickerCanvas = stickerCanvas else { return }
+            stickerCanvas.stickers.removeAll(where: { $0.id == stickerID })
+            handleStickersChanged(stickerCanvas.stickers)
+        }
+
+        func handleStickerSelectionChanged(_ stickerID: UUID?) {
+            onStickerSelectionChanged?(stickerID)
         }
 
         // MARK: - Double-tap pencil to delete last stroke
