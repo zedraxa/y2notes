@@ -13,7 +13,14 @@ final class DrawingToolStore: ObservableObject {
     // MARK: - Published State
 
     @Published var activeTool: DrawingTool = .pen {
-        didSet { UserDefaults.standard.set(activeTool.rawValue, forKey: Keys.tool) }
+        didSet {
+            UserDefaults.standard.set(activeTool.rawValue, forKey: Keys.tool)
+            // Save the old tool's width+opacity; restore the new tool's last values.
+            if oldValue != activeTool {
+                savePerToolSettings(for: oldValue)
+                restorePerToolSettings(for: activeTool)
+            }
+        }
     }
 
     @Published var activeColor: UIColor = .black {
@@ -53,6 +60,12 @@ final class DrawingToolStore: ObservableObject {
 
     @Published var activeOpacity: Double = 1.0 {
         didSet { UserDefaults.standard.set(activeOpacity, forKey: Keys.opacity) }
+    }
+
+    /// The physical character of the pen tool (ballpoint, gel, felt-tip, etc.).
+    /// Only applied when `activeTool == .pen`.  Persisted to UserDefaults.
+    @Published var activePenSubType: PenSubType = .ballpoint {
+        didSet { UserDefaults.standard.set(activePenSubType.rawValue, forKey: Keys.penSubType) }
     }
 
     @Published var recentColors: [UIColor] = []
@@ -131,6 +144,57 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts false.
     @Published var isWidgetPickerPresented: Bool = false
 
+    // MARK: - Text Object State
+
+    /// The ID of the currently selected text object on the canvas.
+    /// **Not persisted** — always starts as nil.
+    @Published var activeTextObjectSelection: UUID?
+
+    /// Convenience: true when any text object is selected.
+    var hasActiveTextObjectSelection: Bool { activeTextObjectSelection != nil }
+
+    /// Convenience: true when the text tool is the active tool.
+    var isTextToolActive: Bool { activeTool == .text }
+
+    /// Default font size for newly placed text objects (persisted).
+    @Published var activeTextFontSize: CGFloat = 16 {
+        didSet { UserDefaults.standard.set(Double(activeTextFontSize), forKey: Keys.textFontSize) }
+    }
+
+    /// Default text alignment for newly placed text objects (persisted).
+    /// 0 = left, 1 = center, 2 = right.
+    @Published var activeTextAlignmentRaw: Int = 0 {
+        didSet { UserDefaults.standard.set(activeTextAlignmentRaw, forKey: Keys.textAlignment) }
+    }
+
+    /// Resolved text alignment.
+    var activeTextAlignment: NSTextAlignment {
+        get {
+            switch activeTextAlignmentRaw {
+            case 1:  return .center
+            case 2:  return .right
+            default: return .left
+            }
+        }
+        set {
+            switch newValue {
+            case .center: activeTextAlignmentRaw = 1
+            case .right:  activeTextAlignmentRaw = 2
+            default:      activeTextAlignmentRaw = 0
+            }
+        }
+    }
+
+    /// Default font family for newly placed text objects (persisted).
+    @Published var activeTextFontFamily: TextFontFamily = .system {
+        didSet { UserDefaults.standard.set(activeTextFontFamily.rawValue, forKey: Keys.textFontFamily) }
+    }
+
+    /// Default bold state for newly placed text objects (persisted).
+    @Published var activeTextBold: Bool = false {
+        didSet { UserDefaults.standard.set(activeTextBold, forKey: Keys.textBold) }
+    }
+
     // MARK: - Recording State
 
     /// Whether an audio recording is currently in progress.
@@ -203,7 +267,10 @@ final class DrawingToolStore: ObservableObject {
     var pkTool: PKTool {
         switch activeTool {
         case .pen:
-            return PKInkingTool(.pen, color: inkColor, width: activeWidth)
+            // Apply the pen sub-type's width multiplier so each character feels
+            // physically distinct (e.g. felt-tip is 1.6× broader by default).
+            let penWidth = activeWidth * Double(activePenSubType.widthMultiplier)
+            return PKInkingTool(.pen, color: inkColor, width: penWidth)
         case .pencil:
             return PKInkingTool(.pencil, color: inkColor, width: activeWidth)
         case .highlighter:
@@ -223,6 +290,10 @@ final class DrawingToolStore: ObservableObject {
             return PKInkingTool(.pen, color: inkColor, width: activeWidth)
         case .sticker:
             // The sticker overlay handles interaction; canvas uses lasso as fallback
+            // so accidental touches don't create ink strokes.
+            return PKLassoTool()
+        case .text:
+            // The text canvas overlay handles interaction; canvas uses lasso as fallback
             // so accidental touches don't create ink strokes.
             return PKLassoTool()
         }
@@ -273,6 +344,19 @@ final class DrawingToolStore: ObservableObject {
         if clamped != activeWidth { activeWidth = clamped }
     }
 
+    /// The `WritingEffectConfig` for the current pen state.
+    ///
+    /// When the active tool is `.pen` the config is derived from `activePenSubType`
+    /// (pressure curve, ink flow, taper, pooling).  For all other tools the
+    /// default config is returned so the pipeline stays dormant.
+    ///
+    /// Pass this to `WritingEffectsPipeline.configure(config:color:)` whenever
+    /// the tool or sub-type changes.
+    var writingEffectConfig: WritingEffectConfig {
+        guard activeTool == .pen else { return .default }
+        return activePenSubType.makeWritingEffectConfig()
+    }
+
     // MARK: - Recent Colors
 
     /// Maximum number of recent colours to keep.
@@ -286,6 +370,7 @@ final class DrawingToolStore: ObservableObject {
         if recentColors.count > Self.maxRecentColors {
             recentColors = Array(recentColors.prefix(Self.maxRecentColors))
         }
+        persistRecentColors()
     }
 
     private func isSameColor(_ a: UIColor, _ b: UIColor) -> Bool {
@@ -312,16 +397,21 @@ final class DrawingToolStore: ObservableObject {
             name: resolved.isEmpty ? activeTool.displayName : resolved,
             tool: activeTool,
             color: activeColor,
-            width: activeWidth
+            width: activeWidth,
+            penSubType: activeTool == .pen ? activePenSubType : nil
         )
         presets.append(preset)
     }
 
-    /// Restores the tool, colour, and width from a saved preset.
+    /// Restores the tool, colour, width, opacity, and — for pen presets — sub-type from a saved preset.
     func applyPreset(_ preset: ToolPreset) {
         activeTool   = preset.tool
         activeColor  = preset.uiColor
         activeWidth  = preset.width
+        activeOpacity = preset.opacity
+        if preset.tool == .pen, let sub = preset.penSubType {
+            activePenSubType = sub
+        }
     }
 
     /// Toggles the favourite star on a preset.
@@ -369,9 +459,20 @@ final class DrawingToolStore: ObservableObject {
         static let presets    = "y2notes.tool.presets"
         static let opacity    = "y2notes.tool.opacity"
         static let toolbarMinimized = "y2notes.tool.toolbarMinimized"
+        static let penSubType = "y2notes.tool.penSubType"
         static let magicModeActive  = "y2notes.tool.magicModeActive"
         static let studyModeActive  = "y2notes.tool.studyModeActive"
         static let ambientSoundEnabled = "y2notes.tool.ambientSoundEnabled"
+        static let textFontSize     = "y2notes.tool.textFontSize"
+        static let textAlignment    = "y2notes.tool.textAlignment"
+        static let textFontFamily   = "y2notes.tool.textFontFamily"
+        static let textBold         = "y2notes.tool.textBold"
+        static let recentColors = "y2notes.tool.recentColors"
+
+        /// Per-tool width: "y2notes.tool.width.pen", "y2notes.tool.width.pencil", etc.
+        static func perToolWidth(_ tool: DrawingTool) -> String { "y2notes.tool.width.\(tool.rawValue)" }
+        /// Per-tool opacity: "y2notes.tool.opacity.pen", etc.
+        static func perToolOpacity(_ tool: DrawingTool) -> String { "y2notes.tool.opacity.\(tool.rawValue)" }
     }
 
     // MARK: - Persistence Helpers
@@ -389,6 +490,48 @@ final class DrawingToolStore: ObservableObject {
     private func persistPresets() {
         guard let data = try? JSONEncoder().encode(presets) else { return }
         UserDefaults.standard.set(data, forKey: Keys.presets)
+    }
+
+    private func persistRecentColors() {
+        // Store as flat [Double] array: [r0,g0,b0, r1,g1,b1, …]
+        var components: [Double] = []
+        for color in recentColors {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: nil)
+            components.append(contentsOf: [Double(r), Double(g), Double(b)])
+        }
+        UserDefaults.standard.set(components, forKey: Keys.recentColors)
+    }
+
+    // MARK: - Per-Tool Width/Opacity
+
+    /// Saves the current width and opacity for a specific tool so they can
+    /// be restored the next time the user switches back to it.
+    private func savePerToolSettings(for tool: DrawingTool) {
+        guard tool.isInking else { return }
+        let ud = UserDefaults.standard
+        ud.set(activeWidth, forKey: Keys.perToolWidth(tool))
+        ud.set(activeOpacity, forKey: Keys.perToolOpacity(tool))
+    }
+
+    /// Restores the last-used width and opacity for a tool. Falls back to the
+    /// tool personality's default width and full opacity when no saved state exists.
+    private func restorePerToolSettings(for tool: DrawingTool) {
+        guard tool.isInking else { return }
+        let ud = UserDefaults.standard
+        let savedWidth = ud.double(forKey: Keys.perToolWidth(tool))
+        let savedOpacity = ud.double(forKey: Keys.perToolOpacity(tool))
+        if savedWidth > 0 {
+            activeWidth = savedWidth
+        } else if let p = ToolPersonality.personality(for: tool) {
+            activeWidth = Double(p.defaultWidth)
+        }
+        if savedOpacity > 0 {
+            activeOpacity = savedOpacity
+        } else {
+            activeOpacity = 1.0
+        }
+        clampWidthToPersonality()
     }
 
     private func loadAll() {
@@ -437,6 +580,10 @@ final class DrawingToolStore: ObservableObject {
 
         isToolbarMinimized = ud.bool(forKey: Keys.toolbarMinimized)
 
+        if let raw = ud.string(forKey: Keys.penSubType), let sub = PenSubType(rawValue: raw) {
+            activePenSubType = sub
+        }
+
         // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
         isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)
         isStudyModeActive = ud.bool(forKey: Keys.studyModeActive)
@@ -444,6 +591,32 @@ final class DrawingToolStore: ObservableObject {
         // Ambient sound (default on — true when key is missing).
         if ud.object(forKey: Keys.ambientSoundEnabled) != nil {
             isAmbientSoundEnabled = ud.bool(forKey: Keys.ambientSoundEnabled)
+        }
+
+        // Text tool defaults.
+        let tf = ud.double(forKey: Keys.textFontSize)
+        if tf > 0 { activeTextFontSize = CGFloat(tf) }
+        if ud.object(forKey: Keys.textAlignment) != nil {
+            activeTextAlignmentRaw = ud.integer(forKey: Keys.textAlignment)
+        }
+        if let raw = ud.string(forKey: Keys.textFontFamily),
+           let family = TextFontFamily(rawValue: raw) {
+            activeTextFontFamily = family
+        }
+        if ud.object(forKey: Keys.textBold) != nil {
+            activeTextBold = ud.bool(forKey: Keys.textBold)
+        }
+
+        // Recent colours — stored as flat [r0,g0,b0, r1,g1,b1, …].
+        if let components = ud.array(forKey: Keys.recentColors) as? [Double], components.count >= 3 {
+            var loaded: [UIColor] = []
+            for i in stride(from: 0, to: components.count - 2, by: 3) {
+                loaded.append(UIColor(red: CGFloat(components[i]),
+                                      green: CGFloat(components[i + 1]),
+                                      blue: CGFloat(components[i + 2]),
+                                      alpha: 1))
+            }
+            recentColors = loaded
         }
     }
 }

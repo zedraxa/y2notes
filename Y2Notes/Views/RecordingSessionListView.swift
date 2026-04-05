@@ -15,6 +15,7 @@ struct RecordingSessionListView: View {
     @State private var renamingSessionID: UUID?
     @State private var renameText = ""
     @State private var showRenameAlert = false
+    @State private var sessionToDelete: UUID?
 
     private let selectionFeedback = UISelectionFeedbackGenerator()
 
@@ -49,6 +50,26 @@ struct RecordingSessionListView: View {
                 }
             } message: {
                 Text(NSLocalizedString("Recording.RenameMessage", comment: ""))
+            }
+            .confirmationDialog(
+                "Delete Recording",
+                isPresented: Binding(
+                    get: { sessionToDelete != nil },
+                    set: { if !$0 { sessionToDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    if let id = sessionToDelete {
+                        recordingStore.deleteSession(id)
+                    }
+                    sessionToDelete = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    sessionToDelete = nil
+                }
+            } message: {
+                Text("Are you sure you want to delete this recording? This action cannot be undone.")
             }
         }
         .onDisappear {
@@ -290,6 +311,7 @@ struct RecordingSessionListView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(session.title), \(formattedDuration(session.duration))")
+        .accessibilityHint("Tap to play this recording")
     }
 
     /// Icon name for the play/pause indicator on a session row.

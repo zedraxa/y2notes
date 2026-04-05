@@ -8,7 +8,10 @@ struct ThemePickerView: View {
     @EnvironmentObject var themeStore: ThemeStore
     @Environment(\.dismiss) private var dismiss
 
+    @State private var cardsAppeared = false
+
     private let selectionFeedback = UISelectionFeedbackGenerator()
+    private let toggleFeedback = UIImpactFeedbackGenerator(style: .light)
 
     var body: some View {
         NavigationStack {
@@ -25,7 +28,7 @@ struct ThemePickerView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 32)
             }
-            .navigationTitle("Theme")
+            .navigationTitle(NSLocalizedString("ThemePicker.Title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -43,11 +46,14 @@ struct ThemePickerView: View {
             HStack {
                 Image(systemName: "clock.arrow.2.circlepath")
                     .foregroundStyle(themeStore.autoScheduleEnabled ? Color.accentColor : .secondary)
-                Text("Auto Schedule")
+                Text(NSLocalizedString("ThemePicker.AutoSchedule", comment: ""))
                     .font(.subheadline.weight(.medium))
                 Spacer()
                 Toggle("", isOn: $themeStore.autoScheduleEnabled)
                     .labelsHidden()
+                    .onChange(of: themeStore.autoScheduleEnabled) { _, _ in
+                        toggleFeedback.impactOccurred()
+                    }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -60,13 +66,13 @@ struct ThemePickerView: View {
                 VStack(spacing: 8) {
                     scheduleRow(
                         icon: "sun.max.fill",
-                        label: "Day",
+                        label: NSLocalizedString("ThemePicker.Day", comment: ""),
                         theme: $themeStore.dayTheme,
                         hourBinding: $themeStore.dayStartHour
                     )
                     scheduleRow(
                         icon: "moon.fill",
-                        label: "Night",
+                        label: NSLocalizedString("ThemePicker.Night", comment: ""),
                         theme: $themeStore.nightTheme,
                         hourBinding: $themeStore.nightStartHour
                     )
@@ -99,6 +105,7 @@ struct ThemePickerView: View {
             }
             .labelsHidden()
             .fixedSize()
+            .accessibilityLabel("\(label) theme")
 
             Picker("", selection: hourBinding) {
                 ForEach(0..<24, id: \.self) { h in
@@ -107,6 +114,7 @@ struct ThemePickerView: View {
             }
             .labelsHidden()
             .fixedSize()
+            .accessibilityLabel("\(label) start time")
         }
     }
 
@@ -134,10 +142,18 @@ struct ThemePickerView: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
-                ForEach(themes) { theme in
+                ForEach(Array(themes.enumerated()), id: \.element.id) { index, theme in
                     themeCard(theme)
+                        .opacity(cardsAppeared ? 1 : 0)
+                        .offset(y: cardsAppeared ? 0 : 10)
+                        .animation(
+                            .spring(response: 0.35, dampingFraction: 0.8)
+                            .delay(Double(index) * 0.04),
+                            value: cardsAppeared
+                        )
                 }
             }
+            .onAppear { cardsAppeared = true }
         }
     }
 
