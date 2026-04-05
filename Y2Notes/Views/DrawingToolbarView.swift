@@ -260,6 +260,8 @@ struct DrawingToolbarView: View {
                         .foregroundStyle(.secondary)
                     Slider(value: $toolStore.activeWidth, in: 1...30, step: 0.5)
                         .frame(minWidth: 200)
+                        .accessibilityLabel("Stroke width")
+                        .accessibilityValue("\(String(format: "%.1f", toolStore.activeWidth)) points")
                     Text("30")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -282,6 +284,8 @@ struct DrawingToolbarView: View {
                         .foregroundStyle(.secondary)
                     Slider(value: $toolStore.activeOpacity, in: 0.05...1.0, step: 0.05)
                         .frame(minWidth: 200)
+                        .accessibilityLabel("Stroke opacity")
+                        .accessibilityValue("\(Int(toolStore.activeOpacity * 100)) percent")
                     Text("100%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -331,6 +335,8 @@ struct DrawingToolbarView: View {
                         .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("\(mode.displayName) eraser")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
             Spacer()
         }
@@ -367,6 +373,8 @@ struct DrawingToolbarView: View {
                     .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("\(shape.displayName) shape")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
             Spacer()
         }
