@@ -398,7 +398,8 @@ struct NoteEditorView: View {
             },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
-            isStudyModeActive: toolStore.isStudyModeActive
+            isStudyModeActive: toolStore.isStudyModeActive,
+            activeAmbientScene: toolStore.activeAmbientScene
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
@@ -1554,6 +1555,8 @@ struct CanvasView: UIViewRepresentable {
     var isMagicModeActive: Bool = false
     /// Whether Study Mode is active (heading glow, checklist pulse, timer pulse).
     var isStudyModeActive: Bool = false
+    /// The currently active ambient scene, or `nil` if no scene is selected.
+    var activeAmbientScene: AmbientScene?
 
     // MARK: - Page dimensions
 
@@ -2006,6 +2009,20 @@ struct CanvasView: UIViewRepresentable {
             studyEngine.activate(on: uiView.layer)
         } else if !isStudyModeActive && studyEngine.isActive {
             studyEngine.deactivate()
+        }
+
+        // Sync ambient environment engine — activate/deactivate as the
+        // selected scene changes.  The engine owns rain-streak / grain /
+        // warm-wash CALayers and the looping ambient soundscape.
+        let ambientEngine = context.coordinator.ambientEngine
+        if let scene = activeAmbientScene {
+            if ambientEngine.activeScene != scene {
+                // Scene changed (or was nil) — (re-)activate with the new scene.
+                ambientEngine.activate(scene, on: uiView.layer, toolStore: toolStoreForFade ?? DrawingToolStore())
+            }
+            ambientEngine.updateLayout(containerBounds: uiView.bounds)
+        } else if ambientEngine.activeScene != nil {
+            ambientEngine.deactivate(toolStore: toolStoreForFade ?? DrawingToolStore())
         }
 
         // Sync ink effect engine configuration when FX type or colour changes.
