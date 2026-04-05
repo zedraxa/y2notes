@@ -158,7 +158,7 @@ struct VersionHistoryView: View {
 
         // Create a pre-restore safety snapshot synchronously so it completes
         // before the restore overwrites the current state.
-        PerformanceConstraints.storageQueue.sync {
+        _ = PerformanceConstraints.storageQueue.sync {
             SnapshotStore.shared.createSnapshot(
                 for: note,
                 dirtyPages: Set(0 ..< note.pages.count),
