@@ -445,24 +445,66 @@ struct AdvancedToolsPanel: View {
     // MARK: - Eraser Section
 
     private var eraserSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("Eraser Mode")
-            HStack(spacing: 8) {
-                ForEach(EraserMode.allCases, id: \.rawValue) { mode in
-                    let isSelected = toolStore.eraserMode == mode
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Eraser Type")
+
+            // 3-column sub-type grid
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+                spacing: 8
+            ) {
+                ForEach(EraserSubType.allCases, id: \.rawValue) { sub in
+                    let isSelected = toolStore.eraserSubType == sub
                     Button {
-                        toolStore.eraserMode = mode
+                        toolStore.eraserSubType = sub
                     } label: {
-                        Text(mode.displayName)
-                            .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+                        VStack(spacing: 5) {
+                            Image(systemName: sub.systemImage)
+                                .font(.system(size: 18))
+                                .frame(height: 22)
+                            Text(sub.displayName)
+                                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                     }
                     .buttonStyle(.plain)
                 }
+            }
+
+            // Width slider — pixel modes only
+            if toolStore.eraserSubType.supportsWidthAdjustment {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Tip Size")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(Int(toolStore.eraserWidth)) pt")
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(
+                        value: $toolStore.eraserWidth,
+                        in: toolStore.eraserSubType.minWidth...toolStore.eraserSubType.maxWidth,
+                        step: 1
+                    )
+                    .accentColor(.orange)
+                }
+            }
+
+            // Mode badge (derived from sub-type)
+            HStack(spacing: 6) {
+                Image(systemName: toolStore.eraserMode == .bitmap ? "dot.square" : "scribble")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(toolStore.eraserMode.displayName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
             }
         }
         .padding(16)

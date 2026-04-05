@@ -47,12 +47,16 @@ struct WidgetPickerView: View {
             dismiss()
         } label: {
             VStack(spacing: 10) {
-                Image(systemName: iconName(for: kind))
-                    .font(.system(size: 28, weight: .light))
-                    .foregroundStyle(accentColor(for: kind))
-                    .frame(height: 36)
+                ZStack {
+                    Circle()
+                        .fill(accentColor(for: kind).opacity(0.15))
+                        .frame(width: 52, height: 52)
+                    Image(systemName: iconName(for: kind))
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(accentColor(for: kind))
+                }
 
-                VStack(spacing: 2) {
+                VStack(spacing: 3) {
                     Text(displayName(for: kind))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color(uiColor: .label))
@@ -65,11 +69,15 @@ struct WidgetPickerView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .padding(.vertical, 18)
             .padding(.horizontal, 8)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(accentColor(for: kind).opacity(0.07))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(accentColor(for: kind).opacity(0.22), lineWidth: 1)
+                    )
             )
         }
         .buttonStyle(.plain)
@@ -80,12 +88,12 @@ struct WidgetPickerView: View {
 
     private func iconName(for kind: WidgetKind) -> String {
         switch kind {
-        case .checklist:        return "checklist"
-        case .quickTable:       return "tablecells"
-        case .calloutBox:       return "exclamationmark.bubble"
+        case .checklist:        return "checklist.checked"
+        case .quickTable:       return "tablecells.fill"
+        case .calloutBox:       return "exclamationmark.bubble.fill"
         case .referenceCard:    return "doc.text.magnifyingglass"
         case .stickyNote:       return "note.text"
-        case .flashcard:        return "rectangle.on.rectangle.angled"
+        case .flashcard:        return "rectangle.on.rectangle.angled.fill"
         case .progressTracker:  return "chart.bar.fill"
         }
     }

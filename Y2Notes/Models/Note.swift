@@ -119,12 +119,14 @@ struct Note: Identifiable, Codable, Hashable {
 
     /// Returns the visible (non-collapsed) expansion regions for the given page index.
     func visibleExpansions(forPage index: Int) -> [PageRegion] {
-        expansionRegions.filter { $0.pageIndex == index && !$0.isCollapsed }
+        guard index >= 0 && index < pages.count else { return [] }
+        return expansionRegions.filter { $0.pageIndex == index && !$0.isCollapsed }
     }
 
     /// Returns all expansion regions (including collapsed) for the given page index.
     func allExpansions(forPage index: Int) -> [PageRegion] {
-        expansionRegions.filter { $0.pageIndex == index }
+        guard index >= 0 && index < pages.count else { return [] }
+        return expansionRegions.filter { $0.pageIndex == index }
     }
 
     /// Returns the per-page colour for the given index, or `nil` to inherit theme.

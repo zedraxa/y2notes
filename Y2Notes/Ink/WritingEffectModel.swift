@@ -477,6 +477,108 @@ enum PressureCurvePreset: String, CaseIterable, Codable {
     }
 }
 
+// MARK: - Ink Fluid Physics Parameters
+
+/// Physical ink-flow parameters that simulate fluid dynamics on paper.
+///
+/// These parameters model real ink behaviour: ink pools when the nib moves
+/// slowly (accumulating pigment), thins when the nib moves fast (stretching
+/// the fluid), and responds to surface tension and viscosity.
+///
+/// The engine evaluates these per stroke segment (< 0.1 ms) to modulate
+/// width, opacity, and colour density.  All parameters are normalised to
+/// 0…1 ranges where applicable.
+enum InkFluidPhysicsParams {
+    // ── Pooling (ink accumulates at low velocity) ────────────────────────
+
+    /// Velocity (points/s) below which ink begins to pool.
+    static let poolingVelocityThreshold: CGFloat = 150.0
+    /// Maximum width multiplier from pooling (at zero velocity).
+    static let poolingMaxWidthMultiplier: CGFloat = 1.6
+    /// Maximum opacity boost from pooling (ink darkens when pooled).
+    static let poolingMaxOpacityBoost: CGFloat = 0.12
+    /// Response curve exponent for pooling (< 1 = more sensitive near threshold).
+    static let poolingCurveExponent: CGFloat = 0.8
+
+    // ── Thinning (ink stretches at high velocity) ────────────────────────
+
+    /// Velocity (points/s) above which ink begins to thin.
+    static let thinningVelocityThreshold: CGFloat = 800.0
+    /// Minimum width factor from thinning (at maximum velocity).
+    static let thinningMinWidthFactor: CGFloat = 0.45
+    /// Response curve exponent for thinning (> 1 = gradual onset, sharp at high speed).
+    static let thinningCurveExponent: CGFloat = 1.4
+
+    // ── Surface tension (ink beads at stroke start/end) ──────────────────
+
+    /// Width multiplier at stroke start (ink beads before flowing).
+    static let startBeadMultiplier: CGFloat = 1.25
+    /// Number of points over which the start bead fades to normal width.
+    static let startBeadFadePoints: Int = 6
+    /// Width multiplier at stroke end (ink beads as nib lifts).
+    static let endBeadMultiplier: CGFloat = 1.15
+    /// Number of points over which the end bead builds up.
+    static let endBeadRampPoints: Int = 4
+
+    // ── Viscosity response ───────────────────────────────────────────────
+
+    /// How much `InkMaterialTraits.viscosity` amplifies pooling effects.
+    /// High viscosity → more pronounced pooling (thick, gloopy ink).
+    static let viscosityPoolingScale: CGFloat = 1.5
+    /// How much viscosity dampens thinning.
+    /// High viscosity → ink resists thinning (stays thicker at speed).
+    static let viscosityThinningDamping: CGFloat = 0.6
+}
+
+// MARK: - Pressure Response Curve
+
+/// Multi-segment pressure response curve for non-linear pencil force mapping.
+///
+/// Instead of a single power-curve exponent, this provides a three-segment
+/// piecewise-linear mapping that gives:
+/// - **Light touch zone** (0…0.2 force): expanded sensitivity for fine detail
+/// - **Normal zone** (0.2…0.7 force): linear response for everyday writing
+/// - **Heavy zone** (0.7…1.0 force): compressed range to avoid jumps
+///
+/// The engine evaluates this in < 0.05 ms via two comparisons + lerp.
+enum PressureResponseCurve {
+    // ── Breakpoints (normalised force 0…1) ───────────────────────────────
+
+    /// Force boundary between light and normal zones.
+    static let lightNormalBreak: CGFloat = 0.20
+    /// Force boundary between normal and heavy zones.
+    static let normalHeavyBreak: CGFloat = 0.70
+
+    // ── Output multipliers at each breakpoint ────────────────────────────
+
+    /// Width multiplier at zero force.
+    static let outputAtZero: CGFloat = 0.85
+    /// Width multiplier at the light/normal boundary.
+    static let outputAtLightNormal: CGFloat = 1.10
+    /// Width multiplier at the normal/heavy boundary.
+    static let outputAtNormalHeavy: CGFloat = 1.80
+    /// Width multiplier at maximum force.
+    static let outputAtMax: CGFloat = 2.40
+
+    /// Evaluates the pressure curve for a normalised force value (0…1).
+    ///
+    /// - Parameter force: Normalised Apple Pencil force (0…1).
+    /// - Returns: Width multiplier.
+    static func evaluate(force: CGFloat) -> CGFloat {
+        let f = min(max(force, 0), 1)
+        if f <= lightNormalBreak {
+            let t = f / lightNormalBreak
+            return outputAtZero + t * (outputAtLightNormal - outputAtZero)
+        } else if f <= normalHeavyBreak {
+            let t = (f - lightNormalBreak) / (normalHeavyBreak - lightNormalBreak)
+            return outputAtLightNormal + t * (outputAtNormalHeavy - outputAtLightNormal)
+        } else {
+            let t = (f - normalHeavyBreak) / (1.0 - normalHeavyBreak)
+            return outputAtNormalHeavy + t * (outputAtMax - outputAtNormalHeavy)
+        }
+    }
+}
+
 // MARK: - Ink Flow Parameters
 
 /// Per-pen-sub-type ink flow characteristics that scale core writing effects.
@@ -518,4 +620,29 @@ struct InkFlowParams: Codable, Equatable {
 
     /// Default flow — matches ballpoint / balanced behaviour.
     static let `default` = InkFlowParams()
+}
+
+// MARK: - Velocity-Aligned Texture Rotation
+
+/// Parameters for aligning the micro-texture grain with stroke direction.
+///
+/// When enabled, the 64×64 grain tile rotates to match the writing direction,
+/// creating more realistic paper-fibre interaction — ink picks up grain
+/// parallel to the stroke, not randomly.
+enum VelocityAlignmentParams {
+    /// Whether velocity alignment is enabled.  Disabled by default for
+    /// backward compatibility; can be enabled per-preset.
+    static let enabledByDefault: Bool = false
+
+    /// Smoothing factor for direction angle (0…1, higher = more responsive).
+    /// Lower values prevent jitter when the nib changes direction.
+    static let angleSmoothingFactor: CGFloat = 0.25
+
+    /// Minimum velocity (points/s) before alignment activates.
+    /// Below this the texture stays at its previous angle.
+    static let minimumVelocity: CGFloat = 50.0
+
+    /// How much the grain rotates relative to the stroke angle.
+    /// 1.0 = fully aligned, 0.5 = half-aligned, 0 = no rotation.
+    static let alignmentStrength: CGFloat = 0.75
 }

@@ -23,7 +23,12 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - Public State
 
-    var widgets: [NoteWidget] = [] { didSet { if !renderingPaused { setNeedsDisplay() } } }
+    var widgets: [NoteWidget] = [] {
+        didSet {
+            if !renderingPaused { setNeedsDisplay() }
+            detectCompletionTransitions()
+        }
+    }
     var selectedWidgetID: UUID? { didSet { setNeedsDisplay() } }
     var renderingPaused: Bool = false
 
@@ -32,6 +37,19 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
     var onSelectionChanged: ((UUID?) -> Void)?
     var onWidgetTransformed: ((NoteWidget) -> Void)?
     var onWidgetsChanged: (([NoteWidget]) -> Void)?
+
+    /// Fired when a checklist widget transitions to all-items-checked.
+    /// Parameters: (widget ID, widget centre point in canvas coordinates).
+    var onChecklistCompleted: ((UUID, CGPoint) -> Void)?
+    /// Fired when a progress-tracker widget reaches its goal (current ≥ total).
+    /// Parameters: (widget ID, widget centre point in canvas coordinates).
+    var onTimerCompleted: ((UUID, CGPoint) -> Void)?
+
+    /// Tracks which checklist widgets were already complete on the last
+    /// update, so we only fire the callback on the *transition* to complete.
+    private var previouslyCompletedChecklists: Set<UUID> = []
+    /// Same for progress trackers.
+    private var previouslyCompletedTrackers: Set<UUID> = []
 
     // MARK: - Private State
 
@@ -100,8 +118,10 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         }
         let path = UIBezierPath(roundedRect: cardRect, cornerRadius: WidgetConstants.cardCornerRadius)
 
-        // Card fill
+        // Card fill with drop shadow
         ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 2), blur: 8,
+                      color: UIColor.black.withAlphaComponent(0.12).cgColor)
         ctx.addPath(path.cgPath)
         ctx.setFillColor(bgColor.cgColor)
         ctx.fillPath()
@@ -122,16 +142,18 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         switch widget.payload {
         case .checklist(let title, let items):
             drawChecklist(title: title, items: items, in: cardRect, ctx: ctx)
-        case .quickTable(let title, let columns, let rows, let cells):
-            drawQuickTable(title: title, columns: columns, rows: rows, cells: cells, in: cardRect, ctx: ctx)
+        case .quickTable(let title, let columns, let rows, let cells, let hasHeaderRow):
+            drawQuickTable(title: title, columns: columns, rows: rows, cells: cells,
+                           hasHeaderRow: hasHeaderRow, in: cardRect, ctx: ctx)
         case .calloutBox(let title, let body, let style):
             drawCalloutBox(title: title, body: body, style: style, in: cardRect, ctx: ctx)
         case .referenceCard(let title, let body):
             drawReferenceCard(title: title, body: body, in: cardRect, ctx: ctx)
-        case .stickyNote(let body, _):
-            drawStickyNote(body: body, in: cardRect, ctx: ctx)
-        case .flashcard(let front, let back, let isFlipped):
+        case .stickyNote(let body, let color):
+            drawStickyNote(body: body, color: color, in: cardRect, ctx: ctx)
+        case .flashcard(let front, let back, let isFlipped, let confidenceLevel):
             drawFlashcard(front: front, back: back, isFlipped: isFlipped,
+                          confidenceLevel: confidenceLevel,
                           isSelected: widget.id == selectedWidgetID, in: cardRect, ctx: ctx)
         case .progressTracker(let title, let current, let total):
             drawProgressTracker(title: title, current: current, total: total, in: cardRect, ctx: ctx)
@@ -154,36 +176,117 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
     private func drawChecklist(title: String, items: [ChecklistItem], in rect: CGRect, ctx: CGContext) {
         let pad = WidgetConstants.containerPadding
         var y = rect.minY + pad
-        if !title.isEmpty {
-            y = drawTitle(title, x: rect.minX + pad, y: y, width: rect.width - pad * 2, ctx: ctx)
+
+        // Count badge (top-right)
+        if !items.isEmpty {
+            let done = items.filter(\.isChecked).count
+            let badgeText = "\(done)/\(items.count)"
+            let badgeAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium),
+                .foregroundColor: UIColor.secondaryLabel
+            ]
+            let badgeSize = (badgeText as NSString).size(withAttributes: badgeAttrs)
+            (badgeText as NSString).draw(
+                at: CGPoint(x: rect.maxX - pad - badgeSize.width, y: rect.minY + pad),
+                withAttributes: badgeAttrs
+            )
         }
+
+        if !title.isEmpty {
+            y = drawTitle(title, x: rect.minX + pad, y: y, width: rect.width - pad * 2 - 40, ctx: ctx)
+        }
+
         let cbSize = WidgetConstants.checkboxSize
-        let textAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
-            .foregroundColor: UIColor.label
-        ]
         for item in items {
             guard y + cbSize <= rect.maxY - pad else { break }
-            let cbRect = CGRect(x: rect.minX + pad, y: y, width: cbSize, height: cbSize).insetBy(dx: 2, dy: 2)
-            if item.isChecked {
-                ctx.setFillColor(UIColor.tintColor.cgColor)
-                ctx.fill(cbRect)
-            } else {
-                ctx.setStrokeColor(UIColor.secondaryLabel.cgColor)
-                ctx.setLineWidth(1.5)
-                ctx.stroke(cbRect)
+
+            // Priority dot
+            let dotR: CGFloat = 3
+            let hasPriority = item.priority != .none
+            if hasPriority {
+                let dotColor: UIColor
+                switch item.priority {
+                case .low:    dotColor = .systemGreen
+                case .medium: dotColor = .systemOrange
+                case .high:   dotColor = .systemRed
+                case .none:   dotColor = .clear
+                }
+                ctx.saveGState()
+                ctx.setFillColor(dotColor.cgColor)
+                let dotX = rect.minX + pad + dotR
+                let dotY = y + cbSize / 2
+                ctx.fillEllipse(in: CGRect(x: dotX - dotR, y: dotY - dotR,
+                                           width: dotR * 2, height: dotR * 2))
+                ctx.restoreGState()
             }
-            let textX = rect.minX + pad + cbSize + 6
+
+            // Checkbox (rounded rect)
+            let cbOffsetX: CGFloat = hasPriority ? pad + dotR * 2 + 6 : pad
+            let cbRect = CGRect(x: rect.minX + cbOffsetX, y: y + 1,
+                                width: cbSize - 2, height: cbSize - 2)
+            let cbPath = UIBezierPath(roundedRect: cbRect, cornerRadius: 4)
+
+            if item.isChecked {
+                ctx.saveGState()
+                ctx.setFillColor(UIColor.tintColor.cgColor)
+                ctx.addPath(cbPath.cgPath)
+                ctx.fillPath()
+                ctx.restoreGState()
+                // Checkmark
+                let ck = cbRect.insetBy(dx: 3, dy: 3)
+                let checkPath = UIBezierPath()
+                checkPath.move(to: CGPoint(x: ck.minX + 1, y: ck.midY))
+                checkPath.addLine(to: CGPoint(x: ck.midX - 1, y: ck.maxY - 2))
+                checkPath.addLine(to: CGPoint(x: ck.maxX - 1, y: ck.minY + 2))
+                ctx.saveGState()
+                ctx.setStrokeColor(UIColor.white.cgColor)
+                ctx.setLineWidth(1.5)
+                ctx.setLineCap(.round)
+                ctx.setLineJoin(.round)
+                ctx.addPath(checkPath.cgPath)
+                ctx.strokePath()
+                ctx.restoreGState()
+            } else {
+                ctx.saveGState()
+                ctx.setStrokeColor(UIColor.tertiaryLabel.cgColor)
+                ctx.setLineWidth(1.5)
+                ctx.addPath(cbPath.cgPath)
+                ctx.strokePath()
+                ctx.restoreGState()
+            }
+
+            // Item text
+            let textX = rect.minX + cbOffsetX + cbSize + 4
+            var textAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: item.isChecked ? UIColor.tertiaryLabel : UIColor.label
+            ]
+            if item.isChecked {
+                textAttrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+                textAttrs[.strikethroughColor] = UIColor.tertiaryLabel
+            }
             (item.text as NSString).draw(
-                in: CGRect(x: textX, y: y, width: rect.maxX - textX - pad, height: cbSize),
+                in: CGRect(x: textX, y: y + 1, width: rect.maxX - textX - pad, height: cbSize),
                 withAttributes: textAttrs
             )
+
             y += cbSize + 4
+        }
+
+        // Empty state hint
+        if items.isEmpty {
+            let hint = "Tap Edit to add items"
+            let hintAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.italicSystemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: UIColor.tertiaryLabel
+            ]
+            (hint as NSString).draw(at: CGPoint(x: rect.minX + pad, y: y),
+                                    withAttributes: hintAttrs)
         }
     }
 
     private func drawQuickTable(title: String, columns: Int, rows: Int, cells: [TableCell],
-                                in rect: CGRect, ctx: CGContext) {
+                                hasHeaderRow: Bool, in rect: CGRect, ctx: CGContext) {
         let pad = WidgetConstants.containerPadding
         var y = rect.minY + pad
         if !title.isEmpty {
@@ -195,6 +298,18 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         let colW = tableW / CGFloat(columns)
         let rowH = tableH / CGFloat(rows)
         let tableX = rect.minX + pad
+
+        // Row backgrounds: header tint + alternating rows
+        for r in 0..<rows {
+            let rowRect = CGRect(x: tableX, y: y + CGFloat(r) * rowH, width: tableW, height: rowH)
+            if hasHeaderRow && r == 0 {
+                ctx.setFillColor(UIColor.tintColor.withAlphaComponent(0.10).cgColor)
+                ctx.fill(rowRect)
+            } else if r % 2 == 1 {
+                ctx.setFillColor(UIColor.systemFill.withAlphaComponent(0.35).cgColor)
+                ctx.fill(rowRect)
+            }
+        }
 
         // Grid lines
         ctx.saveGState()
@@ -213,13 +328,16 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         ctx.strokePath()
         ctx.restoreGState()
 
-        // Cell text (centred)
-        let cellAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
-            .foregroundColor: UIColor.label
-        ]
+        // Cell text
         let cp = WidgetConstants.cellPadding
         for r in 0..<rows {
+            let isHeader = hasHeaderRow && r == 0
+            let cellAttrs: [NSAttributedString.Key: Any] = [
+                .font: isHeader
+                    ? UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize, weight: .semibold)
+                    : UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: UIColor.label
+            ]
             for c in 0..<columns {
                 let idx = r * columns + c
                 guard idx < cells.count, !cells[idx].text.isEmpty else { continue }
@@ -240,20 +358,57 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
     private func drawCalloutBox(title: String, body: String, style: CalloutStyle,
                                 in rect: CGRect, ctx: CGContext) {
         let pad = WidgetConstants.containerPadding
-        let accentColor: UIColor
-        switch style {
-        case .note:      accentColor = UIColor.systemBlue.withAlphaComponent(0.5)
-        case .important: accentColor = UIColor.systemOrange.withAlphaComponent(0.5)
-        case .tip:       accentColor = UIColor.systemGreen.withAlphaComponent(0.5)
-        case .warning:   accentColor = UIColor.systemRed.withAlphaComponent(0.5)
-        }
-        ctx.setFillColor(accentColor.cgColor)
-        ctx.fill(CGRect(x: rect.minX, y: rect.minY, width: 4, height: rect.height))
+        let (accentColor, iconGlyph): (UIColor, String) = {
+            switch style {
+            case .note:      return (UIColor.systemBlue,   "i")
+            case .important: return (UIColor.systemOrange, "!")
+            case .tip:       return (UIColor.systemGreen,  "✓")
+            case .warning:   return (UIColor.systemRed,    "⚠")
+            }
+        }()
 
-        let contentX = rect.minX + 4 + pad
-        let contentW = rect.width - 4 - pad * 2
+        // Tinted background fill (already inside clip)
+        ctx.saveGState()
+        ctx.setFillColor(accentColor.withAlphaComponent(0.07).cgColor)
+        ctx.fill(rect)
+        ctx.restoreGState()
+
+        // Left accent stripe
+        let stripeW: CGFloat = 6
+        ctx.saveGState()
+        ctx.setFillColor(accentColor.withAlphaComponent(0.80).cgColor)
+        ctx.fill(CGRect(x: rect.minX, y: rect.minY, width: stripeW, height: rect.height))
+        ctx.restoreGState()
+
+        let contentX = rect.minX + stripeW + pad
+        let contentW = rect.width - stripeW - pad * 2
         var y = rect.minY + pad
-        if !title.isEmpty { y = drawTitle(title, x: contentX, y: y, width: contentW, ctx: ctx) }
+
+        // Icon badge (circle with glyph)
+        let iconR: CGFloat = 10
+        let iconCenter = CGPoint(x: contentX + iconR, y: y + iconR)
+        ctx.saveGState()
+        ctx.setFillColor(accentColor.withAlphaComponent(0.18).cgColor)
+        ctx.fillEllipse(in: CGRect(x: iconCenter.x - iconR, y: iconCenter.y - iconR,
+                                   width: iconR * 2, height: iconR * 2))
+        ctx.restoreGState()
+        let iconAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 11, weight: .bold),
+            .foregroundColor: accentColor.withAlphaComponent(0.9)
+        ]
+        let iconSize = (iconGlyph as NSString).size(withAttributes: iconAttrs)
+        (iconGlyph as NSString).draw(
+            at: CGPoint(x: iconCenter.x - iconSize.width / 2, y: iconCenter.y - iconSize.height / 2),
+            withAttributes: iconAttrs
+        )
+
+        if !title.isEmpty {
+            let titleX = contentX + iconR * 2 + 6
+            y = drawTitle(title, x: titleX, y: y, width: contentW - iconR * 2 - 6, ctx: ctx)
+        } else {
+            y += iconR * 2 + 4
+        }
+
         if !body.isEmpty {
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
@@ -263,38 +418,42 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
                 in: CGRect(x: contentX, y: y, width: contentW, height: rect.maxY - y - pad),
                 withAttributes: attrs
             )
+        } else if title.isEmpty {
+            let hint = "Tap Edit to add content"
+            let hintAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.italicSystemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: UIColor.tertiaryLabel
+            ]
+            (hint as NSString).draw(at: CGPoint(x: contentX, y: y), withAttributes: hintAttrs)
         }
     }
 
     private func drawReferenceCard(title: String, body: String, in rect: CGRect, ctx: CGContext) {
         let pad = WidgetConstants.containerPadding
-        var y = rect.minY + pad
-        if !title.isEmpty { y = drawTitle(title, x: rect.minX + pad, y: y, width: rect.width - pad * 2, ctx: ctx) }
-        if !body.isEmpty {
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
-                .foregroundColor: UIColor.label
-            ]
-            (body as NSString).draw(
-                in: CGRect(x: rect.minX + pad, y: y, width: rect.width - pad * 2, height: rect.maxY - y - pad),
-                withAttributes: attrs
-            )
-        }
-    }
 
-    private func drawStickyNote(body: String, in rect: CGRect, ctx: CGContext) {
-        let pad = WidgetConstants.containerPadding
-        // Folded corner indicator (bottom-right triangle)
-        let foldSize: CGFloat = 16
-        let foldPath = UIBezierPath()
-        foldPath.move(to: CGPoint(x: rect.maxX - foldSize, y: rect.maxY))
-        foldPath.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - foldSize))
-        foldPath.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        foldPath.close()
+        // Top accent stripe
         ctx.saveGState()
-        ctx.setFillColor(UIColor.black.withAlphaComponent(0.12).cgColor)
-        ctx.addPath(foldPath.cgPath)
-        ctx.fillPath()
+        ctx.setFillColor(UIColor.systemPurple.withAlphaComponent(0.55).cgColor)
+        ctx.fill(CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: 4))
+        ctx.restoreGState()
+
+        var y = rect.minY + 4 + pad
+        if !title.isEmpty {
+            y = drawTitle(title, x: rect.minX + pad, y: y, width: rect.width - pad * 2, ctx: ctx)
+        }
+
+        // Ruled lines in body area
+        let lineSpacing: CGFloat = WidgetConstants.bodyFontSize + 6
+        ctx.saveGState()
+        ctx.setStrokeColor(UIColor.separator.withAlphaComponent(0.22).cgColor)
+        ctx.setLineWidth(0.5)
+        var lineY = y + lineSpacing - 1
+        while lineY < rect.maxY - pad {
+            ctx.move(to: CGPoint(x: rect.minX + pad, y: lineY))
+            ctx.addLine(to: CGPoint(x: rect.maxX - pad, y: lineY))
+            lineY += lineSpacing
+        }
+        ctx.strokePath()
         ctx.restoreGState()
 
         if !body.isEmpty {
@@ -303,34 +462,124 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
                 .foregroundColor: UIColor.label
             ]
             (body as NSString).draw(
-                in: CGRect(
-                    x: rect.minX + pad,
-                    y: rect.minY + pad,
-                    width: rect.width - pad * 2,
-                    height: rect.height - pad * 2 - foldSize
-                ),
+                in: CGRect(x: rect.minX + pad, y: y, width: rect.width - pad * 2,
+                           height: rect.maxY - y - pad),
                 withAttributes: attrs
+            )
+        } else {
+            let hint = "Tap Edit to add notes"
+            let hintAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.italicSystemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: UIColor.tertiaryLabel
+            ]
+            (hint as NSString).draw(at: CGPoint(x: rect.minX + pad, y: y), withAttributes: hintAttrs)
+        }
+    }
+
+    private func drawStickyNote(body: String, color: StickyNoteColor, in rect: CGRect, ctx: CGContext) {
+        let pad = WidgetConstants.containerPadding
+
+        // Subtle gradient overlay (lighter at top, slightly darker at bottom)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let gradColors = [UIColor.white.withAlphaComponent(0.22).cgColor,
+                          UIColor.black.withAlphaComponent(0.04).cgColor] as CFArray
+        if let gradient = CGGradient(colorsSpace: colorSpace, colors: gradColors, locations: [0.0, 1.0]) {
+            ctx.saveGState()
+            ctx.drawLinearGradient(gradient,
+                                   start: CGPoint(x: rect.midX, y: rect.minY),
+                                   end: CGPoint(x: rect.midX, y: rect.maxY),
+                                   options: [])
+            ctx.restoreGState()
+        }
+
+        // Pushpin at top center
+        let pinX = rect.midX
+        let pinY = rect.minY + 11
+        let pinR: CGFloat = 5
+        ctx.saveGState()
+        ctx.setFillColor(UIColor.systemRed.withAlphaComponent(0.82).cgColor)
+        ctx.fillEllipse(in: CGRect(x: pinX - pinR, y: pinY - pinR, width: pinR * 2, height: pinR * 2))
+        // Pin specular highlight
+        ctx.setFillColor(UIColor.white.withAlphaComponent(0.40).cgColor)
+        ctx.fillEllipse(in: CGRect(x: pinX - 2, y: pinY - 3, width: 2.5, height: 2.5))
+        // Pin outline
+        ctx.setStrokeColor(UIColor.black.withAlphaComponent(0.15).cgColor)
+        ctx.setLineWidth(0.5)
+        ctx.strokeEllipse(in: CGRect(x: pinX - pinR, y: pinY - pinR, width: pinR * 2, height: pinR * 2))
+        ctx.restoreGState()
+
+        // Folded corner (bottom-right)
+        let foldSize: CGFloat = 18
+        let foldPath = UIBezierPath()
+        foldPath.move(to: CGPoint(x: rect.maxX - foldSize, y: rect.maxY))
+        foldPath.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - foldSize))
+        foldPath.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        foldPath.close()
+        ctx.saveGState()
+        ctx.setFillColor(UIColor.black.withAlphaComponent(0.10).cgColor)
+        ctx.addPath(foldPath.cgPath)
+        ctx.fillPath()
+        ctx.setStrokeColor(UIColor.black.withAlphaComponent(0.15).cgColor)
+        ctx.setLineWidth(0.5)
+        ctx.move(to: CGPoint(x: rect.maxX - foldSize, y: rect.maxY))
+        ctx.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - foldSize))
+        ctx.strokePath()
+        ctx.restoreGState()
+
+        if !body.isEmpty {
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: UIColor.label
+            ]
+            (body as NSString).draw(
+                in: CGRect(x: rect.minX + pad, y: rect.minY + pad + 8,
+                           width: rect.width - pad * 2,
+                           height: rect.height - pad * 2 - 8 - foldSize),
+                withAttributes: attrs
+            )
+        } else {
+            let hint = "Tap Edit to write..."
+            let hintAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.italicSystemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: UIColor.tertiaryLabel
+            ]
+            (hint as NSString).draw(
+                at: CGPoint(x: rect.minX + pad, y: rect.minY + pad + 8),
+                withAttributes: hintAttrs
             )
         }
     }
 
     private func drawFlashcard(front: String, back: String, isFlipped: Bool,
+                               confidenceLevel: Int,
                                isSelected: Bool, in rect: CGRect, ctx: CGContext) {
         let pad = WidgetConstants.containerPadding
-        let labelText = isFlipped ? "BACK" : "FRONT"
-        let contentText = isFlipped ? back : front
+        let isFront = !isFlipped
+        let sideColor: UIColor = isFront ? UIColor.systemGreen : UIColor.systemBlue
+
+        // Side-specific subtle background tint
+        ctx.saveGState()
+        ctx.setFillColor(sideColor.withAlphaComponent(0.05).cgColor)
+        ctx.fill(rect)
+        ctx.restoreGState()
+
+        // Left edge accent strip
+        ctx.saveGState()
+        ctx.setFillColor(sideColor.withAlphaComponent(0.70).cgColor)
+        ctx.fill(CGRect(x: rect.minX, y: rect.minY, width: 4, height: rect.height))
+        ctx.restoreGState()
+
+        let labelText = isFront ? "FRONT" : "BACK"
+        let contentText = isFront ? front : back
 
         // Side label badge (top-right)
         let badgeAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 9, weight: .bold),
-            .foregroundColor: UIColor.secondaryLabel
+            .foregroundColor: sideColor.withAlphaComponent(0.85)
         ]
         let badgeSize = (labelText as NSString).size(withAttributes: badgeAttrs)
         (labelText as NSString).draw(
-            at: CGPoint(
-                x: rect.maxX - badgeSize.width - pad,
-                y: rect.minY + pad
-            ),
+            at: CGPoint(x: rect.maxX - badgeSize.width - pad, y: rect.minY + pad),
             withAttributes: badgeAttrs
         )
 
@@ -339,30 +588,64 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         ctx.saveGState()
         ctx.setStrokeColor(UIColor.separator.withAlphaComponent(0.4).cgColor)
         ctx.setLineWidth(0.5)
-        ctx.move(to: CGPoint(x: rect.minX + pad, y: dividerY))
+        ctx.move(to: CGPoint(x: rect.minX + pad + 4, y: dividerY))
         ctx.addLine(to: CGPoint(x: rect.maxX - pad, y: dividerY))
         ctx.strokePath()
         ctx.restoreGState()
+
+        // Reserve space for confidence dots at bottom
+        let dotR: CGFloat = 4
+        let confidenceH: CGFloat = dotR * 2 + pad + 2
+        let contentY = dividerY + 6
+        let textH = max(0, rect.maxY - contentY - pad - confidenceH)
 
         // Content text
         let contentAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
             .foregroundColor: UIColor.label
         ]
-        let contentY = dividerY + 6
         if !contentText.isEmpty {
             (contentText as NSString).draw(
-                in: CGRect(
-                    x: rect.minX + pad,
-                    y: contentY,
-                    width: rect.width - pad * 2,
-                    height: rect.maxY - contentY - pad
-                ),
+                in: CGRect(x: rect.minX + pad + 4, y: contentY,
+                           width: rect.width - pad * 2 - 4, height: textH),
                 withAttributes: contentAttrs
+            )
+        } else {
+            let hint = isFront ? "Tap Edit – add question" : "Tap Edit – add answer"
+            let hintAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.italicSystemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: UIColor.tertiaryLabel
+            ]
+            (hint as NSString).draw(
+                at: CGPoint(x: rect.minX + pad + 4, y: contentY),
+                withAttributes: hintAttrs
             )
         }
 
-        // Flip hint (bottom-centre) when this flashcard is selected
+        // Confidence dots (bottom centre)
+        let maxDots = 4
+        let dotSpacing: CGFloat = 11
+        let totalDotsW = CGFloat(maxDots) * dotSpacing - (dotSpacing - dotR * 2)
+        var dotX = rect.midX - totalDotsW / 2 + dotR
+        let dotY = rect.maxY - pad - dotR
+        for i in 0..<maxDots {
+            let filled = i < confidenceLevel
+            ctx.saveGState()
+            if filled {
+                ctx.setFillColor(UIColor.systemYellow.cgColor)
+                ctx.fillEllipse(in: CGRect(x: dotX - dotR, y: dotY - dotR,
+                                           width: dotR * 2, height: dotR * 2))
+            } else {
+                ctx.setStrokeColor(UIColor.tertiaryLabel.cgColor)
+                ctx.setLineWidth(1)
+                ctx.strokeEllipse(in: CGRect(x: dotX - dotR, y: dotY - dotR,
+                                             width: dotR * 2, height: dotR * 2))
+            }
+            ctx.restoreGState()
+            dotX += dotSpacing
+        }
+
+        // Flip hint when selected
         if isSelected {
             let hintText = "Double-tap to flip"
             let hintAttrs: [NSAttributedString.Key: Any] = [
@@ -371,10 +654,7 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
             ]
             let hintSize = (hintText as NSString).size(withAttributes: hintAttrs)
             (hintText as NSString).draw(
-                at: CGPoint(
-                    x: rect.midX - hintSize.width / 2,
-                    y: rect.maxY - pad - hintSize.height
-                ),
+                at: CGPoint(x: rect.midX - hintSize.width / 2, y: rect.minY + pad),
                 withAttributes: hintAttrs
             )
         }
@@ -384,8 +664,27 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
                                      in rect: CGRect, ctx: CGContext) {
         let pad = WidgetConstants.containerPadding
         var y = rect.minY + pad
+
+        let clampedTotal = max(total, 1)
+        let fraction = min(CGFloat(current) / CGFloat(clampedTotal), 1.0)
+        let pct = Int(fraction * 100)
+        let isComplete = pct == 100
+
+        // Percentage badge (top-right)
+        let pctText = "\(pct)%"
+        let pctBadgeAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold),
+            .foregroundColor: isComplete ? UIColor.systemGreen : UIColor.tintColor
+        ]
+        let pctBadgeSize = (pctText as NSString).size(withAttributes: pctBadgeAttrs)
+        (pctText as NSString).draw(
+            at: CGPoint(x: rect.maxX - pad - pctBadgeSize.width, y: rect.minY + pad),
+            withAttributes: pctBadgeAttrs
+        )
+
         if !title.isEmpty {
-            y = drawTitle(title, x: rect.minX + pad, y: y, width: rect.width - pad * 2, ctx: ctx)
+            y = drawTitle(title, x: rect.minX + pad, y: y,
+                          width: rect.width - pad * 2 - pctBadgeSize.width - 8, ctx: ctx)
         }
 
         // Progress bar track
@@ -401,31 +700,69 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         ctx.fillPath()
         ctx.restoreGState()
 
-        // Progress fill
-        let clampedTotal = max(total, 1)
-        let fraction = min(CGFloat(current) / CGFloat(clampedTotal), 1.0)
+        // Gradient fill
         if fraction > 0 {
             let fillW = max(barW * fraction, barHeight)
             let fillRect = CGRect(x: barX, y: y, width: fillW, height: barHeight)
             let fillPath = UIBezierPath(roundedRect: fillRect, cornerRadius: barHeight / 2)
             ctx.saveGState()
-            ctx.setFillColor(UIColor.tintColor.withAlphaComponent(0.8).cgColor)
             ctx.addPath(fillPath.cgPath)
-            ctx.fillPath()
+            ctx.clip()
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let topColor = isComplete
+                ? UIColor.systemGreen.withAlphaComponent(0.90).cgColor
+                : UIColor.tintColor.withAlphaComponent(0.90).cgColor
+            let bottomColor = isComplete
+                ? UIColor.systemGreen.withAlphaComponent(0.65).cgColor
+                : UIColor.tintColor.withAlphaComponent(0.65).cgColor
+            let gradColors = [topColor, bottomColor] as CFArray
+            if let gradient = CGGradient(colorsSpace: colorSpace,
+                                         colors: gradColors,
+                                         locations: [0.0, 1.0]) {
+                ctx.drawLinearGradient(gradient,
+                                       start: CGPoint(x: barX, y: y),
+                                       end: CGPoint(x: barX, y: y + barHeight),
+                                       options: [])
+            }
+            ctx.restoreGState()
+
+            // Quarter tick marks on the filled portion
+            ctx.saveGState()
+            ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.40).cgColor)
+            ctx.setLineWidth(1)
+            for tick: CGFloat in [0.25, 0.50, 0.75] {
+                let tickX = barX + barW * tick
+                if tickX < barX + fillW - 2 {
+                    ctx.move(to: CGPoint(x: tickX, y: y + 3))
+                    ctx.addLine(to: CGPoint(x: tickX, y: y + barHeight - 3))
+                }
+            }
+            ctx.strokePath()
             ctx.restoreGState()
         }
 
-        // Percentage label
-        let pct = Int(fraction * 100)
-        let pctText = "\(current)/\(total)  (\(pct)%)"
-        let pctAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 10),
+        // Step count label (bottom-left)
+        let stepText = "\(current) / \(total)"
+        let stepAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
             .foregroundColor: UIColor.secondaryLabel
         ]
-        (pctText as NSString).draw(
-            at: CGPoint(x: barX, y: y + barHeight + 4),
-            withAttributes: pctAttrs
-        )
+        (stepText as NSString).draw(at: CGPoint(x: barX, y: y + barHeight + 4),
+                                    withAttributes: stepAttrs)
+
+        // "Complete!" badge
+        if isComplete {
+            let doneText = "✓ Complete!"
+            let doneAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
+                .foregroundColor: UIColor.systemGreen
+            ]
+            let doneSize = (doneText as NSString).size(withAttributes: doneAttrs)
+            (doneText as NSString).draw(
+                at: CGPoint(x: rect.maxX - pad - doneSize.width, y: y + barHeight + 4),
+                withAttributes: doneAttrs
+            )
+        }
     }
 
     /// Draws a small anchor-pin circle to indicate the widget is locked to the paper.
@@ -560,8 +897,9 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         guard let tapped = widgetAt(point: point),
               tapped.id == selectedWidgetID,
               let idx = widgets.firstIndex(where: { $0.id == tapped.id }),
-              case .flashcard(let front, let back, let isFlipped) = tapped.payload else { return }
-        widgets[idx].payload = .flashcard(front: front, back: back, isFlipped: !isFlipped)
+              case .flashcard(let front, let back, let isFlipped, let confidenceLevel) = tapped.payload else { return }
+        widgets[idx].payload = .flashcard(front: front, back: back, isFlipped: !isFlipped,
+                                          confidenceLevel: confidenceLevel)
         setNeedsDisplay()
         onWidgetsChanged?(widgets)
     }
@@ -691,5 +1029,41 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
     func updateWidgets(for pageWidgets: [NoteWidget]) {
         self.widgets = pageWidgets
         setNeedsDisplay()
+    }
+
+    // MARK: - Completion Detection
+
+    /// Detects checklist/progress-tracker completion transitions and fires
+    /// the appropriate callbacks.  Only fires on the *first* observation of
+    /// a widget becoming complete (not on every update while it stays complete).
+    private func detectCompletionTransitions() {
+        var nowCompleteChecklists = Set<UUID>()
+        var nowCompleteTrackers = Set<UUID>()
+
+        for widget in widgets {
+            let center = widget.frame.position
+
+            switch widget.payload {
+            case .checklist(_, let items):
+                if !items.isEmpty && items.allSatisfy({ $0.isChecked }) {
+                    nowCompleteChecklists.insert(widget.id)
+                    if !previouslyCompletedChecklists.contains(widget.id) {
+                        onChecklistCompleted?(widget.id, center)
+                    }
+                }
+            case .progressTracker(_, let current, let total):
+                if total > 0 && current >= total {
+                    nowCompleteTrackers.insert(widget.id)
+                    if !previouslyCompletedTrackers.contains(widget.id) {
+                        onTimerCompleted?(widget.id, center)
+                    }
+                }
+            default:
+                break
+            }
+        }
+
+        previouslyCompletedChecklists = nowCompleteChecklists
+        previouslyCompletedTrackers = nowCompleteTrackers
     }
 }
