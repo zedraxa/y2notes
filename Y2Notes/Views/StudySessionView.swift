@@ -93,6 +93,8 @@ struct StudySessionView: View {
             }
             .rotation3DEffect(.degrees(flipDegrees), axis: (x: 0, y: 1, z: 0))
             .onTapGesture { flipCard() }
+            .accessibilityLabel(isFlipped ? "Answer: \(card.back)" : "Question: \(card.front)")
+            .accessibilityHint(isFlipped ? "Swipe right to rate this card" : "Double-tap to reveal the answer")
             .frame(maxWidth: 600)
             .padding(.horizontal)
 
@@ -158,6 +160,8 @@ struct StudySessionView: View {
                     .foregroundStyle(ratingColor(rating))
                 }
                 .buttonStyle(RatingButtonStyle(color: ratingColor(rating)))
+                .accessibilityLabel("Rate \(rating.displayName)")
+                .accessibilityHint("Rates this card as \(rating.displayName) and moves to the next card")
             }
         }
     }

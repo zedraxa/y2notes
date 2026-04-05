@@ -14,6 +14,7 @@ struct RecordingSessionListView: View {
     @State private var renamingSessionID: UUID?
     @State private var renameText = ""
     @State private var showRenameAlert = false
+    @State private var sessionToDelete: UUID?
 
     // MARK: - Body
 
@@ -44,6 +45,26 @@ struct RecordingSessionListView: View {
             } message: {
                 Text("Enter a new name for this recording.")
             }
+            .confirmationDialog(
+                "Delete Recording",
+                isPresented: Binding(
+                    get: { sessionToDelete != nil },
+                    set: { if !$0 { sessionToDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    if let id = sessionToDelete {
+                        recordingStore.deleteSession(id)
+                    }
+                    sessionToDelete = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    sessionToDelete = nil
+                }
+            } message: {
+                Text("Are you sure you want to delete this recording? This action cannot be undone.")
+            }
         }
     }
 
@@ -56,7 +77,7 @@ struct RecordingSessionListView: View {
                 sessionRow(session)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
-                            recordingStore.deleteSession(session.id)
+                            sessionToDelete = session.id
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -80,7 +101,7 @@ struct RecordingSessionListView: View {
                             Label("Rename", systemImage: "pencil")
                         }
                         Button(role: .destructive) {
-                            recordingStore.deleteSession(session.id)
+                            sessionToDelete = session.id
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -131,6 +152,7 @@ struct RecordingSessionListView: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .accessibilityLabel("\(session.title), \(formattedDuration(session.duration))")
+        .accessibilityHint("Tap to play this recording")
     }
 
     // MARK: - Empty State

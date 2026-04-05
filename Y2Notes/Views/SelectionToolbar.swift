@@ -17,6 +17,8 @@ struct SelectionToolbar: View {
 
     var body: some View {
         selectionCapsule
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
+            .background { selectionKeyboardShortcuts }
     }
 
     // MARK: - Selection Capsule
@@ -24,15 +26,33 @@ struct SelectionToolbar: View {
     @ViewBuilder
     private var selectionCapsule: some View {
         HStack(spacing: 6) {
-            actionButton("scissors", label: "Cut") { fireAction(.cut) }
-            actionButton("doc.on.doc", label: "Copy") { fireAction(.copy) }
-            actionButton("plus.square.on.square", label: "Duplicate") { fireAction(.duplicate) }
-            actionButton("trash", label: "Delete") { fireAction(.delete) }
+            actionButton("scissors", label: "Cut", hint: "Cut selected strokes to clipboard") { fireAction(.cut) }
+            actionButton("doc.on.doc", label: "Copy", hint: "Copy selected strokes to clipboard") { fireAction(.copy) }
+            actionButton("plus.square.on.square", label: "Duplicate", hint: "Duplicate selected strokes in place") { fireAction(.duplicate) }
+            actionButton("trash", label: "Delete", hint: "Delete selected strokes") { fireAction(.delete) }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Keyboard Shortcuts
+
+    @ViewBuilder
+    private var selectionKeyboardShortcuts: some View {
+        Button("") { onAction(.cut) }
+            .keyboardShortcut("x", modifiers: .command)
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false).accessibilityHidden(true)
+        Button("") { onAction(.copy) }
+            .keyboardShortcut("c", modifiers: .command)
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false).accessibilityHidden(true)
+        Button("") { onAction(.duplicate) }
+            .keyboardShortcut("d", modifiers: .command)
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false).accessibilityHidden(true)
+        Button("") { onAction(.delete) }
+            .keyboardShortcut(.delete, modifiers: [])
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false).accessibilityHidden(true)
     }
 
     // MARK: - Helpers
@@ -47,7 +67,7 @@ struct SelectionToolbar: View {
     }
 
     @ViewBuilder
-    private func actionButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private func actionButton(_ icon: String, label: String, hint: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .medium))
@@ -56,6 +76,7 @@ struct SelectionToolbar: View {
         }
         .buttonStyle(SelectionActionButtonStyle())
         .accessibilityLabel(label)
+        .accessibilityHint(hint)
     }
 }
 

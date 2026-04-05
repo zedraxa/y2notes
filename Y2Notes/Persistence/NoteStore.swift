@@ -377,6 +377,21 @@ final class NoteStore: ObservableObject {
         scheduleNoteAutosave()
     }
 
+    /// Updates the text objects for a specific page.
+    func updateTextObjects(for noteID: UUID, pageIndex: Int, textObjects: [TextObject]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        // Ensure textLayers array is sized to match pages
+        while notes[idx].textLayers.count < notes[idx].pages.count {
+            notes[idx].textLayers.append(nil)
+        }
+        guard pageIndex >= 0 && pageIndex < notes[idx].textLayers.count else { return }
+        notes[idx].textLayers[pageIndex] = textObjects.isEmpty ? nil : textObjects
+        notes[idx].modifiedAt = Date()
+        isDirty = true
+        dirtyPages[noteID, default: []].insert(pageIndex)
+        scheduleNoteAutosave()
+    }
+
     // MARK: - Expansion Region Updates
 
     /// Replaces the full set of expansion regions for a note.
@@ -881,7 +896,8 @@ final class NoteStore: ObservableObject {
         orientation: PageOrientation = .portrait,
         defaultTheme: AppTheme? = nil,
         paperMaterial: PaperMaterial = .standard,
-        customCoverData: Data? = nil
+        customCoverData: Data? = nil,
+        coverTexture: CoverTexture = .smooth
     ) -> Notebook {
         let nb = Notebook(
             name: name,
@@ -892,7 +908,8 @@ final class NoteStore: ObservableObject {
             orientation: orientation,
             defaultTheme: defaultTheme,
             paperMaterial: paperMaterial,
-            customCoverData: customCoverData
+            customCoverData: customCoverData,
+            coverTexture: coverTexture
         )
         notebooks.insert(nb, at: 0)
         save()
@@ -940,6 +957,13 @@ final class NoteStore: ObservableObject {
     func updateNotebookCover(id: UUID, cover: NotebookCover) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
         notebooks[idx].cover = cover
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    func updateNotebookTexture(id: UUID, texture: CoverTexture) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].coverTexture = texture
         notebooks[idx].modifiedAt = Date()
         save()
     }
@@ -1127,7 +1151,52 @@ final class NoteStore: ObservableObject {
         isDirty = true
     }
 
-    // MARK: - On-device handwriting OCR
+    // MARK: - Tags & color label
+
+    /// Replaces the entire tag array for a note.
+    /// Each tag is lowercased and whitespace-trimmed before saving.
+    func updateTags(for noteID: UUID, tags: [String]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].tags = tags
+            .map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        isDirty = true
+    }
+
+    /// Adds a single tag to a note if it is not already present.
+    func addTag(_ tag: String, to noteID: UUID) {
+        let normalised = tag.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalised.isEmpty,
+              let idx = notes.firstIndex(where: { $0.id == noteID }),
+              !notes[idx].tags.contains(normalised) else { return }
+        notes[idx].tags.append(normalised)
+        isDirty = true
+    }
+
+    /// Removes a single tag from a note.
+    func removeTag(_ tag: String, from noteID: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].tags.removeAll { $0 == tag }
+        isDirty = true
+    }
+
+    /// Sets or clears the colour label on a note.
+    func updateColorLabel(for noteID: UUID, colorLabel: NoteColorLabel?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].colorLabel = colorLabel
+        isDirty = true
+    }
+
+    /// All unique, sorted tags across every note in the store.
+    var allTags: [String] {
+        let flat = notes.flatMap { $0.tags }
+        return Array(Set(flat)).sorted()
+    }
+
+    /// All notes that carry the given tag.
+    func notes(withTag tag: String) -> [Note] {
+        notes.filter { $0.tags.contains(tag) }
+    }
 
     /// Schedules a Vision OCR pass on all pages of the note 4 seconds after the last
     /// drawing change.  Calling this method resets the timer so rapid drawing strokes
