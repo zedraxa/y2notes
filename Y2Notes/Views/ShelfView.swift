@@ -263,7 +263,8 @@ private struct ShelfSidebarView: View {
             }
 
             // ── Study ─────────────────────────────────────────────────────
-            Section("Study") {                NavigationLink(destination: StudySetListView()) {
+            Section("Study") {
+                NavigationLink(destination: StudySetListView()) {
                     Label("Study Sets", systemImage: "rectangle.on.rectangle.angled")
                         .badge(noteStore.studySets.count)
                 }
@@ -1161,7 +1162,7 @@ struct NoteGridView: View {
         case .recents:   return "No Recent Notes"
         case .favorites: return "No Favorites Yet"
         case .notebook:  return "Empty Notebook"
-        case .tag(let t): return "No Notes Tagged "#\(t)""
+        case .tag(let t): return "No Notes Tagged with "#\(t)""
         case .pdfLibrary: return "No PDFs Yet"
         case .documentLibrary: return "No Documents Yet"
         }
@@ -1173,7 +1174,7 @@ struct NoteGridView: View {
         case .recents:   return "Notes you open recently will appear here."
         case .favorites: return "Tap ★ in a note's menu to collect favorites here."
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
-        case .tag(let t): return "Add the tag "#\(t)" to notes from their context menu."
+        case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
         case .documentLibrary: return "Import a document to get started."
         }
