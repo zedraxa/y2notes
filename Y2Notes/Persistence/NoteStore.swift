@@ -885,7 +885,8 @@ final class NoteStore: ObservableObject {
         defaultTheme: AppTheme? = nil,
         paperMaterial: PaperMaterial = .standard,
         customCoverData: Data? = nil,
-        coverTexture: CoverTexture = .smooth
+        coverTexture: CoverTexture = .smooth,
+        colorTag: NotebookColorTag = .none
     ) -> Notebook {
         let nb = Notebook(
             name: name,
@@ -897,7 +898,8 @@ final class NoteStore: ObservableObject {
             defaultTheme: defaultTheme,
             paperMaterial: paperMaterial,
             customCoverData: customCoverData,
-            coverTexture: coverTexture
+            coverTexture: coverTexture,
+            colorTag: colorTag
         )
         notebooks.insert(nb, at: 0)
         save()
@@ -956,6 +958,29 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    /// Sets the colour tag for a notebook.
+    func updateNotebookColorTag(id: UUID, colorTag: NotebookColorTag) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].colorTag = colorTag
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    /// Records that a notebook was opened right now.
+    func updateNotebookLastOpened(id: UUID) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].lastOpenedAt = Date()
+        save()
+    }
+
+    /// Toggles the pinned state of a notebook (pinned notebooks sort first in the shelf).
+    func toggleNotebookPin(id: UUID) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].isPinned.toggle()
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
     /// Deletes a notebook, its sections, and unfiles all notes that belonged to it.
     func deleteNotebook(id: UUID) {
         for i in notes.indices where notes[i].notebookID == id {
@@ -981,7 +1006,8 @@ final class NoteStore: ObservableObject {
             defaultTheme: source.defaultTheme,
             paperMaterial: source.paperMaterial,
             customCoverData: source.customCoverData,
-            coverTexture: source.coverTexture
+            coverTexture: source.coverTexture,
+            colorTag: source.colorTag
         )
         // Duplicate sections preserving order and settings
         let srcSections = self.sections(inNotebook: id)

@@ -21,6 +21,11 @@ struct NotebookInfoView: View {
         allNotes.reduce(0) { $0 + $1.pageCount }
     }
 
+    /// Live notebook (picks up mutations from NoteStore).
+    private var liveNotebook: Notebook {
+        noteStore.notebooks.first { $0.id == notebook.id } ?? notebook
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -48,44 +53,72 @@ struct NotebookInfoView: View {
         Section {
             HStack(spacing: 16) {
                 // Mini cover
-                ZStack {
-                    if let data = notebook.customCoverData,
-                       let uiImg = UIImage(data: data) {
-                        Image(uiImage: uiImg)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 56, height: 80)
-                            .clipped()
-                    } else {
-                        notebook.cover.gradient
-                            .frame(width: 56, height: 80)
-                    }
+                ZStack(alignment: .topTrailing) {
+                    ZStack {
+                        if let data = liveNotebook.customCoverData,
+                           let uiImg = UIImage(data: data) {
+                            Image(uiImage: uiImg)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 56, height: 80)
+                                .clipped()
+                        } else {
+                            liveNotebook.cover.gradient
+                                .frame(width: 56, height: 80)
+                        }
 
-                    CoverTextureOverlay(
-                        texture: notebook.coverTexture,
-                        size: CGSize(width: 56, height: 80),
-                        intensity: 0.6
-                    )
+                        CoverTextureOverlay(
+                            texture: liveNotebook.coverTexture,
+                            size: CGSize(width: 56, height: 80),
+                            intensity: 0.6
+                        )
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    // Colour tag badge
+                    if liveNotebook.colorTag != .none {
+                        Circle()
+                            .fill(liveNotebook.colorTag.color)
+                            .frame(width: 12, height: 12)
+                            .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1.5))
+                            .offset(x: 4, y: -4)
+                    }
+                    // Pin badge
+                    if liveNotebook.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(3)
+                            .background(Color.orange, in: Circle())
+                            .offset(x: 4, y: liveNotebook.colorTag != .none ? -20 : -4)
+                    }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(notebook.name)
+                    Text(liveNotebook.name)
                         .font(.headline)
-                    if !notebook.description.isEmpty {
-                        Text(notebook.description)
+                    if !liveNotebook.description.isEmpty {
+                        Text(liveNotebook.description)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
-                    if notebook.isLocked {
+                    if liveNotebook.isLocked {
                         Label(
                             NSLocalizedString("NotebookInfo.Locked", comment: ""),
                             systemImage: "lock.fill"
                         )
                         .font(.caption)
                         .foregroundStyle(.orange)
+                    }
+                    if liveNotebook.isPinned {
+                        Label(
+                            NSLocalizedString("NotebookInfo.Pinned", comment: ""),
+                            systemImage: "pin.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -115,12 +148,19 @@ struct NotebookInfoView: View {
             infoRow(
                 icon: "calendar",
                 label: NSLocalizedString("NotebookInfo.Created", comment: ""),
-                value: notebook.createdAt.formatted(date: .abbreviated, time: .omitted)
+                value: liveNotebook.createdAt.formatted(date: .abbreviated, time: .omitted)
             )
             infoRow(
                 icon: "pencil",
                 label: NSLocalizedString("NotebookInfo.LastModified", comment: ""),
-                value: notebook.modifiedAt.formatted(date: .abbreviated, time: .shortened)
+                value: liveNotebook.modifiedAt.formatted(date: .abbreviated, time: .shortened)
+            )
+            infoRow(
+                icon: "eye",
+                label: NSLocalizedString("NotebookInfo.LastOpened", comment: ""),
+                value: liveNotebook.lastOpenedAt.map {
+                    $0.formatted(date: .abbreviated, time: .shortened)
+                } ?? NSLocalizedString("NotebookInfo.NeverOpened", comment: "")
             )
         }
     }
@@ -130,31 +170,31 @@ struct NotebookInfoView: View {
     private var configSection: some View {
         Section(NSLocalizedString("NotebookInfo.Configuration", comment: "")) {
             infoRow(
-                icon: notebook.pageType.systemImage,
+                icon: liveNotebook.pageType.systemImage,
                 label: NSLocalizedString("NotebookInfo.PageType", comment: ""),
-                value: notebook.pageType.displayName
+                value: liveNotebook.pageType.displayName
             )
             infoRow(
                 icon: "ruler",
                 label: NSLocalizedString("NotebookInfo.PageSize", comment: ""),
-                value: notebook.pageSize.displayName
+                value: liveNotebook.pageSize.displayName
             )
             infoRow(
-                icon: notebook.orientation.systemImage,
+                icon: liveNotebook.orientation.systemImage,
                 label: NSLocalizedString("NotebookInfo.Orientation", comment: ""),
-                value: notebook.orientation.displayName
+                value: liveNotebook.orientation.displayName
             )
             infoRow(
-                icon: notebook.paperMaterial.systemImage,
+                icon: liveNotebook.paperMaterial.systemImage,
                 label: NSLocalizedString("NotebookInfo.Material", comment: ""),
-                value: notebook.paperMaterial.displayName
+                value: liveNotebook.paperMaterial.displayName
             )
             infoRow(
-                icon: notebook.coverTexture.systemImage,
+                icon: liveNotebook.coverTexture.systemImage,
                 label: NSLocalizedString("NotebookInfo.Texture", comment: ""),
-                value: notebook.coverTexture.displayName
+                value: liveNotebook.coverTexture.displayName
             )
-            if let theme = notebook.defaultTheme {
+            if let theme = liveNotebook.defaultTheme {
                 infoRow(
                     icon: theme.systemImage,
                     label: NSLocalizedString("NotebookInfo.Theme", comment: ""),
@@ -194,25 +234,86 @@ struct NotebookInfoView: View {
 
     private var actionsSection: some View {
         Section {
+            // Colour tag picker
+            HStack {
+                Label(
+                    NSLocalizedString("NotebookInfo.ColorTag", comment: ""),
+                    systemImage: "circle.fill"
+                )
+                .foregroundStyle(
+                    liveNotebook.colorTag == .none ? .secondary : liveNotebook.colorTag.color
+                )
+                Spacer()
+                colorTagPicker
+            }
+
             Button {
-                noteStore.toggleNotebookLock(id: notebook.id)
+                noteStore.toggleNotebookPin(id: liveNotebook.id)
             } label: {
                 Label(
-                    notebook.isLocked
-                        ? NSLocalizedString("NotebookInfo.Unlock", comment: "")
-                        : NSLocalizedString("NotebookInfo.Lock", comment: ""),
-                    systemImage: notebook.isLocked ? "lock.open" : "lock"
+                    liveNotebook.isPinned
+                        ? NSLocalizedString("NotebookInfo.Unpin", comment: "")
+                        : NSLocalizedString("NotebookInfo.Pin", comment: ""),
+                    systemImage: liveNotebook.isPinned ? "pin.slash" : "pin"
                 )
             }
 
             Button {
-                noteStore.duplicateNotebook(id: notebook.id)
+                noteStore.toggleNotebookLock(id: liveNotebook.id)
+            } label: {
+                Label(
+                    liveNotebook.isLocked
+                        ? NSLocalizedString("NotebookInfo.Unlock", comment: "")
+                        : NSLocalizedString("NotebookInfo.Lock", comment: ""),
+                    systemImage: liveNotebook.isLocked ? "lock.open" : "lock"
+                )
+            }
+
+            Button {
+                noteStore.duplicateNotebook(id: liveNotebook.id)
                 dismiss()
             } label: {
                 Label(
                     NSLocalizedString("NotebookInfo.Duplicate", comment: ""),
                     systemImage: "doc.on.doc"
                 )
+            }
+        }
+    }
+
+    // MARK: - Colour tag picker
+
+    private var colorTagPicker: some View {
+        HStack(spacing: 8) {
+            ForEach(NotebookColorTag.allCases, id: \.self) { tag in
+                Button {
+                    noteStore.updateNotebookColorTag(
+                        id: liveNotebook.id,
+                        colorTag: liveNotebook.colorTag == tag ? .none : tag
+                    )
+                } label: {
+                    ZStack {
+                        if tag == .none {
+                            Circle()
+                                .strokeBorder(Color.secondary.opacity(0.4), lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Circle()
+                                .fill(tag.color)
+                                .frame(width: 22, height: 22)
+                        }
+                        if liveNotebook.colorTag == tag {
+                            Circle()
+                                .strokeBorder(Color.primary.opacity(0.7), lineWidth: 2)
+                                .frame(width: 22, height: 22)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tag.displayName)
             }
         }
     }
