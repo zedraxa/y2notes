@@ -4423,7 +4423,7 @@ private struct PageOverviewGrid: View {
             let maxDimension: CGFloat = 240
             let scale = min(maxDimension / renderRect.width, maxDimension / renderRect.height, 1.0)
 
-            return await drawing.image(from: renderRect, scale: scale * screenScale)
+            return drawing.image(from: renderRect, scale: scale * screenScale)
         }.value
 
         if let image {
