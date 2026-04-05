@@ -2693,7 +2693,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             // Remember current inking tool before switching to eraser.
             previousInkingTool = canvas.tool
         }
-        canvas.tool = PKEraserTool(.vector)
+        canvas.tool = PKEraserTool(toolStoreRef?.eraserMode.pkEraserType ?? .vector)
     }
 
     func pencilDidRequestSwitchToPreviousTool() {
@@ -2717,7 +2717,8 @@ extension CanvasView.Coordinator: PencilActionDelegate {
         ContextualPencilPaletteView.show(
             at: windowPoint,
             in: window,
-            canvas: canvas
+            canvas: canvas,
+            eraserType: toolStoreRef?.eraserMode.pkEraserType ?? .vector
         )
     }
 
