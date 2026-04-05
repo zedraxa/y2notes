@@ -11,6 +11,7 @@ import UIKit
 /// - Share original, export annotated PDF, and Open In… workflows.
 struct PDFViewerView: View {
     @EnvironmentObject var pdfStore:  PDFStore
+    @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @Environment(TabWorkspaceStore.self) private var workspace
 
@@ -81,6 +82,7 @@ struct PDFViewerView: View {
         .animation(.default, value: isSearching)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
+                companionNoteButton
                 annotateToggleButton
                 pencilPolicyButton
                 searchButton
@@ -100,6 +102,31 @@ struct PDFViewerView: View {
     }
 
     // MARK: - Toolbar buttons
+
+    /// Opens or creates the companion note linked to this PDF.
+    private var companionNoteButton: some View {
+        Button {
+            if let existing = noteStore.notes(forPDF: record.id).first {
+                workspace.openTab(
+                    .note(id: existing.id),
+                    displayName: existing.title,
+                    accentColor: [0.8, 0.3, 0.3]
+                )
+            } else {
+                let note = noteStore.addNote(forPDF: record)
+                workspace.openTab(
+                    .note(id: note.id),
+                    displayName: note.title,
+                    accentColor: [0.8, 0.3, 0.3]
+                )
+            }
+        } label: {
+            Image(systemName: noteStore.hasCompanionNote(forPDF: record.id)
+                  ? "note.text" : "note.text.badge.plus")
+        }
+        .accessibilityLabel(noteStore.hasCompanionNote(forPDF: record.id)
+                            ? "Open companion note" : "Create companion note")
+    }
 
     /// Toggles between annotate mode (canvas active) and read mode (PDFView handles touches).
     private var annotateToggleButton: some View {

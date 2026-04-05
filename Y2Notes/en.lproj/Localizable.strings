@@ -299,3 +299,15 @@
 "Credits.InspirationHeader"       = "Projects That Inspired Us";
 "Credits.PatternsHeader"          = "Design Patterns Adopted";
 "Credits.Footer"                  = "We gratefully acknowledge these projects and the wider open-source community.";
+
+/* ── Import Notes ─────────────────────────────────────────────── */
+
+"Import.SidebarTitle"             = "Import Notes";
+"Import.CompanionNote"            = "Companion Note";
+"Import.OpenCompanionNote"        = "Open Companion Note";
+"Import.CreateCompanionNote"      = "Create Companion Note";
+"Import.LinkedTo"                 = "Linked to: %@";
+"Import.TapToOpen"                = "Tap to open";
+"Import.SourceDeleted"            = "Source file was deleted";
+"Import.NoImportNotes"            = "No Import Notes";
+"Import.NoImportNotesSubtitle"    = "Import a PDF or document to create a companion note.";

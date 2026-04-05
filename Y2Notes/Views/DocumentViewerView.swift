@@ -15,6 +15,9 @@ import QuickLook
 /// - Images, PDFs, plain text, and many more
 struct DocumentViewerView: View {
 
+    @EnvironmentObject var noteStore: NoteStore
+    @Environment(TabWorkspaceStore.self) private var workspace
+
     let document: ImportedDocument
     let fileURL: URL
 
@@ -23,6 +26,31 @@ struct DocumentViewerView: View {
             .ignoresSafeArea()
             .navigationTitle(document.displayName)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        if let existing = noteStore.notes(forDocument: document.id).first {
+                            workspace.openTab(
+                                .note(id: existing.id),
+                                displayName: existing.title,
+                                accentColor: [0.3, 0.5, 0.7]
+                            )
+                        } else {
+                            let note = noteStore.addNote(forDocument: document)
+                            workspace.openTab(
+                                .note(id: note.id),
+                                displayName: note.title,
+                                accentColor: [0.3, 0.5, 0.7]
+                            )
+                        }
+                    } label: {
+                        Image(systemName: noteStore.hasCompanionNote(forDocument: document.id)
+                              ? "note.text" : "note.text.badge.plus")
+                    }
+                    .accessibilityLabel(noteStore.hasCompanionNote(forDocument: document.id)
+                                        ? "Open companion note" : "Create companion note")
+                }
+            }
     }
 }
 
@@ -168,6 +196,29 @@ struct DocumentLibraryView: View {
                         selectedDocumentID = doc.id
                     }
                     .contextMenu {
+                        if let linkedNote = noteStore.notes(forDocument: doc.id).first {
+                            Button {
+                                tabSession.openTab(
+                                    .note(id: linkedNote.id),
+                                    displayName: linkedNote.title,
+                                    accentColor: [0.3, 0.5, 0.7]
+                                )
+                            } label: {
+                                Label("Open Companion Note", systemImage: "note.text")
+                            }
+                        } else {
+                            Button {
+                                let note = noteStore.addNote(forDocument: doc)
+                                tabSession.openTab(
+                                    .note(id: note.id),
+                                    displayName: note.title,
+                                    accentColor: [0.3, 0.5, 0.7]
+                                )
+                            } label: {
+                                Label("Create Companion Note", systemImage: "note.text.badge.plus")
+                            }
+                        }
+                        Divider()
                         Button(role: .destructive) {
                             documentStore.delete(doc)
                             if selectedDocumentID == doc.id { selectedDocumentID = nil }

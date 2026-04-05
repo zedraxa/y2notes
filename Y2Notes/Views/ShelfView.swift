@@ -10,6 +10,8 @@ enum LibrarySection: Hashable {
     case allNotes
     case recents
     case favorites
+    /// Notes linked to imported PDFs or documents.
+    case importNotes
     case notebook(UUID)
     case pdfLibrary
     case documentLibrary
@@ -236,6 +238,12 @@ private struct ShelfSidebarView: View {
                     .tag(LibrarySection.favorites)
                     .badge(noteStore.favoritedNotes.count)
                     .foregroundStyle(noteStore.favoritedNotes.isEmpty ? Color(uiColor: .secondaryLabel) : Color.yellow)
+
+                if !noteStore.importLinkedNotes.isEmpty {
+                    Label("Import Notes", systemImage: "paperclip")
+                        .tag(LibrarySection.importNotes)
+                        .badge(noteStore.importLinkedNotes.count)
+                }
 
                 Label("PDF Documents", systemImage: "doc.richtext")
                     .tag(LibrarySection.pdfLibrary)
@@ -551,6 +559,8 @@ struct NoteGridView: View {
             return noteStore.recentNotes
         case .favorites:
             return noteStore.favoritedNotes
+        case .importNotes:
+            return noteStore.importLinkedNotes.sorted { $0.modifiedAt > $1.modifiedAt }
         case .notebook(let id):
             return noteStore.notes(inNotebook: id).sorted { $0.modifiedAt > $1.modifiedAt }
         case .tag(let tag):
@@ -584,6 +594,7 @@ struct NoteGridView: View {
         case .allNotes:           return "All Notes"
         case .recents:            return "Recents"
         case .favorites:          return "Favorites"
+        case .importNotes:        return "Import Notes"
         case .notebook(let id):
             return noteStore.notebooks.first { $0.id == id }?.name ?? "Notebook"
         case .tag(let tag):       return "#\(tag)"
@@ -1193,6 +1204,7 @@ struct NoteGridView: View {
         case .allNotes:  return "square.and.pencil"
         case .recents:   return "clock"
         case .favorites: return "star"
+        case .importNotes: return "paperclip"
         case .notebook:  return "book.closed"
         case .tag:       return "tag"
         case .pdfLibrary: return "doc.richtext"
@@ -1205,6 +1217,7 @@ struct NoteGridView: View {
         case .allNotes:  return "No Notes Yet"
         case .recents:   return "No Recent Notes"
         case .favorites: return "No Favorites Yet"
+        case .importNotes: return "No Import Notes"
         case .notebook:  return "Empty Notebook"
         case .tag(let t): return "No Notes Tagged with "#\(t)""
         case .pdfLibrary: return "No PDFs Yet"
@@ -1217,6 +1230,7 @@ struct NoteGridView: View {
         case .allNotes:  return "Tap the pencil button to write your first note."
         case .recents:   return "Notes you open recently will appear here."
         case .favorites: return "Tap ★ in a note's menu to collect favorites here."
+        case .importNotes: return "Import a PDF or document to create a companion note."
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
         case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
@@ -1589,6 +1603,22 @@ private struct NoteCardView: View {
                         Spacer()
                     }
                 }
+
+                // Import-linked badge — top-left corner paperclip
+                if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                    VStack {
+                        HStack {
+                            Image(systemName: "paperclip")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(4)
+                                .background(Circle().fill(Color.accentColor.opacity(0.85)))
+                                .padding(6)
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                }
             }
             .frame(height: 130)
             .frame(maxWidth: .infinity)
@@ -1855,6 +1885,29 @@ private struct PDFLibraryView: View {
                             PDFCardView(record: record, isSelected: selectedPDFID == record.id)
                                 .onTapGesture { selectedPDFID = record.id }
                                 .contextMenu {
+                                    if let linkedNote = noteStore.notes(forPDF: record.id).first {
+                                        Button {
+                                            tabSession.openTab(
+                                                .note(id: linkedNote.id),
+                                                displayName: linkedNote.title,
+                                                accentColor: [0.8, 0.3, 0.3]
+                                            )
+                                        } label: {
+                                            Label("Open Companion Note", systemImage: "note.text")
+                                        }
+                                    } else {
+                                        Button {
+                                            let note = noteStore.addNote(forPDF: record)
+                                            tabSession.openTab(
+                                                .note(id: note.id),
+                                                displayName: note.title,
+                                                accentColor: [0.8, 0.3, 0.3]
+                                            )
+                                        } label: {
+                                            Label("Create Companion Note", systemImage: "note.text.badge.plus")
+                                        }
+                                    }
+                                    Divider()
                                     Button(role: .destructive) {
                                         recordToDelete  = record
                                         showDeleteConfirm = true

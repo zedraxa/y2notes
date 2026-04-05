@@ -247,6 +247,33 @@ final class NoteStore: ObservableObject {
         return note
     }
 
+    // MARK: - Import-linked note queries
+
+    /// Returns all notes that are linked to the given PDF record.
+    func notes(forPDF pdfID: UUID) -> [Note] {
+        notes.filter { $0.linkedPDFID == pdfID }
+    }
+
+    /// Returns all notes that are linked to the given imported document.
+    func notes(forDocument docID: UUID) -> [Note] {
+        notes.filter { $0.linkedDocumentID == docID }
+    }
+
+    /// Returns all notes that have any linked import (PDF or Document).
+    var importLinkedNotes: [Note] {
+        notes.filter { $0.linkedPDFID != nil || $0.linkedDocumentID != nil }
+    }
+
+    /// Returns true if a companion note already exists for the given PDF.
+    func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
+        notes.contains { $0.linkedPDFID == pdfID }
+    }
+
+    /// Returns true if a companion note already exists for the given document.
+    func hasCompanionNote(forDocument docID: UUID) -> Bool {
+        notes.contains { $0.linkedDocumentID == docID }
+    }
+
     func deleteNotes(at offsets: IndexSet) {
         for i in offsets {
             createPreDestructiveSnapshot(for: notes[i].id)

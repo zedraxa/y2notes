@@ -317,10 +317,13 @@ struct NoteEditorView: View {
         }
     }
 
-    /// Primary VStack: title, contrast banner, find bar, canvas or text layer, page bar.
+    /// Primary VStack: title, linked-import banner, contrast banner, find bar, canvas or text layer, page bar.
     private var mainContentStack: some View {
         VStack(spacing: 0) {
             titleField
+            if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                linkedImportBanner
+            }
             if effectiveDefinition.canvasIsDark && !isTextMode {
                 contrastBanner
             }
@@ -1183,9 +1186,69 @@ struct NoteEditorView: View {
         }
     }
 
+    // MARK: - Linked Import Banner
 
+    /// Tappable banner shown below the title when this note is linked to an imported document.
+    /// Shows the source file name and type; tapping opens the linked file in its viewer tab.
+    private var linkedImportBanner: some View {
+        Button(action: openLinkedImport) {
+            HStack(spacing: 8) {
+                Image(systemName: linkedImportIcon)
+                    .font(.subheadline)
+                    .foregroundStyle(.accentColor)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Linked to: \(linkedImportTitle)")
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+                    Text(linkedImportSubtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "arrow.up.forward.square")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.accentColor.opacity(0.08))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open linked import: \(linkedImportTitle)")
+    }
 
-    /// Handles selection toolbar actions by dispatching standard edit commands
+    private var linkedImportIcon: String {
+        if note.linkedPDFID != nil { return "doc.richtext" }
+        return "doc"
+    }
+
+    private var linkedImportTitle: String {
+        if let pdfID = note.linkedPDFID,
+           let record = pdfStore.records.first(where: { $0.id == pdfID }) {
+            return record.title
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return doc.displayName
+        }
+        return "Deleted Import"
+    }
+
+    private var linkedImportSubtitle: String {
+        if note.linkedPDFID != nil {
+            if pdfStore.records.first(where: { $0.id == note.linkedPDFID }) != nil {
+                return "PDF Document — Tap to open"
+            }
+            return "Source file was deleted"
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return "\(doc.documentType.displayName) — Tap to open"
+        }
+        return "Source file was deleted"
+    }
+
+    // MARK: - Selection Actions
     /// to the canvas's responder chain. PencilKit's built-in lasso selection
     /// supports cut/copy/paste/delete through the standard UIResponder actions.
     private func handleSelectionAction(_ action: SelectionAction) {
