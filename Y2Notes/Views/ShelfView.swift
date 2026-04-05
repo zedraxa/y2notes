@@ -316,6 +316,16 @@ private struct ShelfSidebarView: View {
                         Image(systemName: "externaldrive.fill")
                     }
                 }
+                if syncEngine.authManager.isAuthenticated {
+                    NavigationLink(destination: GoogleDriveFileBrowserView()) {
+                        Label {
+                            Text("My Drive")
+                        } icon: {
+                            Image(systemName: "folder.fill")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
                 GoogleDriveSyncStatusView()
             }
         }

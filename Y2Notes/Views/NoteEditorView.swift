@@ -82,6 +82,9 @@ struct NoteEditorView: View {
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
+    /// Widget being edited in the inline editor sheet.
+    @State private var widgetToEdit: NoteWidget?
+
     private let searchService = SearchService()
 
     init(note: Note) {
@@ -255,6 +258,17 @@ struct NoteEditorView: View {
                     placeWidget(kind)
                 }
                 .presentationDetents([.medium])
+            }
+            .sheet(item: $widgetToEdit) { widget in
+                WidgetEditorView(widget: widget) { updated in
+                    let pageIdx = currentPageIndex
+                    var widgets = note.widgets(forPage: pageIdx)
+                    if let idx = widgets.firstIndex(where: { $0.id == updated.id }) {
+                        widgets[idx] = updated
+                        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+                    }
+                }
+                .presentationDetents([.medium, .large])
             }
             .fileImporter(
                 isPresented: $showDocumentImporter,
@@ -820,6 +834,9 @@ struct NoteEditorView: View {
         guard let idx = widgets.firstIndex(where: { $0.id == widgetID }) else { return }
 
         switch action {
+        case .edit:
+            widgetToEdit = widgets[idx]
+
         case .duplicate:
             let source = widgets[idx]
             let copy = NoteWidget(
@@ -841,6 +858,18 @@ struct NoteEditorView: View {
 
         case .toggleLock:
             widgets[idx].isLocked.toggle()
+
+        case .bringForward:
+            let maxZ = widgets.map(\.zIndex).max() ?? 0
+            if widgets[idx].zIndex < maxZ {
+                widgets[idx].zIndex += 1
+            }
+
+        case .sendBack:
+            let minZ = widgets.map(\.zIndex).min() ?? 0
+            if widgets[idx].zIndex > minZ {
+                widgets[idx].zIndex -= 1
+            }
 
         case .delete:
             widgets.remove(at: idx)
@@ -1781,6 +1810,14 @@ struct CanvasView: UIViewRepresentable {
         widgetCanvas.onWidgetsChanged = { widgets in
             context.coordinator.handleWidgetsChanged(widgets)
         }
+        // Study mode: fire checklist completion animation.
+        widgetCanvas.onChecklistCompleted = { _, center in
+            context.coordinator.studyModeEngine.checklistComplete(at: center)
+        }
+        // Study mode: fire timer/progress completion animation.
+        widgetCanvas.onTimerCompleted = { _, _ in
+            context.coordinator.studyModeEngine.timerComplete()
+        }
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
         container.addSubview(widgetCanvas)
@@ -1827,6 +1864,19 @@ struct CanvasView: UIViewRepresentable {
             hoverOverlay.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
         ])
         context.coordinator.hoverOverlay = hoverOverlay
+
+        // ── Eraser cursor overlay (non-interactive, shows ring sized to eraser width) ──
+        let eraserCursor = EraserCursorOverlay(frame: .zero)
+        eraserCursor.translatesAutoresizingMaskIntoConstraints = false
+        eraserCursor.isUserInteractionEnabled = false
+        canvas.addSubview(eraserCursor)
+        NSLayoutConstraint.activate([
+            eraserCursor.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
+            eraserCursor.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
+            eraserCursor.topAnchor.constraint(equalTo: canvas.topAnchor),
+            eraserCursor.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
+        ])
+        context.coordinator.eraserCursorOverlay = eraserCursor
 
         // ── Apple Pencil interaction coordinator ─────────────────────────────
         let pencilCoordinator = PencilInteractionCoordinator()
@@ -2120,6 +2170,7 @@ struct CanvasView: UIViewRepresentable {
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
         var hoverOverlay: PencilHoverOverlayView?
+        var eraserCursorOverlay: EraserCursorOverlay?
         weak var canvasRef: PKCanvasView?
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
@@ -2847,7 +2898,12 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             // Remember current inking tool before switching to eraser.
             previousInkingTool = canvas.tool
         }
-        canvas.tool = PKEraserTool(toolStoreRef?.eraserMode.pkEraserType ?? .vector)
+        canvas.tool = toolStoreRef?.makeEraserTool() ?? {
+            if #available(iOS 16.4, *) {
+                return PKEraserTool(.bitmap, width: EraserSubType.standard.defaultWidth)
+            }
+            return PKEraserTool(.bitmap)
+        }()
     }
 
     func pencilDidRequestSwitchToPreviousTool() {
@@ -2872,7 +2928,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
             at: windowPoint,
             in: window,
             canvas: canvas,
-            eraserType: toolStoreRef?.eraserMode.pkEraserType ?? .vector
+            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector
         )
     }
 
@@ -2895,24 +2951,35 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Hover preview
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
-        // Sync the ghost-nib appearance with the current tool state on every hover
-        // event.  This is cheap and ensures the nib reflects a colour/width change
-        // made while the pencil was already hovering.
-        if let ts = toolStoreRef {
-            let personality = ts.activePersonality
-            let info = HoverToolInfo(
-                tool: ts.activeTool,
-                color: ts.activeColor,
-                width: CGFloat(ts.activeWidth),
-                opacity: CGFloat(ts.activeOpacity),
-                widthMultiplier: CGFloat(personality?.widthMultiplier ?? 1.0),
-                showsAzimuthLine: personality?.usesTiltShading == true
-                               || personality?.usesBarrelRoll  == true,
-                eraserMode: ts.eraserMode
-            )
-            hoverOverlay?.configure(with: info)
+        let isErasing = canvasRef?.tool is PKEraserTool
+        if isErasing {
+            // Show sized eraser ring; hide ghost-nib overlay.
+            let sub   = toolStoreRef?.eraserSubType ?? .standard
+            let width = toolStoreRef?.eraserWidth   ?? sub.defaultWidth
+            eraserCursorOverlay?.update(position: position, subType: sub, eraserWidth: width)
+            hoverOverlay?.update(position: nil, altitude: altitude, azimuth: azimuth)
+        } else {
+            // Sync the ghost-nib appearance with the current tool state on every hover
+            // event.  This is cheap and ensures the nib reflects a colour/width change
+            // made while the pencil was already hovering.
+            if let ts = toolStoreRef {
+                let personality = ts.activePersonality
+                let info = HoverToolInfo(
+                    tool: ts.activeTool,
+                    color: ts.activeColor,
+                    width: CGFloat(ts.activeWidth),
+                    opacity: CGFloat(ts.activeOpacity),
+                    widthMultiplier: CGFloat(personality?.widthMultiplier ?? 1.0),
+                    showsAzimuthLine: personality?.usesTiltShading == true
+                                   || personality?.usesBarrelRoll  == true,
+                    eraserMode: ts.eraserMode
+                )
+                hoverOverlay?.configure(with: info)
+            }
+            // Show ghost-nib; hide eraser ring.
+            hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+            eraserCursorOverlay?.update(position: nil, subType: .standard, eraserWidth: 0)
         }
-        hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
     }
 
     // MARK: Barrel-roll fountain pen (Apple Pencil Pro, iOS 17.5+)
