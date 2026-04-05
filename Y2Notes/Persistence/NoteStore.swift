@@ -1127,7 +1127,52 @@ final class NoteStore: ObservableObject {
         isDirty = true
     }
 
-    // MARK: - On-device handwriting OCR
+    // MARK: - Tags & color label
+
+    /// Replaces the entire tag array for a note.
+    /// Each tag is lowercased and whitespace-trimmed before saving.
+    func updateTags(for noteID: UUID, tags: [String]) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].tags = tags
+            .map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        isDirty = true
+    }
+
+    /// Adds a single tag to a note if it is not already present.
+    func addTag(_ tag: String, to noteID: UUID) {
+        let normalised = tag.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalised.isEmpty,
+              let idx = notes.firstIndex(where: { $0.id == noteID }),
+              !notes[idx].tags.contains(normalised) else { return }
+        notes[idx].tags.append(normalised)
+        isDirty = true
+    }
+
+    /// Removes a single tag from a note.
+    func removeTag(_ tag: String, from noteID: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].tags.removeAll { $0 == tag }
+        isDirty = true
+    }
+
+    /// Sets or clears the colour label on a note.
+    func updateColorLabel(for noteID: UUID, colorLabel: NoteColorLabel?) {
+        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
+        notes[idx].colorLabel = colorLabel
+        isDirty = true
+    }
+
+    /// All unique, sorted tags across every note in the store.
+    var allTags: [String] {
+        let flat = notes.flatMap { $0.tags }
+        return Array(Set(flat)).sorted()
+    }
+
+    /// All notes that carry the given tag.
+    func notes(withTag tag: String) -> [Note] {
+        notes.filter { $0.tags.contains(tag) }
+    }
 
     /// Schedules a Vision OCR pass on all pages of the note 4 seconds after the last
     /// drawing change.  Calling this method resets the timer so rapid drawing strokes

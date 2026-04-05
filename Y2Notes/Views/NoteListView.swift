@@ -269,6 +269,14 @@ private struct NoteRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // Color label stripe on the left edge of the thumbnail
+            if let label = note.colorLabel {
+                label.color
+                    .frame(width: 3)
+                    .clipShape(Capsule())
+                    .padding(.vertical, 6)
+            }
+
             thumbnailView
             VStack(alignment: .leading, spacing: 4) {
                 Text(note.title.isEmpty ? "Untitled" : note.title)
@@ -278,6 +286,24 @@ private struct NoteRowView: View {
                 Text(note.modifiedAt, style: .relative)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if !note.tags.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(note.tags.prefix(3), id: \.self) { tag in
+                            Text("#\(tag)")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.tint)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(.tint.opacity(0.09), in: Capsule())
+                                .lineLimit(1)
+                        }
+                        if note.tags.count > 3 {
+                            Text("+\(note.tags.count - 3)")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
         }
         .padding(.vertical, 4)

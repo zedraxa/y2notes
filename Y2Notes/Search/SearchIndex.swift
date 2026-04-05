@@ -34,6 +34,7 @@ enum SearchEntryKind: String, Hashable {
     case audioSession
     case audioTimestamp
     case widgetContent
+    case noteTag
 }
 
 // MARK: - Grouped search result
@@ -370,6 +371,22 @@ final class SearchIndex {
                 kind: .noteOCR,
                 primaryText: note.title,
                 secondaryText: note.ocrText,
+                notebookID: note.notebookID,
+                anchor: note.notebookID.map { nbID in
+                    NavigationAnchor(notebookID: nbID, noteID: note.id, pageIndex: 0)
+                },
+                modifiedAt: note.modifiedAt
+            )
+        }
+
+        // Tags — index each tag so searches for "#lecture" or "lecture" find the note.
+        if !note.tags.isEmpty {
+            let tagText = note.tags.joined(separator: " ")
+            entries["\(baseID)-tags"] = SearchableEntry(
+                id: "\(baseID)-tags",
+                kind: .noteTag,
+                primaryText: note.title,
+                secondaryText: tagText,
                 notebookID: note.notebookID,
                 anchor: note.notebookID.map { nbID in
                     NavigationAnchor(notebookID: nbID, noteID: note.id, pageIndex: 0)
