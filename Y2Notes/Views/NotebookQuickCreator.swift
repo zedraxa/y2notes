@@ -25,6 +25,7 @@ struct NotebookQuickCreator: View {
     @State private var pickerItem: PhotosPickerItem?
     @State private var isCreating = false
     @State private var creatorAppeared = false
+    @State private var selectedTemplate: NotebookTemplate?
 
     @FocusState private var isNameFocused: Bool
 
@@ -33,8 +34,10 @@ struct NotebookQuickCreator: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                templateStrip
+
                 coverPreview
-                    .padding(.top, 20)
+                    .padding(.top, 4)
 
                 nameField
 
@@ -64,6 +67,71 @@ struct NotebookQuickCreator: View {
                 useCustomCover = true
             }
         }
+    }
+
+    // MARK: - Template Strip
+
+    private var templateStrip: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(NSLocalizedString("Creation.Templates", comment: ""))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 2)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(NotebookTemplate.allCases) { tmpl in
+                        templateChip(tmpl)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(.top, 16)
+    }
+
+    private func templateChip(_ tmpl: NotebookTemplate) -> some View {
+        let selected = selectedTemplate == tmpl
+        return Button {
+            applyTemplate(tmpl)
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: tmpl.systemImage)
+                    .font(.system(size: 18))
+                    .frame(width: 44, height: 32)
+                Text(tmpl.displayName)
+                    .font(.caption2.weight(selected ? .semibold : .regular))
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(selected
+                          ? Color.accentColor.opacity(0.12)
+                          : Color(.secondarySystemGroupedBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5)
+                    )
+            )
+            .foregroundStyle(selected ? Color.accentColor : .primary)
+        }
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: selected)
+        .accessibilityLabel(tmpl.displayName)
+        .accessibilityHint(tmpl.subtitle)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func applyTemplate(_ tmpl: NotebookTemplate) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            selectedTemplate = tmpl
+            pageType = tmpl.pageType
+            paperMaterial = tmpl.paperMaterial
+            cover = tmpl.suggestedCover
+            coverTexture = tmpl.suggestedTexture
+            useCustomCover = false
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     // MARK: - Zone 1: Live Cover Preview
@@ -670,45 +738,73 @@ private struct PageTypeMiniCanvas: View {
                 }
 
             case .cornell:
-                let cueX = size.width * 0.3
-                let summaryY = size.height * 0.8
-                let divColor = GraphicsContext.Shading.color(
-                    Color(uiColor: .secondaryLabel).opacity(0.5)
+                let count = 4
+                let spacing = size.height / CGFloat(count + 1)
+                let headerY = size.height * 0.25
+                let cueX = size.width * 0.30
+                let summaryY = size.height * 0.82
+                for i in 1...count {
+                    let y = headerY + spacing * CGFloat(i)
+                    if y >= summaryY { break }
+                    var p = Path()
+                    p.move(to: .init(x: 0, y: y))
+                    p.addLine(to: .init(x: size.width, y: y))
+                    context.stroke(p, with: lineColor, lineWidth: 0.6)
+                }
+                let accent = GraphicsContext.Shading.color(
+                    Color(uiColor: .secondaryLabel).opacity(0.50)
                 )
-                var vLine = Path()
-                vLine.move(to: .init(x: cueX, y: 0))
-                vLine.addLine(to: .init(x: cueX, y: summaryY))
-                context.stroke(vLine, with: divColor, lineWidth: 1.0)
                 var hLine = Path()
-                hLine.move(to: .init(x: 0, y: summaryY))
-                hLine.addLine(to: .init(x: size.width, y: summaryY))
-                context.stroke(hLine, with: divColor, lineWidth: 1.0)
-                let rSpacing = size.height / 7
-                for i in 1...5 {
-                    let y = rSpacing * CGFloat(i)
-                    if y < summaryY {
-                        var p = Path()
-                        p.move(to: .init(x: cueX + 4, y: y))
-                        p.addLine(to: .init(x: size.width - 4, y: y))
-                        context.stroke(p, with: lineColor, lineWidth: 0.6)
+                hLine.move(to: .init(x: 0, y: headerY))
+                hLine.addLine(to: .init(x: size.width, y: headerY))
+                context.stroke(hLine, with: accent, lineWidth: 0.8)
+                var vLine = Path()
+                vLine.move(to: .init(x: cueX, y: headerY))
+                vLine.addLine(to: .init(x: cueX, y: summaryY))
+                context.stroke(vLine, with: accent, lineWidth: 0.8)
+                var sLine = Path()
+                sLine.move(to: .init(x: 0, y: summaryY))
+                sLine.addLine(to: .init(x: size.width, y: summaryY))
+                context.stroke(sLine, with: accent, lineWidth: 0.8)
+
+            case .hexagonal:
+                let r: CGFloat = 7
+                let w = r * sqrt(3.0)
+                let cols = Int(ceil(size.width / w)) + 2
+                let rows = Int(ceil(size.height / (r * 1.5))) + 2
+                for col in -1..<cols {
+                    let cx = CGFloat(col) * w + w * 0.5
+                    let offset: CGFloat = (col % 2 == 0) ? 0 : r
+                    for row in -1..<rows {
+                        let cy = CGFloat(row) * r * 1.5 + offset
+                        var hexPath = Path()
+                        let fa = (-30.0) * Double.pi / 180.0
+                        hexPath.move(to: CGPoint(x: cx + r * CGFloat(cos(fa)), y: cy + r * CGFloat(sin(fa))))
+                        for i in 1...5 {
+                            let a = (60.0 * Double(i) - 30.0) * .pi / 180.0
+                            hexPath.addLine(to: CGPoint(x: cx + r * CGFloat(cos(a)), y: cy + r * CGFloat(sin(a))))
+                        }
+                        hexPath.closeSubpath()
+                        context.stroke(hexPath, with: lineColor, lineWidth: 0.5)
                     }
                 }
 
             case .music:
-                let staffLines = 5
-                let lSpacing: CGFloat = size.height / 16
-                let groupGap: CGFloat = size.height / 5
-                let staffH = CGFloat(staffLines - 1) * lSpacing
-                var top = groupGap * 0.6
-                while top + staffH < size.height {
-                    for i in 0..<staffLines {
-                        let y = top + CGFloat(i) * lSpacing
+                let staffSpacing: CGFloat = 3
+                let groupGap: CGFloat = 8
+                let linesPerGroup = 5
+                let period = CGFloat(linesPerGroup - 1) * staffSpacing + groupGap
+                var groupTop: CGFloat = groupGap * 0.5
+                while groupTop < size.height {
+                    for i in 0..<linesPerGroup {
+                        let y = groupTop + CGFloat(i) * staffSpacing
+                        if y > size.height { break }
                         var p = Path()
-                        p.move(to: .init(x: 6, y: y))
-                        p.addLine(to: .init(x: size.width - 6, y: y))
+                        p.move(to: .init(x: 0, y: y))
+                        p.addLine(to: .init(x: size.width, y: y))
                         context.stroke(p, with: lineColor, lineWidth: 0.6)
                     }
-                    top += staffH + groupGap
+                    groupTop += period
                 }
             }
         }

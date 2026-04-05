@@ -15,6 +15,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     case lasso
     case shape
     case sticker
+    case text
 
     var id: String { rawValue }
 
@@ -28,6 +29,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .lasso:        return "Lasso"
         case .shape:        return "Shape"
         case .sticker:      return "Sticker"
+        case .text:         return "Text"
         }
     }
 
@@ -41,6 +43,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
         case .lasso:        return "lasso"
         case .shape:        return "square.on.circle"
         case .sticker:      return "face.smiling"
+        case .text:         return "character.cursor.ibeam"
         }
     }
 
@@ -48,7 +51,7 @@ enum DrawingTool: String, CaseIterable, Codable, Identifiable {
     var isInking: Bool {
         switch self {
         case .pen, .pencil, .highlighter, .fountainPen, .shape: return true
-        case .eraser, .lasso, .sticker: return false
+        case .eraser, .lasso, .sticker, .text: return false
         }
     }
 
@@ -370,6 +373,28 @@ enum ToolbarMode: Equatable {
     case inserting
     /// Sticker tool active — show sticker picker / library.
     case stickering
+    /// Text tool active — show font size, colour, and alignment controls.
+    case texting
+}
+
+// MARK: - Text Object Action
+
+/// Actions available for a selected text object on the canvas.
+enum TextObjectAction {
+    case duplicate
+    case delete
+    case toggleLock
+    case bringToFront
+    case sendToBack
+    case updateFontSize(CGFloat)
+    case updateFontFamily(TextFontFamily)
+    case toggleBold
+    case updateAlignment(NSTextAlignment)
+    case updateTextColor(UIColor)
+    case updateBackgroundColor(UIColor?)
+    case updateBorderRadius(CGFloat)
+    case updateBorderColor(UIColor?)
+    case updateBorderWidth(CGFloat)
 }
 
 // MARK: - Tool Preset

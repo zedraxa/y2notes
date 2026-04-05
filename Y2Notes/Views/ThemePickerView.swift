@@ -8,8 +8,10 @@ struct ThemePickerView: View {
     @EnvironmentObject var themeStore: ThemeStore
     @Environment(\.dismiss) private var dismiss
 
-    private let selectionFeedback = UISelectionFeedbackGenerator()
     @State private var cardsAppeared = false
+
+    private let selectionFeedback = UISelectionFeedbackGenerator()
+    private let toggleFeedback = UIImpactFeedbackGenerator(style: .light)
 
     var body: some View {
         NavigationStack {
@@ -50,6 +52,9 @@ struct ThemePickerView: View {
                 Spacer()
                 Toggle("", isOn: $themeStore.autoScheduleEnabled)
                     .labelsHidden()
+                    .onChange(of: themeStore.autoScheduleEnabled) { _, _ in
+                        toggleFeedback.impactOccurred()
+                    }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -138,7 +143,7 @@ struct ThemePickerView: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
-                ForEach(Array(themes.enumerated()), id: \.element) { index, theme in
+                ForEach(Array(themes.enumerated()), id: \.element.id) { index, theme in
                     themeCard(theme)
                         .opacity(cardsAppeared ? 1 : 0)
                         .offset(y: cardsAppeared ? 0 : 12)
@@ -149,6 +154,7 @@ struct ThemePickerView: View {
                         )
                 }
             }
+            .onAppear { cardsAppeared = true }
         }
     }
 

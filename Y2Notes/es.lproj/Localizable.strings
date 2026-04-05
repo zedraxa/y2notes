@@ -201,7 +201,30 @@
 "Creation.NewNote"                = "Nueva Nota";
 "Creation.NoteTitle"              = "Título de la Nota";
 "Creation.Template"               = "Plantilla";
+"Creation.Templates"              = "Plantillas";
 "Creation.Create"                 = "Crear";
+
+/* ── Notebook Info ─────────────────────────────────────────────── */
+
+"NotebookInfo.Title"              = "Info del Cuaderno";
+"NotebookInfo.Statistics"         = "Estadísticas";
+"NotebookInfo.TotalPages"        = "Total de Páginas";
+"NotebookInfo.Notes"              = "Notas";
+"NotebookInfo.Sections"           = "Secciones";
+"NotebookInfo.Created"            = "Creado";
+"NotebookInfo.LastModified"       = "Última Modificación";
+"NotebookInfo.Configuration"      = "Configuración";
+"NotebookInfo.PageType"           = "Tipo de Página";
+"NotebookInfo.PageSize"           = "Tamaño de Página";
+"NotebookInfo.Orientation"        = "Orientación";
+"NotebookInfo.Material"           = "Material de Papel";
+"NotebookInfo.Texture"            = "Textura de Portada";
+"NotebookInfo.Theme"              = "Tema Predeterminado";
+"NotebookInfo.SectionsBreakdown"  = "Secciones";
+"NotebookInfo.Lock"               = "Bloquear Cuaderno";
+"NotebookInfo.Unlock"             = "Desbloquear Cuaderno";
+"NotebookInfo.Locked"             = "Bloqueado";
+"NotebookInfo.Duplicate"          = "Duplicar Cuaderno";
 
 /* ── Search ────────────────────────────────────────────────────── */
 
@@ -300,6 +323,36 @@
 "Credits.PatternsHeader"          = "Patrones de diseño adoptados";
 "Credits.Footer"                  = "Agradecemos a estos proyectos y a la comunidad de código abierto.";
 
+/* ── Document Import ──────────────────────────────────────────── */
+
+"Documents.Title"                 = "Documentos";
+"Documents.ImportDocument"        = "Importar documento";
+"Documents.NoDocuments"           = "Sin documentos";
+"Documents.NoDocumentsSubtitle"   = "Importa PDFs, imágenes, archivos Word, ePubs o presentaciones para ver y anotar.";
+"Documents.NoResults"             = "Sin resultados";
+"Documents.SortDocuments"         = "Ordenar documentos";
+"Documents.Rename"                = "Renombrar documento";
+"Documents.Share"                 = "Compartir";
+"Documents.Delete"                = "Eliminar";
+"Documents.AddFavorite"           = "Añadir a favoritos";
+"Documents.RemoveFavorite"        = "Quitar de favoritos";
+"Documents.GridView"              = "Cambiar a vista de cuadrícula";
+"Documents.ListView"              = "Cambiar a vista de lista";
+
+/* ── Companion Notes ──────────────────────────────────────────── */
+
+"Companion.CreateNote"            = "Crear nota de acompañamiento";
+"Companion.OpenNote"              = "Abrir nota de acompañamiento";
+"Companion.LinkedTo"              = "Vinculado a %@";
+"Companion.LinkedToImport"        = "Vinculado a importación";
+"Companion.OpenLinked"            = "Abrir importación vinculada";
+
+/* ── Import Notes ─────────────────────────────────────────────── */
+
+"ImportNotes.Title"               = "Notas de importación";
+"ImportNotes.Empty"               = "Aún no hay notas de importación";
+"ImportNotes.EmptySubtitle"       = "Crea una nota de acompañamiento desde un visor de PDF o documento para verla aquí.";
+
 /* ── Tool Expansion ──────────────────────────────────────────── */
 
 "ToolExpansion.PenType"           = "Tipo de pluma";
@@ -342,3 +395,24 @@
 
 "ToolExpansion.TapToExpand"       = "Toca para expandir opciones de herramienta";
 "ToolExpansion.TapToActivate"     = "Toca para activar herramienta";
+"ToolExpansion.LongPressToExpand" = "Mantén presionado para expandir la barra";
+"ToolExpansion.Pixel"             = "Píxel";
+"ToolExpansion.Stroke"            = "Trazo";
+
+/* ── Text Style Editor ────────────────────────────────────────── */
+
+"TextStyle.Title"                 = "Estilo de texto";
+"TextStyle.Font"                  = "Fuente";
+"TextStyle.Bold"                  = "Negrita";
+"TextStyle.Size"                  = "Tamaño";
+"TextStyle.Colour"                = "Color";
+"TextStyle.Align"                 = "Alinear";
+"TextStyle.Background"            = "Fondo";
+"TextStyle.Fill"                  = "Relleno";
+"TextStyle.Border"                = "Borde";
+"TextStyle.BorderColour"          = "Color de borde";
+"TextStyle.Thickness"             = "Grosor";
+"TextStyle.Corners"               = "Esquinas";
+
+// MARK: - Editor Actions
+"Editor.StraightenLine"           = "Enderezar línea";

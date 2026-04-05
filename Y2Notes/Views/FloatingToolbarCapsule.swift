@@ -63,6 +63,7 @@ struct FloatingToolbarCapsule: View {
     var body: some View {
         tier1Content
             .animation(.spring(response: 0.25, dampingFraction: 0.85), value: toolStore.hasActiveSelection)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toolStore.isToolbarMinimized)
             .onChange(of: toolStore.activeTool) { oldTool, newTool in
                 if oldTool.isInking {
                     previousInkTool = oldTool
@@ -79,6 +80,26 @@ struct FloatingToolbarCapsule: View {
                     InkEffectPickerView(inkStore: inkStore)
                 }
             }
+            .background { toolSwitchKeyboardShortcuts }
+    }
+
+    // MARK: - Tool-Switch Keyboard Shortcuts
+
+    /// Hidden buttons that respond to Cmd+1…8 for switching tools via the keyboard.
+    @ViewBuilder
+    private var toolSwitchKeyboardShortcuts: some View {
+        let tools: [DrawingTool] = [.pen, .pencil, .highlighter, .fountainPen, .eraser, .lasso, .shape, .sticker]
+        ForEach(Array(tools.enumerated()), id: \.offset) { index, tool in
+            Button("") {
+                toolSwitchFeedback.impactOccurred()
+                toolStore.activeTool = tool
+            }
+            .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     // MARK: - Tier 1 Content (Standard vs Selection)
@@ -99,18 +120,24 @@ struct FloatingToolbarCapsule: View {
         }
     }
 
-    /// The normal drawing toolbar: Tier 2 expansion + Tier 1 capsule.
+    /// Switches between the compact minimized stub and the full drawing toolbar.
     @ViewBuilder
     private var standardToolbar: some View {
-        VStack(spacing: 4) {
-            // Tier 2 — contextual expansion above the capsule
-            tier2Expansion
+        if toolStore.isToolbarMinimized {
+            minimizedCapsule
+                .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
+        } else {
+            VStack(spacing: 4) {
+                // Tier 2 — contextual expansion above the capsule
+                tier2Expansion
 
-            // Recording expansion — quality picker + recordings link
-            recordingExpansion
+                // Recording expansion — quality picker + recordings link
+                recordingExpansion
 
-            // Tier 1 — always-present capsule
-            tier1Capsule
+                // Tier 1 — always-present capsule
+                tier1Capsule
+            }
+            .transition(.scale(scale: 0.95, anchor: .bottom).combined(with: .opacity))
         }
     }
 
@@ -184,6 +211,9 @@ struct FloatingToolbarCapsule: View {
             // Widget
             widgetButton
 
+            // Text
+            textToolButton
+
             // Focus mode
             focusModeButton
 
@@ -236,11 +266,116 @@ struct FloatingToolbarCapsule: View {
                 tier1Separator
                 inspectorGroup
             }
+
+            // Separator before collapse button is always present
+            tier1Separator
+
+            // Minimize — collapse toolbar to a compact pill
+            minimizeButton
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.ultraThinMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Minimize Button
+
+    /// Collapses the toolbar to a compact stub. Long-press or the expand button restores it.
+    @ViewBuilder
+    private var minimizeButton: some View {
+        Button {
+            toolSwitchFeedback.impactOccurred(intensity: 0.3)
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                toolStore.isToolbarMinimized = true
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .medium))
+                .frame(width: 26, height: 28)
+                .foregroundStyle(Color(uiColor: .tertiaryLabel))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Minimize toolbar")
+    }
+
+    // MARK: - Minimized Capsule
+
+    /// Compact stub rendered when `toolStore.isToolbarMinimized` is true.
+    /// Shows the active tool colour, undo/redo, and an expand button.
+    @ViewBuilder
+    private var minimizedCapsule: some View {
+        HStack(spacing: 4) {
+            // Active-tool icon tinted with the current ink colour
+            Image(systemName: activeInkTool.systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .foregroundStyle(Color(uiColor: toolStore.activeColor))
+
+            tier1Separator
+
+            // Undo
+            Button {
+                onUndo?()
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .foregroundStyle(canUndo
+                                     ? Color(uiColor: .label)
+                                     : Color(uiColor: .tertiaryLabel))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canUndo)
+            .keyboardShortcut("z", modifiers: .command)
+
+            // Redo
+            Button {
+                onRedo?()
+            } label: {
+                Image(systemName: "arrow.uturn.forward")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .foregroundStyle(canRedo
+                                     ? Color(uiColor: .label)
+                                     : Color(uiColor: .tertiaryLabel))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canRedo)
+            .keyboardShortcut("z", modifiers: [.command, .shift])
+
+            tier1Separator
+
+            // Expand
+            Button {
+                toolSwitchFeedback.impactOccurred(intensity: 0.5)
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.isToolbarMinimized = false
+                }
+            } label: {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 11, weight: .medium))
+                    .frame(width: 26, height: 28)
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Expand toolbar")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    modeToggleFeedback.impactOccurred()
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        toolStore.isToolbarMinimized = false
+                    }
+                }
+        )
+        .accessibilityHint(NSLocalizedString("ToolExpansion.LongPressToExpand",
+                                             comment: "Long-press to expand minimized toolbar"))
     }
 
     // MARK: - Tier 1 Tool Button
@@ -275,6 +410,14 @@ struct FloatingToolbarCapsule: View {
         .accessibilityHint(isActive
             ? NSLocalizedString("ToolExpansion.TapToExpand", comment: "Tap to expand tool options")
             : NSLocalizedString("ToolExpansion.TapToActivate", comment: "Tap to activate tool"))
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.6)
+                .onEnded { _ in
+                    guard onOpenInspector != nil else { return }
+                    modeToggleFeedback.impactOccurred()
+                    onOpenInspector?()
+                }
+        )
     }
 
     // MARK: - Inspector Group
@@ -376,6 +519,34 @@ struct FloatingToolbarCapsule: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Widget")
+    }
+
+    // MARK: - Text Tool Button
+
+    @ViewBuilder
+    private var textToolButton: some View {
+        let isActive = toolStore.activeTool == .text
+        Button {
+            if isActive {
+                toolStore.activeTool = .pen
+            } else {
+                toolStore.activeTool = .text
+            }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "character.cursor.ibeam")
+                    .font(.system(size: 15, weight: isActive ? .semibold : .regular))
+                    .frame(width: 34, height: 30)
+                    .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
+
+                Circle()
+                    .fill(isActive ? Color.accentColor : Color.clear)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Text")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     // MARK: - Focus Mode Button

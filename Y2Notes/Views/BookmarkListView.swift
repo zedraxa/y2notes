@@ -12,6 +12,8 @@ struct BookmarkListView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var rowsAppeared = false
+    private let colorCycleFeedback = UISelectionFeedbackGenerator()
+    private let jumpFeedback = UIImpactFeedbackGenerator(style: .light)
 
     var body: some View {
         NavigationStack {
@@ -61,6 +63,7 @@ struct BookmarkListView: View {
     @ViewBuilder
     private func bookmarkRow(_ bookmark: PageBookmark) -> some View {
         Button {
+            jumpFeedback.impactOccurred()
             onJump(bookmark.anchor)
             dismiss()
         } label: {
@@ -108,6 +111,7 @@ struct BookmarkListView: View {
         .swipeActions(edge: .leading) {
             // Cycle colour tag
             Button {
+                colorCycleFeedback.selectionChanged()
                 let allColors = BookmarkColor.allCases
                 if let idx = allColors.firstIndex(of: bookmark.colorTag) {
                     let next = allColors[(idx + 1) % allColors.count]

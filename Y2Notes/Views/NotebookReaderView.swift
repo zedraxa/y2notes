@@ -47,6 +47,8 @@ struct NotebookReaderView: View {
     @State private var showUniversalSearch = false
     /// Whether the notebook cover page overlay is shown.
     @State private var isShowingCoverPage = false
+    /// Whether the notebook info sheet is shown.
+    @State private var showNotebookInfo = false
 
     // MARK: - Linearised page model
 
@@ -154,12 +156,21 @@ struct NotebookReaderView: View {
         currentNote?.paperMaterial ?? notebook.paperMaterial
     }
 
-    /// Per-page ruling: pageTypes[pageIndex] → note.pageType → notebook.pageType → .blank
+    /// Per-page ruling: pageTypes[pageIndex] → note.pageType → section.defaultPageType → notebook.pageType → .blank
     private func effectivePageType(for ref: PageRef) -> PageType {
         guard let note = noteStore.notes.first(where: { $0.id == ref.noteID }) else {
             return notebook.pageType
         }
-        return note.pageType(forPage: ref.pageIndex) ?? note.pageType ?? notebook.pageType
+        if let perPage = note.pageType(forPage: ref.pageIndex) ?? note.pageType {
+            return perPage
+        }
+        // Section-level override
+        if let secID = ref.sectionID,
+           let section = noteStore.sections(inNotebook: notebook.id).first(where: { $0.id == secID }),
+           let sectionType = section.defaultPageType {
+            return sectionType
+        }
+        return notebook.pageType
     }
 
     /// Canvas background: per-page colour → theme + material blend.
@@ -332,6 +343,23 @@ struct NotebookReaderView: View {
                         .font(.system(size: 14, weight: .medium))
                 }
                 .accessibilityLabel("Page overview")
+
+                // Notebook info
+                Button {
+                    showNotebookInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .accessibilityLabel("Notebook info")
+
+                // Lock indicator
+                if notebook.isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel("Notebook is locked")
+                }
             }
         }
         .sheet(isPresented: $showPageOverview) {
@@ -362,6 +390,10 @@ struct NotebookReaderView: View {
                     navigateToAnchor(anchor)
                 }
             )
+        }
+        .sheet(isPresented: $showNotebookInfo) {
+            NotebookInfoView(notebook: notebook)
+                .presentationDetents([.medium, .large])
         }
         .overlay(alignment: .topTrailing) {
             if showSavedBadge {
@@ -685,11 +717,13 @@ struct NotebookReaderView: View {
 
     /// Turns to the next or previous page. When swiping past the last page,
     /// auto-creates a new blank page so writing never stops.
+    /// When the notebook is locked, auto-creation is suppressed.
     private func turnPage(direction: Int, totalPages: Int) {
         if direction > 0 {
             slideDirection = .trailing
             if flatPageIndex >= totalPages - 1 {
-                // Swipe past last page → auto-create new page
+                // Swipe past last page → auto-create new page (unless locked)
+                guard !notebook.isLocked else { return }
                 if let ref = currentPage,
                    let newIdx = noteStore.addPage(to: ref.noteID) {
                     let updatedPages = allPages
@@ -915,6 +949,7 @@ struct NotebookReaderView: View {
                     .foregroundStyle(.tint)
             }
             .buttonStyle(.plain)
+            .disabled(notebook.isLocked)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
@@ -1210,6 +1245,10 @@ struct NotebookReaderView: View {
                 .foregroundStyle(.secondary.opacity(0.3))
         case .cornell:
             Image(systemName: "rectangle.split.2x1")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .hexagonal:
+            Image(systemName: "hexagon")
                 .font(.title3)
                 .foregroundStyle(.secondary.opacity(0.3))
         case .music:

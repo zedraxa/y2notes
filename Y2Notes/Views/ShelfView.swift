@@ -13,6 +13,7 @@ enum LibrarySection: Hashable {
     case notebook(UUID)
     case pdfLibrary
     case documentLibrary
+    case importNotes
     /// Filter to notes that carry a specific tag.
     case tag(String)
 }
@@ -103,6 +104,8 @@ struct ShelfView: View {
                 PDFLibraryView(selectedPDFID: $selectedPDFID)
             } else if case .documentLibrary = selectedSection {
                 DocumentLibraryView(selectedDocumentID: $selectedDocumentID)
+            } else if case .importNotes = selectedSection {
+                ImportLinkedNotesView(selectedNoteID: $selectedNoteID)
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
@@ -135,6 +138,9 @@ struct ShelfView: View {
             case .documentLibrary:
                 selectedNoteID = nil
                 selectedPDFID  = nil
+            case .importNotes:
+                selectedPDFID  = nil
+                selectedDocumentID = nil
             case .notebook:
                 // Notebook tabs are already opened in onOpenNotebook
                 selectedPDFID  = nil
@@ -244,6 +250,10 @@ private struct ShelfSidebarView: View {
                 Label("Documents", systemImage: "doc.fill")
                     .tag(LibrarySection.documentLibrary)
                     .badge(documentStore.documents.count)
+
+                Label("Import Notes", systemImage: "paperclip")
+                    .tag(LibrarySection.importNotes)
+                    .badge(noteStore.importLinkedNotes.count)
             }
 
             // ── Tags ─────────────────────────────────────────────────────
@@ -313,6 +323,21 @@ private struct ShelfSidebarView: View {
                             sidebarManageSectionsNotebook = notebook
                         } label: {
                             Label("Manage Sections…", systemImage: "list.bullet.indent")
+                        }
+
+                        Button {
+                            noteStore.duplicateNotebook(id: notebook.id)
+                        } label: {
+                            Label("Duplicate", systemImage: "doc.on.doc")
+                        }
+
+                        Button {
+                            noteStore.toggleNotebookLock(id: notebook.id)
+                        } label: {
+                            Label(
+                                notebook.isLocked ? "Unlock" : "Lock",
+                                systemImage: notebook.isLocked ? "lock.open" : "lock"
+                            )
                         }
 
                         Divider()
@@ -492,9 +517,17 @@ private struct NotebookSidebarRow: View {
             .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(notebook.name)
-                    .font(.body)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(notebook.name)
+                        .font(.body)
+                        .lineLimit(1)
+                    if notebook.isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Locked")
+                    }
+                }
                 HStack(spacing: 6) {
                     Text("\(noteCount) note\(noteCount == 1 ? "" : "s")")
                         .font(.caption2)
@@ -508,6 +541,37 @@ private struct NotebookSidebarRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Notebook sort order
+
+/// Sort options for the horizontal notebook shelf row.
+enum NotebookSortOrder: String, CaseIterable {
+    case name        = "name"
+    case modified    = "modified"
+    case created     = "created"
+    case lastOpened  = "lastOpened"
+    case pageCount   = "pageCount"
+
+    var displayName: String {
+        switch self {
+        case .name:       return NSLocalizedString("Notebook.Sort.Name",        comment: "")
+        case .modified:   return NSLocalizedString("Notebook.Sort.Modified",    comment: "")
+        case .created:    return NSLocalizedString("Notebook.Sort.Created",     comment: "")
+        case .lastOpened: return NSLocalizedString("Notebook.Sort.LastOpened",  comment: "")
+        case .pageCount:  return NSLocalizedString("Notebook.Sort.PageCount",   comment: "")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .name:       return "textformat.abc"
+        case .modified:   return "pencil"
+        case .created:    return "calendar"
+        case .lastOpened: return "eye"
+        case .pageCount:  return "doc.plaintext"
+        }
     }
 }
 
@@ -542,6 +606,11 @@ struct NoteGridView: View {
     @State private var versionHistoryNote: Note?
     @State private var tagPickerNote: Note?
     @State private var gridAppeared = false
+    @AppStorage("y2notes.notebookSortOrder") private var notebookSortOrderRaw: String = NotebookSortOrder.modified.rawValue
+
+    private var notebookSortOrder: NotebookSortOrder {
+        NotebookSortOrder(rawValue: notebookSortOrderRaw) ?? .modified
+    }
 
     /// All notes for non-notebook views (flat).
     private var notes: [Note] {
@@ -560,6 +629,8 @@ struct NoteGridView: View {
             return []
         case .documentLibrary:
             return []
+        case .importNotes:
+            return noteStore.importLinkedNotes
         }
     }
 
@@ -590,6 +661,7 @@ struct NoteGridView: View {
         case .tag(let tag):       return "#\(tag)"
         case .pdfLibrary:         return "PDF Documents"
         case .documentLibrary:    return "Documents"
+        case .importNotes:        return "Import Notes"
         }
     }
 
@@ -711,10 +783,11 @@ struct NoteGridView: View {
         .fileImporter(
             isPresented: $showDocImporter,
             allowedContentTypes: ImportedDocumentType.allUTTypes,
-            allowsMultipleSelection: false
+            allowsMultipleSelection: true
         ) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                if let doc = documentStore.importDocument(from: url) {
+            if case .success(let urls) = result {
+                let imported = documentStore.importDocuments(from: urls)
+                if let doc = imported.first {
                     tabSession.openTab(
                         .document(id: doc.id),
                         displayName: doc.displayName,
@@ -836,6 +909,25 @@ struct NoteGridView: View {
                 Text("Notebooks")
                     .font(.headline)
                 Spacer()
+                // Sort picker
+                Menu {
+                    ForEach(NotebookSortOrder.allCases, id: \.self) { order in
+                        Button {
+                            notebookSortOrderRaw = order.rawValue
+                        } label: {
+                            Label(order.displayName, systemImage: order.systemImage)
+                            if order == notebookSortOrder {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down.circle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+
                 Button {
                     showNotebookWizard = true
                 } label: {
@@ -850,14 +942,18 @@ struct NoteGridView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    ForEach(noteStore.notebooks) { nb in
+                    ForEach(sortedNotebooks) { nb in
                         NotebookCoverCard(
                             notebook: nb,
                             pageCount: noteStore.notes(inNotebook: nb.id)
                                 .reduce(0) { $0 + $1.pageCount }
                         )
                         .onTapGesture {
+                            noteStore.updateNotebookLastOpened(id: nb.id)
                             onOpenNotebook?(nb.id)
+                        }
+                        .contextMenu {
+                            notebookCoverCardContextMenu(for: nb)
                         }
                     }
                 }
@@ -866,6 +962,94 @@ struct NoteGridView: View {
             }
         }
         .padding(.bottom, 8)
+    }
+
+    /// Notebooks sorted by the current `notebookSortOrder`, with pinned ones always first.
+    private var sortedNotebooks: [Notebook] {
+        let pinned = noteStore.notebooks.filter { $0.isPinned }
+        let unpinned = noteStore.notebooks.filter { !$0.isPinned }
+
+        func sorted(_ list: [Notebook]) -> [Notebook] {
+            switch notebookSortOrder {
+            case .name:
+                return list.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            case .modified:
+                return list.sorted { $0.modifiedAt > $1.modifiedAt }
+            case .created:
+                return list.sorted { $0.createdAt > $1.createdAt }
+            case .lastOpened:
+                return list.sorted { lhs, rhs in
+                    switch (lhs.lastOpenedAt, rhs.lastOpenedAt) {
+                    case let (l?, r?): return l > r
+                    case (.some, .none): return true
+                    case (.none, .some): return false
+                    case (.none, .none): return lhs.modifiedAt > rhs.modifiedAt
+                    }
+                }
+            case .pageCount:
+                return list.sorted {
+                    noteStore.notes(inNotebook: $0.id).reduce(0) { $0 + $1.pageCount } >
+                    noteStore.notes(inNotebook: $1.id).reduce(0) { $0 + $1.pageCount }
+                }
+            }
+        }
+
+        return sorted(pinned) + sorted(unpinned)
+    }
+
+    @ViewBuilder
+    private func notebookCoverCardContextMenu(for nb: Notebook) -> some View {
+        Button {
+            noteStore.toggleNotebookPin(id: nb.id)
+        } label: {
+            Label(
+                nb.isPinned ? "Unpin" : "Pin",
+                systemImage: nb.isPinned ? "pin.slash" : "pin"
+            )
+        }
+
+        Menu {
+            ForEach(NotebookColorTag.allCases, id: \.self) { tag in
+                Button {
+                    noteStore.updateNotebookColorTag(id: nb.id, colorTag: tag)
+                } label: {
+                    if nb.colorTag == tag {
+                        Label(tag.displayName, systemImage: "checkmark.circle.fill")
+                    } else if tag == .none {
+                        Label(tag.displayName, systemImage: "circle.slash")
+                    } else {
+                        Text(tag.displayName)
+                    }
+                }
+            }
+        } label: {
+            Label("Colour Tag", systemImage: "circle.fill")
+        }
+
+        Divider()
+
+        Button {
+            noteStore.duplicateNotebook(id: nb.id)
+        } label: {
+            Label("Duplicate", systemImage: "doc.on.doc")
+        }
+
+        Button {
+            noteStore.toggleNotebookLock(id: nb.id)
+        } label: {
+            Label(
+                nb.isLocked ? "Unlock" : "Lock",
+                systemImage: nb.isLocked ? "lock.open" : "lock"
+            )
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            noteStore.deleteNotebook(id: nb.id)
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
     }
 
     // MARK: Section-grouped content (notebook views with sections)
@@ -1195,6 +1379,7 @@ struct NoteGridView: View {
         case .tag:       return "tag"
         case .pdfLibrary: return "doc.richtext"
         case .documentLibrary: return "doc.fill"
+        case .importNotes: return "paperclip"
         }
     }
 
@@ -1207,6 +1392,7 @@ struct NoteGridView: View {
         case .tag(let t): return "No Notes Tagged with "#\(t)""
         case .pdfLibrary: return "No PDFs Yet"
         case .documentLibrary: return "No Documents Yet"
+        case .importNotes: return "No Import Notes Yet"
         }
     }
 
@@ -1219,6 +1405,7 @@ struct NoteGridView: View {
         case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
         case .documentLibrary: return "Import a document to get started."
+        case .importNotes: return "Create a companion note from a PDF or document viewer."
         }
     }
 }
@@ -1544,6 +1731,32 @@ private struct ShimmerView: View {
     }
 }
 
+// MARK: - Shimmer loading placeholder
+
+private struct ShimmerView: View {
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(uiColor: .systemFill)
+                LinearGradient(
+                    colors: [.clear, Color(uiColor: .secondarySystemBackground).opacity(0.55), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: geo.size.width * 0.55)
+                .offset(x: (geo.size.width * 1.55) * phase - geo.size.width * 0.28)
+            }
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
+                phase = 1
+            }
+        }
+    }
+}
+
 // MARK: - Note card
 
 private struct NoteCardView: View {
@@ -1609,6 +1822,11 @@ private struct NoteCardView: View {
                         .foregroundStyle(note.title.isEmpty ? .tertiary : .primary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
+                    if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                        Image(systemName: "paperclip")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                     if note.isFavorited {
                         Image(systemName: "star.fill")
                             .font(.caption2)
@@ -1665,6 +1883,54 @@ private struct NoteCardView: View {
             let scale = max(200 / renderRect.width, 150 / renderRect.height) * 0.5
             return drawing.image(from: renderRect, scale: scale)
         }.value
+    }
+}
+
+// MARK: - Import-linked notes grid
+
+/// A simple grid that shows only notes linked to PDFs or imported documents.
+/// Used when the user selects the "Import Notes" section in the sidebar.
+private struct ImportLinkedNotesView: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @Binding var selectedNoteID: UUID?
+
+    var body: some View {
+        Group {
+            if noteStore.importLinkedNotes.isEmpty {
+                emptyState
+            } else {
+                noteGrid
+            }
+        }
+        .navigationTitle("Import Notes")
+    }
+
+    private var noteGrid: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 220))], spacing: 16) {
+                ForEach(noteStore.importLinkedNotes) { note in
+                    NoteCardView(note: note, isSelected: selectedNoteID == note.id)
+                        .onTapGesture { selectedNoteID = note.id }
+                }
+            }
+            .padding()
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "paperclip")
+                .font(.system(size: 56))
+                .foregroundStyle(.secondary)
+            Text("No Import Notes Yet")
+                .font(.title3.weight(.semibold))
+            Text("Create a companion note from a PDF or document viewer\nto see it here.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -1833,7 +2099,11 @@ private struct NotebookCoverCard: View {
 
 private struct PDFLibraryView: View {
     @EnvironmentObject var pdfStore: PDFStore
+    @EnvironmentObject var noteStore: NoteStore
     @Binding var selectedPDFID: UUID?
+
+    /// Callback invoked with a companion note's ID so the parent can open it in a tab.
+    var onOpenCompanionNote: ((UUID) -> Void)?
 
     @State private var showImporter = false
     @State private var recordToDelete: PDFNoteRecord?
@@ -1852,6 +2122,27 @@ private struct PDFLibraryView: View {
                             PDFCardView(record: record, isSelected: selectedPDFID == record.id)
                                 .onTapGesture { selectedPDFID = record.id }
                                 .contextMenu {
+                                    if noteStore.hasCompanionNote(forPDF: record.id),
+                                       let existing = noteStore.notes(forPDF: record.id).first {
+                                        Button {
+                                            onOpenCompanionNote?(existing.id)
+                                        } label: {
+                                            Label("Open Companion Note", systemImage: "note.text")
+                                        }
+                                    } else {
+                                        Button {
+                                            let note = noteStore.addNote(
+                                                forPDF: record.id,
+                                                title: "\(record.title) — Notes"
+                                            )
+                                            onOpenCompanionNote?(note.id)
+                                        } label: {
+                                            Label("Create Companion Note", systemImage: "note.text.badge.plus")
+                                        }
+                                    }
+
+                                    Divider()
+
                                     Button(role: .destructive) {
                                         recordToDelete  = record
                                         showDeleteConfirm = true

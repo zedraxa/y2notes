@@ -192,6 +192,7 @@ struct OnboardingView: View {
             // Back / Skip button
             if currentPage == 0 {
                 Button("Skip") {
+                    pageFeedback.impactOccurred()
                     completeOnboarding()
                 }
                 .foregroundStyle(.white.opacity(0.7))
@@ -230,6 +231,7 @@ struct OnboardingView: View {
             // Next / Get Started button
             if currentPage < pageCount - 1 {
                 Button {
+                    pageFeedback.impactOccurred()
                     withAnimation { currentPage += 1 }
                 } label: {
                     Text("Next")
@@ -239,6 +241,8 @@ struct OnboardingView: View {
                 .accessibilityLabel("Next page")
             } else {
                 Button {
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
                     completeOnboarding()
                 } label: {
                     Text("Get Started")

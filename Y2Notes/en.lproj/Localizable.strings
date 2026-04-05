@@ -217,7 +217,30 @@
 "Creation.NewNote"                = "New Note";
 "Creation.NoteTitle"              = "Note Title";
 "Creation.Template"               = "Template";
+"Creation.Templates"              = "Templates";
 "Creation.Create"                 = "Create";
+
+/* ── Notebook Info ─────────────────────────────────────────────── */
+
+"NotebookInfo.Title"              = "Notebook Info";
+"NotebookInfo.Statistics"         = "Statistics";
+"NotebookInfo.TotalPages"        = "Total Pages";
+"NotebookInfo.Notes"              = "Notes";
+"NotebookInfo.Sections"           = "Sections";
+"NotebookInfo.Created"            = "Created";
+"NotebookInfo.LastModified"       = "Last Modified";
+"NotebookInfo.Configuration"      = "Configuration";
+"NotebookInfo.PageType"           = "Page Type";
+"NotebookInfo.PageSize"           = "Page Size";
+"NotebookInfo.Orientation"        = "Orientation";
+"NotebookInfo.Material"           = "Paper Material";
+"NotebookInfo.Texture"            = "Cover Texture";
+"NotebookInfo.Theme"              = "Default Theme";
+"NotebookInfo.SectionsBreakdown"  = "Sections";
+"NotebookInfo.Lock"               = "Lock Notebook";
+"NotebookInfo.Unlock"             = "Unlock Notebook";
+"NotebookInfo.Locked"             = "Locked";
+"NotebookInfo.Duplicate"          = "Duplicate Notebook";
 
 /* ── Search ────────────────────────────────────────────────────── */
 
@@ -301,6 +324,36 @@
 "Credits.PatternsHeader"          = "Design Patterns Adopted";
 "Credits.Footer"                  = "We gratefully acknowledge these projects and the wider open-source community.";
 
+/* ── Document Import ──────────────────────────────────────────── */
+
+"Documents.Title"                 = "Documents";
+"Documents.ImportDocument"        = "Import Document";
+"Documents.NoDocuments"           = "No Documents";
+"Documents.NoDocumentsSubtitle"   = "Import PDFs, images, Word files, ePubs, or presentations to view and annotate them.";
+"Documents.NoResults"             = "No Results";
+"Documents.SortDocuments"         = "Sort documents";
+"Documents.Rename"                = "Rename Document";
+"Documents.Share"                 = "Share";
+"Documents.Delete"                = "Delete";
+"Documents.AddFavorite"           = "Add to Favorites";
+"Documents.RemoveFavorite"        = "Remove Favorite";
+"Documents.GridView"              = "Switch to grid view";
+"Documents.ListView"              = "Switch to list view";
+
+/* ── Companion Notes ──────────────────────────────────────────── */
+
+"Companion.CreateNote"            = "Create Companion Note";
+"Companion.OpenNote"              = "Open Companion Note";
+"Companion.LinkedTo"              = "Linked to %@";
+"Companion.LinkedToImport"        = "Linked to import";
+"Companion.OpenLinked"            = "Open linked import";
+
+/* ── Import Notes ─────────────────────────────────────────────── */
+
+"ImportNotes.Title"               = "Import Notes";
+"ImportNotes.Empty"               = "No Import Notes Yet";
+"ImportNotes.EmptySubtitle"       = "Create a companion note from a PDF or document viewer to see it here.";
+
 /* ── Tool Expansion ──────────────────────────────────────────── */
 
 "ToolExpansion.PenType"           = "Pen Type";
@@ -343,3 +396,24 @@
 
 "ToolExpansion.TapToExpand"       = "Tap to expand tool options";
 "ToolExpansion.TapToActivate"     = "Tap to activate tool";
+"ToolExpansion.LongPressToExpand" = "Long-press to expand toolbar";
+"ToolExpansion.Pixel"             = "Pixel";
+"ToolExpansion.Stroke"            = "Stroke";
+
+/* ── Text Style Editor ────────────────────────────────────────── */
+
+"TextStyle.Title"                 = "Text Style";
+"TextStyle.Font"                  = "Font";
+"TextStyle.Bold"                  = "Bold";
+"TextStyle.Size"                  = "Size";
+"TextStyle.Colour"                = "Colour";
+"TextStyle.Align"                 = "Align";
+"TextStyle.Background"            = "Background";
+"TextStyle.Fill"                  = "Fill";
+"TextStyle.Border"                = "Border";
+"TextStyle.BorderColour"          = "Border Colour";
+"TextStyle.Thickness"             = "Thickness";
+"TextStyle.Corners"               = "Corners";
+
+// MARK: - Editor Actions
+"Editor.StraightenLine"           = "Straighten Line";
