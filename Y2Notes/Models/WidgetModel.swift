@@ -9,6 +9,9 @@ enum WidgetKind: String, Codable, CaseIterable, Equatable {
     case quickTable
     case calloutBox
     case referenceCard
+    case stickyNote
+    case flashcard
+    case progressTracker
 }
 
 // MARK: - Widget Frame
@@ -106,6 +109,17 @@ enum CalloutStyle: String, Codable, Equatable, CaseIterable {
     case warning
 }
 
+// MARK: - Sticky Note Color
+
+/// Pastel background colour for a sticky-note widget.
+enum StickyNoteColor: String, Codable, Equatable, CaseIterable {
+    case yellow
+    case pink
+    case blue
+    case green
+    case purple
+}
+
 // MARK: - Widget Payload
 
 /// Type-specific content carried by a widget.
@@ -114,6 +128,9 @@ enum WidgetPayload: Codable, Equatable {
     case quickTable(title: String, columns: Int, rows: Int, cells: [TableCell])
     case calloutBox(title: String, body: String, style: CalloutStyle)
     case referenceCard(title: String, body: String)
+    case stickyNote(body: String, color: StickyNoteColor)
+    case flashcard(front: String, back: String, isFlipped: Bool)
+    case progressTracker(title: String, current: Int, total: Int)
 
     // MARK: - Codable
 
@@ -123,10 +140,14 @@ enum WidgetPayload: Codable, Equatable {
         case title, items
         case columns, rows, cells
         case body, style
+        case color
+        case front, back, isFlipped
+        case current, total
     }
 
     private enum PayloadType: String, Codable {
         case checklist, quickTable, calloutBox, referenceCard
+        case stickyNote, flashcard, progressTracker
     }
 
     init(from decoder: Decoder) throws {
@@ -152,6 +173,20 @@ enum WidgetPayload: Codable, Equatable {
             let title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
             let body = try c.decodeIfPresent(String.self, forKey: .body) ?? ""
             self = .referenceCard(title: title, body: body)
+        case .stickyNote:
+            let body = try c.decodeIfPresent(String.self, forKey: .body) ?? ""
+            let color = try c.decodeIfPresent(StickyNoteColor.self, forKey: .color) ?? .yellow
+            self = .stickyNote(body: body, color: color)
+        case .flashcard:
+            let front = try c.decodeIfPresent(String.self, forKey: .front) ?? ""
+            let back = try c.decodeIfPresent(String.self, forKey: .back) ?? ""
+            let isFlipped = try c.decodeIfPresent(Bool.self, forKey: .isFlipped) ?? false
+            self = .flashcard(front: front, back: back, isFlipped: isFlipped)
+        case .progressTracker:
+            let title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+            let current = try c.decodeIfPresent(Int.self, forKey: .current) ?? 0
+            let total = try c.decodeIfPresent(Int.self, forKey: .total) ?? WidgetConstants.defaultProgressTotal
+            self = .progressTracker(title: title, current: current, total: total)
         }
     }
 
@@ -177,6 +212,20 @@ enum WidgetPayload: Codable, Equatable {
             try c.encode(PayloadType.referenceCard, forKey: .type)
             try c.encode(title, forKey: .title)
             try c.encode(body, forKey: .body)
+        case .stickyNote(let body, let color):
+            try c.encode(PayloadType.stickyNote, forKey: .type)
+            try c.encode(body, forKey: .body)
+            try c.encode(color, forKey: .color)
+        case .flashcard(let front, let back, let isFlipped):
+            try c.encode(PayloadType.flashcard, forKey: .type)
+            try c.encode(front, forKey: .front)
+            try c.encode(back, forKey: .back)
+            try c.encode(isFlipped, forKey: .isFlipped)
+        case .progressTracker(let title, let current, let total):
+            try c.encode(PayloadType.progressTracker, forKey: .type)
+            try c.encode(title, forKey: .title)
+            try c.encode(current, forKey: .current)
+            try c.encode(total, forKey: .total)
         }
     }
 }
@@ -297,6 +346,42 @@ struct NoteWidget: Codable, Identifiable, Equatable {
             payload: .referenceCard(title: "", body: "")
         )
     }
+
+    /// Creates a sticky-note widget at the given centre position with the specified colour.
+    static func makeStickyNote(at position: CGPoint, color: StickyNoteColor = .yellow) -> NoteWidget {
+        NoteWidget(
+            kind: .stickyNote,
+            frame: WidgetFrame(
+                position: position,
+                size: WidgetConstants.defaultStickyNoteSize
+            ),
+            payload: .stickyNote(body: "", color: color)
+        )
+    }
+
+    /// Creates a flashcard widget at the given centre position with empty front and back.
+    static func makeFlashcard(at position: CGPoint) -> NoteWidget {
+        NoteWidget(
+            kind: .flashcard,
+            frame: WidgetFrame(
+                position: position,
+                size: WidgetConstants.defaultFlashcardSize
+            ),
+            payload: .flashcard(front: "", back: "", isFlipped: false)
+        )
+    }
+
+    /// Creates a progress-tracker widget at the given centre position with a default goal of 10.
+    static func makeProgressTracker(at position: CGPoint) -> NoteWidget {
+        NoteWidget(
+            kind: .progressTracker,
+            frame: WidgetFrame(
+                position: position,
+                size: WidgetConstants.defaultProgressTrackerSize
+            ),
+            payload: .progressTracker(title: "", current: 0, total: WidgetConstants.defaultProgressTotal)
+        )
+    }
 }
 
 // MARK: - Constants
@@ -318,9 +403,21 @@ enum WidgetConstants {
     static let defaultCalloutSize = CGSize(width: 260, height: 120)
     /// Default card size for newly placed reference-card widgets.
     static let defaultReferenceSize = CGSize(width: 260, height: 160)
+    /// Default card size for newly placed sticky-note widgets.
+    static let defaultStickyNoteSize = CGSize(width: 200, height: 200)
+    /// Default card size for newly placed flashcard widgets.
+    static let defaultFlashcardSize = CGSize(width: 280, height: 180)
+    /// Default card size for newly placed progress-tracker widgets.
+    static let defaultProgressTrackerSize = CGSize(width: 260, height: 100)
 
     /// Distance (points) for snap-to-guide behaviour.
     static let snapDistance: CGFloat = 6
+    /// Fractional position of the left margin snap guide (relative to page width).
+    static let leftMarginFraction: CGFloat = 0.15
+    /// Fractional position of the right margin snap guide (relative to page width).
+    static let rightMarginFraction: CGFloat = 0.85
+    /// Fractional position of the top margin snap guide (relative to page height).
+    static let topMarginFraction: CGFloat = 0.10
     /// Hit-test tolerance around corner handles (points).
     static let handleTolerance: CGFloat = 20
     /// Visual handle radius drawn at corners when selected.
@@ -349,8 +446,8 @@ enum WidgetConstants {
     static let cellPadding: CGFloat = 8
     /// Outer padding inside the widget container.
     static let containerPadding: CGFloat = 12
-    /// Default border line width.
-    static let borderWidth: CGFloat = 1
+    /// Default total goal value for newly placed progress-tracker widgets.
+    static let defaultProgressTotal: Int = 10
     /// Default border opacity.
     static let borderOpacity: CGFloat = 0.3
 }
