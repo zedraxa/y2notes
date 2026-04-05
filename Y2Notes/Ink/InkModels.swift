@@ -315,14 +315,27 @@ struct ParticlePhysics: Equatable {
         fadeOut: true
     )
 
-    static let sheenPhysics = ParticlePhysics(
-        gravity: -10,         // very slight rise for an ethereal look
+    /// Core bright-sparkle physics for sheen — tight cluster near the nib.
+    static let sheenCorePhysics = ParticlePhysics(
+        gravity: -18,         // ethereal rise, snaps upward for a light-catching glitter
         wind: 0,
-        turbulence: 20,       // gentle scatter for iridescence
-        drag: 0.96,
+        turbulence: 28,       // moderate scatter keeps sparks close to the nib
+        drag: 0.94,
         bounceOffBounds: false,
         bounciness: 0,
-        spinRange: 1.5,
+        spinRange: 3.0,       // fast spin gives each diamond a glittering rotation
+        fadeOut: true
+    )
+
+    /// Outer shimmer-dust physics for sheen — loose halo that fans away from the nib.
+    static let sheenDustPhysics = ParticlePhysics(
+        gravity: 10,          // slight downward drift so dust drifts off the trail
+        wind: 0,
+        turbulence: 50,       // wide scatter creates the broad iridescent halo
+        drag: 0.90,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.8,
         fadeOut: true
     )
 

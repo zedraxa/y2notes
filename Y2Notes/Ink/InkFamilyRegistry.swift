@@ -164,6 +164,14 @@ final class InkFamilyRegistry {
                   family: .sheen, traits: .metallic, writingFX: .sheen,
                   color: UIColor(red: 1.00, green: 0.85, blue: 0.10, alpha: 1),
                   baseWidth: 3, isBuiltIn: true),
+        InkPreset(name: "Moonbow",
+                  family: .sheen, traits: .metallic, writingFX: .sheen,
+                  color: UIColor(red: 0.65, green: 0.85, blue: 1.00, alpha: 1),
+                  baseWidth: 2.5, isBuiltIn: true),
+        InkPreset(name: "Opal",
+                  family: .sheen, traits: .metallic, writingFX: .sheen,
+                  color: UIColor(red: 1.00, green: 0.70, blue: 0.85, alpha: 1),
+                  baseWidth: 2.5, isBuiltIn: true),
     ]}
 
     // MARK: - Shadow (dark smoky ink)
