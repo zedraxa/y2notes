@@ -13,7 +13,14 @@ final class DrawingToolStore: ObservableObject {
     // MARK: - Published State
 
     @Published var activeTool: DrawingTool = .pen {
-        didSet { UserDefaults.standard.set(activeTool.rawValue, forKey: Keys.tool) }
+        didSet {
+            UserDefaults.standard.set(activeTool.rawValue, forKey: Keys.tool)
+            // Save the old tool's width+opacity; restore the new tool's last values.
+            if oldValue != activeTool {
+                savePerToolSettings(for: oldValue)
+                restorePerToolSettings(for: activeTool)
+            }
+        }
     }
 
     @Published var activeColor: UIColor = .black {
@@ -361,6 +368,7 @@ final class DrawingToolStore: ObservableObject {
         if recentColors.count > Self.maxRecentColors {
             recentColors = Array(recentColors.prefix(Self.maxRecentColors))
         }
+        persistRecentColors()
     }
 
     private func isSameColor(_ a: UIColor, _ b: UIColor) -> Bool {
@@ -393,11 +401,12 @@ final class DrawingToolStore: ObservableObject {
         presets.append(preset)
     }
 
-    /// Restores the tool, colour, width, and — for pen presets — sub-type from a saved preset.
+    /// Restores the tool, colour, width, opacity, and — for pen presets — sub-type from a saved preset.
     func applyPreset(_ preset: ToolPreset) {
         activeTool   = preset.tool
         activeColor  = preset.uiColor
         activeWidth  = preset.width
+        activeOpacity = preset.opacity
         if preset.tool == .pen, let sub = preset.penSubType {
             activePenSubType = sub
         }
@@ -455,6 +464,12 @@ final class DrawingToolStore: ObservableObject {
         static let textAlignment    = "y2notes.tool.textAlignment"
         static let textFontFamily   = "y2notes.tool.textFontFamily"
         static let textBold         = "y2notes.tool.textBold"
+        static let recentColors = "y2notes.tool.recentColors"
+
+        /// Per-tool width: "y2notes.tool.width.pen", "y2notes.tool.width.pencil", etc.
+        static func perToolWidth(_ tool: DrawingTool) -> String { "y2notes.tool.width.\(tool.rawValue)" }
+        /// Per-tool opacity: "y2notes.tool.opacity.pen", etc.
+        static func perToolOpacity(_ tool: DrawingTool) -> String { "y2notes.tool.opacity.\(tool.rawValue)" }
     }
 
     // MARK: - Persistence Helpers
@@ -472,6 +487,48 @@ final class DrawingToolStore: ObservableObject {
     private func persistPresets() {
         guard let data = try? JSONEncoder().encode(presets) else { return }
         UserDefaults.standard.set(data, forKey: Keys.presets)
+    }
+
+    private func persistRecentColors() {
+        // Store as flat [Double] array: [r0,g0,b0, r1,g1,b1, …]
+        var components: [Double] = []
+        for color in recentColors {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: nil)
+            components.append(contentsOf: [Double(r), Double(g), Double(b)])
+        }
+        UserDefaults.standard.set(components, forKey: Keys.recentColors)
+    }
+
+    // MARK: - Per-Tool Width/Opacity
+
+    /// Saves the current width and opacity for a specific tool so they can
+    /// be restored the next time the user switches back to it.
+    private func savePerToolSettings(for tool: DrawingTool) {
+        guard tool.isInking else { return }
+        let ud = UserDefaults.standard
+        ud.set(activeWidth, forKey: Keys.perToolWidth(tool))
+        ud.set(activeOpacity, forKey: Keys.perToolOpacity(tool))
+    }
+
+    /// Restores the last-used width and opacity for a tool. Falls back to the
+    /// tool personality's default width and full opacity when no saved state exists.
+    private func restorePerToolSettings(for tool: DrawingTool) {
+        guard tool.isInking else { return }
+        let ud = UserDefaults.standard
+        let savedWidth = ud.double(forKey: Keys.perToolWidth(tool))
+        let savedOpacity = ud.double(forKey: Keys.perToolOpacity(tool))
+        if savedWidth > 0 {
+            activeWidth = savedWidth
+        } else if let p = ToolPersonality.personality(for: tool) {
+            activeWidth = Double(p.defaultWidth)
+        }
+        if savedOpacity > 0 {
+            activeOpacity = savedOpacity
+        } else {
+            activeOpacity = 1.0
+        }
+        clampWidthToPersonality()
     }
 
     private func loadAll() {
@@ -540,6 +597,18 @@ final class DrawingToolStore: ObservableObject {
         }
         if ud.object(forKey: Keys.textBold) != nil {
             activeTextBold = ud.bool(forKey: Keys.textBold)
+        }
+
+        // Recent colours — stored as flat [r0,g0,b0, r1,g1,b1, …].
+        if let components = ud.array(forKey: Keys.recentColors) as? [Double], components.count >= 3 {
+            var loaded: [UIColor] = []
+            for i in stride(from: 0, to: components.count - 2, by: 3) {
+                loaded.append(UIColor(red: CGFloat(components[i]),
+                                      green: CGFloat(components[i + 1]),
+                                      blue: CGFloat(components[i + 2]),
+                                      alpha: 1))
+            }
+            recentColors = loaded
         }
     }
 }
