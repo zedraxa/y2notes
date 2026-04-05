@@ -228,7 +228,23 @@ enum WritingFXType: String, CaseIterable, Codable, Identifiable {
 // MARK: - Particle Physics
 
 /// Lightweight 2D physics parameters for particle behaviour.
+///
 /// The `InkEffectEngine` reads these to drive physically-realistic motion.
+/// Each field maps directly to a `CAEmitterCell` property or informs the
+/// engine's emitter-setup logic.
+///
+/// **Extended physics model (AGENT-22)**
+/// In addition to the original gravity/wind/turbulence/drag model, the
+/// struct now carries five additional parameters that deepen the physical
+/// simulation without requiring custom per-frame stepping:
+///
+/// | Parameter | Mapped to | Effect |
+/// |-----------|-----------|--------|
+/// | `mass` | `gravity × mass` | Heavier particles fall faster |
+/// | `attractorStrength` | `CAEmitterLayer.emitterSize` modulation | Inward/outward drift |
+/// | `noiseFrequency` | Turbulence seed refresh rate | Organic variation speed |
+/// | `noiseAmplitude` | `velocityRange` addend | Strength of organic scatter |
+/// | `velocitySpawnSpread` | `emissionRange` addend | Nib speed widens emission cone |
 struct ParticlePhysics: Equatable {
     /// Downward acceleration (points/s²).  Positive = pull toward bottom.
     var gravity: CGFloat = 0
@@ -247,6 +263,53 @@ struct ParticlePhysics: Equatable {
     /// Whether particles fade out linearly over their lifetime.
     var fadeOut: Bool = true
 
+    // ── Extended physics (AGENT-22) ─────────────────────────────────────
+
+    /// Particle mass — multiplied with `gravity` when configuring
+    /// `CAEmitterCell.yAcceleration`.  Heavier particles (> 1.0) feel
+    /// weightier; lighter particles (< 1.0) float.  Default 1.0.
+    var mass: CGFloat = 1.0
+
+    /// Radial attractor strength toward the emitter point.
+    ///
+    /// Positive values pull surviving particles back toward the nib,
+    /// creating a tighter cluster (useful for glow / sheen).  Negative
+    /// values push them outward for explosive scatter (dissolve / blood
+    /// splatter).  Implemented as an `emitterSize` scaling factor at
+    /// setup time.  Default 0 (no attractor).
+    var attractorStrength: CGFloat = 0
+
+    /// Frequency of organic turbulence noise (cycles per second).
+    ///
+    /// Higher values make the perturbation change rapidly, creating
+    /// jittery / electric motion.  Lower values create slow, cloud-like
+    /// drift.  Implemented as an additive offset to `velocityRange` that
+    /// oscillates over the particle lifetime.  Default 0 (disabled).
+    var noiseFrequency: CGFloat = 0
+
+    /// Amplitude of the organic turbulence noise (points).
+    ///
+    /// Scales the displacement applied by `noiseFrequency`.  Only
+    /// effective when `noiseFrequency > 0`.  Default 0.
+    var noiseAmplitude: CGFloat = 0
+
+    /// How much writing velocity widens the particle emission cone.
+    ///
+    /// At zero nib velocity the emission uses its base cone.  As the nib
+    /// moves faster (up to `VelocityThicknessParams.velocityCeiling`)
+    /// the cone widens by up to this many radians.  Gives fast strokes
+    /// a wider, more energetic spray.  Default 0 (no velocity influence).
+    var velocitySpawnSpread: CGFloat = 0
+
+    // ── Derived helpers ─────────────────────────────────────────────────
+
+    /// Effective gravity accounting for mass: `gravity × mass`.
+    var effectiveGravity: CGFloat { gravity * mass }
+
+    /// Effective turbulence range including noise amplitude.
+    /// The engine adds this to `CAEmitterCell.velocityRange`.
+    var effectiveTurbulence: CGFloat { turbulence + noiseAmplitude }
+
     // MARK: Named presets
 
     static let firePhysics = ParticlePhysics(
@@ -257,7 +320,12 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 2.0,
-        fadeOut: true
+        fadeOut: true,
+        mass: 0.6,            // light — flames are buoyant
+        attractorStrength: 0.15, // gentle inward pull keeps flames near the nib
+        noiseFrequency: 8.0,  // rapid flicker noise
+        noiseAmplitude: 12.0, // moderate displacement for realistic flicker
+        velocitySpawnSpread: .pi / 6  // fast strokes fan flames outward
     )
 
     static let sparklePhysics = ParticlePhysics(
@@ -268,7 +336,12 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 4.0,
-        fadeOut: true
+        fadeOut: true,
+        mass: 0.4,            // very light — sparks linger before falling
+        attractorStrength: -0.3, // outward burst on spawn
+        noiseFrequency: 12.0, // rapid jitter gives sparkles their twinkle
+        noiseAmplitude: 18.0, // strong displacement for chaotic scatter
+        velocitySpawnSpread: .pi / 4  // fast strokes create wide spray
     )
 
     static let snowPhysics = ParticlePhysics(
@@ -279,7 +352,12 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 1.5,
-        fadeOut: true
+        fadeOut: true,
+        mass: 0.3,            // very light — snowflakes float
+        attractorStrength: 0,
+        noiseFrequency: 2.0,  // slow undulation simulates air currents
+        noiseAmplitude: 6.0,  // gentle side-to-side wander
+        velocitySpawnSpread: .pi / 8  // slight spread from fast writing
     )
 
     static let dissolvePhysics = ParticlePhysics(
@@ -290,7 +368,12 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 3.0,
-        fadeOut: true
+        fadeOut: true,
+        mass: 1.2,            // heavier than average — crumbles, doesn't float
+        attractorStrength: -0.5, // explosive outward scatter on disintegrate
+        noiseFrequency: 6.0,  // moderate noise for crumbling irregularity
+        noiseAmplitude: 10.0,
+        velocitySpawnSpread: .pi / 3  // fast strokes scatter widely
     )
 
     static let rainbowPhysics = ParticlePhysics(
@@ -301,7 +384,12 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 0.5,
-        fadeOut: true
+        fadeOut: true,
+        mass: 1.0,
+        attractorStrength: 0.2,  // gentle inward pull keeps trail tight
+        noiseFrequency: 3.0,    // slow organic drift
+        noiseAmplitude: 4.0,    // subtle scatter for a paint-like trail
+        velocitySpawnSpread: .pi / 10  // minimal spread — trail stays focused
     )
 
     static let glowPhysics = ParticlePhysics(
@@ -312,7 +400,12 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 0,
-        fadeOut: true
+        fadeOut: true,
+        mass: 1.0,
+        attractorStrength: 0.4,  // strong inward pull — glow hugs the nib
+        noiseFrequency: 1.0,    // very slow pulsation
+        noiseAmplitude: 2.0,    // barely-visible breathing motion
+        velocitySpawnSpread: 0   // no velocity influence — stable aura
     )
 
     /// Core bright-sparkle physics for sheen — tight cluster near the nib.
@@ -324,7 +417,12 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 3.0,       // fast spin gives each diamond a glittering rotation
-        fadeOut: true
+        fadeOut: true,
+        mass: 0.5,            // light — core diamonds drift upward
+        attractorStrength: 0.35, // strong inward pull keeps diamonds tight to the nib
+        noiseFrequency: 6.0,  // faster oscillation for a glittering shimmer
+        noiseAmplitude: 6.0,  // moderate displacement — visible but controlled
+        velocitySpawnSpread: .pi / 8  // tight emission cone keeps core cluster compact
     )
 
     /// Outer shimmer-dust physics for sheen — loose halo that fans away from the nib.
@@ -336,18 +434,45 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 1.8,
-        fadeOut: true
+        fadeOut: true,
+        mass: 0.3,            // very light — dust particles float and fan outward
+        attractorStrength: -0.1, // gentle outward push widens the halo
+        noiseFrequency: 3.0,  // slower oscillation for a cloud-like drift
+        noiseAmplitude: 12.0, // strong displacement expands the iridescent halo
+        velocitySpawnSpread: .pi / 4  // wider cone — fast strokes fan dust broadly
     )
 
     static let shadowPhysics = ParticlePhysics(
-        gravity: 15,          // smoke sinks slowly
-        wind: 5,              // slight horizontal drift
-        turbulence: 25,       // wispy billowing
-        drag: 0.94,
+        gravity: -22,         // smoke rises gently (negative = upward on screen)
+        wind: 10,             // lateral drift for natural dispersion
+        turbulence: 50,       // strong billowing / chaotic expansion
+        drag: 0.97,           // gentle deceleration — puffs linger and drift
         bounceOffBounds: false,
         bounciness: 0,
-        spinRange: 0.8,
-        fadeOut: true
+        spinRange: 2.0,       // organic tumbling rotation
+        fadeOut: true,
+        mass: 0.8,            // slightly light — smoke is less dense than air
+        attractorStrength: -0.2, // outward push for billowing expansion
+        noiseFrequency: 3.0,  // slow turbulent billowing
+        noiseAmplitude: 15.0, // strong displacement for cloud-like drift
+        velocitySpawnSpread: .pi / 5  // fast strokes widen the smoke trail
+    )
+
+    /// Fine wisp particles that trail away more erratically than the main puffs.
+    static let shadowWispPhysics = ParticlePhysics(
+        gravity: -8,          // wisps barely rise — they spread laterally
+        wind: 18,             // strong lateral spread for tendrils
+        turbulence: 65,       // highly chaotic for wispy, thread-like tendrils
+        drag: 0.95,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 3.0,       // fast spin gives tendrils their curling look
+        fadeOut: true,
+        mass: 0.4,            // very light — wisps are ephemeral
+        attractorStrength: -0.4, // strong outward scatter for tendril spread
+        noiseFrequency: 7.0,  // rapid perturbation for wispy tendrils
+        noiseAmplitude: 20.0, // high displacement for thread-like motion
+        velocitySpawnSpread: .pi / 4  // fast writing fans wisps wide
     )
 
     static let bloodPhysics = ParticlePhysics(
@@ -358,7 +483,12 @@ struct ParticlePhysics: Equatable {
         bounceOffBounds: false,
         bounciness: 0,
         spinRange: 0.3,
-        fadeOut: true
+        fadeOut: true,
+        mass: 2.5,            // very heavy — blood is viscous and dense
+        attractorStrength: -0.6, // explosive splatter away from nib
+        noiseFrequency: 4.0,  // moderate wobble as drops fall
+        noiseAmplitude: 5.0,  // subtle lateral displacement
+        velocitySpawnSpread: .pi / 3  // fast strokes create wide splatter
     )
 }
 

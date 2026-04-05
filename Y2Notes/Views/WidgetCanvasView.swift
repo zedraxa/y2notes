@@ -3,9 +3,23 @@ import os
 
 private let canvasLogger = Logger(subsystem: "com.y2notes", category: "WidgetCanvas")
 
+// MARK: - StickyNoteColor UIKit mapping
+
+private extension StickyNoteColor {
+    var uiColor: UIColor {
+        switch self {
+        case .yellow: return UIColor(red: 1.00, green: 0.96, blue: 0.60, alpha: 1)
+        case .pink:   return UIColor(red: 1.00, green: 0.80, blue: 0.85, alpha: 1)
+        case .blue:   return UIColor(red: 0.75, green: 0.88, blue: 1.00, alpha: 1)
+        case .green:  return UIColor(red: 0.78, green: 0.95, blue: 0.78, alpha: 1)
+        case .purple: return UIColor(red: 0.88, green: 0.78, blue: 0.98, alpha: 1)
+        }
+    }
+}
+
 /// A UIView overlay that renders widget cards using Core Graphics and handles
 /// finger-based hit-test, selection, move, and resize gestures.
-final class WidgetCanvasView: UIView {
+final class WidgetCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - Public State
 
@@ -47,8 +61,15 @@ final class WidgetCanvasView: UIView {
         backgroundColor = .clear
         isOpaque = false
         contentMode = .redraw
+
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        addGestureRecognizer(doubleTap)
+
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        tap.require(toFail: doubleTap)
         addGestureRecognizer(tap)
+
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         pan.minimumNumberOfTouches = 1
         pan.maximumNumberOfTouches = 1
@@ -69,9 +90,14 @@ final class WidgetCanvasView: UIView {
 
     private func drawWidget(_ widget: NoteWidget, in ctx: CGContext) {
         let cardRect = widget.frame.boundingRect
-        let bgColor: UIColor = widget.kind == .referenceCard
-            ? UIColor.systemGray6.withAlphaComponent(0.9)
-            : UIColor.systemBackground.withAlphaComponent(0.85)
+        let bgColor: UIColor
+        if case .stickyNote(_, let color) = widget.payload {
+            bgColor = color.uiColor.withAlphaComponent(0.92)
+        } else if widget.kind == .referenceCard {
+            bgColor = UIColor.systemGray6.withAlphaComponent(0.9)
+        } else {
+            bgColor = UIColor.systemBackground.withAlphaComponent(0.85)
+        }
         let path = UIBezierPath(roundedRect: cardRect, cornerRadius: WidgetConstants.cardCornerRadius)
 
         // Card fill
@@ -102,8 +128,20 @@ final class WidgetCanvasView: UIView {
             drawCalloutBox(title: title, body: body, style: style, in: cardRect, ctx: ctx)
         case .referenceCard(let title, let body):
             drawReferenceCard(title: title, body: body, in: cardRect, ctx: ctx)
+        case .stickyNote(let body, _):
+            drawStickyNote(body: body, in: cardRect, ctx: ctx)
+        case .flashcard(let front, let back, let isFlipped):
+            drawFlashcard(front: front, back: back, isFlipped: isFlipped,
+                          isSelected: widget.id == selectedWidgetID, in: cardRect, ctx: ctx)
+        case .progressTracker(let title, let current, let total):
+            drawProgressTracker(title: title, current: current, total: total, in: cardRect, ctx: ctx)
         }
         ctx.restoreGState()
+
+        // Anchor-pin indicator for locked widgets
+        if widget.isLocked {
+            drawAnchorPin(at: CGPoint(x: cardRect.maxX - 10, y: cardRect.minY + 10), in: ctx)
+        }
 
         if widget.id == selectedWidgetID {
             drawSelectionBorder(around: cardRect, in: ctx)
@@ -244,6 +282,172 @@ final class WidgetCanvasView: UIView {
         }
     }
 
+    private func drawStickyNote(body: String, in rect: CGRect, ctx: CGContext) {
+        let pad = WidgetConstants.containerPadding
+        // Folded corner indicator (bottom-right triangle)
+        let foldSize: CGFloat = 16
+        let foldPath = UIBezierPath()
+        foldPath.move(to: CGPoint(x: rect.maxX - foldSize, y: rect.maxY))
+        foldPath.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - foldSize))
+        foldPath.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        foldPath.close()
+        ctx.saveGState()
+        ctx.setFillColor(UIColor.black.withAlphaComponent(0.12).cgColor)
+        ctx.addPath(foldPath.cgPath)
+        ctx.fillPath()
+        ctx.restoreGState()
+
+        if !body.isEmpty {
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
+                .foregroundColor: UIColor.label
+            ]
+            (body as NSString).draw(
+                in: CGRect(
+                    x: rect.minX + pad,
+                    y: rect.minY + pad,
+                    width: rect.width - pad * 2,
+                    height: rect.height - pad * 2 - foldSize
+                ),
+                withAttributes: attrs
+            )
+        }
+    }
+
+    private func drawFlashcard(front: String, back: String, isFlipped: Bool,
+                               isSelected: Bool, in rect: CGRect, ctx: CGContext) {
+        let pad = WidgetConstants.containerPadding
+        let labelText = isFlipped ? "BACK" : "FRONT"
+        let contentText = isFlipped ? back : front
+
+        // Side label badge (top-right)
+        let badgeAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 9, weight: .bold),
+            .foregroundColor: UIColor.secondaryLabel
+        ]
+        let badgeSize = (labelText as NSString).size(withAttributes: badgeAttrs)
+        (labelText as NSString).draw(
+            at: CGPoint(
+                x: rect.maxX - badgeSize.width - pad,
+                y: rect.minY + pad
+            ),
+            withAttributes: badgeAttrs
+        )
+
+        // Divider line below badge row
+        let dividerY = rect.minY + pad + badgeSize.height + 4
+        ctx.saveGState()
+        ctx.setStrokeColor(UIColor.separator.withAlphaComponent(0.4).cgColor)
+        ctx.setLineWidth(0.5)
+        ctx.move(to: CGPoint(x: rect.minX + pad, y: dividerY))
+        ctx.addLine(to: CGPoint(x: rect.maxX - pad, y: dividerY))
+        ctx.strokePath()
+        ctx.restoreGState()
+
+        // Content text
+        let contentAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
+            .foregroundColor: UIColor.label
+        ]
+        let contentY = dividerY + 6
+        if !contentText.isEmpty {
+            (contentText as NSString).draw(
+                in: CGRect(
+                    x: rect.minX + pad,
+                    y: contentY,
+                    width: rect.width - pad * 2,
+                    height: rect.maxY - contentY - pad
+                ),
+                withAttributes: contentAttrs
+            )
+        }
+
+        // Flip hint (bottom-centre) when this flashcard is selected
+        if isSelected {
+            let hintText = "Double-tap to flip"
+            let hintAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 9),
+                .foregroundColor: UIColor.tertiaryLabel
+            ]
+            let hintSize = (hintText as NSString).size(withAttributes: hintAttrs)
+            (hintText as NSString).draw(
+                at: CGPoint(
+                    x: rect.midX - hintSize.width / 2,
+                    y: rect.maxY - pad - hintSize.height
+                ),
+                withAttributes: hintAttrs
+            )
+        }
+    }
+
+    private func drawProgressTracker(title: String, current: Int, total: Int,
+                                     in rect: CGRect, ctx: CGContext) {
+        let pad = WidgetConstants.containerPadding
+        var y = rect.minY + pad
+        if !title.isEmpty {
+            y = drawTitle(title, x: rect.minX + pad, y: y, width: rect.width - pad * 2, ctx: ctx)
+        }
+
+        // Progress bar track
+        let barHeight: CGFloat = 14
+        let barX = rect.minX + pad
+        let barW = rect.width - pad * 2
+        let barRect = CGRect(x: barX, y: y, width: barW, height: barHeight)
+        let barPath = UIBezierPath(roundedRect: barRect, cornerRadius: barHeight / 2)
+
+        ctx.saveGState()
+        ctx.setFillColor(UIColor.systemFill.cgColor)
+        ctx.addPath(barPath.cgPath)
+        ctx.fillPath()
+        ctx.restoreGState()
+
+        // Progress fill
+        let clampedTotal = max(total, 1)
+        let fraction = min(CGFloat(current) / CGFloat(clampedTotal), 1.0)
+        if fraction > 0 {
+            let fillW = max(barW * fraction, barHeight)
+            let fillRect = CGRect(x: barX, y: y, width: fillW, height: barHeight)
+            let fillPath = UIBezierPath(roundedRect: fillRect, cornerRadius: barHeight / 2)
+            ctx.saveGState()
+            ctx.setFillColor(UIColor.tintColor.withAlphaComponent(0.8).cgColor)
+            ctx.addPath(fillPath.cgPath)
+            ctx.fillPath()
+            ctx.restoreGState()
+        }
+
+        // Percentage label
+        let pct = Int(fraction * 100)
+        let pctText = "\(current)/\(total)  (\(pct)%)"
+        let pctAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 10),
+            .foregroundColor: UIColor.secondaryLabel
+        ]
+        (pctText as NSString).draw(
+            at: CGPoint(x: barX, y: y + barHeight + 4),
+            withAttributes: pctAttrs
+        )
+    }
+
+    /// Draws a small anchor-pin circle to indicate the widget is locked to the paper.
+    private func drawAnchorPin(at centre: CGPoint, in ctx: CGContext) {
+        let r: CGFloat = 5
+        let pinRect = CGRect(x: centre.x - r, y: centre.y - r, width: r * 2, height: r * 2)
+        ctx.saveGState()
+        ctx.setFillColor(UIColor.systemRed.withAlphaComponent(0.75).cgColor)
+        ctx.fillEllipse(in: pinRect)
+        ctx.setStrokeColor(UIColor.white.withAlphaComponent(0.9).cgColor)
+        ctx.setLineWidth(1)
+        ctx.strokeEllipse(in: pinRect)
+        // Centre dot
+        let dotR: CGFloat = 1.5
+        ctx.setFillColor(UIColor.white.cgColor)
+        ctx.fillEllipse(in: CGRect(
+            x: centre.x - dotR, y: centre.y - dotR,
+            width: dotR * 2, height: dotR * 2
+        ))
+        ctx.restoreGState()
+    }
+
     /// Draws a bold title and returns the Y position after the title.
     @discardableResult
     private func drawTitle(_ title: String, x: CGFloat, y: CGFloat, width: CGFloat, ctx: CGContext) -> CGFloat {
@@ -351,6 +555,17 @@ final class WidgetCanvasView: UIView {
         }
     }
 
+    @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+        let point = gesture.location(in: self)
+        guard let tapped = widgetAt(point: point),
+              tapped.id == selectedWidgetID,
+              let idx = widgets.firstIndex(where: { $0.id == tapped.id }),
+              case .flashcard(let front, let back, let isFlipped) = tapped.payload else { return }
+        widgets[idx].payload = .flashcard(front: front, back: back, isFlipped: !isFlipped)
+        setNeedsDisplay()
+        onWidgetsChanged?(widgets)
+    }
+
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
         guard let id = selectedWidgetID,
               let idx = widgets.firstIndex(where: { $0.id == id }),
@@ -401,17 +616,30 @@ final class WidgetCanvasView: UIView {
                 widgets[idx].frame.size = newRect.size
             } else {
                 var newPos = CGPoint(x: initial.position.x + dx, y: initial.position.y + dy)
-                let pageCenter = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
+
+                // Snap guides: page center + left/right/top margins anchored to page bounds
+                let snapDist = WidgetConstants.snapDistance
+                let w = bounds.width
+                let h = bounds.height
+                let xGuides: [CGFloat] = [
+                    w / 2,
+                    w * WidgetConstants.leftMarginFraction,
+                    w * WidgetConstants.rightMarginFraction
+                ]
+                let yGuides: [CGFloat] = [
+                    h / 2,
+                    h * WidgetConstants.topMarginFraction
+                ]
+
                 var snappedX = false
                 var snappedY = false
-                if abs(newPos.x - pageCenter.x) < WidgetConstants.snapDistance {
-                    newPos.x = pageCenter.x
-                    snappedX = true
+                for guide in xGuides {
+                    if abs(newPos.x - guide) < snapDist { newPos.x = guide; snappedX = true; break }
                 }
-                if abs(newPos.y - pageCenter.y) < WidgetConstants.snapDistance {
-                    newPos.y = pageCenter.y
-                    snappedY = true
+                for guide in yGuides {
+                    if abs(newPos.y - guide) < snapDist { newPos.y = guide; snappedY = true; break }
                 }
+
                 // Snap & align visual/haptic feedback
                 snapAlignEngine.playSnapFeedback(
                     on: layer, snappedX: snappedX, snappedY: snappedY

@@ -80,37 +80,49 @@ struct WidgetPickerView: View {
 
     private func iconName(for kind: WidgetKind) -> String {
         switch kind {
-        case .checklist:     return "checklist"
-        case .quickTable:    return "tablecells"
-        case .calloutBox:    return "exclamationmark.bubble"
-        case .referenceCard: return "doc.text.magnifyingglass"
+        case .checklist:        return "checklist"
+        case .quickTable:       return "tablecells"
+        case .calloutBox:       return "exclamationmark.bubble"
+        case .referenceCard:    return "doc.text.magnifyingglass"
+        case .stickyNote:       return "note.text"
+        case .flashcard:        return "rectangle.on.rectangle.angled"
+        case .progressTracker:  return "chart.bar.fill"
         }
     }
 
     private func displayName(for kind: WidgetKind) -> String {
         switch kind {
-        case .checklist:     return "Checklist"
-        case .quickTable:    return "Quick Table"
-        case .calloutBox:    return "Callout Box"
-        case .referenceCard: return "Reference Card"
+        case .checklist:        return "Checklist"
+        case .quickTable:       return "Quick Table"
+        case .calloutBox:       return "Callout Box"
+        case .referenceCard:    return "Reference Card"
+        case .stickyNote:       return "Sticky Note"
+        case .flashcard:        return "Flashcard"
+        case .progressTracker:  return "Progress"
         }
     }
 
     private func subtitle(for kind: WidgetKind) -> String {
         switch kind {
-        case .checklist:     return "Track tasks & steps"
-        case .quickTable:    return "Rows & columns"
-        case .calloutBox:    return "Highlight key info"
-        case .referenceCard: return "Glanceable reference"
+        case .checklist:        return "Track tasks & steps"
+        case .quickTable:       return "Rows & columns"
+        case .calloutBox:       return "Highlight key info"
+        case .referenceCard:    return "Glanceable reference"
+        case .stickyNote:       return "Quick coloured note"
+        case .flashcard:        return "Front & back study card"
+        case .progressTracker:  return "Track a goal"
         }
     }
 
     private func accentColor(for kind: WidgetKind) -> Color {
         switch kind {
-        case .checklist:     return .green
-        case .quickTable:    return .blue
-        case .calloutBox:    return .orange
-        case .referenceCard: return .purple
+        case .checklist:        return .green
+        case .quickTable:       return .blue
+        case .calloutBox:       return .orange
+        case .referenceCard:    return .purple
+        case .stickyNote:       return .yellow
+        case .flashcard:        return .teal
+        case .progressTracker:  return .indigo
         }
     }
 }

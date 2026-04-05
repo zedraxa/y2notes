@@ -150,6 +150,11 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts nil.
     @Published var activeAmbientScene: AmbientScene?
 
+    /// Whether ambient soundscapes are enabled.
+    /// When `false` the `AmbientEnvironmentEngine` plays no audio even if a
+    /// scene is active.  **Not persisted** — defaults to `true`.
+    @Published var isAmbientSoundEnabled: Bool = true
+
     /// Whether "Magic Mode" is active — writing particles, keyword glow,
     /// underline highlight animation.
     /// **Not persisted** — always starts false (default off).
