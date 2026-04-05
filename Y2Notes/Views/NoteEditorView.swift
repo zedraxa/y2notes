@@ -2895,6 +2895,23 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Hover preview
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
+        // Sync the ghost-nib appearance with the current tool state on every hover
+        // event.  This is cheap and ensures the nib reflects a colour/width change
+        // made while the pencil was already hovering.
+        if let ts = toolStoreRef {
+            let personality = ts.activePersonality
+            let info = HoverToolInfo(
+                tool: ts.activeTool,
+                color: ts.activeColor,
+                width: CGFloat(ts.activeWidth),
+                opacity: CGFloat(ts.activeOpacity),
+                widthMultiplier: CGFloat(personality?.widthMultiplier ?? 1.0),
+                showsAzimuthLine: personality?.usesTiltShading == true
+                               || personality?.usesBarrelRoll  == true,
+                eraserMode: ts.eraserMode
+            )
+            hoverOverlay?.configure(with: info)
+        }
         hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
     }
 
