@@ -2305,6 +2305,24 @@ struct CanvasView: UIViewRepresentable {
             self.onPinchToOverview = onPinchToOverview
         }
 
+        deinit {
+            // Flush any pending drawing save so strokes are never silently
+            // dropped when the coordinator deallocates (e.g. on page change).
+            if debounceTimer != nil {
+                debounceTimer?.invalidate()
+                debounceTimer = nil
+                onSaveRequested()
+            }
+            // Invalidate remaining timers.
+            postStrokeZoomUnlockTimer?.invalidate()
+            shapeDebounceTimer?.invalidate()
+            attachmentDebounceTimer?.invalidate()
+            // KVO observations are invalidated automatically by
+            // NSKeyValueObservation.deinit, but nil them for clarity.
+            contentOffsetObservation?.invalidate()
+            zoomScaleObservation?.invalidate()
+        }
+
         // MARK: - Page gesture handlers
 
         /// Tuning constants for the two-finger page-pan gesture recogniser.
@@ -2389,6 +2407,10 @@ struct CanvasView: UIViewRepresentable {
                         pageWidth: pageWidth
                     ) { [weak self] committed in
                         guard let self, committed else { return }
+                        // Flush any pending drawing save so strokes are
+                        // persisted before the page transition replaces
+                        // the canvas content.
+                        self.flushPendingSave()
                         self.pageTurnImpact.impactOccurred()
                         self.pageTurnImpact.prepare()
                         self.onPageSwipe?(self.pageDragDirection == .forward ? 1 : -1)
@@ -2401,6 +2423,7 @@ struct CanvasView: UIViewRepresentable {
                     else { return }
                     let dir: PageTransitionDirection = velocity.x < 0 ? .forward : .backward
                     guard !(dir == .backward && coordinatorPageIndex == 0) else { return }
+                    flushPendingSave()
                     onPageSwipe?(dir == .forward ? 1 : -1)
                 }
 
@@ -2472,6 +2495,7 @@ struct CanvasView: UIViewRepresentable {
             if WritingConfig.lockZoomDuringWriting {
                 strokeStartZoomScale = canvasView.zoomScale
                 canvasView.pinchGestureRecognizer?.isEnabled = false
+                canvasView.isScrollEnabled = false
             }
 
             // Capture base width for barrel-roll modulation at stroke start.
@@ -2519,15 +2543,19 @@ struct CanvasView: UIViewRepresentable {
             }
             barrelRollBaseWidth = nil
 
-            // Re-enable zoom after a short delay to prevent accidental zoom when
-            // lifting the hand between rapid successive strokes.
+            // Re-enable zoom and scroll after a short delay to prevent
+            // accidental zoom when lifting the hand between rapid successive
+            // strokes.  Guard `isDrawing` in the callback to handle the rare
+            // case where a new stroke begins before the timer fires.
             if WritingConfig.lockZoomDuringWriting {
                 postStrokeZoomUnlockTimer?.invalidate()
                 postStrokeZoomUnlockTimer = Timer.scheduledTimer(
                     withTimeInterval: WritingConfig.postStrokeZoomLockDelay,
                     repeats: false
-                ) { [weak canvasView] _ in
+                ) { [weak self, weak canvasView] _ in
+                    guard let self, !self.isDrawing else { return }
                     canvasView?.pinchGestureRecognizer?.isEnabled = true
+                    canvasView?.isScrollEnabled = true
                 }
                 strokeStartZoomScale = nil
             }
@@ -2800,6 +2828,16 @@ struct CanvasView: UIViewRepresentable {
             }
         }
 
+        /// Immediately cancels the pending debounce timer and triggers a
+        /// synchronous save.  Called before page transitions so strokes
+        /// drawn just before a swipe are never silently dropped.
+        func flushPendingSave() {
+            guard debounceTimer != nil else { return }
+            debounceTimer?.invalidate()
+            debounceTimer = nil
+            onSaveRequested()
+        }
+
         // MARK: - Canvas scroll / zoom → background sync
 
         /// Start observing the canvas's contentOffset and zoomScale via KVO so
@@ -2842,6 +2880,12 @@ struct CanvasView: UIViewRepresentable {
             CATransaction.setDisableActions(true)
             bg.transform = xform
             pdfBackgroundView?.transform = xform
+            // Keep object overlay canvases (shapes, attachments, widgets)
+            // in sync with the PencilKit canvas zoom/scroll so objects
+            // rendered in page-local coordinates don't drift from ink.
+            shapeCanvas?.transform = xform
+            attachmentCanvas?.transform = xform
+            widgetCanvas?.transform = xform
             CATransaction.commit()
         }
 
