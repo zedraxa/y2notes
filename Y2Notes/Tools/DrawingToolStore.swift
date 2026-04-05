@@ -157,13 +157,17 @@ final class DrawingToolStore: ObservableObject {
 
     /// Whether "Magic Mode" is active — writing particles, keyword glow,
     /// underline highlight animation.
-    /// **Not persisted** — always starts false (default off).
-    @Published var isMagicModeActive: Bool = false
+    /// Persisted in UserDefaults — default off.
+    @Published var isMagicModeActive: Bool = false {
+        didSet { UserDefaults.standard.set(isMagicModeActive, forKey: Keys.magicModeActive) }
+    }
 
     /// Whether "Study Mode" is active — heading glow, checklist completion
     /// animation, timer completion pulse.
-    /// **Not persisted** — always starts false (default off).
-    @Published var isStudyModeActive: Bool = false
+    /// Persisted in UserDefaults — default off.
+    @Published var isStudyModeActive: Bool = false {
+        didSet { UserDefaults.standard.set(isStudyModeActive, forKey: Keys.studyModeActive) }
+    }
 
     // MARK: - Computed Properties
 
@@ -332,6 +336,8 @@ final class DrawingToolStore: ObservableObject {
         static let presets    = "y2notes.tool.presets"
         static let opacity    = "y2notes.tool.opacity"
         static let toolbarMinimized = "y2notes.tool.toolbarMinimized"
+        static let magicModeActive  = "y2notes.tool.magicModeActive"
+        static let studyModeActive  = "y2notes.tool.studyModeActive"
     }
 
     // MARK: - Persistence Helpers
@@ -386,5 +392,9 @@ final class DrawingToolStore: ObservableObject {
         }
 
         isToolbarMinimized = ud.bool(forKey: Keys.toolbarMinimized)
+
+        // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
+        isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)
+        isStudyModeActive = ud.bool(forKey: Keys.studyModeActive)
     }
 }
