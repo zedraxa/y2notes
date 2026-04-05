@@ -147,7 +147,7 @@ struct OnboardingView: View {
 
     private func themeCard(_ theme: AppTheme) -> some View {
         let def = theme.definition
-        let isSelected = themeStore.selectedTheme == theme
+        let isSelected = themeStore.effectiveTheme == theme
         return Button {
             themeStore.select(theme)
         } label: {

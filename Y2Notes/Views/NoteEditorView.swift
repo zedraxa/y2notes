@@ -119,7 +119,7 @@ struct NoteEditorView: View {
     // MARK: - Effective theme
 
     private var effectiveTheme: AppTheme {
-        note.themeOverride ?? themeStore.selectedTheme
+        note.themeOverride ?? themeStore.effectiveTheme
     }
 
     private var effectiveDefinition: ThemeDefinition {
