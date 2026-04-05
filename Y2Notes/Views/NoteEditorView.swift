@@ -413,6 +413,7 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
                         toolStore.activeWidgetSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
@@ -429,6 +430,7 @@ struct NoteEditorView: View {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
                         toolStore.activeAttachmentSelection = nil
+                        toolStore.activeTextObjectSelection = nil
                         toolStore.hasActiveSelection = false
                     }
                 }
@@ -560,6 +562,24 @@ struct NoteEditorView: View {
             }
             .padding(.top, 60)
             .zIndex(0.75)
+        }
+
+        // Text object action bar
+        if toolStore.hasActiveTextObjectSelection,
+           let selectedID = toolStore.activeTextObjectSelection,
+           let selectedTextObject = note.textObjects(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+            VStack {
+                TextObjectHandlesView(
+                    textObject: selectedTextObject,
+                    onAction: { action in
+                        handleTextObjectAction(action, for: selectedID)
+                    }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                Spacer()
+            }
+            .padding(.top, 60)
+            .zIndex(0.8)
         }
     }
 
@@ -776,6 +796,7 @@ struct NoteEditorView: View {
             toolStore.activeShapeSelection = nil
             toolStore.activeStickerSelection = nil
             toolStore.activeAttachmentSelection = nil
+            toolStore.activeTextObjectSelection = nil
             toolStore.hasActiveSelection = false
         }
     }
@@ -957,6 +978,73 @@ struct NoteEditorView: View {
         }
 
         noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+    }
+
+    /// Handles actions from the text object action bar.
+    private func handleTextObjectAction(_ action: TextObjectAction, for textObjectID: UUID) {
+        let pageIdx = currentPageIndex
+        var textObjects = note.textObjects(forPage: pageIdx)
+        guard let idx = textObjects.firstIndex(where: { $0.id == textObjectID }) else { return }
+
+        switch action {
+        case .duplicate:
+            let source = textObjects[idx]
+            let copy = TextObject(
+                content: source.content,
+                frame: source.frame.offsetBy(dx: 20, dy: 20),
+                fontSize: source.fontSize,
+                textColor: source.textColor,
+                backgroundColor: source.backgroundColor,
+                alignment: source.textAlignment,
+                rotation: source.rotation,
+                opacity: source.opacity,
+                zIndex: (textObjects.map(\.zIndex).max() ?? 0) + 1,
+                isLocked: false
+            )
+            textObjects.append(copy)
+            toolStore.activeTextObjectSelection = copy.id
+
+        case .delete:
+            textObjects.remove(at: idx)
+            toolStore.activeTextObjectSelection = nil
+
+        case .toggleLock:
+            textObjects[idx].isLocked.toggle()
+
+        case .bringToFront:
+            let maxZ = textObjects.map(\.zIndex).max() ?? 0
+            textObjects[idx].zIndex = maxZ + 1
+
+        case .sendToBack:
+            let minZ = textObjects.map(\.zIndex).min() ?? 0
+            textObjects[idx].zIndex = minZ - 1
+
+        case .updateFontSize(let size):
+            textObjects[idx].fontSize = size
+
+        case .updateAlignment(let alignment):
+            switch alignment {
+            case .center: textObjects[idx].alignmentRaw = 1
+            case .right:  textObjects[idx].alignmentRaw = 2
+            default:      textObjects[idx].alignmentRaw = 0
+            }
+
+        case .updateTextColor(let color):
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            textObjects[idx].textColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+
+        case .updateBackgroundColor(let color):
+            if let bg = color {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                bg.getRed(&r, green: &g, blue: &b, alpha: &a)
+                textObjects[idx].backgroundColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+            } else {
+                textObjects[idx].backgroundColorComponents = nil
+            }
+        }
+
+        noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: textObjects)
     }
 
     // MARK: - Background blend helper
@@ -1934,6 +2022,9 @@ struct CanvasView: UIViewRepresentable {
         textCanvas.onPlaceTextObject = { point in
             context.coordinator.onPlaceTextObject?(point)
         }
+        textCanvas.onTextObjectTransformed = { textObject in
+            context.coordinator.handleTextObjectTransformed(textObject)
+        }
         context.coordinator.onTextObjectsChanged = onTextObjectsChanged
         context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
         context.coordinator.onPlaceTextObject = onPlaceTextObject
@@ -2374,6 +2465,9 @@ struct CanvasView: UIViewRepresentable {
 
         /// Called when the user taps empty space with the text tool active.
         var onPlaceTextObject: ((CGPoint) -> Void)?
+
+        /// Callback to propagate text object transform to the view.
+        var onTextObjectTransformed: ((TextObject) -> Void)?
 
         /// Weak reference to the drawing tool store for toolbar auto-fade.
         weak var toolStoreRef: DrawingToolStore?
@@ -2904,6 +2998,15 @@ struct CanvasView: UIViewRepresentable {
         }
 
         // MARK: - Text Object Coordinator
+
+        /// Called when a text object is moved, resized, or rotated.
+        func handleTextObjectTransformed(_ textObject: TextObject) {
+            guard var textObjects = textCanvas?.textObjects else { return }
+            if let idx = textObjects.firstIndex(where: { $0.id == textObject.id }) {
+                textObjects[idx] = textObject
+            }
+            handleTextObjectsChanged(textObjects)
+        }
 
         /// Debounced persistence for text object changes.
         func handleTextObjectsChanged(_ textObjects: [TextObject]) {

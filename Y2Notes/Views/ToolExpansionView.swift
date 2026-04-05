@@ -43,6 +43,8 @@ struct ToolExpansionView: View {
                 eraserExpansion
             } else if expandedTool == .shape {
                 shapeExpansion
+            } else if expandedTool == .text {
+                textExpansion
             }
         }
         .padding(.horizontal, 12)
@@ -206,6 +208,59 @@ struct ToolExpansionView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - Text Expansion
+
+    @ViewBuilder
+    private var textExpansion: some View {
+        VStack(spacing: 8) {
+            // Font size slider
+            HStack(spacing: 6) {
+                Image(systemName: "textformat.size")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: $toolStore.activeTextFontSize,
+                    in: TextObjectConstants.minFontSize...TextObjectConstants.maxFontSize,
+                    step: 1
+                )
+                .frame(minWidth: 120)
+                .onChange(of: toolStore.activeTextFontSize) { _, _ in resetTimeout() }
+                Text("\(Int(toolStore.activeTextFontSize))pt")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .frame(width: 32)
+            }
+
+            // Alignment buttons
+            HStack(spacing: 4) {
+                alignmentButton(0, icon: "text.alignleft")
+                alignmentButton(1, icon: "text.aligncenter")
+                alignmentButton(2, icon: "text.alignright")
+            }
+        }
+        .frame(maxWidth: 280)
+    }
+
+    private func alignmentButton(_ rawValue: Int, icon: String) -> some View {
+        let isSelected = toolStore.activeTextAlignmentRaw == rawValue
+        return Button {
+            toolStore.activeTextAlignmentRaw = rawValue
+            resetTimeout()
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .frame(width: 36, height: 32)
+                .background(
+                    isSelected
+                        ? Color.accentColor.opacity(0.15)
+                        : Color(.systemGray5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Helpers

@@ -140,6 +140,38 @@ final class DrawingToolStore: ObservableObject {
     /// Convenience: true when any text object is selected.
     var hasActiveTextObjectSelection: Bool { activeTextObjectSelection != nil }
 
+    /// Convenience: true when the text tool is the active tool.
+    var isTextToolActive: Bool { activeTool == .text }
+
+    /// Default font size for newly placed text objects (persisted).
+    @Published var activeTextFontSize: CGFloat = 16 {
+        didSet { UserDefaults.standard.set(Double(activeTextFontSize), forKey: Keys.textFontSize) }
+    }
+
+    /// Default text alignment for newly placed text objects (persisted).
+    /// 0 = left, 1 = center, 2 = right.
+    @Published var activeTextAlignmentRaw: Int = 0 {
+        didSet { UserDefaults.standard.set(activeTextAlignmentRaw, forKey: Keys.textAlignment) }
+    }
+
+    /// Resolved text alignment.
+    var activeTextAlignment: NSTextAlignment {
+        get {
+            switch activeTextAlignmentRaw {
+            case 1:  return .center
+            case 2:  return .right
+            default: return .left
+            }
+        }
+        set {
+            switch newValue {
+            case .center: activeTextAlignmentRaw = 1
+            case .right:  activeTextAlignmentRaw = 2
+            default:      activeTextAlignmentRaw = 0
+            }
+        }
+    }
+
     // MARK: - Recording State
 
     /// Whether an audio recording is currently in progress.
@@ -382,6 +414,8 @@ final class DrawingToolStore: ObservableObject {
         static let toolbarMinimized = "y2notes.tool.toolbarMinimized"
         static let magicModeActive  = "y2notes.tool.magicModeActive"
         static let studyModeActive  = "y2notes.tool.studyModeActive"
+        static let textFontSize     = "y2notes.tool.textFontSize"
+        static let textAlignment    = "y2notes.tool.textAlignment"
     }
 
     // MARK: - Persistence Helpers
@@ -450,5 +484,11 @@ final class DrawingToolStore: ObservableObject {
         // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
         isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)
         isStudyModeActive = ud.bool(forKey: Keys.studyModeActive)
+
+        // Text tool defaults.
+        let tf = ud.double(forKey: Keys.textFontSize)
+        if tf > 0 { activeTextFontSize = CGFloat(tf) }
+        let ta = ud.integer(forKey: Keys.textAlignment)
+        if ta > 0 { activeTextAlignmentRaw = ta }
     }
 }

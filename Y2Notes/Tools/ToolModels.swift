@@ -225,6 +225,23 @@ enum ToolbarMode: Equatable {
     case inserting
     /// Sticker tool active — show sticker picker / library.
     case stickering
+    /// Text tool active — show font size, colour, and alignment controls.
+    case texting
+}
+
+// MARK: - Text Object Action
+
+/// Actions available for a selected text object on the canvas.
+enum TextObjectAction {
+    case duplicate
+    case delete
+    case toggleLock
+    case bringToFront
+    case sendToBack
+    case updateFontSize(CGFloat)
+    case updateAlignment(NSTextAlignment)
+    case updateTextColor(UIColor)
+    case updateBackgroundColor(UIColor?)
 }
 
 // MARK: - Tool Preset

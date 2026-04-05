@@ -131,6 +131,7 @@
 		AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015C /* OpenSourceCreditsView.swift */; };
 		AA0001000000000000000161 /* TextObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000160 /* TextObject.swift */; };
 		AA0001000000000000000163 /* TextCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000162 /* TextCanvasView.swift */; };
+		AA0001000000000000000165 /* TextObjectHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000164 /* TextObjectHandlesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -203,6 +204,7 @@
 		AA000100000000000000015C /* OpenSourceCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSourceCreditsView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000160 /* TextObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextObject.swift; sourceTree = "<group>"; };
 		AA0001000000000000000162 /* TextCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextCanvasView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000164 /* TextObjectHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextObjectHandlesView.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -388,6 +390,7 @@
 				AA0001000000000000000158 /* WritingInsightsView.swift */,
 				AA000100000000000000015A /* CommandPaletteView.swift */,
 				AA0001000000000000000162 /* TextCanvasView.swift */,
+				AA0001000000000000000164 /* TextObjectHandlesView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -722,6 +725,7 @@
 				AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */,
 				AA0001000000000000000161 /* TextObject.swift in Sources */,
 				AA0001000000000000000163 /* TextCanvasView.swift in Sources */,
+				AA0001000000000000000165 /* TextObjectHandlesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

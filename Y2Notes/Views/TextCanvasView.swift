@@ -12,7 +12,7 @@ import UIKit
 ///
 /// All touches outside active text objects are passed through to the
 /// layers below when the text tool is not active.
-final class TextCanvasView: UIView {
+final class TextCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - Properties
 
@@ -42,6 +42,9 @@ final class TextCanvasView: UIView {
     /// Called when a new text object should be created at the given page position.
     var onPlaceTextObject: ((CGPoint) -> Void)?
 
+    /// Called when a single text object is transformed (moved/resized/rotated).
+    var onTextObjectTransformed: ((TextObject) -> Void)?
+
     // MARK: - Private State
 
     private var textLayers: [UUID: CATextLayer] = [:]
@@ -53,11 +56,23 @@ final class TextCanvasView: UIView {
     private var dragStartFrame: CGRect = .zero
     private var activeHandle: HandlePosition?
     private var isDragging = false
+    private var rotationStartAngle: CGFloat = 0
 
     // Inline editing
     private var editingTextView: UITextView?
     private var editingObjectID: UUID?
+
+    // Engines
     private let microEngine = MicroInteractionEngine()
+    private let snapAlignEngine = SnapAlignEffectEngine()
+
+    /// Current adaptive effect intensity.  Set by the editor coordinator.
+    var effectIntensity: EffectIntensity = .full {
+        didSet {
+            microEngine.effectIntensity = effectIntensity
+            snapAlignEngine.effectIntensity = effectIntensity
+        }
+    }
 
     // MARK: - Init
 
@@ -80,6 +95,10 @@ final class TextCanvasView: UIView {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         pan.maximumNumberOfTouches = 1
         addGestureRecognizer(pan)
+
+        let rotate = UIRotationGestureRecognizer(target: self, action: #selector(handleRotation(_:)))
+        rotate.delegate = self
+        addGestureRecognizer(rotate)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
@@ -136,6 +155,18 @@ final class TextCanvasView: UIView {
             bgLayer.backgroundColor = UIColor.clear.cgColor
         }
 
+        // Apply rotation around object center
+        if obj.rotation != 0 {
+            let center = CGPoint(x: obj.frame.midX, y: obj.frame.midY)
+            var transform = CATransform3DIdentity
+            transform = CATransform3DTranslate(transform, center.x - obj.frame.origin.x, center.y - obj.frame.origin.y, 0)
+            transform = CATransform3DRotate(transform, obj.rotation, 0, 0, 1)
+            transform = CATransform3DTranslate(transform, -(center.x - obj.frame.origin.x), -(center.y - obj.frame.origin.y), 0)
+            bgLayer.transform = transform
+        } else {
+            bgLayer.transform = CATransform3DIdentity
+        }
+
         CATransaction.commit()
     }
 
@@ -161,6 +192,18 @@ final class TextCanvasView: UIView {
         textLayer.foregroundColor = obj.textColor.cgColor
         textLayer.alignmentMode = caAlignmentMode(for: obj.textAlignment)
         textLayer.opacity = Float(obj.opacity)
+
+        // Apply rotation around object center
+        if obj.rotation != 0 {
+            let center = CGPoint(x: obj.frame.midX, y: obj.frame.midY)
+            var transform = CATransform3DIdentity
+            transform = CATransform3DTranslate(transform, center.x - obj.frame.origin.x, center.y - obj.frame.origin.y, 0)
+            transform = CATransform3DRotate(transform, obj.rotation, 0, 0, 1)
+            transform = CATransform3DTranslate(transform, -(center.x - obj.frame.origin.x), -(center.y - obj.frame.origin.y), 0)
+            textLayer.transform = transform
+        } else {
+            textLayer.transform = CATransform3DIdentity
+        }
 
         CATransaction.commit()
     }
@@ -298,6 +341,7 @@ final class TextCanvasView: UIView {
         switch gesture.state {
         case .began:
             commitEditing()
+            snapAlignEngine.prepareHaptics()
 
             if let handle = handleAt(point) {
                 activeHandle = handle
@@ -335,7 +379,43 @@ final class TextCanvasView: UIView {
             if let handle = activeHandle {
                 textObjects[idx].frame = resizedFrame(dragStartFrame, handle: handle, dx: dx, dy: dy)
             } else {
-                textObjects[idx].frame = dragStartFrame.offsetBy(dx: dx, dy: dy)
+                var newFrame = dragStartFrame.offsetBy(dx: dx, dy: dy)
+
+                // Snap alignment with other text objects
+                let movedCenter = CGPoint(x: newFrame.midX, y: newFrame.midY)
+                var snappedX = false
+                var snappedY = false
+
+                for (i, other) in textObjects.enumerated() where i != idx {
+                    let otherCenter = CGPoint(x: other.frame.midX, y: other.frame.midY)
+
+                    // Horizontal centre alignment
+                    if !snappedX && abs(movedCenter.x - otherCenter.x) < TextObjectConstants.snapDistance {
+                        newFrame.origin.x = otherCenter.x - newFrame.width / 2
+                        snappedX = true
+                        snapAlignEngine.playLineGuideFlash(
+                            from: CGPoint(x: otherCenter.x, y: 0),
+                            to: CGPoint(x: otherCenter.x, y: bounds.height),
+                            in: layer
+                        )
+                    }
+
+                    // Vertical centre alignment
+                    if !snappedY && abs(movedCenter.y - otherCenter.y) < TextObjectConstants.snapDistance {
+                        newFrame.origin.y = otherCenter.y - newFrame.height / 2
+                        snappedY = true
+                        snapAlignEngine.playLineGuideFlash(
+                            from: CGPoint(x: 0, y: otherCenter.y),
+                            to: CGPoint(x: bounds.width, y: otherCenter.y),
+                            in: layer
+                        )
+                    }
+                }
+
+                textObjects[idx].frame = newFrame
+
+                // Haptic feedback for perfect dual-axis alignment
+                snapAlignEngine.updatePerfectAlignment(isAligned: snappedX && snappedY)
 
                 if let l = textLayers[selectedID] {
                     let vel = gesture.velocity(in: self)
@@ -365,12 +445,34 @@ final class TextCanvasView: UIView {
                         microEngine.playReleaseBounce(on: l)
                     }
                     renderTextObjects()
+                    onTextObjectTransformed?(textObjects[idx])
                 }
                 isDragging = false
                 activeHandle = nil
                 onTextObjectsChanged?(textObjects)
             }
 
+        default:
+            break
+        }
+    }
+
+    // MARK: - Rotation Gesture
+
+    @objc private func handleRotation(_ gesture: UIRotationGestureRecognizer) {
+        guard let selectedID = selectedTextObjectID,
+              let idx = textObjects.firstIndex(where: { $0.id == selectedID }),
+              !textObjects[idx].isLocked else { return }
+
+        switch gesture.state {
+        case .began:
+            rotationStartAngle = textObjects[idx].rotation
+        case .changed:
+            textObjects[idx].rotation = rotationStartAngle + gesture.rotation
+            renderTextObjects()
+        case .ended, .cancelled:
+            onTextObjectsChanged?(textObjects)
+            onTextObjectTransformed?(textObjects[idx])
         default:
             break
         }
@@ -478,5 +580,21 @@ extension TextCanvasView: UITextViewDelegate {
 
     func textViewDidEndEditing(_ textView: UITextView) {
         commitEditing()
+    }
+}
+
+// MARK: - UIGestureRecognizerDelegate
+
+extension TextCanvasView: UIGestureRecognizerDelegate {
+    /// Allow rotation to be recognized simultaneously with pan.
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        // Allow rotation + pan simultaneously
+        if gestureRecognizer is UIRotationGestureRecognizer || otherGestureRecognizer is UIRotationGestureRecognizer {
+            return true
+        }
+        return false
     }
 }
