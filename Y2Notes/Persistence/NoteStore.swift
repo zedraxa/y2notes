@@ -260,11 +260,6 @@ final class NoteStore: ObservableObject {
         notes.filter { $0.linkedDocumentID == docID }
     }
 
-    /// Returns all notes that have any linked import (PDF or Document).
-    var importLinkedNotes: [Note] {
-        notes.filter { $0.linkedPDFID != nil || $0.linkedDocumentID != nil }
-    }
-
     /// Returns true if a companion note already exists for the given PDF.
     func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
         notes.contains { $0.linkedPDFID == pdfID }
