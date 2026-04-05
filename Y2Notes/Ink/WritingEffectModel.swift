@@ -196,6 +196,7 @@ struct WritingEffectConfig: Codable, Equatable {
     /// Whether any advanced effect is active.
     var hasAdvancedEffects: Bool {
         glowPenEnabled || neonInkEnabled || gradientInkEnabled || inkTrailFadeEnabled
+            || strokeTaperEnabled || inkPoolingEnabled
     }
 
     /// Returns the set of active core effects for iteration.
@@ -466,7 +467,7 @@ enum PressureCurvePreset: String, CaseIterable, Codable {
         }
     }
 
-    var description: String {
+    var tagline: String {
         switch self {
         case .light:    return "Very sensitive to light pressure"
         case .balanced: return "Natural, default feel"
