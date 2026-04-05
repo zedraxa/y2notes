@@ -313,23 +313,25 @@ final class InkEffectEngine {
     // MARK: - Private: Fire (multi-layer physics-driven)
 
     private func setupFireEmitter(color: UIColor) {
+        // Calculate the per-layer budget once so cell fractions correctly sum to ≤ 1×budget.
+        let budget = Float(min(tier.maxParticles, 60))
         emitterLayer.emitterShape = .point
         emitterLayer.emitterSize  = CGSize(width: 4, height: 4)
         emitterLayer.isHidden     = false
         emitterLayer.emitterCells = [
-            makeCoreFlameCell(),
-            makeMidFlameCell(color: color),
-            makeFireEmberCell()
+            makeCoreFlameCell(budget: budget),
+            makeMidFlameCell(color: color, budget: budget),
+            makeFireEmberCell(budget: budget)
         ]
         emitterLayer.birthRate = 0  // enabled on stroke begin
         configureFireGlow(color: color)
     }
 
     /// Bright yellow-white inner core: the hottest, fastest-rising column.
-    private func makeCoreFlameCell() -> CAEmitterCell {
+    private func makeCoreFlameCell(budget: Float) -> CAEmitterCell {
         let physics = ParticlePhysics.fireCorePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.28
+        cell.birthRate         = budget * 0.28
         cell.lifetime          = 0.28
         cell.lifetimeRange     = 0.12
         cell.velocity          = 95
@@ -353,10 +355,10 @@ final class InkEffectEngine {
     }
 
     /// Orange mid-flame: main visible body; hue is biased from the user's ink colour.
-    private func makeMidFlameCell(color: UIColor) -> CAEmitterCell {
+    private func makeMidFlameCell(color: UIColor, budget: Float) -> CAEmitterCell {
         let physics = ParticlePhysics.firePhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.62
+        cell.birthRate         = budget * 0.62
         cell.lifetime          = 0.50
         cell.lifetimeRange     = 0.25
         cell.velocity          = 68
@@ -379,10 +381,10 @@ final class InkEffectEngine {
     }
 
     /// Ember sparks: occasional bright orange flecks that scatter and fall.
-    private func makeFireEmberCell() -> CAEmitterCell {
+    private func makeFireEmberCell(budget: Float) -> CAEmitterCell {
         let physics = ParticlePhysics.fireEmberPhysics
         let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 60)) * 0.10  // rare
+        cell.birthRate         = budget * 0.10  // rare
         cell.lifetime          = 0.75
         cell.lifetimeRange     = 0.30
         cell.velocity          = 60
