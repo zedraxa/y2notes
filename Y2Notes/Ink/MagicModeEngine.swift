@@ -122,7 +122,6 @@ final class MagicModeEngine {
     /// Timestamp of previous point for velocity calculation.
     private var previousPointTime: CFTimeInterval = 0
 
-
     // MARK: - Computed Helpers
 
     private var shouldSuppressAnimations: Bool {

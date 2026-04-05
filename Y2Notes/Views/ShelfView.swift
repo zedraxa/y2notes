@@ -199,6 +199,8 @@ private struct ShelfSidebarView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore:  PDFStore
     @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var toolStore: DrawingToolStore
+    @EnvironmentObject var themeStore: ThemeStore
     @Binding var selectedSection: LibrarySection?
 
     @State private var showNewNotebookSheet = false
@@ -207,6 +209,8 @@ private struct ShelfSidebarView: View {
     @State private var showLibrarySearch = false
     @State private var showSettings = false
     @State private var sidebarManageSectionsNotebook: Notebook?
+    @State private var showCommandPalette = false
+    @State private var showWritingInsights = false
 
     // Binding passed down from ShelfView so tapping a search result selects the note.
     var onSelectNote: (UUID) -> Void
@@ -334,6 +338,13 @@ private struct ShelfSidebarView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
                     Button {
+                        showCommandPalette = true
+                    } label: {
+                        Image(systemName: "command")
+                    }
+                    .accessibilityLabel("Command Palette")
+                    .keyboardShortcut("k", modifiers: .command)
+                    Button {
                         showSettings = true
                     } label: {
                         Image(systemName: "gearshape")
@@ -385,6 +396,29 @@ private struct ShelfSidebarView: View {
         .sheet(item: $sidebarManageSectionsNotebook) { notebook in
             ManageSectionsSheet(notebookID: notebook.id)
         }
+        .sheet(isPresented: $showCommandPalette) {
+            CommandPaletteView(actions: buildQuickActions())
+        }
+        .sheet(isPresented: $showWritingInsights) {
+            WritingInsightsView()
+        }
+    }
+
+    // MARK: - Command Palette Actions
+
+    private func buildQuickActions() -> [QuickAction] {
+        QuickActionRegistry.actions(
+            onNewNote: { noteStore.addNote() },
+            onNewNotebook: { showNewNotebookSheet = true },
+            onOpenSettings: { showSettings = true },
+            onOpenSearch: { showLibrarySearch = true },
+            onOpenStudy: { selectedSection = .allNotes },
+            onToggleFocusMode: { toolStore.isFocusModeActive.toggle() },
+            onToggleMagicMode: { toolStore.isMagicModeActive.toggle() },
+            onToggleStudyMode: { toolStore.isStudyModeActive.toggle() },
+            onCycleTheme: { themeStore.cycleToNext() },
+            onShowInsights: { showWritingInsights = true }
+        )
     }
 }
 

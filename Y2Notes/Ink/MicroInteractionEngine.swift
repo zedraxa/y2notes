@@ -47,6 +47,13 @@ enum MicroInteractionType: String, CaseIterable {
     case settleFromLift  // spring-settle back to identity + fade glow
     case velocityDragInertia  // velocity-magnitude-scaled momentum carry
     case momentumShadow  // shadow direction and radius track velocity vector
+
+    // ── Deepened interaction types (AGENT-23) ───────────────────────────
+    case toolSwitchMorph // brief scale pulse when switching tools
+    case undoFlash       // faint overlay flash for undo/redo
+    case zoomDetentTick  // micro-bounce at detent zoom levels (100 %, etc.)
+    case canvasFirstTouch // very faint ripple on first canvas interaction
+    case buttonPress     // subtle press-down scale for toolbar buttons
 }
 
 // MARK: - Animation Spec
@@ -177,6 +184,38 @@ final class MicroInteractionEngine {
     static let liftAndGlowSpec = MicroAnimationSpec(
         type: .liftAndGlow,
         duration: 0.28,
+    // ── Deepened interaction specs (AGENT-23) ───────────────────────────
+
+    /// Tool switch morph: brief scale pulse when switching tools.
+    /// Duration: 0.22 s, critically-damped spring.
+    /// Scale: 1.0 → 1.02 → 1.0.
+    static let toolSwitchMorphSpec = MicroAnimationSpec(
+        type: .toolSwitchMorph,
+        duration: 0.22,
+        timingControlPoints: (0.34, 1.20, 0.64, 1.0),
+        delay: 0,
+        autoreverses: false,
+        repeatCount: 0
+    )
+
+    /// Undo flash: faint overlay flash for undo/redo feedback.
+    /// Duration: 0.25 s, ease-in-out.
+    /// Opacity: 0 → 0.06 → 0.
+    static let undoFlashSpec = MicroAnimationSpec(
+        type: .undoFlash,
+        duration: 0.25,
+        timingControlPoints: (0.42, 0.0, 0.58, 1.0),
+        delay: 0,
+        autoreverses: false,
+        repeatCount: 0
+    )
+
+    /// Zoom detent tick: micro-bounce at detent zoom levels.
+    /// Duration: 0.18 s, critically-damped spring.
+    /// Scale: 1.0 → 1.005 → 1.0.
+    static let zoomDetentTickSpec = MicroAnimationSpec(
+        type: .zoomDetentTick,
+        duration: 0.18,
         timingControlPoints: (0.34, 1.56, 0.64, 1.0),
         delay: 0,
         autoreverses: false,
@@ -188,6 +227,24 @@ final class MicroInteractionEngine {
     static let settleFromLiftSpec = MicroAnimationSpec(
         type: .settleFromLift,
         duration: 0.22,
+    /// Canvas first touch: very faint expanding ring on initial tap.
+    /// Duration: 0.4 s, ease-out.
+    /// Scale: 0 → 1, Opacity: 0.15 → 0.
+    static let canvasFirstTouchSpec = MicroAnimationSpec(
+        type: .canvasFirstTouch,
+        duration: 0.4,
+        timingControlPoints: (0.0, 0.0, 0.2, 1.0),
+        delay: 0,
+        autoreverses: false,
+        repeatCount: 0
+    )
+
+    /// Button press: subtle press-down scale for toolbar buttons.
+    /// Duration: 0.12 s, ease-out.
+    /// Scale: 1.0 → 0.96.
+    static let buttonPressSpec = MicroAnimationSpec(
+        type: .buttonPress,
+        duration: 0.12,
         timingControlPoints: (0.0, 0.0, 0.2, 1.0),
         delay: 0,
         autoreverses: false,
@@ -693,6 +750,210 @@ final class MicroInteractionEngine {
     /// the gesture — a fast fling carries farther (up to 40 pt) while a slow
     /// release barely moves.  The deceleration curve uses an ease-out quintic
     /// for a physically correct slowdown.
+    // MARK: - Tool Switch Morph (AGENT-23)
+
+    /// Plays a brief scale pulse on a layer when the user switches tools.
+    ///
+    /// The layer (typically the toolbar or canvas) gets a subtle 1.02× scale
+    /// impulse that settles via critically-damped spring.  Duration: 0.22 s.
+    ///
+    /// - Parameter layer: The target layer to animate.
+    func playToolSwitchMorph(on layer: CALayer) {
+        guard !shouldSuppressAnimations else { return }
+
+        let anim = CASpringAnimation(keyPath: "transform.scale")
+        anim.fromValue       = 1.0
+        anim.toValue         = 1.0
+        anim.initialVelocity = 5.0
+        anim.damping         = 16.0
+        anim.stiffness       = 350.0
+        anim.mass            = 0.8
+        anim.duration        = anim.settlingDuration
+        anim.fillMode        = .forwards
+        anim.isRemovedOnCompletion = true
+
+        layer.add(anim, forKey: "toolSwitchMorph")
+    }
+
+    // MARK: - Undo Flash (AGENT-23)
+
+    /// Plays a very faint overlay flash when undo/redo is performed.
+    ///
+    /// A translucent layer covers the target, pulses to 6 % opacity, then
+    /// fades out over 0.25 s.  Provides non-distracting visual confirmation.
+    ///
+    /// - Parameters:
+    ///   - container: The layer to flash inside.
+    ///   - isUndo: `true` for undo (warm tint), `false` for redo (cool tint).
+    func playUndoFlash(in container: CALayer, isUndo: Bool) {
+        guard !shouldSuppressAnimations else { return }
+        guard activeAnimationCount < InteractionRules.maxSimultaneousAnimations else { return }
+
+        activeAnimationCount += 1
+
+        let overlay = CALayer()
+        overlay.frame = container.bounds
+        overlay.backgroundColor = (isUndo
+            ? UIColor.systemOrange.withAlphaComponent(0.06)
+            : UIColor.systemBlue.withAlphaComponent(0.06)
+        ).cgColor
+        overlay.opacity = 0
+        container.addSublayer(overlay)
+
+        let anim = CAKeyframeAnimation(keyPath: "opacity")
+        anim.values   = [0, 1.0, 0]
+        anim.keyTimes = [0, 0.35, 1.0]
+        anim.duration = Self.undoFlashSpec.duration
+        anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        anim.fillMode = .forwards
+        anim.isRemovedOnCompletion = false
+
+        let captured = overlay
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            captured.removeFromSuperlayer()
+            self?.activeAnimationCount -= 1
+        }
+        overlay.add(anim, forKey: "undoFlash")
+        CATransaction.commit()
+    }
+
+    // MARK: - Zoom Detent Tick (AGENT-23)
+
+    /// Plays a micro-bounce on the canvas layer when zoom hits a detent.
+    ///
+    /// A barely perceptible 0.5 % scale impulse settles via spring physics.
+    /// Duration: 0.18 s.  This is the visual companion to the haptic tick
+    /// fired by `InteractionFeedbackEngine`.
+    ///
+    /// - Parameter layer: The canvas or container layer.
+    func playZoomDetentTick(on layer: CALayer) {
+        guard !shouldSuppressAnimations else { return }
+
+        let anim = CASpringAnimation(keyPath: "transform.scale")
+        anim.fromValue       = 1.0
+        anim.toValue         = 1.0
+        anim.initialVelocity = 3.0
+        anim.damping         = 18.0
+        anim.stiffness       = 400.0
+        anim.mass            = 0.6
+        anim.duration        = anim.settlingDuration
+        anim.fillMode        = .forwards
+        anim.isRemovedOnCompletion = true
+
+        layer.add(anim, forKey: "zoomDetentTick")
+    }
+
+    // MARK: - Canvas First Touch (AGENT-23)
+
+    /// Plays a very faint expanding ring on the first canvas tap.
+    ///
+    /// Similar to `tapRipple` but even subtler — 15 % max opacity and
+    /// larger diameter (56 pt).  Used for non-pencil taps to acknowledge
+    /// touch without distracting from the drawing surface.
+    ///
+    /// - Parameters:
+    ///   - point: Centre of the ripple in the container's coordinate space.
+    ///   - container: The `CALayer` to add the ripple to.
+    func playCanvasFirstTouch(at point: CGPoint, in container: CALayer) {
+        guard !shouldSuppressAnimations else { return }
+        guard activeAnimationCount < InteractionRules.maxSimultaneousAnimations else { return }
+
+        let diameter: CGFloat = 56
+        let ring = CAShapeLayer()
+        ring.path = UIBezierPath(ovalIn: CGRect(
+            x: -diameter / 2, y: -diameter / 2,
+            width: diameter, height: diameter
+        )).cgPath
+        ring.fillColor   = UIColor.clear.cgColor
+        ring.strokeColor = UIColor.label.withAlphaComponent(0.15).cgColor
+        ring.lineWidth   = 0.75
+        ring.position    = point
+        ring.opacity     = 0
+
+        container.addSublayer(ring)
+        activeAnimationCount += 1
+
+        let scale       = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = 0.0
+        scale.toValue   = 1.0
+
+        let opacity       = CABasicAnimation(keyPath: "opacity")
+        opacity.fromValue = 0.15
+        opacity.toValue   = 0.0
+
+        let group = CAAnimationGroup()
+        group.animations = [scale, opacity]
+        group.duration   = Self.canvasFirstTouchSpec.duration
+        group.timingFunction = CAMediaTimingFunction(controlPoints: 0.0, 0.0, 0.2, 1.0)
+        group.fillMode = .forwards
+        group.isRemovedOnCompletion = false
+
+        let captured = ring
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            captured.removeFromSuperlayer()
+            self?.activeAnimationCount -= 1
+        }
+        ring.add(group, forKey: "canvasFirstTouch")
+        CATransaction.commit()
+    }
+
+    // MARK: - Button Press / Release (AGENT-23)
+
+    /// Plays a subtle press-down scale on a toolbar button layer.
+    ///
+    /// Scale: 1.0 → 0.96 with ease-out.  Pairs with `playButtonRelease`
+    /// to create a physical "press and bounce-back" interaction.
+    ///
+    /// - Parameter layer: The button's presentation layer.
+    func playButtonPress(on layer: CALayer) {
+        guard !shouldSuppressAnimations else { return }
+
+        let anim = CABasicAnimation(keyPath: "transform.scale")
+        anim.toValue = 0.96
+        anim.duration = Self.buttonPressSpec.duration
+        anim.timingFunction = CAMediaTimingFunction(controlPoints: 0.0, 0.0, 0.2, 1.0)
+        anim.fillMode = .forwards
+        anim.isRemovedOnCompletion = false
+
+        layer.add(anim, forKey: "buttonPress")
+    }
+
+    /// Plays a spring bounce-back from the pressed state.
+    ///
+    /// Scale: 0.96 → 1.0 with spring overshoot.  Call on touch-up.
+    ///
+    /// - Parameter layer: The button's presentation layer.
+    func playButtonRelease(on layer: CALayer) {
+        guard !shouldSuppressAnimations else {
+            layer.removeAnimation(forKey: "buttonPress")
+            layer.transform = CATransform3DIdentity
+            return
+        }
+
+        let anim = CASpringAnimation(keyPath: "transform.scale")
+        anim.fromValue       = 0.96
+        anim.toValue         = 1.0
+        anim.initialVelocity = 8.0
+        anim.damping         = 12.0
+        anim.stiffness       = 300.0
+        anim.mass            = 0.8
+        anim.duration        = anim.settlingDuration
+        anim.fillMode        = .forwards
+        anim.isRemovedOnCompletion = true
+
+        layer.removeAnimation(forKey: "buttonPress")
+        layer.add(anim, forKey: "buttonRelease")
+    }
+
+    // MARK: - Velocity-Driven Drag Inertia (AGENT-22)
+
+    /// Enhanced drag inertia that uses spring physics scaled by gesture velocity.
+    ///
+    /// Fast flick gestures produce longer carry distance with a snappier settle,
+    /// while slow releases produce gentle deceleration.  The spring profile
+    /// adapts automatically.
     ///
     /// - Parameters:
     ///   - layer: The dragged layer.

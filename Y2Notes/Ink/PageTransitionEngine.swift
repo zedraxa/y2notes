@@ -91,6 +91,19 @@ final class PageTransitionEngine {
         static let rubberBandFactor: CGFloat = 0.22
     }
 
+    // MARK: - State
+
+    private var isTransitioning: Bool = false
+
+    // ── Interactive drag state ───────────────────────────────────────────────
+    private var interactiveShadowLayer: CAGradientLayer?
+    private var interactiveBendLayer: CAGradientLayer?
+    private var interactiveDirection: PageTransitionDirection = .forward
+
+    /// Current adaptive effect intensity.  Updated by the owning view.
+    var effectIntensity: EffectIntensity = .full
+
+    // MARK: - Public API
 
     // MARK: - Velocity-Driven Tuning
 
@@ -103,6 +116,182 @@ final class PageTransitionEngine {
         static let minDurationScale: CGFloat = 0.70
         /// Extra slide fraction added at peak velocity for a "flung" feel.
         static let maxSlideFractionBoost: CGFloat = 0.08
+    }
+
+    // MARK: - Interactive (Pan-Gesture) Drag
+
+    /// Prepares the engine for a live finger-tracked page drag.
+    ///
+    /// Call once when a two-finger pan gesture is recognised and its horizontal
+    /// direction has been determined.  Attaches edge-shadow and bend-highlight
+    /// sublayers to `view.layer` at opacity 0; they fade in as the drag proceeds.
+    ///
+    /// - Parameters:
+    ///   - view: The UIView whose `transform` will be modified during the drag.
+    ///   - direction: The page-turn direction for this drag.
+    ///   - pageWidth: Visible width of the page, used to position decoration layers.
+    func beginInteractiveDrag(
+        on view: UIView,
+        direction: PageTransitionDirection,
+        pageWidth: CGFloat
+    ) {
+        guard !isTransitioning else { return }
+        isTransitioning = true
+        interactiveDirection = direction
+
+        if ReduceMotionObserver.shared.isEnabled || !effectIntensity.allowsPageTurnPhysics {
+            playReducedMotionTransition(on: layer, completion: completion)
+            return
+        }
+
+        // Edge shadow
+        let shadow = makeEdgeShadow(height: height, direction: direction)
+        let shadowX: CGFloat = direction == .forward ? layer.bounds.width : 0
+        shadow.position = CGPoint(x: shadowX, y: height / 2)
+        shadow.opacity = 0
+        layer.addSublayer(shadow)
+        interactiveShadowLayer = shadow
+
+        // Bend highlight
+        let bend = makeBendHighlight(height: height, direction: direction)
+        let bendX: CGFloat = direction == .forward ? 0 : layer.bounds.width
+        bend.position = CGPoint(x: bendX, y: height / 2)
+        bend.opacity = 0
+        layer.addSublayer(bend)
+        interactiveBendLayer = bend
+    }
+
+    /// Updates the visual position of the page as the finger moves.
+    ///
+    /// Call on every `.changed` event from the pan gesture recognizer.
+    /// Applies the translation to `view.transform` without animation so the
+    /// page follows the finger exactly.  Shadow and bend opacity scale with
+    /// drag progress.  Wrong-direction drags apply rubber-band resistance.
+    ///
+    /// - Parameters:
+    ///   - view: The view passed to `beginInteractiveDrag`.
+    ///   - translation: Horizontal finger translation in points (from `gesture.translation(in:)`).
+    ///   - pageWidth: Visible page width.
+    func updateInteractiveDrag(
+        on view: UIView,
+        translation: CGFloat,
+        pageWidth: CGFloat
+    ) {
+        // Determine whether the drag is in the natural direction.
+        let isNaturalDirection: Bool
+        if interactiveDirection == .forward {
+            isNaturalDirection = translation <= 0
+        } else {
+            isNaturalDirection = translation >= 0
+        }
+
+        // Apply rubber-band resistance for wrong-direction drags.
+        let effectiveTranslation: CGFloat
+        if isNaturalDirection {
+            effectiveTranslation = translation
+        } else {
+            effectiveTranslation = translation * InteractiveTuning.rubberBandFactor
+        }
+
+        // Clamp to one full page width so the page can't fly too far off screen.
+        let clampedTranslation = max(-pageWidth, min(pageWidth, effectiveTranslation))
+
+        // Apply transform directly (no implicit animation) — we're outside any
+        // animation block so setting view.transform is instant.
+        view.transform = CGAffineTransform(translationX: clampedTranslation, y: 0)
+
+        // Scale decoration opacity with drag progress.
+        let progress = Float(min(abs(clampedTranslation) / pageWidth, 1.0))
+        interactiveShadowLayer?.opacity = progress * Tuning.edgeShadowOpacity
+        interactiveBendLayer?.opacity   = progress * Tuning.bendHighlightOpacity
+    }
+
+    /// Snaps the dragged page to its final position using spring physics.
+    ///
+    /// Decides whether the drag committed (page change) or cancelled (page
+    /// returns to its origin) based on the current offset and release velocity.
+    /// The `completion` closure is called on the main thread after the spring
+    /// settles; `committed` is `true` when the page should actually change.
+    ///
+    /// - Parameters:
+    ///   - view: The view passed to `beginInteractiveDrag`.
+    ///   - velocityX: Horizontal velocity at release (from `gesture.velocity(in:).x`).
+    ///   - pageWidth: Visible page width.
+    ///   - completion: Called when the animation finishes. `committed` is `true` if
+    ///     the drag exceeded the threshold and the page should change.
+    func finishInteractiveDrag(
+        on view: UIView,
+        velocityX: CGFloat,
+        pageWidth: CGFloat,
+        completion: @escaping (_ committed: Bool) -> Void
+    ) {
+        guard isTransitioning else {
+            completion(false)
+            return
+        }
+
+        let currentTranslation = view.transform.tx
+
+        // Determine commit/cancel.
+        let droppedPastThreshold: Bool
+        let velocitySufficient: Bool
+        if interactiveDirection == .forward {
+            droppedPastThreshold = currentTranslation < -(pageWidth * InteractiveTuning.commitThreshold)
+            velocitySufficient   = velocityX < -InteractiveTuning.commitVelocity
+        } else {
+            droppedPastThreshold = currentTranslation > pageWidth * InteractiveTuning.commitThreshold
+            velocitySufficient   = velocityX > InteractiveTuning.commitVelocity
+        }
+        let committed = droppedPastThreshold || velocitySufficient
+
+        // Target: commit → page fully off-screen; cancel → back to identity.
+        let targetTranslation: CGFloat
+        if committed {
+            targetTranslation = interactiveDirection == .forward ? -pageWidth : pageWidth
+        } else {
+            targetTranslation = 0
+        }
+
+        // Normalised initial velocity for the spring (distance per second).
+        let distance = abs(targetTranslation - currentTranslation)
+        let normalizedVelocity = distance > 0 ? abs(velocityX) / distance : 0
+
+        let dampingRatio = committed
+            ? InteractiveTuning.commitDamping
+            : InteractiveTuning.cancelDamping
+
+        let shadowRef = interactiveShadowLayer
+        let bendRef   = interactiveBendLayer
+
+        UIView.animate(
+            withDuration: InteractiveTuning.maxSnapDuration,
+            delay: 0,
+            usingSpringWithDamping: dampingRatio,
+            initialSpringVelocity: normalizedVelocity,
+            options: [.allowUserInteraction, .beginFromCurrentState]
+        ) {
+            view.transform = targetTranslation == 0
+                ? .identity
+                : CGAffineTransform(translationX: targetTranslation, y: 0)
+            shadowRef?.opacity = 0
+            bendRef?.opacity   = 0
+        } completion: { [weak self] _ in
+            shadowRef?.removeFromSuperlayer()
+            bendRef?.removeFromSuperlayer()
+            if self?.interactiveShadowLayer === shadowRef { self?.interactiveShadowLayer = nil }
+            if self?.interactiveBendLayer === bendRef     { self?.interactiveBendLayer   = nil }
+            self?.isTransitioning = false
+            completion(committed)
+        }
+    }
+
+    /// Immediately springs the page back to its origin without committing.
+    ///
+    /// Call when the pan gesture is `.cancelled` or `.failed`.
+    func cancelInteractiveDrag(on view: UIView, completion: @escaping () -> Void) {
+        finishInteractiveDrag(on: view, velocityX: 0, pageWidth: view.bounds.width) { _ in
+            completion()
+        }
     }
 
     // MARK: - Interactive (Pan-Gesture) Drag

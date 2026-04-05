@@ -60,6 +60,10 @@ enum EffectIntensity: Int, Comparable, CaseIterable {
 
     /// Whether study-mode feedback effects (heading glow, checklist pulse) should run.
     var allowsStudyMode: Bool { self >= .reduced }
+
+    /// Whether interaction feedback visuals (flash, scale pulse, border highlight) should run.
+    /// Haptic feedback is unaffected — it always fires.
+    var allowsInteractionFeedback: Bool { self >= .reduced }
 }
 
 // MARK: - Adaptive Effects Engine
@@ -144,10 +148,12 @@ final class AdaptiveEffectsEngine: ObservableObject {
         /// Lower = smoother / slower to react.
         static let velocitySmoothingAlpha: Double = 0.3
 
-        /// Thermal state at which effects are reduced to `.reduced`.
+        /// Thermal state at which effects begin reducing.
+        /// `.fair` means the device is warm but not throttling yet.
         static let thermalReduceState: ProcessInfo.ThermalState = .fair
 
-        /// Thermal state at which effects are reduced to `.minimal`.
+        /// Thermal state at which effects go minimal.
+        /// `.serious` means the device is approaching throttling.
         static let thermalMinimalState: ProcessInfo.ThermalState = .serious
     }
 

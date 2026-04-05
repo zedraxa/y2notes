@@ -238,6 +238,30 @@ final class InkEffectEngine {
                 updateFireGlowPosition(point)
             }
         case .shadow:
+            shadowEmitterLayer.isHidden  = false
+            shadowEmitterLayer.birthRate = 1
+            updateShadowEmitterPosition(point)
+        case .glitch:
+            glitchLayer.isHidden = false
+            triggerGlitchPulse()
+        case .glow:
+            glowLayer.isHidden = false
+            updateGlowPosition(point)
+        default:
+            break
+        }
+    }
+
+    /// Call for every drawing-changed callback to track the latest nib position.
+    func onStrokeUpdated(at point: CGPoint) {
+        guard activeFX != .none else { return }
+        switch activeFX {
+        case .fire, .sparkle, .snow, .dissolve, .blood:
+            updateEmitterPosition(point)
+            if activeFX == .fire {
+                updateFireGlowPosition(point)
+            }
+        case .shadow:
             updateShadowEmitterPosition(point)
         case .rainbow:
             rainbowHueOffset += 0.02
@@ -280,6 +304,101 @@ final class InkEffectEngine {
                 fireGlowLayer.add(fadeAnim, forKey: "fireGlowFade")
                 CATransaction.commit()
             }
+        case .shadow:
+            // Stop emitting; existing puffs/wisps linger naturally until their lifetime expires.
+            shadowEmitterLayer.birthRate = 0
+        case .ripple:
+            triggerRipple(at: point)
+        case .lightning:
+            triggerLightning(at: point)
+        case .glow:
+            // Fade glow out smoothly
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.3)
+            glowLayer.opacity = 0
+            CATransaction.setCompletionBlock { [weak self] in
+                self?.glowLayer.isHidden = true
+                self?.glowLayer.opacity = 1
+            }
+            CATransaction.commit()
+        default:
+            break
+        }
+    }
+
+    // MARK: - Deactivate
+
+    /// Removes all active FX layers / animations and marks the engine idle.
+    func deactivate() {
+        stopCurrentFX()
+        activeFX             = .none
+        overlayView.isHidden = true
+    }
+
+    // MARK: - Private: Fire (multi-layer physics-driven)
+
+    private enum FireTuning {
+        /// Hard cap on fire particles used when computing the per-tier budget.
+        /// Keeps fire feeling visually dense regardless of tier ceiling.
+        static let maxParticles: Int = 60
+        /// Fraction of the budget emitted by the bright inner core flame.
+        static let coreBudgetFraction: Float = 0.28
+        /// Fraction of the budget emitted by the main orange mid-flame body.
+        static let midBudgetFraction: Float = 0.62
+        /// Fraction of the budget emitted by rare ember sparks (sum = 1.00).
+        static let emberBudgetFraction: Float = 0.10
+    }
+
+    private func setupFireEmitter(color: UIColor) {
+        // Calculate the per-layer budget once so cell fractions correctly sum to ≤ 1×budget.
+        let budget = Float(min(tier.maxParticles, FireTuning.maxParticles))
+        emitterLayer.emitterShape = .point
+        emitterLayer.emitterSize  = CGSize(width: 4, height: 4)
+        emitterLayer.isHidden     = false
+        emitterLayer.emitterCells = [
+            makeCoreFlameCell(budget: budget),
+            makeMidFlameCell(color: color, budget: budget),
+            makeFireEmberCell(budget: budget)
+        ]
+        emitterLayer.birthRate = 0  // enabled on stroke begin
+        configureFireGlow(color: color)
+    }
+
+    /// Bright yellow-white inner core: the hottest, fastest-rising column.
+    private func makeCoreFlameCell(budget: Float) -> CAEmitterCell {
+        let physics = ParticlePhysics.fireCorePhysics
+        let cell               = CAEmitterCell()
+        cell.birthRate         = budget * FireTuning.coreBudgetFraction
+        cell.lifetime          = 0.28
+        cell.lifetimeRange     = 0.12
+        cell.velocity          = 95
+        cell.velocityRange     = CGFloat(physics.turbulence)
+        cell.yAcceleration     = physics.gravity  // strong upward rise
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi / 8          // tight column
+        cell.emissionLongitude = -.pi / 2         // straight up
+        cell.scale             = 0.040
+        cell.scaleRange        = 0.012
+        cell.scaleSpeed        = -0.022            // shrinks as it cools
+        cell.alphaSpeed        = -3.5              // fades fast — hot core is brief
+        cell.spin              = 0.8
+        cell.spinRange         = physics.spinRange
+        // Pale yellow-white: inner fire colour
+        cell.color             = UIColor(red: 1.0, green: 0.96, blue: 0.62, alpha: 0.95).cgColor
+        cell.redRange          = 0.04
+        cell.greenRange        = 0.06
+        cell.contents          = circleCGImage(diameter: 8)
+        return cell
+    }
+
+    /// Orange mid-flame: main visible body; hue is biased from the user's ink colour.
+    private func makeMidFlameCell(color: UIColor, budget: Float) -> CAEmitterCell {
+        let physics = ParticlePhysics.firePhysics
+        let cell               = CAEmitterCell()
+        cell.birthRate         = budget * FireTuning.midBudgetFraction
+        cell.lifetime          = 0.50
+        cell.lifetimeRange     = 0.25
+        cell.velocity          = 68
         cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
         cell.yAcceleration     = physics.effectiveGravity  // negative = rise (flames go up)
         cell.xAcceleration     = physics.wind
