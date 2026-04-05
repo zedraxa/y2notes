@@ -130,9 +130,12 @@ final class PageTransitionEngine {
         }
 
         // Spring parameters tuned for a light, crisp paper-settle feel.
-        let mass:      CGFloat = 0.9
-        let stiffness: CGFloat = 300
-        let damping:   CGFloat = 24
+        let mass:              CGFloat = 0.9
+        let stiffness:         CGFloat = 300
+        let damping:           CGFloat = 24
+        /// Initial scale of the new-page layer — just below full size so the spring
+        /// overshoots slightly, mimicking a sheet of paper settling on a desk.
+        let paperSettleInitialScale: CGFloat = 0.985
 
         // Slide up from +10 pts below
         let slide = CASpringAnimation(keyPath: "transform.translation.y")
@@ -145,9 +148,9 @@ final class PageTransitionEngine {
         slide.fillMode          = .backwards
         slide.isRemovedOnCompletion = true
 
-        // Scale from 0.985 → 1.0
+        // Scale from paperSettleInitialScale → 1.0
         let scale = CASpringAnimation(keyPath: "transform.scale")
-        scale.fromValue         = 0.985
+        scale.fromValue         = paperSettleInitialScale
         scale.toValue           = 1.0
         scale.mass              = mass
         scale.stiffness         = stiffness

@@ -60,6 +60,10 @@ final class PageBackgroundView: UIView {
     }
 
     /// Convenience Bool wrapper kept for call-site backward compatibility.
+    ///
+    /// - `get`: returns `true` when `grainIntensity > 0`.
+    /// - `set`: maps `true` → full intensity (`1.0`) and `false` → no grain (`0.0`).
+    ///   Use `grainIntensity` directly when a graduated value is needed.
     var showGrain: Bool {
         get { grainIntensity > 0 }
         set { grainIntensity = newValue ? 1.0 : 0.0 }
@@ -278,7 +282,7 @@ final class PageBackgroundView: UIView {
 
         for col in -1..<cols {
             let cx = rect.minX + CGFloat(col) * w + (w * 0.5)
-            let offset: CGFloat = (col % 2 == 0) ? 0 : (r * 1.0)
+            let offset: CGFloat = (col % 2 == 0) ? 0 : r
             for row in -1..<rows {
                 let cy = rect.minY + CGFloat(row) * r * 1.5 + offset
 

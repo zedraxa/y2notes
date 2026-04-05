@@ -1451,8 +1451,11 @@ struct NoteEditorView: View {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         currentPageIndex = newIndex
                     }
-                    // Reset the flag after the reveal animation completes so
-                    // subsequent re-renders don't replay it.
+                    // Reset the flag after the CA reveal animation completes.
+                    // The delay (0.55 s) intentionally exceeds the SwiftUI navigation
+                    // animation (0.25 s) to ensure the new CanvasView is fully
+                    // displayed before the flag resets, preventing a double-reveal
+                    // if SwiftUI re-renders during the transition.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
                         isNewPageJustAdded = false
                     }
