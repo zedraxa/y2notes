@@ -118,6 +118,7 @@
 		AA000100000000000000013D /* AdaptiveEffectsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013C /* AdaptiveEffectsEngine.swift */; };
 		AA000100000000000000013F /* MagicModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013E /* MagicModeEngine.swift */; };
 		AA0001000000000000000141 /* StudyModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000140 /* StudyModeEngine.swift */; };
+		AA0001000000000000000143 /* StickerRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000142 /* StickerRenderer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -178,6 +179,7 @@
 		AA000100000000000000013C /* AdaptiveEffectsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveEffectsEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000013E /* MagicModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MagicModeEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000140 /* StudyModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyModeEngine.swift; sourceTree = "<group>"; };
+		AA0001000000000000000142 /* StickerRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerRenderer.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -442,6 +444,7 @@
 				AA000100000000000000013C /* AdaptiveEffectsEngine.swift */,
 				AA000100000000000000013E /* MagicModeEngine.swift */,
 				AA0001000000000000000140 /* StudyModeEngine.swift */,
+				AA0001000000000000000142 /* StickerRenderer.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -667,6 +670,7 @@
 				AA000100000000000000013D /* AdaptiveEffectsEngine.swift in Sources */,
 				AA000100000000000000013F /* MagicModeEngine.swift in Sources */,
 				AA0001000000000000000141 /* StudyModeEngine.swift in Sources */,
+				AA0001000000000000000143 /* StickerRenderer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
