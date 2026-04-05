@@ -238,21 +238,23 @@ struct RecordingSessionListView: View {
                             .fill(Color(uiColor: .systemGray4))
                             .frame(height: 4)
 
-                        // Event tick marks — page events in orange, stroke/other in gray.
-                        // Rendered between track and fill so the red fill overlaps past marks.
+                        // Event tick marks drawn in a single Canvas pass for efficiency.
+                        // Page events appear in orange, stroke/other events in gray.
+                        // Rendered between track and fill so the red fill overlaps played marks.
                         if !playingEvents.isEmpty && recordingStore.playbackDuration > 0 {
                             let duration = recordingStore.playbackDuration
-                            ForEach(playingEvents.prefix(200), id: \.id) { event in
-                                Capsule()
-                                    .fill(
-                                        event.kind == .page
-                                            ? Color.orange.opacity(0.85)
-                                            : Color(uiColor: .systemGray2).opacity(0.7)
-                                    )
-                                    .frame(width: 2, height: 10)
-                                    .offset(x: geo.size.width * (event.offset / duration) - 1)
-                                    .allowsHitTesting(false)
+                            Canvas { context, size in
+                                for event in playingEvents {
+                                    let x = size.width * (event.offset / duration)
+                                    let color: Color = event.kind == .page
+                                        ? Color.orange.opacity(0.85)
+                                        : Color(uiColor: .systemGray2).opacity(0.7)
+                                    let rect = CGRect(x: x - 1, y: 0, width: 2, height: size.height)
+                                    let path = Path(roundedRect: rect, cornerRadius: 1)
+                                    context.fill(path, with: .color(color))
+                                }
                             }
+                            .allowsHitTesting(false)
                         }
 
                         // Fill
