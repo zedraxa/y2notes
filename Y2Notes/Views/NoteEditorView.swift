@@ -339,19 +339,20 @@ struct NoteEditorView: View {
                 canRedo = canRedoVal
             },
             onPageSwipe: { direction in
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                    if direction > 0 {
-                        if currentPageIndex >= note.pageCount - 1 {
-                            // Swipe past last page → auto-create new page
-                            if let newIndex = noteStore.addPage(to: note.id) {
-                                currentPageIndex = newIndex
-                            }
-                        } else {
-                            currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                // No SwiftUI animation here: the CA snap in PageTransitionEngine
+                // already handled the visual.  State changes instantly so the
+                // new page content is ready when the snap animation reveals it.
+                if direction > 0 {
+                    if currentPageIndex >= note.pageCount - 1 {
+                        // Swipe past last page → auto-create new page
+                        if let newIndex = noteStore.addPage(to: note.id) {
+                            currentPageIndex = newIndex
                         }
                     } else {
-                        currentPageIndex = max(0, currentPageIndex - 1)
+                        currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
                     }
+                } else {
+                    currentPageIndex = max(0, currentPageIndex - 1)
                 }
             },
             onPinchToOverview: {
@@ -402,13 +403,14 @@ struct NoteEditorView: View {
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
-        // Cross-fade transition between pages: SwiftUI animates the opacity
-        // removal of the old canvas and insertion of the new one via .id().
+        // Cross-fade transition between pages: only animates when SwiftUI drives
+        // the change (e.g. navigation-bar buttons) because those wrap the state
+        // update in `withAnimation`.  Gesture-triggered changes skip this — the
+        // CA spring in PageTransitionEngine already handled the visual.
         .transition(.opacity)
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
         .padding(.horizontal, 1)
-        .animation(.easeInOut(duration: 0.22), value: safePageIndex)
     }
 
     /// Floating toolbar capsule — bottom-center, above page navigation bar.
@@ -1813,24 +1815,20 @@ struct CanvasView: UIViewRepresentable {
         engine.attach(to: container)
         context.coordinator.effectEngine = engine
 
-        // ── Page gestures (two-finger swipe + three-finger pinch) ─────────
-        // Two-finger swipe left/right to navigate pages — avoids conflict
-        // with Apple Pencil drawing (single touch) and canvas zoom (pinch).
-        let swipeLeft = UISwipeGestureRecognizer(
+        // ── Page gestures (two-finger pan + three-finger pinch) ──────────────
+        // Two-finger horizontal pan navigates pages.  Using a pan recogniser
+        // (instead of a swipe) allows the page to follow the finger in real-time,
+        // giving the physical "book page" feel.  A horizontal-dominance check in
+        // the handler prevents accidental fires during canvas pan/zoom.
+        let pagePan = UIPanGestureRecognizer(
             target: context.coordinator,
-            action: #selector(Coordinator.handlePageSwipe(_:))
+            action: #selector(Coordinator.handlePagePan(_:))
         )
-        swipeLeft.direction = .left
-        swipeLeft.numberOfTouchesRequired = 2
-        container.addGestureRecognizer(swipeLeft)
-
-        let swipeRight = UISwipeGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handlePageSwipe(_:))
-        )
-        swipeRight.direction = .right
-        swipeRight.numberOfTouchesRequired = 2
-        container.addGestureRecognizer(swipeRight)
+        pagePan.minimumNumberOfTouches = 2
+        pagePan.maximumNumberOfTouches = 2
+        pagePan.delegate = context.coordinator
+        container.addGestureRecognizer(pagePan)
+        context.coordinator.pagePanGesture = pagePan
 
         // Pinch-in opens page overview grid.
         // The gesture delegate allows simultaneous recognition with
@@ -1973,6 +1971,10 @@ struct CanvasView: UIViewRepresentable {
 
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
+
+        // Sync page boundary info so the page-pan gesture can reject out-of-range drags.
+        context.coordinator.coordinatorPageIndex = pageIndex
+        context.coordinator.coordinatorPageCount = pageCount
 
         // Sync adaptive effects engine with current note complexity.
         context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
@@ -2136,9 +2138,29 @@ struct CanvasView: UIViewRepresentable {
         /// Pinch gesture recognizer for page overview.
         var pinchOverviewGesture: UIPinchGestureRecognizer?
 
+        /// Two-finger pan gesture recognizer for interactive page navigation.
+        var pagePanGesture: UIPanGestureRecognizer?
+
         /// Minimum scale observed during the current pinch-to-overview gesture.
         /// Tracked during `.changed` because `numberOfTouches` is zero at `.ended`.
         private var pinchOverviewMinScale: CGFloat = 1.0
+
+        // ── Interactive page-drag state ──────────────────────────────────────────
+        /// True while a two-finger horizontal pan is being tracked for page navigation.
+        private var pageIsDragging = false
+        /// Direction locked in at the start of the current page drag.
+        private var pageDragDirection: PageTransitionDirection = .forward
+        /// Current zero-based page index, kept in sync by `updateUIView`.
+        var coordinatorPageIndex: Int = 0
+        /// Total page count, kept in sync by `updateUIView`.
+        var coordinatorPageCount: Int = 1
+
+        /// Light haptic feedback played when a page drag commits.
+        private let pageTurnImpact: UIImpactFeedbackGenerator = {
+            let g = UIImpactFeedbackGenerator(style: .light)
+            g.prepare()
+            return g
+        }()
 
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
@@ -2202,27 +2224,95 @@ struct CanvasView: UIViewRepresentable {
 
         // MARK: - Page gesture handlers
 
-        /// Two-finger swipe handler for page navigation.
-        @objc func handlePageSwipe(_ gesture: UISwipeGestureRecognizer) {
-            guard !isDrawing else { return }
+        /// Two-finger pan handler for interactive page navigation.
+        ///
+        /// The page follows the finger in real-time.  Direction is determined on
+        /// the first update where horizontal motion clearly dominates vertical.
+        /// Backward drags are blocked when already on the first page to prevent
+        /// the container from flying off-screen with no state change to recover it.
+        ///
+        /// `onPageSwipe` is only called inside the snap-completion callback so
+        /// SwiftUI rebuilds the page content *after* the outgoing page has
+        /// finished its animation — eliminating the visual conflict that occurred
+        /// when state and CA animation changed simultaneously.
+        @objc func handlePagePan(_ gesture: UIPanGestureRecognizer) {
+            guard !isDrawing, let view = gesture.view else { return }
 
-            // Play physical page-turn effect on the gesture's container layer.
-            if let container = gesture.view?.layer {
-                let direction: PageTransitionDirection =
-                    gesture.direction == .left ? .forward : .backward
-                let pageWidth = container.bounds.width
-                pageTransitionEngine.playTransition(
-                    on: container,
-                    direction: direction,
-                    pageWidth: pageWidth
-                ) { /* visual cleanup handled internally */ }
-            }
+            let translation = gesture.translation(in: view)
+            let velocity    = gesture.velocity(in: view)
+            let pageWidth   = view.bounds.width
 
-            switch gesture.direction {
-            case .left:
-                onPageSwipe?(1)   // Next page
-            case .right:
-                onPageSwipe?(-1)  // Previous page
+            switch gesture.state {
+            case .began:
+                // Direction and drag start are deferred until the first `.changed`
+                // event that shows clear horizontal dominance.
+                pageIsDragging = false
+
+            case .changed:
+                if !pageIsDragging {
+                    // Wait until horizontal motion clearly dominates vertical.
+                    guard abs(translation.x) > abs(translation.y) * 1.5,
+                          abs(translation.x) > 8
+                    else { return }
+
+                    let dir: PageTransitionDirection = translation.x < 0 ? .forward : .backward
+
+                    // Block backward drag on the very first page: there's nothing to
+                    // return to, and committing would leave the container off-screen.
+                    if dir == .backward && coordinatorPageIndex == 0 { return }
+
+                    // Reduce-motion: fall through to the simpler cross-fade path.
+                    if pageTransitionEngine.effectIntensity.allowsPageTurnPhysics {
+                        pageDragDirection = dir
+                        pageIsDragging    = true
+                        pageTransitionEngine.beginInteractiveDrag(
+                            on: view,
+                            direction: dir,
+                            pageWidth: pageWidth
+                        )
+                    }
+                }
+
+                if pageIsDragging {
+                    pageTransitionEngine.updateInteractiveDrag(
+                        on: view,
+                        translation: translation.x,
+                        pageWidth: pageWidth
+                    )
+                }
+
+            case .ended:
+                if pageIsDragging {
+                    // Normal mode: spring-snap the interactive drag to completion
+                    // or back to origin.
+                    pageIsDragging = false
+
+                    pageTransitionEngine.finishInteractiveDrag(
+                        on: view,
+                        velocityX: velocity.x,
+                        pageWidth: pageWidth
+                    ) { [weak self] committed in
+                        guard let self, committed else { return }
+                        self.pageTurnImpact.impactOccurred()
+                        self.pageTurnImpact.prepare()
+                        self.onPageSwipe?(self.pageDragDirection == .forward ? 1 : -1)
+                    }
+                } else if !pageTransitionEngine.effectIntensity.allowsPageTurnPhysics {
+                    // Reduce-motion / low-intensity fallback: treat a fast, clearly
+                    // horizontal release as a swipe and change page immediately.
+                    guard abs(velocity.x) > 400,
+                          abs(velocity.x) > abs(velocity.y) * 1.5
+                    else { return }
+                    let dir: PageTransitionDirection = velocity.x < 0 ? .forward : .backward
+                    guard !(dir == .backward && coordinatorPageIndex == 0) else { return }
+                    onPageSwipe?(dir == .forward ? 1 : -1)
+                }
+
+            case .cancelled, .failed:
+                guard pageIsDragging else { return }
+                pageIsDragging = false
+                pageTransitionEngine.cancelInteractiveDrag(on: view) {}
+
             default:
                 break
             }
@@ -2249,13 +2339,15 @@ struct CanvasView: UIViewRepresentable {
 
         // MARK: - UIGestureRecognizerDelegate
 
-        /// Allows the page-overview pinch gesture to fire simultaneously with
-        /// PKCanvasView's built-in pinch-to-zoom so normal zoom is not blocked.
+        /// Allows the page-overview pinch and the page-pan to fire simultaneously
+        /// with PKCanvasView's built-in gestures.  The page-pan handler uses a
+        /// horizontal-dominance check to distinguish page turns from canvas scroll.
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
             gestureRecognizer === pinchOverviewGesture
+                || gestureRecognizer === pagePanGesture
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
