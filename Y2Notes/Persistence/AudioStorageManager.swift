@@ -445,8 +445,7 @@ final class AudioStorageManager {
             try? fm.removeItem(at: recoveryURL)
 
             storageLogger.info(
-                "Recovered interrupted session \(sessionID) — "
-                + "\(Self.formattedDuration(duration)), \(checkpoint.eventCount) events"
+                "Recovered interrupted session \(sessionID) — \(Self.formattedDuration(duration)), \(checkpoint.eventCount) events"
             )
         }
 
@@ -572,9 +571,7 @@ final class AudioStorageManager {
 
                         let saved = originalSize - compressedSize
                         storageLogger.info(
-                            "Compressed session \(sessionID): "
-                            + "\(Self.formattedBytes(originalSize)) → \(Self.formattedBytes(compressedSize)) "
-                            + "(saved \(Self.formattedBytes(saved)))"
+                            "Compressed session \(sessionID): \(Self.formattedBytes(originalSize)) → \(Self.formattedBytes(compressedSize)) (saved \(Self.formattedBytes(saved)))"
                         )
                         completion(.success(saved))
                     } catch {
