@@ -1834,6 +1834,7 @@ struct CanvasView: UIViewRepresentable {
         pencilCoordinator.attach(to: canvas)
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
+        context.coordinator.pencilHaptics = PencilHapticEngine()
 
         // ── Ink effect engine (fire / sparkle / glitch / ripple) ────────────
         let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
@@ -2121,6 +2122,12 @@ struct CanvasView: UIViewRepresentable {
         var pencilCoordinator: PencilInteractionCoordinator?
         var hoverOverlay: PencilHoverOverlayView?
         weak var canvasRef: PKCanvasView?
+
+        /// CoreHaptics engine for pencil hover proximity feedback.
+        var pencilHaptics: PencilHapticEngine?
+
+        /// True while a hover session is active — used to bracket haptic feedback.
+        private var wasHovering = false
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
@@ -2895,12 +2902,52 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Hover preview
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
+        // Build a tool-aware HoverToolInfo snapshot from the current tool store state.
+        if let store = toolStoreRef {
+            let kind: HoverToolKind
+            switch store.activeTool {
+            case .pen:              kind = .pen
+            case .pencil:           kind = .pencil
+            case .highlighter:      kind = .highlighter
+            case .fountainPen:      kind = .fountainPen
+            case .eraser:           kind = .eraser
+            case .lasso:            kind = .lasso
+            case .shape, .sticker:  kind = .other
+            }
+            // Highlighter has a 3× effective width — boost normalised value to reflect that.
+            let maxWidth: CGFloat = 20.0
+            let rawNormalized     = CGFloat(store.activeWidth) / maxWidth
+            let normalizedWidth   = store.activeTool == .highlighter
+                ? min(rawNormalized * 1.8, 1.0)
+                : min(rawNormalized, 1.0)
+            let opacity: CGFloat  = store.activeTool == .highlighter ? 0.4 : 1.0
+            let info = HoverToolInfo(
+                kind:            kind,
+                color:           store.activeColor,
+                normalizedWidth: normalizedWidth,
+                opacity:         opacity
+            )
+            hoverOverlay?.configure(with: info)
+        }
+
+        // Haptic feedback: bracket the hover session and tick at altitude thresholds.
+        if position != nil {
+            if !wasHovering {
+                pencilHaptics?.hoverBegan()
+                wasHovering = true
+            }
+            pencilHaptics?.updateAltitude(altitude)
+        } else if wasHovering {
+            pencilHaptics?.hoverEnded()
+            wasHovering = false
+        }
+
         hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
     }
 
     // MARK: Barrel-roll fountain pen (Apple Pencil Pro, iOS 17.5+)
 
-    func pencilBarrelRollChanged(angle: CGFloat) {
+    func pencilBarrelRollChanged(angle: CGFloat, position: CGPoint) {
         guard #available(iOS 17.5, *), let canvas = canvasRef else { return }
         guard let inkTool = canvas.tool as? PKInkingTool,
               inkTool.inkType == .fountainPen else { return }
