@@ -1197,7 +1197,10 @@ struct NoteEditorView: View {
                     .font(.subheadline)
                     .foregroundStyle(.accentColor)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Linked to: \(linkedImportTitle)")
+                    Text(String(
+                        format: NSLocalizedString("Import.LinkedTo", comment: ""),
+                        linkedImportTitle
+                    ))
                         .font(.caption.weight(.medium))
                         .lineLimit(1)
                     Text(linkedImportSubtitle)
@@ -1214,7 +1217,10 @@ struct NoteEditorView: View {
             .background(Color.accentColor.opacity(0.08))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Open linked import: \(linkedImportTitle)")
+        .accessibilityLabel(String(
+            format: NSLocalizedString("Import.LinkedTo", comment: ""),
+            linkedImportTitle
+        ))
     }
 
     private var linkedImportIcon: String {
@@ -1231,21 +1237,21 @@ struct NoteEditorView: View {
            let doc = documentStore.documents.first(where: { $0.id == docID }) {
             return doc.displayName
         }
-        return "Deleted Import"
+        return NSLocalizedString("Import.SourceDeleted", comment: "")
     }
 
     private var linkedImportSubtitle: String {
         if note.linkedPDFID != nil {
             if pdfStore.records.first(where: { $0.id == note.linkedPDFID }) != nil {
-                return "PDF Document — Tap to open"
+                return "PDF Document — " + NSLocalizedString("Import.TapToOpen", comment: "")
             }
-            return "Source file was deleted"
+            return NSLocalizedString("Import.SourceDeleted", comment: "")
         }
         if let docID = note.linkedDocumentID,
            let doc = documentStore.documents.first(where: { $0.id == docID }) {
-            return "\(doc.documentType.displayName) — Tap to open"
+            return "\(doc.documentType.displayName) — " + NSLocalizedString("Import.TapToOpen", comment: "")
         }
-        return "Source file was deleted"
+        return NSLocalizedString("Import.SourceDeleted", comment: "")
     }
 
     // MARK: - Selection Actions
