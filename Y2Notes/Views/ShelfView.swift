@@ -1535,6 +1535,32 @@ private struct ShimmerView: View {
     }
 }
 
+// MARK: - Shimmer loading placeholder
+
+private struct ShimmerView: View {
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(uiColor: .systemFill)
+                LinearGradient(
+                    colors: [.clear, Color(uiColor: .secondarySystemBackground).opacity(0.55), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: geo.size.width * 0.55)
+                .offset(x: (geo.size.width * 1.55) * phase - geo.size.width * 0.28)
+            }
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
+                phase = 1
+            }
+        }
+    }
+}
+
 // MARK: - Note card
 
 private struct NoteCardView: View {

@@ -190,8 +190,9 @@ enum NotePDFGenerator {
         case .ruled: drawRuledLines(ctx: ctx, rect: rect, color: lineColor)
         case .dot:   drawDotGrid(ctx: ctx, rect: rect, color: lineColor)
         case .grid:  drawSquareGrid(ctx: ctx, rect: rect, color: lineColor)
-        case .cornell: drawCornellRuling(ctx: ctx, rect: rect, color: lineColor)
-        case .music:   drawMusicStaves(ctx: ctx, rect: rect, color: lineColor)
+        case .cornell:   drawCornellRuling(ctx: ctx, rect: rect, color: lineColor)
+        case .hexagonal: drawHexGrid(ctx: ctx, rect: rect, color: lineColor)
+        case .music:     drawMusicStaff(ctx: ctx, rect: rect, color: lineColor)
         }
     }
 
@@ -294,49 +295,79 @@ enum NotePDFGenerator {
     }
 
     private static func drawCornellRuling(ctx: CGContext, rect: CGRect, color: UIColor) {
+        let ruledSpacing: CGFloat = 28
+        let cornellCueX: CGFloat = 224
+        let cornellHeaderY: CGFloat = 56
+        let summaryY = rect.height * 0.82
         ctx.saveGState()
-        let cueWidth: CGFloat = 72
-        let summaryHeight: CGFloat = 64
-        let dividerColor = color.withAlphaComponent(color.cgColor.alpha * 1.5)
-
-        ctx.setStrokeColor(dividerColor.cgColor)
-        ctx.setLineWidth(1.0)
-        ctx.move(to: CGPoint(x: cueWidth, y: 0))
-        ctx.addLine(to: CGPoint(x: cueWidth, y: rect.maxY - summaryHeight))
-        ctx.strokePath()
-
-        ctx.move(to: CGPoint(x: 0, y: rect.maxY - summaryHeight))
-        ctx.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - summaryHeight))
-        ctx.strokePath()
-
         ctx.setStrokeColor(color.cgColor)
         ctx.setLineWidth(0.5)
-        var y: CGFloat = 28
-        while y < rect.maxY - summaryHeight {
-            ctx.move(to: CGPoint(x: cueWidth + 8, y: y))
+        var y = cornellHeaderY + ruledSpacing
+        while y < summaryY {
+            ctx.move(to: CGPoint(x: rect.minX, y: y))
             ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
-            y += 28
+            y += ruledSpacing
+        }
+        ctx.strokePath()
+        let accentAlpha = min(color.cgColor.alpha * 2.2, 0.30)
+        let accentColor = color.withAlphaComponent(accentAlpha)
+        ctx.setStrokeColor(accentColor.cgColor)
+        ctx.setLineWidth(0.75)
+        ctx.move(to: CGPoint(x: rect.minX, y: cornellHeaderY))
+        ctx.addLine(to: CGPoint(x: rect.maxX, y: cornellHeaderY))
+        ctx.move(to: CGPoint(x: cornellCueX, y: cornellHeaderY))
+        ctx.addLine(to: CGPoint(x: cornellCueX, y: summaryY))
+        ctx.move(to: CGPoint(x: rect.minX, y: summaryY))
+        ctx.addLine(to: CGPoint(x: rect.maxX, y: summaryY))
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    private static func drawHexGrid(ctx: CGContext, rect: CGRect, color: UIColor) {
+        let r: CGFloat = 22
+        let w = r * sqrt(3.0)
+        let gridColor = color.withAlphaComponent(color.cgColor.alpha * 0.80)
+        ctx.saveGState()
+        ctx.setStrokeColor(gridColor.cgColor)
+        ctx.setLineWidth(0.5)
+        let cols = Int(ceil(rect.width  / w)) + 2
+        let rows = Int(ceil(rect.height / (r * 1.5))) + 2
+        for col in -1..<cols {
+            let cx = rect.minX + CGFloat(col) * w + w * 0.5
+            let offset: CGFloat = (col % 2 == 0) ? 0 : r
+            for row in -1..<rows {
+                let cy = rect.minY + CGFloat(row) * r * 1.5 + offset
+                ctx.move(to: hexVertexPDF(cx: cx, cy: cy, r: r, index: 0))
+                for i in 1...5 { ctx.addLine(to: hexVertexPDF(cx: cx, cy: cy, r: r, index: i)) }
+                ctx.closePath()
+            }
         }
         ctx.strokePath()
         ctx.restoreGState()
     }
 
-    private static func drawMusicStaves(ctx: CGContext, rect: CGRect, color: UIColor) {
+    private static func hexVertexPDF(cx: CGFloat, cy: CGFloat, r: CGFloat, index: Int) -> CGPoint {
+        let angle = (60.0 * Double(index) - 30.0) * .pi / 180.0
+        return CGPoint(x: cx + r * CGFloat(cos(angle)), y: cy + r * CGFloat(sin(angle)))
+    }
+
+    private static func drawMusicStaff(ctx: CGContext, rect: CGRect, color: UIColor) {
+        let staffLineSpacing: CGFloat = 8
+        let staffGroupGap: CGFloat = 32
+        let linesPerGroup = 5
+        let period = CGFloat(linesPerGroup - 1) * staffLineSpacing + staffGroupGap
         ctx.saveGState()
         ctx.setStrokeColor(color.cgColor)
-        ctx.setLineWidth(0.5)
-        let staffLineCount = 5
-        let staffLineSpacing: CGFloat = 8
-        let staffGroupSpacing: CGFloat = 48
-        let staffHeight = CGFloat(staffLineCount - 1) * staffLineSpacing
-        var groupTop: CGFloat = staffGroupSpacing
-        while groupTop + staffHeight <= rect.maxY {
-            for i in 0..<staffLineCount {
+        ctx.setLineWidth(0.75)
+        var groupTop = staffGroupGap * 0.5
+        while groupTop < rect.maxY {
+            for i in 0..<linesPerGroup {
                 let y = groupTop + CGFloat(i) * staffLineSpacing
-                ctx.move(to: CGPoint(x: 16, y: y))
-                ctx.addLine(to: CGPoint(x: rect.maxX - 16, y: y))
+                if y > rect.maxY { break }
+                ctx.move(to: CGPoint(x: rect.minX, y: y))
+                ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
             }
-            groupTop += staffHeight + staffGroupSpacing
+            groupTop += period
         }
         ctx.strokePath()
         ctx.restoreGState()

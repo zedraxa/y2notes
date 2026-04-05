@@ -1,48 +1,53 @@
 import SwiftUI
+import UIKit
 
 // MARK: - PageType
 
 /// The ruling style printed on notebook pages.
 enum PageType: String, CaseIterable, Codable, Identifiable {
-    case blank   = "blank"
-    case ruled   = "ruled"
-    case dot     = "dot"
-    case grid    = "grid"
-    case cornell = "cornell"
-    case music   = "music"
+    case blank      = "blank"
+    case ruled      = "ruled"
+    case dot        = "dot"
+    case grid       = "grid"
+    case cornell    = "cornell"
+    case hexagonal  = "hexagonal"
+    case music      = "music"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .blank:   return "Blank"
-        case .ruled:   return "Ruled"
-        case .dot:     return "Dot"
-        case .grid:    return "Grid"
-        case .cornell: return "Cornell"
-        case .music:   return "Music"
+        case .blank:     return "Blank"
+        case .ruled:     return "Ruled"
+        case .dot:       return "Dot"
+        case .grid:      return "Grid"
+        case .cornell:   return "Cornell"
+        case .hexagonal: return "Hexagonal"
+        case .music:     return "Music"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .blank:   return "Clean canvas"
-        case .ruled:   return "Lined writing"
-        case .dot:     return "Flexible guide"
-        case .grid:    return "Graph paper"
-        case .cornell: return "Study notes"
-        case .music:   return "Staff paper"
+        case .blank:     return "Clean canvas"
+        case .ruled:     return "Lined writing"
+        case .dot:       return "Flexible guide"
+        case .grid:      return "Graph paper"
+        case .cornell:   return "Organised note-taking"
+        case .hexagonal: return "Creative layouts"
+        case .music:     return "Five-line staff"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .blank:   return "square"
-        case .ruled:   return "text.alignleft"
-        case .dot:     return "circle.grid.3x3"
-        case .grid:    return "grid"
-        case .cornell: return "rectangle.split.2x1"
-        case .music:   return "music.note.list"
+        case .blank:     return "square"
+        case .ruled:     return "text.alignleft"
+        case .dot:       return "circle.grid.3x3"
+        case .grid:      return "grid"
+        case .cornell:   return "rectangle.split.2x1"
+        case .hexagonal: return "hexagon"
+        case .music:     return "music.note.list"
         }
     }
 }
@@ -181,15 +186,28 @@ enum PaperMaterial: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    /// Alpha applied to the 64×64 noise grain tile in `PageBackgroundView`.
-    /// Zero produces a clean surface; higher values show visible paper tooth.
+    /// Graduated grain intensity (0.0 = no grain, 1.0 = full grain).
+    /// Used by `PageBackgroundView` to render multi-octave paper tooth noise.
+    /// Replaces the former Boolean `hasGrainTexture`.
     var grainIntensity: Double {
         switch self {
-        case .standard: return 0
-        case .premium:  return 0.02
-        case .craft:    return 0.12
-        case .recycled: return 0.08
-        case .textured: return 0.15
+        case .craft:    return 0.70
+        case .recycled: return 0.50
+        case .textured: return 1.00
+        default:        return 0.00
+        }
+    }
+
+    /// `true` when the material carries any grain texture (convenience wrapper).
+    var hasGrainTexture: Bool { grainIntensity > 0 }
+
+    /// Optional tint applied to accent ruling elements (margin lines, Cornell
+    /// separators).  `nil` means use the default contrasting `lineColor`.
+    var rulingTint: UIColor? {
+        switch self {
+        case .craft:    return UIColor(red: 0.52, green: 0.36, blue: 0.18, alpha: 1.0)
+        case .recycled: return UIColor(red: 0.44, green: 0.44, blue: 0.36, alpha: 1.0)
+        default:        return nil
         }
     }
 }
