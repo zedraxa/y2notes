@@ -1,6 +1,7 @@
 import AVFoundation
 import UIKit
 import QuartzCore
+import AVFoundation
 
 // MARK: - Ambient Scene
 
@@ -280,6 +281,8 @@ final class AmbientEnvironmentEngine {
         activeScene = nil
         stopAudio(immediate: true)
     }
+
+    // MARK: - Rain Study Scene
 
     // MARK: - Ambient Sound Engine
 

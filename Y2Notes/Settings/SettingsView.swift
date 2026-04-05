@@ -19,6 +19,9 @@ struct SettingsView: View {
     @State private var showWritingInsights = false
     @State private var showOpenSourceCredits = false
 
+    private let toggleFeedback = UIImpactFeedbackGenerator(style: .light)
+    private let resetFeedback = UINotificationFeedbackGenerator()
+
     var body: some View {
         NavigationStack {
             Form {
@@ -52,6 +55,7 @@ struct SettingsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Reset to Defaults", role: .destructive) {
+                    resetFeedback.notificationOccurred(.warning)
                     settingsStore.resetToDefaults()
                 }
                 Button("Cancel", role: .cancel) {}
@@ -219,6 +223,7 @@ struct SettingsView: View {
             Toggle(isOn: $settingsStore.pencilOnlyDrawing) {
                 Label("Pencil-Only Drawing", systemImage: "pencil.tip")
             }
+            .onChange(of: settingsStore.pencilOnlyDrawing) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Pencil-only drawing. When enabled, finger input pans and zooms instead of drawing.")
         } header: {
             Text("Tool Preferences")
@@ -232,11 +237,13 @@ struct SettingsView: View {
             Toggle(isOn: $toolStore.isMagicModeActive) {
                 Label("Magic Mode", systemImage: "sparkles")
             }
+            .onChange(of: toolStore.isMagicModeActive) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Magic Mode. Adds writing particles, keyword glow, and underline highlight animation.")
 
             Toggle(isOn: $toolStore.isStudyModeActive) {
                 Label("Study Mode", systemImage: "graduationcap")
             }
+            .onChange(of: toolStore.isStudyModeActive) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Study Mode. Adds heading glow, checklist completion animation, and timer pulse.")
         } header: {
             Text("Ink Effects")
@@ -252,11 +259,13 @@ struct SettingsView: View {
             Toggle(isOn: $settingsStore.reduceMotion) {
                 Label("Reduce Motion", systemImage: "figure.walk.motion")
             }
+            .onChange(of: settingsStore.reduceMotion) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Reduce motion. Disables animations throughout the app.")
 
             Toggle(isOn: $settingsStore.highContrastMode) {
                 Label("Increase Contrast", systemImage: "circle.lefthalf.filled")
             }
+            .onChange(of: settingsStore.highContrastMode) { _, _ in toggleFeedback.impactOccurred() }
             .accessibilityLabel("Increase contrast mode for improved visibility.")
         } header: {
             Text("Accessibility")

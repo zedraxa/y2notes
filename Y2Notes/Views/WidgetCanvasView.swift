@@ -599,7 +599,6 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         let contentY = dividerY + 6
         let textH = max(0, rect.maxY - contentY - pad - confidenceH)
 
-
         // Content text
         let contentAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
