@@ -279,7 +279,7 @@ final class PageBackgroundView: UIView {
 
     private func drawGrain(in ctx: CGContext, rect: CGRect) {
         let stamp = grainStamp()
-        let stampSize: CGFloat = 64
+        let stampSize: CGFloat = 128
         ctx.saveGState()
         ctx.setAlpha(CGFloat(grainIntensity))
         let cols = Int(ceil(rect.width  / stampSize)) + 1
@@ -297,35 +297,20 @@ final class PageBackgroundView: UIView {
         ctx.restoreGState()
     }
 
-    /// Returns (and caches) a 64×64 monochrome noise image used as the grain tile.
+    /// Returns (and caches) a 128×128 monochrome Perlin noise image used as the grain tile.
+    /// Uses fractal Brownian motion for organic paper texture, replacing the simple
+    /// xorshift PRNG with algorithmically richer procedural noise.
     private func grainStamp() -> CGImage {
         if let cached = grainImage { return cached }
 
-        let side = 64
-        let bytesPerRow = side
-        var pixels = [UInt8](repeating: 0, count: side * side)
-        // Fill with pseudo-random noise using a fast xorshift PRNG so the
-        // stamp is deterministic (same grain every launch).
-        var seed: UInt32 = 0xDEAD_BEEF
-        for i in pixels.indices {
-            seed ^= seed << 13
-            seed ^= seed >> 17
-            seed ^= seed << 5
-            pixels[i] = UInt8(seed & 0xFF)
-        }
-        let colorSpace = CGColorSpaceCreateDeviceGray()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
-        let provider = CGDataProvider(data: Data(pixels) as CFData)!
-        let image = CGImage(
-            width: side, height: side,
-            bitsPerComponent: 8, bitsPerPixel: 8,
-            bytesPerRow: bytesPerRow,
-            space: colorSpace,
-            bitmapInfo: bitmapInfo,
-            provider: provider,
-            decode: nil,
-            shouldInterpolate: false,
-            intent: .defaultIntent
+        // Delegate to the custom Perlin noise tile generator.
+        // Smooth material gives subtle, uniform grain appropriate for note paper.
+        let image = NoiseTextureGenerator.generateTile(
+            width: 128,
+            height: 128,
+            material: .smooth,
+            scale: 0.045,
+            seed: 0xDEAD_BEEF
         )!
         grainImage = image
         return image

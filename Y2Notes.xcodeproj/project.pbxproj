@@ -130,6 +130,11 @@
 		AA000100000000000000015B /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015A /* CommandPaletteView.swift */; };
 		AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015C /* OpenSourceCreditsView.swift */; };
 		AA000100000000000000015F /* CoverTextureOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015E /* CoverTextureOverlay.swift */; };
+		AA0001000000000000000161 /* TrieIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000160 /* TrieIndex.swift */; };
+		AA0001000000000000000163 /* InsightsAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000162 /* InsightsAnalytics.swift */; };
+		AA0001000000000000000165 /* ColorScience.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000164 /* ColorScience.swift */; };
+		AA0001000000000000000167 /* PerlinNoise.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* PerlinNoise.swift */; };
+		AA0001000000000000000169 /* FluidSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000168 /* FluidSimulation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -201,6 +206,11 @@
 		AA000100000000000000015A /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015C /* OpenSourceCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSourceCreditsView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015E /* CoverTextureOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverTextureOverlay.swift; sourceTree = "<group>"; };
+		AA0001000000000000000160 /* TrieIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrieIndex.swift; sourceTree = "<group>"; };
+		AA0001000000000000000162 /* InsightsAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsAnalytics.swift; sourceTree = "<group>"; };
+		AA0001000000000000000164 /* ColorScience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorScience.swift; sourceTree = "<group>"; };
+		AA0001000000000000000166 /* PerlinNoise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerlinNoise.swift; sourceTree = "<group>"; };
+		AA0001000000000000000168 /* FluidSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluidSimulation.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -334,6 +344,7 @@
 				AA000100000000000000012E /* PageRegion.swift */,
 				AA0001000000000000000154 /* WritingInsights.swift */,
 				AA0001000000000000000156 /* QuickAction.swift */,
+				AA0001000000000000000162 /* InsightsAnalytics.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -408,6 +419,7 @@
 			children = (
 				AA0001000000000000000030 /* AppTheme.swift */,
 				AA0001000000000000000031 /* ThemeStore.swift */,
+				AA0001000000000000000164 /* ColorScience.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -441,6 +453,7 @@
 				AA00010000000000000000D2 /* OCREngine.swift */,
 				AA0001000000000000000100 /* SearchIndex.swift */,
 				AA000100000000000000011C /* AudioSearchIndexer.swift */,
+				AA0001000000000000000160 /* TrieIndex.swift */,
 			);
 			path = Search;
 			sourceTree = "<group>";
@@ -478,6 +491,8 @@
 				AA0001000000000000000144 /* EffectsCoordinator.swift */,
 				AA0001000000000000000146 /* WritingEffectsPipeline.swift */,
 				AA000100000000000000014A /* InteractionFeedbackEngine.swift */,
+				AA0001000000000000000166 /* PerlinNoise.swift */,
+				AA0001000000000000000168 /* FluidSimulation.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -613,6 +628,11 @@
 				AA00010000000000000000DB /* NotebookQuickCreator.swift in Sources */,
 				AA00010000000000000000D8 /* NotebookReaderView.swift in Sources */,
 				AA000100000000000000015F /* CoverTextureOverlay.swift in Sources */,
+				AA0001000000000000000161 /* TrieIndex.swift in Sources */,
+				AA0001000000000000000163 /* InsightsAnalytics.swift in Sources */,
+				AA0001000000000000000165 /* ColorScience.swift in Sources */,
+				AA0001000000000000000167 /* PerlinNoise.swift in Sources */,
+				AA0001000000000000000169 /* FluidSimulation.swift in Sources */,
 				AA0001000000000000000083 /* ToolModels.swift in Sources */,
 				AA0001000000000000000084 /* DrawingToolStore.swift in Sources */,
 				AA0001000000000000000085 /* DrawingToolbarView.swift in Sources */,
