@@ -2132,6 +2132,8 @@ private struct PDFCardView: View {
     let isSelected: Bool
     var hasCompanionNote: Bool = false
 
+    private static let companionBadgeColor = Color(red: 0.8, green: 0.3, blue: 0.3)
+
     @State private var thumbnail: UIImage?
 
     var body: some View {
@@ -2158,7 +2160,7 @@ private struct PDFCardView: View {
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .padding(4)
-                                .background(Circle().fill(Color(red: 0.8, green: 0.3, blue: 0.3).opacity(0.9)))
+                                .background(Circle().fill(Self.companionBadgeColor.opacity(0.9)))
                                 .padding(6)
                         }
                         Spacer()

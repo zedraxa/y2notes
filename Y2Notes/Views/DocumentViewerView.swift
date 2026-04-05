@@ -245,6 +245,8 @@ private struct DocumentCell: View {
     var hasCompanionNote: Bool = false
     let onTap: () -> Void
 
+    private static let companionBadgeColor = Color(red: 0.3, green: 0.5, blue: 0.7)
+
     var body: some View {
         Button(action: onTap) {
             ZStack(alignment: .topTrailing) {
@@ -274,7 +276,7 @@ private struct DocumentCell: View {
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(4)
-                        .background(Circle().fill(Color(red: 0.3, green: 0.5, blue: 0.7).opacity(0.9)))
+                        .background(Circle().fill(Self.companionBadgeColor.opacity(0.9)))
                         .offset(x: 2, y: -2)
                 }
             }
