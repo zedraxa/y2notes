@@ -599,6 +599,7 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
         let contentY = dividerY + 6
         let textH = max(0, rect.maxY - contentY - pad - confidenceH)
 
+
         // Content text
         let contentAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: WidgetConstants.bodyFontSize),
@@ -664,7 +665,6 @@ final class WidgetCanvasView: UIView, EffectIntensityReceiver {
                                      in rect: CGRect, ctx: CGContext) {
         let pad = WidgetConstants.containerPadding
         var y = rect.minY + pad
-
         let clampedTotal = max(total, 1)
         let fraction = min(CGFloat(current) / CGFloat(clampedTotal), 1.0)
         let pct = Int(fraction * 100)
