@@ -121,6 +121,7 @@
 		AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000142 /* ReduceMotionObserver.swift */; };
 		AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000144 /* EffectsCoordinator.swift */; };
 		AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000146 /* WritingEffectsPipeline.swift */; };
+		AA0001000000000000000149 /* PencilHapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* PencilHapticEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -184,6 +185,7 @@
 		AA0001000000000000000142 /* ReduceMotionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReduceMotionObserver.swift; sourceTree = "<group>"; };
 		AA0001000000000000000144 /* EffectsCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectsCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000146 /* WritingEffectsPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectsPipeline.swift; sourceTree = "<group>"; };
+		AA0001000000000000000148 /* PencilHapticEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHapticEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -393,6 +395,7 @@
 				AA0001000000000000000053 /* PencilInteractionCoordinator.swift */,
 				AA0001000000000000000054 /* PencilHoverOverlayView.swift */,
 				AA0001000000000000000055 /* ContextualPencilPaletteView.swift */,
+				AA0001000000000000000148 /* PencilHapticEngine.swift */,
 			);
 			path = PencilKit;
 			sourceTree = "<group>";
@@ -679,6 +682,7 @@
 				AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */,
 				AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */,
 				AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */,
+				AA0001000000000000000149 /* PencilHapticEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

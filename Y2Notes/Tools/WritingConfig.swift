@@ -230,6 +230,28 @@ enum WritingConfig {
     /// Opacity the toolbar restores to after drawing ends.
     static let toolbarFullOpacity: Double = 1.0
 
+    // MARK: - Pencil Haptics
+
+    /// Whether pencil haptic feedback is enabled by default.
+    /// Users can override this via the per-note haptics toggle.
+    static let pencilHapticsEnabled = true
+
+    /// Default haptic intensity scale (0.0–1.0).
+    /// Lower values produce softer feedback. 0.7 balances presence without fatigue
+    /// during extended writing sessions.
+    static let pencilHapticIntensityScale: Float = 0.7
+
+    // MARK: - Hover Preview
+
+    /// Whether the hover cursor adapts its shape/colour to the active tool.
+    /// When `false`, the cursor uses the original generic blue circle.
+    static let toolAwareHoverEnabled = true
+
+    /// Page-edge proximity threshold (0.0–1.0) at which the hover cursor begins
+    /// showing edge haptics. 0.85 means the last 15% of page width/height triggers
+    /// the feedback.
+    static let pageEdgeProximityThreshold: CGFloat = 0.85
+
     // MARK: - Transition Effects
 
     /// Duration of the crossfade animation when switching between tabs.

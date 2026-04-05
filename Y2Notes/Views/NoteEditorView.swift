@@ -327,6 +327,7 @@ struct NoteEditorView: View {
             paperMaterial: effectivePaperMaterial,
             activeFX: inkStore.resolvedFX,
             fxColor: toolStore.activeColor,
+            hoverToolInfo: Self.makeHoverToolInfo(from: toolStore),
             pageIndex: safePageIndex,
             onDrawingChanged: { data in
                 noteStore.updateDrawing(for: note.id, pageIndex: safePageIndex, data: data)
@@ -1518,6 +1519,8 @@ struct CanvasView: UIViewRepresentable {
     let activeFX: WritingFXType
     /// Ink colour resolved for the active FX preset.
     let fxColor: UIColor
+    /// Tool info snapshot for the hover preview cursor.
+    let hoverToolInfo: HoverToolInfo
     /// Zero-based page index within the multi-page note.
     let pageIndex: Int
     let onDrawingChanged: (Data) -> Void
@@ -1814,12 +1817,22 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.hoverOverlay = hoverOverlay
 
+        // Configure hover overlay with initial tool info.
+        if WritingConfig.toolAwareHoverEnabled {
+            hoverOverlay.configure(with: hoverToolInfo)
+        }
+
         // ── Apple Pencil interaction coordinator ─────────────────────────────
         let pencilCoordinator = PencilInteractionCoordinator()
         pencilCoordinator.delegate = context.coordinator
         pencilCoordinator.attach(to: canvas)
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
+
+        // ── Pencil haptic engine ─────────────────────────────────────────────
+        context.coordinator.pencilHaptics.isEnabled = WritingConfig.pencilHapticsEnabled
+        context.coordinator.pencilHaptics.intensityScale = WritingConfig.pencilHapticIntensityScale
+        context.coordinator.pencilHaptics.prepareForDrawing()
 
         // ── Ink effect engine (fire / sparkle / glitch / ripple) ────────────
         let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
@@ -1937,6 +1950,12 @@ struct CanvasView: UIViewRepresentable {
             }
         }
         canvas.isUserInteractionEnabled = !isShapeToolActive
+
+        // Sync hover overlay with current tool info so the cursor shape/colour
+        // matches the active tool (pen, pencil, highlighter, fountain pen, eraser, lasso).
+        if WritingConfig.toolAwareHoverEnabled {
+            context.coordinator.hoverOverlay?.configure(with: hoverToolInfo)
+        }
 
         // Sync shape overlay properties.
         if let overlay = context.coordinator.shapeOverlay {
@@ -2062,6 +2081,29 @@ struct CanvasView: UIViewRepresentable {
             : UIColor.label.withAlphaComponent(0.10)
     }
 
+    // MARK: - Hover tool info helper
+
+    /// Builds a `HoverToolInfo` snapshot from the current tool store state.
+    /// Used to configure the tool-aware hover cursor in `PencilHoverOverlayView`.
+    private static func makeHoverToolInfo(from store: DrawingToolStore) -> HoverToolInfo {
+        let kind: HoverToolKind
+        switch store.activeTool {
+        case .pen:          kind = .pen
+        case .pencil:       kind = .pencil
+        case .highlighter:  kind = .highlighter
+        case .fountainPen:  kind = .fountainPen
+        case .eraser:       kind = .eraser(width: CGFloat(store.activeWidth))
+        case .lasso:        kind = .lasso
+        case .shape, .sticker:
+            kind = .other
+        }
+        return HoverToolInfo(
+            tool: kind,
+            color: store.activeColor,
+            width: CGFloat(store.activeWidth)
+        )
+    }
+
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
@@ -2087,6 +2129,12 @@ struct CanvasView: UIViewRepresentable {
         var pencilCoordinator: PencilInteractionCoordinator?
         var hoverOverlay: PencilHoverOverlayView?
         weak var canvasRef: PKCanvasView?
+
+        /// Haptic feedback engine for pencil interactions (stroke begin/end, tool switch, etc.).
+        let pencilHaptics = PencilHapticEngine()
+
+        /// Last barrel-roll angle reported during hover (for hover cursor preview).
+        var lastHoverRollAngle: CGFloat = 0
 
         /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
         var effectEngine: InkEffectEngine?
@@ -2390,6 +2438,9 @@ struct CanvasView: UIViewRepresentable {
             postStrokeZoomUnlockTimer?.invalidate()
             postStrokeZoomUnlockTimer = nil
 
+            // Haptic: subtle confirmation of pencil contact.
+            pencilHaptics.strokeBegan()
+
             // Lock zoom during writing to prevent accidental zoom drift from
             // multi-touch interference (e.g. palm resting on screen).
             if WritingConfig.lockZoomDuringWriting {
@@ -2431,6 +2482,10 @@ struct CanvasView: UIViewRepresentable {
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
+
+            // Haptic: light release tap when pencil lifts off.
+            pencilHaptics.strokeEnded()
+
             // If barrel-roll modulated the fountain-pen width during this stroke,
             // the canvas tool is left at the modulated (drifted) width.
             // Invalidate lastToolSnapshot so updateUIView resets canvas.tool to
@@ -2809,6 +2864,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
 
     func pencilDidRequestSwitchToEraser() {
         guard let canvas = canvasRef else { return }
+        pencilHaptics.toolSwitched()
         if !(canvas.tool is PKEraserTool) {
             // Remember current inking tool before switching to eraser.
             previousInkingTool = canvas.tool
@@ -2818,6 +2874,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
 
     func pencilDidRequestSwitchToPreviousTool() {
         guard let canvas = canvasRef else { return }
+        pencilHaptics.toolSwitched()
         if let previous = previousInkingTool {
             canvas.tool = previous
             previousInkingTool = nil
@@ -2832,6 +2889,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     func pencilDidRequestContextualPalette(at anchorPoint: CGPoint) {
         guard let canvas = canvasRef,
               let window = canvas.window else { return }
+        pencilHaptics.squeezeFired()
         // Convert from canvas coordinates to window coordinates.
         let windowPoint = canvas.convert(anchorPoint, to: window)
         ContextualPencilPaletteView.show(
@@ -2845,31 +2903,77 @@ extension CanvasView.Coordinator: PencilActionDelegate {
     // MARK: Undo / redo
 
     func pencilDidRequestUndo() {
+        pencilHaptics.toolSwitched()
         canvasRef?.undoManager?.undo()
     }
 
     func pencilDidRequestRedo() {
+        pencilHaptics.toolSwitched()
         canvasRef?.undoManager?.redo()
     }
 
     // MARK: Double-tap delete
 
     func pencilDidRequestDeleteLastStroke() {
+        pencilHaptics.doubleTapFired()
         deleteLastStroke()
     }
 
     // MARK: Hover preview
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
-        hoverOverlay?.update(position: position, altitude: altitude, azimuth: azimuth)
+        hoverOverlay?.update(
+            position: position,
+            altitude: altitude,
+            azimuth: azimuth,
+            rollAngle: lastHoverRollAngle
+        )
+
+        // Page-edge proximity haptic: fire graduated tension as cursor
+        // approaches the page boundary.
+        if let position = position, let canvas = canvasRef {
+            let contentSize = canvas.contentSize
+            guard contentSize.width > 0, contentSize.height > 0 else { return }
+            // Convert hover position to content-space coordinates.
+            let contentPoint = CGPoint(
+                x: position.x + canvas.contentOffset.x,
+                y: position.y + canvas.contentOffset.y
+            )
+            let edgeX = max(
+                contentPoint.x / contentSize.width,
+                1.0 - contentPoint.x / contentSize.width
+            )
+            let edgeY = max(
+                contentPoint.y / contentSize.height,
+                1.0 - contentPoint.y / contentSize.height
+            )
+            let proximity = max(edgeX, edgeY)
+            if proximity > WritingConfig.pageEdgeProximityThreshold {
+                let normalised = (proximity - WritingConfig.pageEdgeProximityThreshold)
+                    / (1.0 - WritingConfig.pageEdgeProximityThreshold)
+                pencilHaptics.pageEdgeApproached(proximity: normalised)
+            }
+        }
     }
 
-    // MARK: Barrel-roll fountain pen (Apple Pencil Pro, iOS 17.5+)
+    // MARK: Barrel-roll (Apple Pencil Pro, iOS 17.5+)
 
-    func pencilBarrelRollChanged(angle: CGFloat) {
+    func pencilBarrelRollChanged(angle: CGFloat, position: CGPoint) {
+        // Always store the last roll angle for hover preview updates.
+        lastHoverRollAngle = angle
+
+        // Forward roll angle to hover overlay for nib rotation preview.
+        if let overlay = hoverOverlay, !isDrawing {
+            overlay.update(
+                position: position,
+                altitude: .pi / 2,  // assume perpendicular during drawing
+                azimuth: 0,
+                rollAngle: angle
+            )
+        }
+
         guard #available(iOS 17.5, *), let canvas = canvasRef else { return }
-        guard let inkTool = canvas.tool as? PKInkingTool,
-              inkTool.inkType == .fountainPen else { return }
+        guard let inkTool = canvas.tool as? PKInkingTool else { return }
 
         // Use the stable base width captured at stroke start (not the current
         // tool width, which drifts if we've already modulated once).
@@ -2878,6 +2982,14 @@ extension CanvasView.Coordinator: PencilActionDelegate {
         // Don't modulate while between strokes — let PencilKit keep its
         // native barrel-roll behaviour for the initial stroke setup.
         guard isDrawing else { return }
+
+        // Only fountain pen gets barrel-roll width modulation during active drawing.
+        // PencilKit controls rendering for other ink types natively.
+        if #available(iOS 17, *) {
+            guard inkTool.inkType == .fountainPen else { return }
+        } else {
+            return
+        }
 
         // Map barrel-roll angle to a width variation that mimics a calligraphic nib:
         // • Roll  0 (neutral)       → base width
@@ -2893,7 +3005,11 @@ extension CanvasView.Coordinator: PencilActionDelegate {
         // rebuilding PKInkingTool on every micro-movement.
         let currentWidth = inkTool.width
         if abs(clampedWidth - currentWidth) > 0.8 {
-            canvas.tool = PKInkingTool(.fountainPen, color: inkTool.color, width: clampedWidth)
+            if #available(iOS 17, *) {
+                canvas.tool = PKInkingTool(.fountainPen, color: inkTool.color, width: clampedWidth)
+            }
+            // Haptic milestone every ~15° of rotation.
+            pencilHaptics.barrelRollMilestone()
         }
     }
 }
