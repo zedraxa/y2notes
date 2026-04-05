@@ -11,19 +11,30 @@ struct BookmarkListView: View {
     let onJump: (NavigationAnchor) -> Void
     @Environment(\.dismiss) private var dismiss
 
+    @State private var rowsAppeared = false
+    private let colorCycleFeedback = UISelectionFeedbackGenerator()
+    private let jumpFeedback = UIImpactFeedbackGenerator(style: .light)
+
     var body: some View {
         NavigationStack {
             let items = navigationStore.bookmarks(for: notebook.id)
             if items.isEmpty {
                 ContentUnavailableView(
-                    "No Bookmarks",
+                    NSLocalizedString("Bookmarks.NoBookmarks", comment: ""),
                     systemImage: "bookmark",
-                    description: Text("Tap the bookmark icon on any page to save it here.")
+                    description: Text(NSLocalizedString("Bookmarks.EmptyHint", comment: ""))
                 )
             } else {
                 List {
-                    ForEach(items) { bookmark in
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, bookmark in
                         bookmarkRow(bookmark)
+                            .opacity(rowsAppeared ? 1 : 0)
+                            .offset(y: rowsAppeared ? 0 : 8)
+                            .animation(
+                                .spring(response: 0.35, dampingFraction: 0.8)
+                                .delay(Double(index) * 0.05),
+                                value: rowsAppeared
+                            )
                     }
                     .onDelete { offsets in
                         let allBookmarks = navigationStore.bookmarks(for: notebook.id)
@@ -33,9 +44,10 @@ struct BookmarkListView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .onAppear { rowsAppeared = true }
             }
         }
-        .navigationTitle("Bookmarks")
+        .navigationTitle(NSLocalizedString("Bookmarks.Title", comment: ""))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -49,6 +61,7 @@ struct BookmarkListView: View {
     @ViewBuilder
     private func bookmarkRow(_ bookmark: PageBookmark) -> some View {
         Button {
+            jumpFeedback.impactOccurred()
             onJump(bookmark.anchor)
             dismiss()
         } label: {
@@ -83,25 +96,30 @@ struct BookmarkListView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(bookmark.label.isEmpty ? resolvedLabel(for: bookmark) : bookmark.label)
+        .accessibilityHint(NSLocalizedString("Bookmarks.NavigateHint", comment: ""))
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 navigationStore.removeBookmark(id: bookmark.id)
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label(NSLocalizedString("Bookmarks.Delete", comment: ""), systemImage: "trash")
             }
         }
         .swipeActions(edge: .leading) {
             // Cycle colour tag
             Button {
+                colorCycleFeedback.selectionChanged()
                 let allColors = BookmarkColor.allCases
                 if let idx = allColors.firstIndex(of: bookmark.colorTag) {
                     let next = allColors[(idx + 1) % allColors.count]
                     navigationStore.updateBookmarkColor(id: bookmark.id, colorTag: next)
                 }
             } label: {
-                Label("Color", systemImage: "paintpalette")
+                Label(NSLocalizedString("Bookmarks.ChangeColor", comment: ""), systemImage: "paintpalette")
             }
             .tint(.orange)
+            .accessibilityLabel(NSLocalizedString("Bookmarks.ChangeColor", comment: ""))
+            .accessibilityHint(NSLocalizedString("Bookmarks.ColorHint", comment: ""))
         }
     }
 
@@ -152,14 +170,14 @@ struct RecentLocationsView: View {
     var body: some View {
         let recents = navigationStore.recentLocations(for: notebook.id)
         VStack(alignment: .leading, spacing: 0) {
-            Text("Recent Pages")
+            Text(NSLocalizedString("Bookmarks.RecentPages", comment: ""))
                 .font(.headline)
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
             if recents.isEmpty {
-                Text("No history yet")
+                Text(NSLocalizedString("Bookmarks.NoHistory", comment: ""))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)

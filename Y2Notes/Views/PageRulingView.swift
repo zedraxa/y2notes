@@ -5,10 +5,10 @@ import UIKit
 /// A non-interactive `UIView` that renders the page background for a note canvas:
 ///
 /// - Fills with the notebook's paper material tint colour.
-/// - Draws the page type ruling (ruled lines, dot grid, square grid, Cornell
-///   layout, hexagonal grid, or music staff) on top.
-/// - Optionally renders a multi-octave noise grain for textured paper materials.
-/// - Draws a subtle edge vignette shadow to give the page physical depth.
+/// - Draws the page type ruling (ruled lines, dot grid, square grid, Cornell,
+///   hexagonal grid, or music staves) on top.
+/// - Optionally renders multi-octave noise grain for textured paper materials.
+/// - Always draws a subtle edge-vignette shadow to suggest physical page depth.
 ///
 /// This view is inserted **behind** `PKCanvasView` inside the canvas container
 /// so that PencilKit strokes sit on top of the ruling. The canvas itself is set
@@ -16,9 +16,9 @@ import UIKit
 ///
 /// Performance notes:
 /// - `draw(_:)` is called once during layout; `setNeedsDisplay()` is triggered
-///   only when properties change (background color, page type, or grain intensity).
-/// - Grain is rendered via two cached `CGImage` stamps (64 px and 128 px) tiled
-///   at different scales for a multi-octave texture feel.
+///   only when properties change (background color, page type, or grain).
+/// - Grain is rendered via two cached `CGImage`s (coarse + fine octave) tiled
+///   across the surface using the deterministic xorshift PRNG.
 /// - All drawing uses `CGContext` primitives — no CALayer animations or
 ///   UIKit-hierarchy overhead.
 final class PageBackgroundView: UIView {
@@ -40,46 +40,64 @@ final class PageBackgroundView: UIView {
         didSet { if lineColor != oldValue { setNeedsDisplay() } }
     }
 
-    /// Noise grain intensity in the range [0, 1].
-    /// `0.0` disables the grain overlay entirely.
-    /// Typical material values: 0.045 (recycled) … 0.075 (textured).
-    var grainIntensity: Double = 0.0 {
+    /// Optional tint applied to accent ruling elements (margin lines, Cornell
+    /// separators).  When `nil` the standard red-tinted accent is used with a
+    /// subtle alpha so accents remain visible but understated.
+    var rulingTint: UIColor? {
+        didSet { if rulingTint != oldValue { setNeedsDisplay() } }
+    }
+
+    /// Graduated grain intensity in [0, 1].  0 = no grain; 1 = full two-octave
+    /// noise overlay.  Replaces the former Boolean `showGrain`.
+    var grainIntensity: Double = 0 {
         didSet {
             if grainIntensity != oldValue {
-                grainImageSmall = nil
-                grainImageLarge = nil
+                grainImage = nil
+                fineGrainImage = nil
                 setNeedsDisplay()
             }
         }
     }
 
+    /// Convenience Bool wrapper kept for call-site backward compatibility.
+    ///
+    /// - `get`: returns `true` when `grainIntensity > 0`.
+    /// - `set`: maps `true` → full intensity (`1.0`) and `false` → no grain (`0.0`).
+    ///   Use `grainIntensity` directly when a graduated value is needed.
+    var showGrain: Bool {
+        get { grainIntensity > 0 }
+        set { grainIntensity = newValue ? 1.0 : 0.0 }
+    }
+
     // MARK: - Geometry constants
 
-    private let ruledSpacing:      CGFloat = 28   // points between ruled lines
-    private let gridSpacing:       CGFloat = 24   // points between grid lines
-    private let dotRadius:         CGFloat = 1.5  // radius of dot-grid dots
-    private let dotSpacing:        CGFloat = 24   // points between dot-grid dots
-    private let staffLineSpacing:  CGFloat = 7    // points between lines within a music staff
-    private let staffGroupGap:     CGFloat = 44   // points between bottom of one staff and top of next
-    private let hexRadius:         CGFloat = 18   // circumradius of hexagonal cells
+    private let ruledSpacing:       CGFloat = 28    // points between ruled lines
+    private let gridSpacing:        CGFloat = 24    // points between grid lines
+    private let dotRadius:          CGFloat = 1.5   // radius of dot-grid dots
+    private let dotSpacing:         CGFloat = 24    // points between dot-grid dots
     /// Blank space at the very top of the page before the first ruling or dot row.
     /// Mirrors the header margin found on real college-ruled notebooks (~56 pt ≈ 20 mm).
-    private let topMargin:         CGFloat = 56
+    private let topMargin:          CGFloat = 56
     /// Horizontal offset of the left margin line from the page edge, matching
     /// the standard single-margin position used in physical ruled notebooks.
     /// The value (80 pt ≈ 28 mm) is fixed because the page width is always the
     /// device's landscape dimension (~1024–1366 pt), making a proportional
     /// ~7 % offset equivalent to roughly 28 mm on every supported device.
-    private let leftMarginOffset:  CGFloat = 80
+    private let leftMarginOffset:   CGFloat = 80
+    private let cornellCueX:        CGFloat = 224   // Cornell cue-column separator x
+    private let cornellHeaderY:     CGFloat = 56    // Cornell header separator y
+    private let cornellSummaryFrac: CGFloat = 0.82  // Cornell summary line as fraction of height
+    private let hexRadius:          CGFloat = 22    // hexagon circumradius (pointy-top)
+    private let staffLineSpacing:   CGFloat = 8     // points between adjacent staff lines
+    private let staffGroupGap:      CGFloat = 32    // gap between staff groups
+    private let staffLinesCount:    Int     = 5     // lines per staff group
 
     // MARK: - Grain cache
 
-    /// Small (64×64) noise tile for the primary grain octave.
-    private var grainImageSmall: CGImage?
-    /// Larger (128×128) noise tile for the secondary grain octave.
-    private var grainImageLarge: CGImage?
-    /// Catch-all cache for any other stamp sizes (keyed by side length).
-    private var grainImageCache: [Int: CGImage] = [:]
+    /// Coarse (64×64) noise image for the first grain octave.
+    private var grainImage: CGImage?
+    /// Fine (32×32) noise image for the second (higher-frequency) grain octave.
+    private var fineGrainImage: CGImage?
 
     // MARK: - Init
 
@@ -124,7 +142,7 @@ final class PageBackgroundView: UIView {
             drawMusicStaff(in: ctx, rect: rect)
         }
 
-        // 3. Overlay grain if requested.
+        // 3. Overlay multi-octave grain if requested.
         if grainIntensity > 0 {
             drawGrain(in: ctx, rect: rect)
         }
@@ -199,20 +217,17 @@ final class PageBackgroundView: UIView {
 
     private func drawSquareGrid(in ctx: CGContext, rect: CGRect) {
         ctx.saveGState()
-        // Grid lines are drawn at half the opacity of ruled lines to avoid
-        // looking too heavy when both axes are present.
+        // Grid lines at slightly reduced opacity so both axes don't look heavy.
         let gridColor = lineColor.withAlphaComponent(lineColor.cgColor.alpha * 0.7)
         ctx.setStrokeColor(gridColor.cgColor)
         ctx.setLineWidth(0.5)
 
-        // Horizontal lines
         var y = gridSpacing
         while y <= rect.maxY {
             ctx.move(to: CGPoint(x: rect.minX, y: y))
             ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
             y += gridSpacing
         }
-        // Vertical lines
         var x = gridSpacing
         while x <= rect.maxX {
             ctx.move(to: CGPoint(x: x, y: rect.minY))
@@ -225,215 +240,170 @@ final class PageBackgroundView: UIView {
 
     // MARK: - Cornell ruling
 
-    /// Renders the classic Cornell note-taking layout:
-    /// - A vertical margin/cue-column line at ~28 % from the left.
-    /// - A horizontal header line near the top.
-    /// - A horizontal summary line near the bottom.
-    /// - Light horizontal ruling lines in the main note-taking area.
+    /// Renders a Cornell-style note-taking layout:
+    ///
+    /// - Regular **horizontal ruled lines** spanning the full page body.
+    /// - A horizontal **header** line near the top (title / date area).
+    /// - A vertical **cue-column** separator at `cornellCueX` from the left.
+    /// - A horizontal **summary** line near the bottom.
+    ///
+    /// Separator lines use a subtle accent colour to distinguish them from the
+    /// body ruling without being distracting.
     private func drawCornellRuling(in ctx: CGContext, rect: CGRect) {
+        let summaryY = rect.height * cornellSummaryFrac
+
+        // Body ruled lines
         ctx.saveGState()
-
-        let marginX:  CGFloat = round(rect.width * 0.28)
-        let headerY:  CGFloat = ruledSpacing * 2           // ~56 pt from top
-        let summaryY: CGFloat = rect.maxY - ruledSpacing * 3 // ~84 pt from bottom
-
-        // Structure lines (slightly heavier than ruling lines).
         ctx.setStrokeColor(lineColor.cgColor)
+        ctx.setLineWidth(0.5)
+        var y = cornellHeaderY + ruledSpacing
+        while y < summaryY {
+            ctx.move(to: CGPoint(x: rect.minX, y: y))
+            ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
+            y += ruledSpacing
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
+
+        // Accent separator lines (header, cue column, summary)
+        let accent = accentLineColor(alpha: 0.22)
+        ctx.saveGState()
+        ctx.setStrokeColor(accent.cgColor)
         ctx.setLineWidth(0.75)
 
-        ctx.move(to: CGPoint(x: marginX, y: rect.minY))
-        ctx.addLine(to: CGPoint(x: marginX, y: rect.maxY))
+        ctx.move(to: CGPoint(x: rect.minX, y: cornellHeaderY))
+        ctx.addLine(to: CGPoint(x: rect.maxX, y: cornellHeaderY))
 
-        ctx.move(to: CGPoint(x: rect.minX, y: headerY))
-        ctx.addLine(to: CGPoint(x: rect.maxX, y: headerY))
+        ctx.move(to: CGPoint(x: cornellCueX, y: cornellHeaderY))
+        ctx.addLine(to: CGPoint(x: cornellCueX, y: summaryY))
 
         ctx.move(to: CGPoint(x: rect.minX, y: summaryY))
         ctx.addLine(to: CGPoint(x: rect.maxX, y: summaryY))
 
-        ctx.strokePath()
-
-        // Light horizontal ruling in the note-taking body.
-        ctx.setLineWidth(0.5)
-        var y = headerY + ruledSpacing
-        while y < summaryY - 1 {
-            ctx.move(to: CGPoint(x: marginX, y: y))
-            ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
-            y += ruledSpacing
-        }
         ctx.strokePath()
         ctx.restoreGState()
     }
 
     // MARK: - Hexagonal grid
 
-    /// Draws a pointy-top isometric hex grid using `hexRadius` as the circumradius.
+    /// Renders a pointy-top hexagonal grid tiling the full page.
+    ///
+    /// Tiling geometry for circumradius `r`:
+    ///   - Horizontal centre-to-centre: r√3
+    ///   - Vertical centre-to-centre:   r × 1.5  (offset every other column)
     private func drawHexGrid(in ctx: CGContext, rect: CGRect) {
+        let r = hexRadius
+        let w = r * sqrt(3.0)
+
+        let gridColor = lineColor.withAlphaComponent(lineColor.cgColor.alpha * 0.80)
         ctx.saveGState()
-        ctx.setStrokeColor(lineColor.withAlphaComponent(lineColor.cgColor.alpha * 0.9).cgColor)
+        ctx.setStrokeColor(gridColor.cgColor)
         ctx.setLineWidth(0.5)
 
-        let r = hexRadius
-        let colStep = r * sqrt(3.0)   // horizontal distance between hex centres
-        let rowStep = r * 1.5         // vertical distance between hex centres
+        let cols = Int(ceil(rect.width  / w)) + 2
+        let rows = Int(ceil(rect.height / (r * 1.5))) + 2
 
-        let cols = Int(ceil(rect.width  / colStep)) + 2
-        let rows = Int(ceil(rect.height / rowStep)) + 2
+        for col in -1..<cols {
+            let cx = rect.minX + CGFloat(col) * w + (w * 0.5)
+            let offset: CGFloat = (col % 2 == 0) ? 0 : r
+            for row in -1..<rows {
+                let cy = rect.minY + CGFloat(row) * r * 1.5 + offset
 
-        for row in -1 ..< rows {
-            for col in -1 ..< cols {
-                // Odd rows are offset by half a column step.
-                let offsetX: CGFloat = (row & 1) != 0 ? colStep * 0.5 : 0
-                let cx = rect.minX + CGFloat(col) * colStep + offsetX
-                let cy = rect.minY + CGFloat(row) * rowStep
-                appendHexPath(to: ctx, cx: cx, cy: cy, r: r)
+                ctx.move(to: hexVertex(cx: cx, cy: cy, r: r, index: 0))
+                for i in 1...5 {
+                    ctx.addLine(to: hexVertex(cx: cx, cy: cy, r: r, index: i))
+                }
+                ctx.closePath()
             }
         }
         ctx.strokePath()
         ctx.restoreGState()
     }
 
-    /// Appends a closed pointy-top hexagon path centred at (cx, cy).
-    private func appendHexPath(to ctx: CGContext, cx: CGFloat, cy: CGFloat, r: CGFloat) {
-        // Pointy-top: first vertex is directly above the centre (90°), then every 60°.
-        let startAngle: CGFloat = .pi / 2
-        let step:       CGFloat = .pi / 3
-        let x0 = cx + r * cos(startAngle)
-        let y0 = cy - r * sin(startAngle) // UIKit y-axis is flipped
-        ctx.move(to: CGPoint(x: x0, y: y0))
-        for i in 1 ..< 6 {
-            let angle = startAngle + CGFloat(i) * step
-            ctx.addLine(to: CGPoint(x: cx + r * cos(angle), y: cy - r * sin(angle)))
-        }
-        ctx.closePath()
+    /// Returns the i-th vertex of a pointy-top hexagon centred at (cx, cy).
+    private func hexVertex(cx: CGFloat, cy: CGFloat, r: CGFloat, index: Int) -> CGPoint {
+        let angleDeg = 60.0 * Double(index) - 30.0
+        let angleRad = angleDeg * .pi / 180.0
+        return CGPoint(
+            x: cx + r * CGFloat(cos(angleRad)),
+            y: cy + r * CGFloat(sin(angleRad))
+        )
     }
 
     // MARK: - Music staff
 
-    /// Draws groups of five evenly spaced horizontal lines, separated by a
-    /// larger inter-staff gap, mimicking standard music notation paper.
+    /// Renders repeating five-line music staves spanning the full page width.
+    ///
+    /// Each staff group is `staffLineSpacing × (staffLinesCount − 1)` points
+    /// tall, separated by `staffGroupGap` points of breathing room.
     private func drawMusicStaff(in ctx: CGContext, rect: CGRect) {
+        let staffGroupHeight = CGFloat(staffLinesCount - 1) * staffLineSpacing
+        let periodHeight = staffGroupHeight + staffGroupGap
+
         ctx.saveGState()
         ctx.setStrokeColor(lineColor.cgColor)
-        ctx.setLineWidth(0.6)
+        ctx.setLineWidth(0.75)
 
-        let staffHeight = staffLineSpacing * 4  // 4 gaps → 5 lines per staff
-        let groupPitch  = staffHeight + staffGroupGap
-
-        // First staff starts half a gap from the top for a small margin.
-        var topY: CGFloat = staffGroupGap * 0.5
-        while topY <= rect.maxY + groupPitch {
-            for lineIdx in 0 ..< 5 {
-                let y = topY + CGFloat(lineIdx) * staffLineSpacing
-                guard y <= rect.maxY else { break }
-                ctx.move(to: CGPoint(x: rect.minX + 16, y: y))
-                ctx.addLine(to: CGPoint(x: rect.maxX - 16, y: y))
+        var groupTop: CGFloat = staffGroupGap * 0.5
+        while groupTop < rect.maxY {
+            for i in 0..<staffLinesCount {
+                let y = groupTop + CGFloat(i) * staffLineSpacing
+                if y > rect.maxY { break }
+                ctx.move(to: CGPoint(x: rect.minX, y: y))
+                ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
             }
-            topY += groupPitch
+            groupTop += periodHeight
         }
         ctx.strokePath()
         ctx.restoreGState()
     }
 
-    // MARK: - Page edge vignette
+    // MARK: - Multi-octave grain overlay
 
-    /// Draws a very faint inward-facing gradient shadow on each edge to give the
-    /// page a subtle sense of physical depth and weight.
-    private func drawPageEdgeShadow(in ctx: CGContext, rect: CGRect) {
-        let inset: CGFloat  = 24
-        let alpha: CGFloat  = 0.055
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let shadow = UIColor.black.withAlphaComponent(alpha).cgColor
-        let clear  = UIColor.clear.cgColor
-        guard let grad = CGGradient(
-            colorsSpace: colorSpace,
-            colors: [shadow, clear] as CFArray,
-            locations: [0, 1]
-        ) else { return }
-
-        // Top strip
-        ctx.saveGState()
-        ctx.clip(to: CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: inset))
-        ctx.drawLinearGradient(grad,
-            start: CGPoint(x: 0, y: rect.minY),
-            end:   CGPoint(x: 0, y: rect.minY + inset), options: [])
-        ctx.restoreGState()
-
-        // Bottom strip
-        ctx.saveGState()
-        ctx.clip(to: CGRect(x: rect.minX, y: rect.maxY - inset, width: rect.width, height: inset))
-        ctx.drawLinearGradient(grad,
-            start: CGPoint(x: 0, y: rect.maxY),
-            end:   CGPoint(x: 0, y: rect.maxY - inset), options: [])
-        ctx.restoreGState()
-
-        // Left strip
-        ctx.saveGState()
-        ctx.clip(to: CGRect(x: rect.minX, y: rect.minY, width: inset, height: rect.height))
-        ctx.drawLinearGradient(grad,
-            start: CGPoint(x: rect.minX,         y: 0),
-            end:   CGPoint(x: rect.minX + inset, y: 0), options: [])
-        ctx.restoreGState()
-
-        // Right strip
-        ctx.saveGState()
-        ctx.clip(to: CGRect(x: rect.maxX - inset, y: rect.minY, width: inset, height: rect.height))
-        ctx.drawLinearGradient(grad,
-            start: CGPoint(x: rect.maxX,         y: 0),
-            end:   CGPoint(x: rect.maxX - inset, y: 0), options: [])
-        ctx.restoreGState()
-    }
-
-    // MARK: - Grain overlay
-
-    /// Tiles two grain octaves (small 64 px + large 128 px) at `grainIntensity`
-    /// and `grainIntensity * 0.5` respectively for a multi-scale paper tooth feel.
+    /// Composites two noise-tile octaves scaled by `grainIntensity`:
+    /// - **Coarse** 64×64 tile: dominant low-frequency paper tooth.
+    /// - **Fine**   32×32 tile: high-frequency overlay at ~55 % of coarse alpha.
     private func drawGrain(in ctx: CGContext, rect: CGRect) {
-        let small = grainStamp(side: 64,  seed: 0xDEAD_BEEF)
-        let large = grainStamp(side: 128, seed: 0xC0FFEE42)
+        let baseAlpha = CGFloat(grainIntensity) * 0.045
 
-        // Primary octave (64 px).
-        let smallSize: CGFloat = 64
+        let coarse = grainStamp(side: 64, seed: 0xDEAD_BEEF, cache: &grainImage)
         ctx.saveGState()
-        ctx.setAlpha(CGFloat(grainIntensity))
-        tile(image: small, stampSize: smallSize, in: ctx, rect: rect)
+        ctx.setAlpha(baseAlpha)
+        tile(image: coarse, tileSize: 64, in: ctx, rect: rect)
         ctx.restoreGState()
 
-        // Secondary octave (128 px) at half intensity.
-        let largeSize: CGFloat = 128
+        let fine = grainStamp(side: 32, seed: 0xCAFE_BABE, cache: &fineGrainImage)
         ctx.saveGState()
-        ctx.setAlpha(CGFloat(grainIntensity) * 0.5)
-        tile(image: large, stampSize: largeSize, in: ctx, rect: rect)
+        ctx.setAlpha(baseAlpha * 0.55)
+        tile(image: fine, tileSize: 32, in: ctx, rect: rect)
         ctx.restoreGState()
     }
 
-    private func tile(image: CGImage, stampSize: CGFloat, in ctx: CGContext, rect: CGRect) {
-        let cols = Int(ceil(rect.width  / stampSize)) + 1
-        let rows = Int(ceil(rect.height / stampSize)) + 1
-        for row in 0 ..< rows {
-            for col in 0 ..< cols {
-                let tileRect = CGRect(
-                    x: rect.minX + CGFloat(col) * stampSize,
-                    y: rect.minY + CGFloat(row) * stampSize,
-                    width: stampSize, height: stampSize
-                )
-                ctx.draw(image, in: tileRect)
+    private func tile(image: CGImage, tileSize: CGFloat, in ctx: CGContext, rect: CGRect) {
+        let cols = Int(ceil(rect.width  / tileSize)) + 1
+        let rows = Int(ceil(rect.height / tileSize)) + 1
+        for row in 0..<rows {
+            for col in 0..<cols {
+                ctx.draw(image, in: CGRect(
+                    x: rect.minX + CGFloat(col) * tileSize,
+                    y: rect.minY + CGFloat(row) * tileSize,
+                    width: tileSize, height: tileSize
+                ))
             }
         }
     }
 
-    /// Returns (and caches) a monochrome noise tile of the given `side` length.
-    /// `seed` controls the xorshift PRNG so different sizes produce independent patterns.
-    private func grainStamp(side: Int, seed initialSeed: UInt32) -> CGImage {
-        // Fast path: dedicated properties for the two standard sizes.
-        if side == 64,  let cached = grainImageSmall { return cached }
-        if side == 128, let cached = grainImageLarge  { return cached }
-        // General path: dictionary cache for any other size.
-        if let cached = grainImageCache[side] { return cached }
+    /// Returns (and caches) a monochrome noise image via a deterministic
+    /// xorshift PRNG — same `seed` produces identical pixels every launch.
+    private func grainStamp(side: Int, seed: UInt32, cache: inout CGImage?) -> CGImage {
+        if let cached = cache { return cached }
 
         var pixels = [UInt8](repeating: 0, count: side * side)
-        var s: UInt32 = initialSeed
+        var s: UInt32 = seed
         for i in pixels.indices {
-            s ^= s << 13; s ^= s >> 17; s ^= s << 5
+            s ^= s << 13
+            s ^= s >> 17
+            s ^= s << 5
             pixels[i] = UInt8(s & 0xFF)
         }
 
@@ -451,11 +421,25 @@ final class PageBackgroundView: UIView {
             shouldInterpolate: false,
             intent: .defaultIntent
         )!
-
-        if side == 64  { grainImageSmall = image }
-        if side == 128 { grainImageLarge = image }
-        grainImageCache[side] = image
+        cache = image
         return image
+    }
+
+    // MARK: - Accent colour helper
+
+    /// Returns the colour used for accent ruling elements (margin lines, Cornell
+    /// separators) at the requested `alpha`.
+    ///
+    /// Priority: `rulingTint` → material-neutral warm red (adapts to background brightness).
+    private func accentLineColor(alpha: CGFloat) -> UIColor {
+        if let tint = rulingTint {
+            return tint.withAlphaComponent(alpha)
+        }
+        var white: CGFloat = 0
+        pageColor.getWhite(&white, alpha: nil)
+        return white < 0.5
+            ? UIColor.systemRed.withAlphaComponent(alpha * 0.85)
+            : UIColor.systemRed.withAlphaComponent(alpha)
     }
 }
 

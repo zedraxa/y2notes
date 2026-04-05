@@ -396,9 +396,9 @@ final class NoteExporter {
         let lineColor = rulingLineColor(for: backgroundColor)
         switch pageType {
         case .blank: break
-        case .ruled:     drawRuledLines(ctx: ctx, rect: rect, color: lineColor)
-        case .dot:       drawDotGrid(ctx: ctx, rect: rect, color: lineColor)
-        case .grid:      drawSquareGrid(ctx: ctx, rect: rect, color: lineColor)
+        case .ruled: drawRuledLines(ctx: ctx, rect: rect, color: lineColor)
+        case .dot:   drawDotGrid(ctx: ctx, rect: rect, color: lineColor)
+        case .grid:  drawSquareGrid(ctx: ctx, rect: rect, color: lineColor)
         case .cornell:   drawCornellRuling(ctx: ctx, rect: rect, color: lineColor)
         case .hexagonal: drawHexGrid(ctx: ctx, rect: rect, color: lineColor)
         case .music:     drawMusicStaff(ctx: ctx, rect: rect, color: lineColor)
@@ -933,48 +933,52 @@ final class NoteExporter {
     }
 
     private static func drawCornellRuling(ctx: CGContext, rect: CGRect, color: UIColor) {
+        let ruledSpacing: CGFloat = 28
+        let cornellCueX: CGFloat = 224
+        let cornellHeaderY: CGFloat = 56
+        let summaryY = rect.height * 0.82
+
         ctx.saveGState()
-        let marginX:  CGFloat = round(rect.width * 0.28)
-        let headerY:  CGFloat = 56
-        let summaryY: CGFloat = rect.maxY - 84
         ctx.setStrokeColor(color.cgColor)
-        ctx.setLineWidth(0.75)
-        ctx.move(to: CGPoint(x: marginX,   y: rect.minY)); ctx.addLine(to: CGPoint(x: marginX,   y: rect.maxY))
-        ctx.move(to: CGPoint(x: rect.minX, y: headerY));  ctx.addLine(to: CGPoint(x: rect.maxX,  y: headerY))
-        ctx.move(to: CGPoint(x: rect.minX, y: summaryY)); ctx.addLine(to: CGPoint(x: rect.maxX,  y: summaryY))
-        ctx.strokePath()
         ctx.setLineWidth(0.5)
-        var y = headerY + 28
-        while y < summaryY - 1 {
-            ctx.move(to: CGPoint(x: marginX, y: y))
+        var y = cornellHeaderY + ruledSpacing
+        while y < summaryY {
+            ctx.move(to: CGPoint(x: rect.minX, y: y))
             ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
-            y += 28
+            y += ruledSpacing
         }
+        ctx.strokePath()
+
+        let accentAlpha = color.cgColor.alpha * 2.2   // slightly stronger accent
+        let accentColor = color.withAlphaComponent(min(accentAlpha, 0.30))
+        ctx.setStrokeColor(accentColor.cgColor)
+        ctx.setLineWidth(0.75)
+        ctx.move(to: CGPoint(x: rect.minX, y: cornellHeaderY))
+        ctx.addLine(to: CGPoint(x: rect.maxX, y: cornellHeaderY))
+        ctx.move(to: CGPoint(x: cornellCueX, y: cornellHeaderY))
+        ctx.addLine(to: CGPoint(x: cornellCueX, y: summaryY))
+        ctx.move(to: CGPoint(x: rect.minX, y: summaryY))
+        ctx.addLine(to: CGPoint(x: rect.maxX, y: summaryY))
         ctx.strokePath()
         ctx.restoreGState()
     }
 
     private static func drawHexGrid(ctx: CGContext, rect: CGRect, color: UIColor) {
+        let r: CGFloat = 22
+        let w = r * sqrt(3.0)
+        let gridColor = color.withAlphaComponent(color.cgColor.alpha * 0.80)
         ctx.saveGState()
-        ctx.setStrokeColor(color.withAlphaComponent(color.cgColor.alpha * 0.9).cgColor)
+        ctx.setStrokeColor(gridColor.cgColor)
         ctx.setLineWidth(0.5)
-        let r: CGFloat = 18
-        let colStep = r * sqrt(3.0)
-        let rowStep = r * 1.5
-        let cols = Int(ceil(rect.width  / colStep)) + 2
-        let rows = Int(ceil(rect.height / rowStep)) + 2
-        for row in -1 ..< rows {
-            for col in -1 ..< cols {
-                let ox: CGFloat = (row & 1) != 0 ? colStep * 0.5 : 0
-                let cx = rect.minX + CGFloat(col) * colStep + ox
-                let cy = rect.minY + CGFloat(row) * rowStep
-                let startAngle: CGFloat = .pi / 2
-                let step:       CGFloat = .pi / 3
-                ctx.move(to: CGPoint(x: cx + r * cos(startAngle), y: cy - r * sin(startAngle)))
-                for i in 1 ..< 6 {
-                    let a = startAngle + CGFloat(i) * step
-                    ctx.addLine(to: CGPoint(x: cx + r * cos(a), y: cy - r * sin(a)))
-                }
+        let cols = Int(ceil(rect.width  / w)) + 2
+        let rows = Int(ceil(rect.height / (r * 1.5))) + 2
+        for col in -1..<cols {
+            let cx = rect.minX + CGFloat(col) * w + w * 0.5
+            let offset: CGFloat = (col % 2 == 0) ? 0 : r
+            for row in -1..<rows {
+                let cy = rect.minY + CGFloat(row) * r * 1.5 + offset
+                ctx.move(to: hexVertexExport(cx: cx, cy: cy, r: r, index: 0))
+                for i in 1...5 { ctx.addLine(to: hexVertexExport(cx: cx, cy: cy, r: r, index: i)) }
                 ctx.closePath()
             }
         }
@@ -982,23 +986,29 @@ final class NoteExporter {
         ctx.restoreGState()
     }
 
+    private static func hexVertexExport(cx: CGFloat, cy: CGFloat, r: CGFloat, index: Int) -> CGPoint {
+        let angle = (60.0 * Double(index) - 30.0) * .pi / 180.0
+        return CGPoint(x: cx + r * CGFloat(cos(angle)), y: cy + r * CGFloat(sin(angle)))
+    }
+
     private static func drawMusicStaff(ctx: CGContext, rect: CGRect, color: UIColor) {
+        let staffLineSpacing: CGFloat = 8
+        let staffGroupGap: CGFloat = 32
+        let linesPerGroup = 5
+        let staffGroupHeight = CGFloat(linesPerGroup - 1) * staffLineSpacing
+        let period = staffGroupHeight + staffGroupGap
         ctx.saveGState()
         ctx.setStrokeColor(color.cgColor)
-        ctx.setLineWidth(0.6)
-        let lineGap:  CGFloat = 7
-        let staffGap: CGFloat = 44
-        let staffH:   CGFloat = lineGap * 4
-        let pitch:    CGFloat = staffH + staffGap
-        var topY: CGFloat = staffGap * 0.5
-        while topY <= rect.maxY + pitch {
-            for lineIdx in 0 ..< 5 {
-                let y = topY + CGFloat(lineIdx) * lineGap
-                guard y <= rect.maxY else { break }
-                ctx.move(to: CGPoint(x: rect.minX + 16, y: y))
-                ctx.addLine(to: CGPoint(x: rect.maxX - 16, y: y))
+        ctx.setLineWidth(0.75)
+        var groupTop = staffGroupGap * 0.5
+        while groupTop < rect.maxY {
+            for i in 0..<linesPerGroup {
+                let y = groupTop + CGFloat(i) * staffLineSpacing
+                if y > rect.maxY { break }
+                ctx.move(to: CGPoint(x: rect.minX, y: y))
+                ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
             }
-            topY += pitch
+            groupTop += period
         }
         ctx.strokePath()
         ctx.restoreGState()

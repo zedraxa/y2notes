@@ -21,9 +21,11 @@ struct NoteCreationSheet: View {
 
     private let selectionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let confirmFeedback   = UINotificationFeedbackGenerator()
+    private let cancelFeedback    = UIImpactFeedbackGenerator(style: .light)
 
     // Two-column grid for the paper type cards.
     private let columns = [
+        GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12)
     ]
@@ -93,10 +95,13 @@ struct NoteCreationSheet: View {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
-                            .transition(.opacity)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.98)),
+                                removal: .opacity
+                            ))
                             .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
-                            .animation(.easeInOut(duration: 0.2), value: selectedPageType)
-                            .animation(.easeInOut(duration: 0.2), value: selectedMaterial)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedPageType)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedMaterial)
                     }
                 }
                 .padding(20)
@@ -106,7 +111,10 @@ struct NoteCreationSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        cancelFeedback.impactOccurred()
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { createNote() }
@@ -300,6 +308,74 @@ private struct PaperTypeCard: View {
                     )
                     pos += gridSpacing
                 }
+            case .cornell:
+                let cueX: CGFloat = size.width * 0.3
+                let summaryY: CGFloat = size.height * 0.8
+                let dividerColor = Color(uiColor: .secondaryLabel).opacity(0.28)
+                // Cue divider
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: cueX, y: 0)); p.addLine(to: .init(x: cueX, y: summaryY)) },
+                    with: .color(dividerColor), lineWidth: 1.0
+                )
+                // Summary divider
+                ctx.stroke(
+                    Path { p in p.move(to: .init(x: 0, y: summaryY)); p.addLine(to: .init(x: size.width, y: summaryY)) },
+                    with: .color(dividerColor), lineWidth: 1.0
+                )
+                // Ruled lines in main area
+                let spacing: CGFloat = 10
+                var y: CGFloat = spacing + 4
+                while y < summaryY {
+                    ctx.stroke(
+                        Path { p in p.move(to: .init(x: cueX + 4, y: y)); p.addLine(to: .init(x: size.width - 4, y: y)) },
+                        with: .color(lineColor), lineWidth: 0.5
+                    )
+                    y += spacing
+                }
+                let accent = Color(uiColor: .secondaryLabel).opacity(0.28)
+                ctx.stroke(Path { p in p.move(to: .init(x: 0, y: headerY)); p.addLine(to: .init(x: size.width, y: headerY)) }, with: .color(accent), lineWidth: 0.75)
+                ctx.stroke(Path { p in p.move(to: .init(x: cueX, y: headerY)); p.addLine(to: .init(x: cueX, y: summaryY)) }, with: .color(accent), lineWidth: 0.75)
+                ctx.stroke(Path { p in p.move(to: .init(x: 0, y: summaryY)); p.addLine(to: .init(x: size.width, y: summaryY)) }, with: .color(accent), lineWidth: 0.75)
+            case .hexagonal:
+                let r: CGFloat = 7
+                let w = r * sqrt(3.0)
+                let cols = Int(ceil(size.width / w)) + 2
+                let rows = Int(ceil(size.height / (r * 1.5))) + 2
+                for col in -1..<cols {
+                    let cx = CGFloat(col) * w + w * 0.5
+                    let offset: CGFloat = (col % 2 == 0) ? 0 : r
+                    for row in -1..<rows {
+                        let cy = CGFloat(row) * r * 1.5 + offset
+                        var hexPath = Path()
+                        let firstPt = CGPoint(x: cx + r * CGFloat(cos((-30.0) * .pi / 180.0)),
+                                              y: cy + r * CGFloat(sin((-30.0) * .pi / 180.0)))
+                        hexPath.move(to: firstPt)
+                        for i in 1...5 {
+                            let angle = (60.0 * Double(i) - 30.0) * .pi / 180.0
+                            hexPath.addLine(to: CGPoint(x: cx + r * CGFloat(cos(angle)),
+                                                        y: cy + r * CGFloat(sin(angle))))
+                        }
+                        hexPath.closeSubpath()
+                        ctx.stroke(hexPath, with: .color(lineColor), lineWidth: 0.5)
+                    }
+                }
+            case .music:
+                let staffSpacing: CGFloat = 3
+                let groupGap: CGFloat = 10
+                let linesPerGroup = 5
+                let period = CGFloat(linesPerGroup - 1) * staffSpacing + groupGap
+                var groupTop: CGFloat = groupGap * 0.5
+                while groupTop < size.height {
+                    for i in 0..<linesPerGroup {
+                        let y = groupTop + CGFloat(i) * staffSpacing
+                        if y > size.height { break }
+                        ctx.stroke(
+                            Path { p in p.move(to: .init(x: 0, y: y)); p.addLine(to: .init(x: size.width, y: y)) },
+                            with: .color(lineColor), lineWidth: 0.5
+                        )
+                    }
+                    groupTop += period
+                }
             }
         }
     }
@@ -408,69 +484,61 @@ private struct PaperPreview: View {
                     pos += spacing
                 }
             case .cornell:
-                let marginX: CGFloat = size.width * 0.28
-                let headerY: CGFloat = 24
-                let summaryY: CGFloat = size.height - 20
-                ctx.stroke(
-                    Path { p in p.move(to: .init(x: marginX, y: 0)); p.addLine(to: .init(x: marginX, y: size.height)) },
-                    with: .color(lineColor), lineWidth: 0.75
-                )
-                ctx.stroke(
-                    Path { p in p.move(to: .init(x: 0, y: headerY)); p.addLine(to: .init(x: size.width, y: headerY)) },
-                    with: .color(lineColor), lineWidth: 0.75
-                )
-                ctx.stroke(
-                    Path { p in p.move(to: .init(x: 0, y: summaryY)); p.addLine(to: .init(x: size.width, y: summaryY)) },
-                    with: .color(lineColor), lineWidth: 0.75
-                )
-                let bodySpacing: CGFloat = 20
-                var y: CGFloat = headerY + bodySpacing
-                while y < summaryY - 1 {
+                let spacing: CGFloat = 20
+                let headerY: CGFloat = size.height * 0.20
+                let cueX: CGFloat = size.width * 0.30
+                let summaryY: CGFloat = size.height * 0.82
+                var y: CGFloat = headerY + spacing
+                while y < summaryY {
                     ctx.stroke(
-                        Path { p in p.move(to: .init(x: marginX, y: y)); p.addLine(to: .init(x: size.width - 16, y: y)) },
+                        Path { p in p.move(to: .init(x: 0, y: y)); p.addLine(to: .init(x: size.width, y: y)) },
                         with: .color(lineColor), lineWidth: 0.8
                     )
-                    y += bodySpacing
+                    y += spacing
                 }
+                let accent = Color(uiColor: .secondaryLabel).opacity(0.25)
+                ctx.stroke(Path { p in p.move(to: .init(x: 0, y: headerY)); p.addLine(to: .init(x: size.width, y: headerY)) }, with: .color(accent), lineWidth: 1.0)
+                ctx.stroke(Path { p in p.move(to: .init(x: cueX, y: headerY)); p.addLine(to: .init(x: cueX, y: summaryY)) }, with: .color(accent), lineWidth: 1.0)
+                ctx.stroke(Path { p in p.move(to: .init(x: 0, y: summaryY)); p.addLine(to: .init(x: size.width, y: summaryY)) }, with: .color(accent), lineWidth: 1.0)
             case .hexagonal:
-                let r: CGFloat = 12.0
-                let colStep = r * sqrt(3.0)
-                let rowStep = r * 1.5
-                let cols = Int(ceil(size.width  / colStep)) + 2
-                let rows = Int(ceil(size.height / rowStep)) + 2
-                for row in -1 ..< rows {
-                    for col in -1 ..< cols {
-                        let ox: CGFloat = (row & 1) != 0 ? colStep * 0.5 : 0
-                        let cx = CGFloat(col) * colStep + ox
-                        let cy = CGFloat(row) * rowStep
-                        var hex = Path()
-                        let startA: CGFloat = .pi / 2
-                        let stepA:  CGFloat = .pi / 3
-                        hex.move(to: .init(x: cx + r * cos(startA), y: cy - r * sin(startA)))
-                        for i in 1 ..< 6 {
-                            let a = startA + CGFloat(i) * stepA
-                            hex.addLine(to: .init(x: cx + r * cos(a), y: cy - r * sin(a)))
+                let r: CGFloat = 12
+                let w = r * sqrt(3.0)
+                let cols = Int(ceil(size.width / w)) + 2
+                let rows = Int(ceil(size.height / (r * 1.5))) + 2
+                for col in -1..<cols {
+                    let cx = CGFloat(col) * w + w * 0.5
+                    let offset: CGFloat = (col % 2 == 0) ? 0 : r
+                    for row in -1..<rows {
+                        let cy = CGFloat(row) * r * 1.5 + offset
+                        var hexPath = Path()
+                        let firstAngle = (-30.0) * Double.pi / 180.0
+                        hexPath.move(to: CGPoint(x: cx + r * CGFloat(cos(firstAngle)),
+                                                 y: cy + r * CGFloat(sin(firstAngle))))
+                        for i in 1...5 {
+                            let angle = (60.0 * Double(i) - 30.0) * .pi / 180.0
+                            hexPath.addLine(to: CGPoint(x: cx + r * CGFloat(cos(angle)),
+                                                        y: cy + r * CGFloat(sin(angle))))
                         }
-                        hex.closeSubpath()
-                        ctx.stroke(hex, with: .color(lineColor), lineWidth: 0.5)
+                        hexPath.closeSubpath()
+                        ctx.stroke(hexPath, with: .color(lineColor), lineWidth: 0.6)
                     }
                 }
             case .music:
-                let lineGap:  CGFloat = 5
-                let staffGap: CGFloat = 28
-                let staffH:   CGFloat = lineGap * 4
-                let pitch:    CGFloat = staffH + staffGap
-                var topY: CGFloat = staffGap * 0.5
-                while topY <= size.height + pitch {
-                    for lineIdx in 0 ..< 5 {
-                        let y = topY + CGFloat(lineIdx) * lineGap
-                        guard y <= size.height else { break }
+                let staffSpacing: CGFloat = 5
+                let groupGap: CGFloat = 16
+                let linesPerGroup = 5
+                let period = CGFloat(linesPerGroup - 1) * staffSpacing + groupGap
+                var groupTop: CGFloat = groupGap * 0.5
+                while groupTop < size.height {
+                    for i in 0..<linesPerGroup {
+                        let y = groupTop + CGFloat(i) * staffSpacing
+                        if y > size.height { break }
                         ctx.stroke(
-                            Path { p in p.move(to: .init(x: 16, y: y)); p.addLine(to: .init(x: size.width - 16, y: y)) },
-                            with: .color(lineColor), lineWidth: 0.6
+                            Path { p in p.move(to: .init(x: 0, y: y)); p.addLine(to: .init(x: size.width, y: y)) },
+                            with: .color(lineColor), lineWidth: 0.8
                         )
                     }
-                    topY += pitch
+                    groupTop += period
                 }
             }
         }

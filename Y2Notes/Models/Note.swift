@@ -1,5 +1,60 @@
 import Foundation
 import UIKit
+import SwiftUI
+
+// MARK: - Note color label
+
+/// A visual color label that can be assigned to a note for quick category recognition.
+/// Mirrors the "colored dot" feature in GoodNotes 6 and Apple Notes.
+enum NoteColorLabel: String, Codable, CaseIterable, Identifiable {
+    case red    = "red"
+    case orange = "orange"
+    case yellow = "yellow"
+    case green  = "green"
+    case teal   = "teal"
+    case blue   = "blue"
+    case purple = "purple"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .red:    return "Red"
+        case .orange: return "Orange"
+        case .yellow: return "Yellow"
+        case .green:  return "Green"
+        case .teal:   return "Teal"
+        case .blue:   return "Blue"
+        case .purple: return "Purple"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .red:    return Color(red: 0.90, green: 0.24, blue: 0.18)
+        case .orange: return Color(red: 1.00, green: 0.55, blue: 0.10)
+        case .yellow: return Color(red: 1.00, green: 0.80, blue: 0.10)
+        case .green:  return Color(red: 0.18, green: 0.72, blue: 0.40)
+        case .teal:   return Color(red: 0.18, green: 0.66, blue: 0.72)
+        case .blue:   return Color(red: 0.20, green: 0.50, blue: 0.95)
+        case .purple: return Color(red: 0.58, green: 0.20, blue: 0.85)
+        }
+    }
+
+    var uiColor: UIColor {
+        switch self {
+        case .red:    return UIColor(red: 0.90, green: 0.24, blue: 0.18, alpha: 1)
+        case .orange: return UIColor(red: 1.00, green: 0.55, blue: 0.10, alpha: 1)
+        case .yellow: return UIColor(red: 1.00, green: 0.80, blue: 0.10, alpha: 1)
+        case .green:  return UIColor(red: 0.18, green: 0.72, blue: 0.40, alpha: 1)
+        case .teal:   return UIColor(red: 0.18, green: 0.66, blue: 0.72, alpha: 1)
+        case .blue:   return UIColor(red: 0.20, green: 0.50, blue: 0.95, alpha: 1)
+        case .purple: return UIColor(red: 0.58, green: 0.20, blue: 0.85, alpha: 1)
+        }
+    }
+}
+
+// MARK: - Note model
 
 struct Note: Identifiable, Codable, Hashable {
     let id: UUID
@@ -88,6 +143,11 @@ struct Note: Identifiable, Codable, Hashable {
     /// An empty outer array means no pages have widgets yet.
     var widgetLayers: [[NoteWidget]?]
 
+    /// Per-page text objects — parallel array to `pages`.
+    /// Each element is an array of text objects placed on that page, or `nil` (no text objects).
+    /// An empty outer array means no pages have text objects yet.
+    var textLayers: [[TextObject]?]
+
     /// Expandable canvas regions attached to page edges.
     /// Sparse — only pages that have been expanded carry entries.
     /// An empty array means no pages have expansion regions (default).
@@ -115,6 +175,12 @@ struct Note: Identifiable, Codable, Hashable {
     func widgets(forPage index: Int) -> [NoteWidget] {
         guard index >= 0 && index < widgetLayers.count else { return [] }
         return widgetLayers[index] ?? []
+    }
+
+    /// Returns the text objects for the given page index, or an empty array.
+    func textObjects(forPage index: Int) -> [TextObject] {
+        guard index >= 0 && index < textLayers.count else { return [] }
+        return textLayers[index] ?? []
     }
 
     /// Returns the visible (non-collapsed) expansion regions for the given page index.
@@ -146,6 +212,14 @@ struct Note: Identifiable, Codable, Hashable {
     /// on first open.
     var pdfFilename: String?
 
+    /// The ID of a `PDFNoteRecord` this note is a companion for.
+    /// When non-nil, the note was created from a PDF viewer to annotate alongside the PDF.
+    var linkedPDFID: UUID?
+
+    /// The ID of an `ImportedDocument` this note is a companion for.
+    /// When non-nil, the note was created from a document viewer to annotate alongside the import.
+    var linkedDocumentID: UUID?
+
     /// Keyboard-typed text content for this note.
     /// Empty string = drawing-only note. Used by `SearchService` and the in-document find bar.
     var typedText: String
@@ -154,6 +228,15 @@ struct Note: Identifiable, Codable, Hashable {
     /// Empty string until an OCR pass runs on the note's `drawingData`.
     /// Searched by `SearchService` as `SearchMatchType.handwritingOCR`.
     var ocrText: String
+
+    /// User-defined tags for cross-notebook organisation.
+    /// Comparable to Apple Notes' tags and GoodNotes' tag system.
+    /// Each element is a lowercased, trimmed tag string (e.g. "lecture", "math").
+    var tags: [String]
+
+    /// Optional colour label for quick visual categorisation (e.g. red = urgent, green = done).
+    /// Nil means no label is applied.
+    var colorLabel: NoteColorLabel?
 
     /// Total number of pages in this note.
     var pageCount: Int { pages.count }
@@ -179,10 +262,15 @@ struct Note: Identifiable, Codable, Hashable {
         shapeLayers: [[ShapeInstance]?] = [],
         attachmentLayers: [[AttachmentObject]?] = [],
         widgetLayers: [[NoteWidget]?] = [],
+        textLayers: [[TextObject]?] = [],
         expansionRegions: [PageRegion] = [],
         pdfFilename: String? = nil,
+        linkedPDFID: UUID? = nil,
+        linkedDocumentID: UUID? = nil,
         typedText: String = "",
-        ocrText: String = ""
+        ocrText: String = "",
+        tags: [String] = [],
+        colorLabel: NoteColorLabel? = nil
     ) {
         self.id = id
         self.title = title
@@ -203,10 +291,15 @@ struct Note: Identifiable, Codable, Hashable {
         self.shapeLayers = shapeLayers
         self.attachmentLayers = attachmentLayers
         self.widgetLayers = widgetLayers
+        self.textLayers = textLayers
         self.expansionRegions = expansionRegions
         self.pdfFilename = pdfFilename
+        self.linkedPDFID = linkedPDFID
+        self.linkedDocumentID = linkedDocumentID
         self.typedText = typedText
         self.ocrText = ocrText
+        self.tags = tags
+        self.colorLabel = colorLabel
     }
 
     // MARK: Codable — custom decoder for backward compatibility with old saves
@@ -215,8 +308,9 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, expansionRegions, pdfFilename
-        case typedText, ocrText
+        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, textLayers, expansionRegions, pdfFilename
+        case linkedPDFID, linkedDocumentID
+        case typedText, ocrText, tags, colorLabel
     }
 
     init(from decoder: Decoder) throws {
@@ -249,10 +343,15 @@ struct Note: Identifiable, Codable, Hashable {
         shapeLayers   = try c.decodeIfPresent([[ShapeInstance]?].self,   forKey: .shapeLayers)   ?? []
         attachmentLayers = try c.decodeIfPresent([[AttachmentObject]?].self, forKey: .attachmentLayers) ?? []
         widgetLayers  = try c.decodeIfPresent([[NoteWidget]?].self, forKey: .widgetLayers) ?? []
+        textLayers    = try c.decodeIfPresent([[TextObject]?].self,  forKey: .textLayers)   ?? []
         expansionRegions = try c.decodeIfPresent([PageRegion].self, forKey: .expansionRegions) ?? []
         pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
+        linkedPDFID      = try c.decodeIfPresent(UUID.self,   forKey: .linkedPDFID)
+        linkedDocumentID = try c.decodeIfPresent(UUID.self,   forKey: .linkedDocumentID)
         typedText     = try c.decodeIfPresent(String.self,   forKey: .typedText)   ?? ""
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
+        tags          = try c.decodeIfPresent([String].self,          forKey: .tags)       ?? []
+        colorLabel    = try c.decodeIfPresent(NoteColorLabel.self,    forKey: .colorLabel)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -282,10 +381,15 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encode(shapeLayers,              forKey: .shapeLayers)
         try c.encode(attachmentLayers,         forKey: .attachmentLayers)
         try c.encode(widgetLayers,             forKey: .widgetLayers)
+        try c.encode(textLayers,               forKey: .textLayers)
         try c.encode(expansionRegions,          forKey: .expansionRegions)
         try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
+        try c.encodeIfPresent(linkedPDFID,      forKey: .linkedPDFID)
+        try c.encodeIfPresent(linkedDocumentID, forKey: .linkedDocumentID)
         try c.encode(typedText,     forKey: .typedText)
         try c.encode(ocrText,       forKey: .ocrText)
+        try c.encode(tags,          forKey: .tags)
+        try c.encodeIfPresent(colorLabel, forKey: .colorLabel)
     }
 
     // MARK: Hashable — identity only, so list selection stays stable while content changes.
