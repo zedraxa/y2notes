@@ -2360,6 +2360,7 @@ struct CanvasView: UIViewRepresentable {
                     context.coordinator.interactionFeedback.play(.eraserEngage, on: canvas.layer)
                 } else {
                     context.coordinator.interactionFeedback.play(.toolSwitch, on: canvas.layer)
+                    context.coordinator.microInteractionEngine.playToolSwitchMorph(on: canvas.layer)
                 }
             }
         }
@@ -2715,6 +2716,10 @@ struct CanvasView: UIViewRepresentable {
         // scroll offset and zoom scale. Invalidated automatically on dealloc.
         private var contentOffsetObservation: NSKeyValueObservation?
         private var zoomScaleObservation: NSKeyValueObservation?
+
+        /// Tracks whether the last zoom update landed on a detent, so the
+        /// visual micro-bounce fires only on the leading edge (entry, not hold).
+        private var wasOnZoomDetent: Bool = false
 
         // Pre-prepared haptic generator for double-tap pencil delete feedback.
         // Preparing eagerly avoids the latency spike that would occur if the
@@ -3564,6 +3569,12 @@ struct CanvasView: UIViewRepresentable {
             adaptiveEffectsEngine.zoomScale = scrollView.zoomScale
             // Zoom detent haptic + visual feedback (AGENT-23).
             interactionFeedback.updateZoom(scrollView.zoomScale, on: scrollView.layer)
+            // Micro-bounce visual tick on detent entry (short-circuits on first match).
+            let onDetent = InteractionFeedbackEngine.zoomDetents.first(where: { abs(scrollView.zoomScale - $0) < InteractionFeedbackEngine.detentTolerance }) != nil
+            if onDetent && !wasOnZoomDetent {
+                microInteractionEngine.playZoomDetentTick(on: scrollView.layer)
+            }
+            wasOnZoomDetent = onDetent
         }
 
         /// Adjusts content insets so the page stays centered when the scaled

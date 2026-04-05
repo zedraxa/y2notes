@@ -24,6 +24,7 @@ struct NotebookQuickCreator: View {
 
     @State private var pickerItem: PhotosPickerItem?
     @State private var isCreating = false
+    @State private var creatorAppeared = false
     @State private var selectedTemplate: NotebookTemplate?
 
     @FocusState private var isNameFocused: Bool
@@ -279,8 +280,15 @@ struct NotebookQuickCreator: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(NotebookCover.allCases, id: \.self) { c in
+                    ForEach(Array(NotebookCover.allCases.enumerated()), id: \.element) { index, c in
                         quickCoverSwatch(c)
+                            .opacity(creatorAppeared ? 1 : 0)
+                            .scaleEffect(creatorAppeared ? 1.0 : 0.7)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.75)
+                                    .delay(Double(index) * 0.04),
+                                value: creatorAppeared
+                            )
                     }
 
                     // Custom photo button
@@ -361,8 +369,15 @@ struct NotebookQuickCreator: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(CoverTexture.allCases) { tex in
+                    ForEach(Array(CoverTexture.allCases.enumerated()), id: \.element) { index, tex in
                         textureChip(tex)
+                            .opacity(creatorAppeared ? 1 : 0)
+                            .offset(x: creatorAppeared ? 0 : -8)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.8)
+                                    .delay(Double(index) * 0.04),
+                                value: creatorAppeared
+                            )
                     }
                 }
                 .padding(.vertical, 2)

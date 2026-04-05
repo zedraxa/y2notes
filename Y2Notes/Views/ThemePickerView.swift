@@ -37,6 +37,7 @@ struct ThemePickerView: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .onAppear { cardsAppeared = true }
     }
 
     // MARK: - Schedule Section
@@ -145,10 +146,10 @@ struct ThemePickerView: View {
                 ForEach(Array(themes.enumerated()), id: \.element.id) { index, theme in
                     themeCard(theme)
                         .opacity(cardsAppeared ? 1 : 0)
-                        .offset(y: cardsAppeared ? 0 : 10)
+                        .offset(y: cardsAppeared ? 0 : 12)
                         .animation(
                             .spring(response: 0.35, dampingFraction: 0.8)
-                            .delay(Double(index) * 0.04),
+                                .delay(Double(index) * 0.04),
                             value: cardsAppeared
                         )
                 }

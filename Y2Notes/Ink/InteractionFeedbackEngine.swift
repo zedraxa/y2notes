@@ -192,10 +192,13 @@ final class InteractionFeedbackEngine {
     // MARK: - Zoom Detent Tracking
 
     /// Known zoom detent values (25 %, 50 %, 100 %, 150 %, 200 %).
-    private static let zoomDetents: [CGFloat] = [0.25, 0.5, 1.0, 1.5, 2.0]
+    /// Exposed as `internal` so `NoteEditorView.Coordinator` can share the same
+    /// source of truth for the visual micro-bounce without duplicating values.
+    static let zoomDetents: [CGFloat] = [0.25, 0.5, 1.0, 1.5, 2.0]
 
     /// Tolerance for snapping to a detent (± this fraction).
-    private static let detentTolerance: CGFloat = 0.03
+    /// Shared with `NoteEditorView.Coordinator` for the zoom-tick visual effect.
+    static let detentTolerance: CGFloat = 0.03
 
     /// Last zoom scale — used to detect detent crossings.
     private var lastZoomScale: CGFloat = 1.0

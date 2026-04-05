@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var showResetConfirmation = false
     @State private var showWritingInsights = false
     @State private var showOpenSourceCredits = false
+    @State private var settingsAppeared = false
 
     private let toggleFeedback = UIImpactFeedbackGenerator(style: .light)
     private let resetFeedback = UINotificationFeedbackGenerator()
@@ -34,6 +35,9 @@ struct SettingsView: View {
                 aboutSection
                 resetSection
             }
+            .onAppear { settingsAppeared = true }
+            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: themeStore.autoScheduleEnabled)
+            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: themeStore.selectedTheme)
             .navigationTitle("Settings")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -100,6 +104,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityLabel("Auto-schedule active. Current theme is \(themeStore.effectiveTheme.displayName).")
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             // Colour palette preview.
@@ -115,6 +120,7 @@ struct SettingsView: View {
                 paletteCircle(def.surfaceSwiftUIColor, border: true)
             }
             .accessibilityHidden(true)
+            .animation(.easeInOut(duration: 0.3), value: themeStore.selectedTheme)
 
             // Contrast row — shows the primary text ratio alongside the pass/fail badge.
             HStack {

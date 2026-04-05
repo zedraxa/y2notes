@@ -97,6 +97,12 @@ struct StudySessionView: View {
             .accessibilityHint(isFlipped ? "Swipe right to rate this card" : "Double-tap to reveal the answer")
             .frame(maxWidth: 600)
             .padding(.horizontal)
+            // Cross-fade when advancing to the next card.
+            .id(card.id)
+            .transition(.asymmetric(
+                insertion: .opacity.combined(with: .scale(scale: 0.95)).animation(.easeOut(duration: 0.25)),
+                removal: .opacity.animation(.easeIn(duration: 0.15))
+            ))
 
             Spacer()
 
@@ -112,6 +118,7 @@ struct StudySessionView: View {
             }
         }
         .animation(.spring(duration: 0.3), value: isFlipped)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: currentIndex)
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
     }
 
@@ -197,10 +204,12 @@ struct StudySessionView: View {
                 Text("\(completedCount) of \(completedCount + queue.count) reviewed")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
                 Spacer()
                 Text("\(queue.count) remaining")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -210,7 +219,7 @@ struct StudySessionView: View {
                     Capsule()
                         .fill(Color.accentColor)
                         .frame(width: max(geo.size.width * fraction, 0), height: 6)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: fraction)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: fraction)
                 }
             }
             .frame(height: 6)
@@ -241,6 +250,8 @@ struct StudySessionView: View {
 
     // MARK: Finished
 
+    @State private var showFinishedContent = false
+
     private var finishedView: some View {
         let duration = Int(Date().timeIntervalSince(sessionStartTime))
         let minutes = duration / 60
@@ -251,25 +262,26 @@ struct StudySessionView: View {
 
         return ScrollView {
             VStack(spacing: 24) {
-                // Celebration
+                // Celebration — bounces in first
                 Image(systemName: "star.fill")
                     .font(.system(size: 64))
                     .foregroundStyle(.yellow)
                     .scaleEffect(showFinishedContent ? 1.0 : 0.3)
                     .opacity(showFinishedContent ? 1 : 0)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.6), value: showFinishedContent)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.1), value: showFinishedContent)
                 Text("Session Complete!")
                     .font(.title.weight(.bold))
                     .opacity(showFinishedContent ? 1 : 0)
                     .offset(y: showFinishedContent ? 0 : 12)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(0.1), value: showFinishedContent)
+                    .animation(.easeOut(duration: 0.35).delay(0.25), value: showFinishedContent)
                 Text("You reviewed \(completedCount) card\(completedCount == 1 ? "" : "s").")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .opacity(showFinishedContent ? 1 : 0)
-                    .animation(.easeOut(duration: 0.3).delay(0.2), value: showFinishedContent)
+                    .offset(y: showFinishedContent ? 0 : 8)
+                    .animation(.easeOut(duration: 0.35).delay(0.35), value: showFinishedContent)
 
-                // Session stats
+                // Session stats — stagger in
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
                     GridItem(.flexible()),
@@ -280,23 +292,29 @@ struct StudySessionView: View {
                         icon: "timer",
                         color: .blue
                     )
+                    .opacity(showFinishedContent ? 1 : 0)
+                    .offset(y: showFinishedContent ? 0 : 16)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(0.45), value: showFinishedContent)
                     sessionStatCard(
                         title: "Accuracy",
                         value: String(format: "%.0f%%", accuracy),
                         icon: "target",
                         color: accuracy >= 80 ? .green : .orange
                     )
+                    .opacity(showFinishedContent ? 1 : 0)
+                    .offset(y: showFinishedContent ? 0 : 16)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(0.55), value: showFinishedContent)
                 }
                 .padding(.horizontal)
 
-                // Rating breakdown
+                // Rating breakdown — stagger in
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Rating Breakdown")
                         .font(.headline)
                         .padding(.horizontal)
 
                     HStack(spacing: 8) {
-                        ForEach(ReviewRating.allCases) { rating in
+                        ForEach(Array(ReviewRating.allCases.enumerated()), id: \.element) { index, rating in
                             let count = ratingCounts[rating, default: 0]
                             VStack(spacing: 4) {
                                 Image(systemName: rating.systemImage)
@@ -311,10 +329,15 @@ struct StudySessionView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(ratingColor(rating).opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                            .opacity(showFinishedContent ? 1 : 0)
+                            .scaleEffect(showFinishedContent ? 1.0 : 0.85)
+                            .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.65 + Double(index) * 0.08), value: showFinishedContent)
                         }
                     }
                     .padding(.horizontal)
                 }
+                .opacity(showFinishedContent ? 1 : 0)
+                .animation(.easeOut(duration: 0.3).delay(0.6), value: showFinishedContent)
 
                 if !againCards.isEmpty {
                     Text("\(againCards.count) card\(againCards.count == 1 ? "" : "s") marked \"Again\" — review them again tomorrow.")
@@ -328,11 +351,14 @@ struct StudySessionView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .padding(.top, 8)
+                    .opacity(showFinishedContent ? 1 : 0)
+                    .animation(.easeOut(duration: 0.3).delay(1.0), value: showFinishedContent)
             }
             .padding(.top, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+        .onAppear { showFinishedContent = true }
     }
 
     private func sessionStatCard(title: String, value: String, icon: String, color: Color) -> some View {
@@ -376,7 +402,9 @@ struct StudySessionView: View {
         if rating == .again {
             againCards.append(card)
         } else {
-            completedCount += 1
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                completedCount += 1
+            }
         }
 
         // Advance to next card.
@@ -390,8 +418,10 @@ struct StudySessionView: View {
                 currentIndex = 0
             } else {
                 completionFeedback.notificationOccurred(.success)
-                sessionFinished = true
-                showFinishedContent = false
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    sessionFinished = true
+                    showFinishedContent = false
+                }
                 queue = []
                 // Stagger the celebration entrance.
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.15)) {
@@ -400,8 +430,10 @@ struct StudySessionView: View {
                 return
             }
         }
-        queue = next
-        currentIndex = min(currentIndex, queue.count - 1)
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            queue = next
+            currentIndex = min(currentIndex, queue.count - 1)
+        }
 
         // Reset flip state for the next card.
         isFlipped = false

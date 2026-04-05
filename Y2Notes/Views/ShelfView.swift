@@ -605,6 +605,7 @@ struct NoteGridView: View {
     @State private var showPDFImporter = false
     @State private var versionHistoryNote: Note?
     @State private var tagPickerNote: Note?
+    @State private var gridAppeared = false
     @AppStorage("y2notes.notebookSortOrder") private var notebookSortOrderRaw: String = NotebookSortOrder.modified.rawValue
 
     private var notebookSortOrder: NotebookSortOrder {
@@ -878,13 +879,21 @@ struct NoteGridView: View {
                 }
 
                 LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(notes) { note in
+                    ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
                         NoteCardView(note: note, isSelected: selectedNoteID == note.id)
                             .onTapGesture { selectedNoteID = note.id }
                             .contextMenu { noteContextMenu(for: note) }
+                            .opacity(gridAppeared ? 1 : 0)
+                            .offset(y: gridAppeared ? 0 : 14)
+                            .animation(
+                                .spring(response: 0.35, dampingFraction: 0.82)
+                                    .delay(Double(index) * 0.03),
+                                value: gridAppeared
+                            )
                     }
                 }
                 .padding(20)
+                .onAppear { gridAppeared = true }
             }
         }
     }
@@ -1769,6 +1778,7 @@ private struct NoteCardView: View {
                         .resizable()
                         .scaledToFit()
                         .padding(10)
+                        .transition(.opacity.animation(.easeIn(duration: 0.25)))
                 } else if note.drawingData.isEmpty {
                     Image(systemName: "pencil.and.scribble")
                         .font(.system(size: 30, weight: .ultraLight))

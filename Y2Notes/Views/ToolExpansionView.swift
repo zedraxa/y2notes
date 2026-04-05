@@ -40,6 +40,8 @@ struct ToolExpansionView: View {
 
     // MARK: - Body
 
+    @State private var panelAppeared = false
+
     var body: some View {
         Group {
             if expandedTool.isInking {
@@ -56,7 +58,13 @@ struct ToolExpansionView: View {
         .padding(.vertical, 8)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
-        .onAppear { resetTimeout() }
+        .scaleEffect(panelAppeared ? 1.0 : 0.92)
+        .opacity(panelAppeared ? 1.0 : 0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: panelAppeared)
+        .onAppear {
+            panelAppeared = true
+            resetTimeout()
+        }
         .onDisappear { dismissTask?.cancel() }
     }
 
@@ -91,7 +99,7 @@ struct ToolExpansionView: View {
     @ViewBuilder
     private var colorStrip: some View {
         HStack(spacing: 6) {
-            ForEach(Array(toolStore.recentColors.prefix(6).enumerated()), id: \.offset) { _, color in
+            ForEach(Array(toolStore.recentColors.prefix(6).enumerated()), id: \.offset) { index, color in
                 Circle()
                     .fill(Color(uiColor: color))
                     .frame(width: 24, height: 24)
@@ -99,12 +107,21 @@ struct ToolExpansionView: View {
                         Circle()
                             .strokeBorder(Color.accentColor, lineWidth: isSameColor(color, toolStore.activeColor) ? 2 : 0)
                     )
+                    .scaleEffect(isSameColor(color, toolStore.activeColor) ? 1.12 : 1.0)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: toolStore.activeColor)
                     .onTapGesture {
                         selectionFeedback.selectionChanged()
                         toolStore.activeColor = color
                         resetTimeout()
                     }
                     .accessibilityLabel(NSLocalizedString("ToolExpansion.RecentColor", comment: "Recent colour swatch"))
+                    .opacity(panelAppeared ? 1 : 0)
+                    .scaleEffect(panelAppeared ? 1.0 : 0.6)
+                    .animation(
+                        .spring(response: 0.3, dampingFraction: 0.75)
+                            .delay(Double(index) * 0.04),
+                        value: panelAppeared
+                    )
             }
 
             Spacer(minLength: 4)
@@ -112,6 +129,8 @@ struct ToolExpansionView: View {
             ColorPicker("", selection: colorBinding, supportsOpacity: false)
                 .labelsHidden()
                 .frame(width: 28, height: 28)
+                .opacity(panelAppeared ? 1 : 0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8).delay(0.25), value: panelAppeared)
         }
     }
 
@@ -264,11 +283,13 @@ struct ToolExpansionView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(PenSubType.allCases) { sub in
+                    ForEach(Array(PenSubType.allCases.enumerated()), id: \.element) { index, sub in
                         let isSelected = toolStore.activePenSubType == sub
                         Button {
                             selectionFeedback.selectionChanged()
-                            toolStore.activePenSubType = sub
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                toolStore.activePenSubType = sub
+                            }
                             resetTimeout()
                         } label: {
                             VStack(spacing: 3) {
@@ -297,9 +318,18 @@ struct ToolExpansionView: View {
                                         lineWidth: 1
                                     )
                             )
+                            .scaleEffect(isSelected ? 1.05 : 1.0)
+                            .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(sub.displayName): \(sub.tagline)")
+                        .opacity(panelAppeared ? 1 : 0)
+                        .offset(x: panelAppeared ? 0 : -10)
+                        .animation(
+                            .spring(response: 0.3, dampingFraction: 0.8)
+                                .delay(Double(index) * 0.05),
+                            value: panelAppeared
+                        )
                     }
                 }
             }

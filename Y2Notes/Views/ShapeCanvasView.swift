@@ -368,7 +368,7 @@ final class ShapeCanvasView: UIView, EffectIntensityReceiver {
                 // Physics: scale up + shadow on drag start
                 if let shapeLayer = shapeLayers[shape.id] {
                     microEngine.playSelectScale(on: shapeLayer)
-                    microEngine.playSoftShadow(on: shapeLayer, dragDirection: .zero)
+                    microEngine.playMomentumShadow(on: shapeLayer, velocity: .zero)
                 }
             }
 
@@ -426,24 +426,26 @@ final class ShapeCanvasView: UIView, EffectIntensityReceiver {
 
                 // Haptic feedback for perfect dual-axis alignment
                 snapAlignEngine.updatePerfectAlignment(isAligned: snappedX && snappedY)
+                if snappedX || snappedY, let shapeLayer = shapeLayers[selectedID] {
+                    microEngine.playSnapBounce(on: shapeLayer)
+                }
 
-                // Physics: update shadow direction
+                // Physics: velocity-depth shadow
                 if let shapeLayer = shapeLayers[selectedID] {
                     let vel = gesture.velocity(in: self)
-                    let mag = max(hypot(vel.x, vel.y), 1.0)
-                    let dir = CGPoint(x: vel.x / mag, y: vel.y / mag)
-                    microEngine.playSoftShadow(on: shapeLayer, dragDirection: dir)
+                    microEngine.playMomentumShadow(on: shapeLayer, velocity: vel)
                 }
             }
             renderShapes()
 
         case .ended, .cancelled:
             if isDragging {
-                // Physics: inertia + release bounce on the shape layer
+                // Physics: velocity-scaled inertia + release bounce on the shape layer
                 if activeHandle == nil, let selectedID = selectedShapeID,
                    let idx = shapes.firstIndex(where: { $0.id == selectedID }) {
                     let vel = gesture.velocity(in: self)
-                    let decayFactor: CGFloat = 0.12
+                    let speed = hypot(vel.x, vel.y)
+                    let decayFactor = MicroInteractionEngine.inertiaDecay(for: speed)
                     let inertiaX = vel.x * decayFactor
                     let inertiaY = vel.y * decayFactor
                     if abs(inertiaX) > 1 || abs(inertiaY) > 1 {
@@ -451,7 +453,7 @@ final class ShapeCanvasView: UIView, EffectIntensityReceiver {
                         shapes[idx].frame.origin.y += inertiaY
                     }
                     if let shapeLayer = shapeLayers[selectedID] {
-                        microEngine.resetSoftShadow(on: shapeLayer)
+                        microEngine.resetMomentumShadow(on: shapeLayer)
                         microEngine.playReleaseBounce(on: shapeLayer)
                     }
                     renderShapes()
