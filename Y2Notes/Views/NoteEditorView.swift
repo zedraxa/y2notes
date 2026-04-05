@@ -2224,6 +2224,19 @@ struct CanvasView: UIViewRepresentable {
 
         // MARK: - Page gesture handlers
 
+        /// Tuning constants for the two-finger page-pan gesture recogniser.
+        private enum PagePanTuning {
+            /// Minimum horizontal-to-vertical ratio required before the gesture
+            /// is locked in as a horizontal page drag.
+            static let horizontalDominanceRatio: CGFloat = 1.5
+            /// Minimum horizontal displacement (points) before direction is
+            /// locked in — prevents accidental page turns on tiny movements.
+            static let minimumLockInDistance: CGFloat = 8
+            /// Minimum horizontal release velocity (points/second) for a
+            /// reduce-motion fast-swipe to commit a page change.
+            static let reducedMotionCommitVelocity: CGFloat = 400
+        }
+
         /// Two-finger pan handler for interactive page navigation.
         ///
         /// The page follows the finger in real-time.  Direction is determined on
@@ -2251,8 +2264,8 @@ struct CanvasView: UIViewRepresentable {
             case .changed:
                 if !pageIsDragging {
                     // Wait until horizontal motion clearly dominates vertical.
-                    guard abs(translation.x) > abs(translation.y) * 1.5,
-                          abs(translation.x) > 8
+                    guard abs(translation.x) > abs(translation.y) * PagePanTuning.horizontalDominanceRatio,
+                          abs(translation.x) > PagePanTuning.minimumLockInDistance
                     else { return }
 
                     let dir: PageTransitionDirection = translation.x < 0 ? .forward : .backward
@@ -2300,8 +2313,8 @@ struct CanvasView: UIViewRepresentable {
                 } else if !pageTransitionEngine.effectIntensity.allowsPageTurnPhysics {
                     // Reduce-motion / low-intensity fallback: treat a fast, clearly
                     // horizontal release as a swipe and change page immediately.
-                    guard abs(velocity.x) > 400,
-                          abs(velocity.x) > abs(velocity.y) * 1.5
+                    guard abs(velocity.x) > PagePanTuning.reducedMotionCommitVelocity,
+                          abs(velocity.x) > abs(velocity.y) * PagePanTuning.horizontalDominanceRatio
                     else { return }
                     let dir: PageTransitionDirection = velocity.x < 0 ? .forward : .backward
                     guard !(dir == .backward && coordinatorPageIndex == 0) else { return }
