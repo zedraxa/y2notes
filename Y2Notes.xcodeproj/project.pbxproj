@@ -130,6 +130,7 @@
 		AA000100000000000000015B /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015A /* CommandPaletteView.swift */; };
 		AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015C /* OpenSourceCreditsView.swift */; };
 		AA000100000000000000015F /* CoverTextureOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015E /* CoverTextureOverlay.swift */; };
+		AA0001000000000000000171 /* NotebookInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000170 /* NotebookInfoView.swift */; };
 		AA0001000000000000000161 /* TextObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000160 /* TextObject.swift */; };
 		AA0001000000000000000163 /* TextCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000162 /* TextCanvasView.swift */; };
 		AA0001000000000000000165 /* TextObjectHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000164 /* TextObjectHandlesView.swift */; };
@@ -209,6 +210,7 @@
 		AA000100000000000000015A /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015C /* OpenSourceCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSourceCreditsView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015E /* CoverTextureOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverTextureOverlay.swift; sourceTree = "<group>"; };
+		AA0001000000000000000170 /* NotebookInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookInfoView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000160 /* TextObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextObject.swift; sourceTree = "<group>"; };
 		AA0001000000000000000162 /* TextCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextCanvasView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000164 /* TextObjectHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextObjectHandlesView.swift; sourceTree = "<group>"; };
@@ -369,6 +371,7 @@
 				AA00010000000000000000DA /* NotebookQuickCreator.swift */,
 				AA00010000000000000000D9 /* NotebookReaderView.swift */,
 				AA000100000000000000015E /* CoverTextureOverlay.swift */,
+				AA0001000000000000000170 /* NotebookInfoView.swift */,
 				AA000100000000000000008A /* LibrarySearchView.swift */,
 				AA0001000000000000000102 /* UniversalSearchView.swift */,
 				AA000100000000000000008B /* StudySetListView.swift */,
@@ -637,6 +640,7 @@
 				AA00010000000000000000DB /* NotebookQuickCreator.swift in Sources */,
 				AA00010000000000000000D8 /* NotebookReaderView.swift in Sources */,
 				AA000100000000000000015F /* CoverTextureOverlay.swift in Sources */,
+			AA0001000000000000000171 /* NotebookInfoView.swift in Sources */,
 				AA000100000000000000016B /* TrieIndex.swift in Sources */,
 				AA000100000000000000016D /* InsightsAnalytics.swift in Sources */,
 				AA000100000000000000016F /* ColorScience.swift in Sources */,

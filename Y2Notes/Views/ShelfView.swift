@@ -325,6 +325,21 @@ private struct ShelfSidebarView: View {
                             Label("Manage Sections…", systemImage: "list.bullet.indent")
                         }
 
+                        Button {
+                            noteStore.duplicateNotebook(id: notebook.id)
+                        } label: {
+                            Label("Duplicate", systemImage: "doc.on.doc")
+                        }
+
+                        Button {
+                            noteStore.toggleNotebookLock(id: notebook.id)
+                        } label: {
+                            Label(
+                                notebook.isLocked ? "Unlock" : "Lock",
+                                systemImage: notebook.isLocked ? "lock.open" : "lock"
+                            )
+                        }
+
                         Divider()
 
                         Button(role: .destructive) {
@@ -502,9 +517,17 @@ private struct NotebookSidebarRow: View {
             .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(notebook.name)
-                    .font(.body)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(notebook.name)
+                        .font(.body)
+                        .lineLimit(1)
+                    if notebook.isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Locked")
+                    }
+                }
                 HStack(spacing: 6) {
                     Text("\(noteCount) note\(noteCount == 1 ? "" : "s")")
                         .font(.caption2)
@@ -518,6 +541,37 @@ private struct NotebookSidebarRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Notebook sort order
+
+/// Sort options for the horizontal notebook shelf row.
+enum NotebookSortOrder: String, CaseIterable {
+    case name        = "name"
+    case modified    = "modified"
+    case created     = "created"
+    case lastOpened  = "lastOpened"
+    case pageCount   = "pageCount"
+
+    var displayName: String {
+        switch self {
+        case .name:       return NSLocalizedString("Notebook.Sort.Name",        comment: "")
+        case .modified:   return NSLocalizedString("Notebook.Sort.Modified",    comment: "")
+        case .created:    return NSLocalizedString("Notebook.Sort.Created",     comment: "")
+        case .lastOpened: return NSLocalizedString("Notebook.Sort.LastOpened",  comment: "")
+        case .pageCount:  return NSLocalizedString("Notebook.Sort.PageCount",   comment: "")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .name:       return "textformat.abc"
+        case .modified:   return "pencil"
+        case .created:    return "calendar"
+        case .lastOpened: return "eye"
+        case .pageCount:  return "doc.plaintext"
+        }
     }
 }
 
@@ -551,6 +605,11 @@ struct NoteGridView: View {
     @State private var showPDFImporter = false
     @State private var versionHistoryNote: Note?
     @State private var tagPickerNote: Note?
+    @AppStorage("y2notes.notebookSortOrder") private var notebookSortOrderRaw: String = NotebookSortOrder.modified.rawValue
+
+    private var notebookSortOrder: NotebookSortOrder {
+        NotebookSortOrder(rawValue: notebookSortOrderRaw) ?? .modified
+    }
 
     /// All notes for non-notebook views (flat).
     private var notes: [Note] {
@@ -841,6 +900,25 @@ struct NoteGridView: View {
                 Text("Notebooks")
                     .font(.headline)
                 Spacer()
+                // Sort picker
+                Menu {
+                    ForEach(NotebookSortOrder.allCases, id: \.self) { order in
+                        Button {
+                            notebookSortOrderRaw = order.rawValue
+                        } label: {
+                            Label(order.displayName, systemImage: order.systemImage)
+                            if order == notebookSortOrder {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down.circle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+
                 Button {
                     showNotebookWizard = true
                 } label: {
@@ -855,14 +933,18 @@ struct NoteGridView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    ForEach(noteStore.notebooks) { nb in
+                    ForEach(sortedNotebooks) { nb in
                         NotebookCoverCard(
                             notebook: nb,
                             pageCount: noteStore.notes(inNotebook: nb.id)
                                 .reduce(0) { $0 + $1.pageCount }
                         )
                         .onTapGesture {
+                            noteStore.updateNotebookLastOpened(id: nb.id)
                             onOpenNotebook?(nb.id)
+                        }
+                        .contextMenu {
+                            notebookCoverCardContextMenu(for: nb)
                         }
                     }
                 }
@@ -871,6 +953,94 @@ struct NoteGridView: View {
             }
         }
         .padding(.bottom, 8)
+    }
+
+    /// Notebooks sorted by the current `notebookSortOrder`, with pinned ones always first.
+    private var sortedNotebooks: [Notebook] {
+        let pinned = noteStore.notebooks.filter { $0.isPinned }
+        let unpinned = noteStore.notebooks.filter { !$0.isPinned }
+
+        func sorted(_ list: [Notebook]) -> [Notebook] {
+            switch notebookSortOrder {
+            case .name:
+                return list.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            case .modified:
+                return list.sorted { $0.modifiedAt > $1.modifiedAt }
+            case .created:
+                return list.sorted { $0.createdAt > $1.createdAt }
+            case .lastOpened:
+                return list.sorted { lhs, rhs in
+                    switch (lhs.lastOpenedAt, rhs.lastOpenedAt) {
+                    case let (l?, r?): return l > r
+                    case (.some, .none): return true
+                    case (.none, .some): return false
+                    case (.none, .none): return lhs.modifiedAt > rhs.modifiedAt
+                    }
+                }
+            case .pageCount:
+                return list.sorted {
+                    noteStore.notes(inNotebook: $0.id).reduce(0) { $0 + $1.pageCount } >
+                    noteStore.notes(inNotebook: $1.id).reduce(0) { $0 + $1.pageCount }
+                }
+            }
+        }
+
+        return sorted(pinned) + sorted(unpinned)
+    }
+
+    @ViewBuilder
+    private func notebookCoverCardContextMenu(for nb: Notebook) -> some View {
+        Button {
+            noteStore.toggleNotebookPin(id: nb.id)
+        } label: {
+            Label(
+                nb.isPinned ? "Unpin" : "Pin",
+                systemImage: nb.isPinned ? "pin.slash" : "pin"
+            )
+        }
+
+        Menu {
+            ForEach(NotebookColorTag.allCases, id: \.self) { tag in
+                Button {
+                    noteStore.updateNotebookColorTag(id: nb.id, colorTag: tag)
+                } label: {
+                    if nb.colorTag == tag {
+                        Label(tag.displayName, systemImage: "checkmark.circle.fill")
+                    } else if tag == .none {
+                        Label(tag.displayName, systemImage: "circle.slash")
+                    } else {
+                        Text(tag.displayName)
+                    }
+                }
+            }
+        } label: {
+            Label("Colour Tag", systemImage: "circle.fill")
+        }
+
+        Divider()
+
+        Button {
+            noteStore.duplicateNotebook(id: nb.id)
+        } label: {
+            Label("Duplicate", systemImage: "doc.on.doc")
+        }
+
+        Button {
+            noteStore.toggleNotebookLock(id: nb.id)
+        } label: {
+            Label(
+                nb.isLocked ? "Unlock" : "Lock",
+                systemImage: nb.isLocked ? "lock.open" : "lock"
+            )
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            noteStore.deleteNotebook(id: nb.id)
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
     }
 
     // MARK: Section-grouped content (notebook views with sections)
