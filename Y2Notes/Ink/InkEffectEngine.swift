@@ -41,6 +41,53 @@ import QuartzCore
 /// **Thread safety**: must be created and used on the main thread only.
 final class InkEffectEngine {
 
+    // MARK: - SheenTuning
+
+    /// Centralised budget and timing constants for the holographic sheen effect.
+    ///
+    /// The renewed sheen uses a **three-cell** emitter architecture:
+    ///   1. **Core diamonds** — small, fast-spinning facets that catch light.
+    ///   2. **Prismatic flares** — medium elongated streaks for directional shimmer.
+    ///   3. **Dust halo** — large, soft circles that create a broad iridescent aura.
+    ///
+    /// A radial glow layer tracks the nib for an ambient colour wash.
+    private enum SheenTuning {
+        // ── Particle budgets ────────────────────────────────────────────
+        /// Hard cap on core (bright-diamond) particles before tier scaling.
+        static let maxCoreParticles: Int       = 80
+        /// Hard cap on prismatic flare particles before tier scaling.
+        static let maxFlareParticles: Int      = 35
+        /// Hard cap on dust (soft-circle) particles before tier scaling.
+        static let maxDustParticles: Int       = 40
+        /// Fraction of `maxCoreParticles` emitted per second.
+        static let coreBirthFraction: Float    = 0.75
+        /// Fraction of `maxFlareParticles` emitted per second.
+        static let flareBirthFraction: Float   = 0.60
+        /// Fraction of `maxDustParticles` emitted per second.
+        static let dustBirthFraction: Float    = 0.65
+
+        // ── Glow geometry ───────────────────────────────────────────────
+        /// Diameter of the iridescent radial glow that follows the nib.
+        static let glowDiameter: CGFloat       = 72
+        /// Duration of the glow fade-out animation when the stroke ends.
+        static let glowFadeDuration: Double    = 0.35
+
+        // ── Hue cycling ─────────────────────────────────────────────────
+        /// Hue advance per `onStrokeUpdated` call — controls cycle speed.
+        static let hueStepPerUpdate: CGFloat   = 0.035
+        /// Phase offset applied to the flare cell's hue relative to the core cell.
+        static let flareHuePhaseOffset: CGFloat = 0.15
+        /// Phase offset applied to the dust cell's hue relative to the core cell,
+        /// giving the three-layer iridescent split-hue look.
+        static let dustHuePhaseOffset: CGFloat  = 0.33
+
+        // ── Velocity-responsive emission ────────────────────────────────
+        /// Multiplier applied to birth rate when nib velocity exceeds the base threshold.
+        static let velocityBoostMultiplier: Float = 1.6
+        /// Nib speed (points/update) above which the velocity boost kicks in.
+        static let velocityBoostThreshold: CGFloat = 4.0
+    }
+
     // MARK: - Properties
 
     private(set) var activeFX: WritingFXType = .none
@@ -106,6 +153,16 @@ final class InkEffectEngine {
         return g
     }()
 
+    // Sheen iridescent glow — multi-stop radial gradient that cycles hue with the nib
+    private let sheenGlowLayer: CAGradientLayer = {
+        let g = CAGradientLayer()
+        g.type       = .radial
+        g.startPoint = CGPoint(x: 0.5, y: 0.5)
+        g.endPoint   = CGPoint(x: 1.0, y: 1.0)
+        g.isHidden   = true
+        return g
+    }()
+
     // Fire glow — warm amber radial aura that follows the nib while writing with fire
     private let fireGlowLayer: CAGradientLayer = {
         let g = CAGradientLayer()
@@ -138,6 +195,9 @@ final class InkEffectEngine {
     // Sheen hue offset — advances faster than rainbow for rapid colour cycling
     private var sheenHueOffset: CGFloat = 0
 
+    // Last recorded nib position for sheen velocity calculation
+    private var lastSheenPoint: CGPoint?
+
     // Current stroke colour — updated via configure(fx:color:)
     private var strokeColor: UIColor = .black
 
@@ -164,7 +224,6 @@ final class InkEffectEngine {
         glowLayer.cornerRadius = 60
         glowLayer.isHidden = true
         overlayView.layer.addSublayer(glowLayer)
-
         // Fire glow layer — 80×80 warm amber aura, initially hidden
         fireGlowLayer.bounds = CGRect(x: 0, y: 0,
                                       width:  FireTuning.glowDiameter,
@@ -173,16 +232,14 @@ final class InkEffectEngine {
         fireGlowLayer.isHidden = true
         overlayView.layer.addSublayer(fireGlowLayer)
 
-        // Sheen glow layer — 44×44 iridescent radial gradient, initially hidden
-        sheenGlowLayer.bounds = CGRect(x: 0, y: 0,
-                                       width:  SheenTuning.glowDiameter,
-                                       height: SheenTuning.glowDiameter)
-        sheenGlowLayer.cornerRadius = SheenTuning.glowDiameter / 2
-        sheenGlowLayer.isHidden = true
+
+        // Sheen glow layer — iridescent radial gradient, initially hidden
+        let sd = SheenTuning.glowDiameter
+        sheenGlowLayer.bounds       = CGRect(x: 0, y: 0, width: sd, height: sd)
+        sheenGlowLayer.cornerRadius = sd / 2
+        sheenGlowLayer.isHidden     = true
         overlayView.layer.addSublayer(sheenGlowLayer)
     }
-
-    // MARK: - Attach / Detach
 
     /// Adds the non-interactive overlay above all existing subviews of `view`.
     ///
@@ -239,9 +296,8 @@ final class InkEffectEngine {
             case .shadow:
                 recolourShadowEmitter(color: color)
             case .sheen:
-                sheenHueOffset = 0
-                recolourSheenEmitter(hue: 0, baseColor: color)
-                configureSheenGlow(color: color)
+                sheenHueOffset = 0  // hue cycles automatically in onStrokeUpdated
+                configureSheenGlow(hue: sheenHueOffset)
             case .glow:
                 configureGlowColor(color)
             default:
@@ -286,7 +342,10 @@ final class InkEffectEngine {
                 updateFireGlowPosition(point)
             }
             if activeFX == .sheen {
+                sheenGlowLayer.removeAllAnimations()
+                sheenGlowLayer.opacity  = 1
                 sheenGlowLayer.isHidden = false
+                lastSheenPoint = point
                 updateSheenGlowPosition(point)
             }
         case .shadow:
@@ -321,11 +380,21 @@ final class InkEffectEngine {
             recolourEmitter(color: UIColor(hue: rainbowHueOffset, saturation: 0.9, brightness: 1.0, alpha: 0.9))
             updateEmitterPosition(point)
         case .sheen:
-            sheenHueOffset += 0.04
+            sheenHueOffset += SheenTuning.hueStepPerUpdate
             if sheenHueOffset > 1.0 { sheenHueOffset -= 1.0 }
-            recolourSheenEmitter(hue: sheenHueOffset, baseColor: strokeColor)
+            recolourSheenEmitter(hue: sheenHueOffset)
+            configureSheenGlow(hue: sheenHueOffset)
+            // Velocity-responsive birth rate — faster strokes emit more particles.
+            if let prev = lastSheenPoint {
+                let dx = point.x - prev.x
+                let dy = point.y - prev.y
+                let speed = sqrt(dx * dx + dy * dy)
+                let boost: Float = speed > SheenTuning.velocityBoostThreshold
+                    ? SheenTuning.velocityBoostMultiplier : 1.0
+                emitterLayer.birthRate = boost
+            }
+            lastSheenPoint = point
             updateEmitterPosition(point)
-            updateSheenGlowColors(for: sheenHueOffset)
             updateSheenGlowPosition(point)
         case .glitch:
             triggerGlitchPulse()
@@ -339,7 +408,7 @@ final class InkEffectEngine {
     /// Call when the pencil lifts (stroke finished).
     func onStrokeEnded(at point: CGPoint) {
         switch activeFX {
-        case .fire, .sparkle, .snow, .dissolve, .rainbow, .blood:
+        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood:
             emitterLayer.birthRate = 0
             if activeFX == .fire {
                 let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
@@ -358,16 +427,25 @@ final class InkEffectEngine {
                 fireGlowLayer.add(fadeAnim, forKey: "fireGlowFade")
                 CATransaction.commit()
             }
-        case .sheen:
-            emitterLayer.birthRate = 0
-            CATransaction.begin()
-            CATransaction.setAnimationDuration(0.20)
-            sheenGlowLayer.opacity = 0
-            CATransaction.setCompletionBlock { [weak self] in
-                self?.sheenGlowLayer.isHidden = true
-                self?.sheenGlowLayer.opacity  = 1
+            if activeFX == .sheen {
+                // Smooth fade-out of the iridescent glow when the stroke ends.
+                let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
+                fadeAnim.fromValue             = Float(1)
+                fadeAnim.toValue               = Float(0)
+                fadeAnim.duration              = SheenTuning.glowFadeDuration
+                fadeAnim.fillMode              = .forwards
+                fadeAnim.isRemovedOnCompletion = false
+                let glow = sheenGlowLayer
+                CATransaction.begin()
+                CATransaction.setCompletionBlock {
+                    glow.isHidden = true
+                    glow.opacity  = 1
+                    glow.removeAnimation(forKey: "sheenGlowFade")
+                }
+                sheenGlowLayer.add(fadeAnim, forKey: "sheenGlowFade")
+                CATransaction.commit()
+                lastSheenPoint = nil
             }
-            CATransaction.commit()
         case .shadow:
             // Stop emitting; existing puffs/wisps linger naturally until their lifetime expires.
             shadowEmitterLayer.birthRate = 0
@@ -902,6 +980,10 @@ final class InkEffectEngine {
         glowLayer.removeAllAnimations()
         glowLayer.isHidden = true
 
+        sheenGlowLayer.removeAllAnimations()
+        sheenGlowLayer.isHidden = true
+        sheenGlowLayer.opacity  = 1
+
         fireGlowLayer.removeAllAnimations()
         fireGlowLayer.isHidden = true
         fireGlowLayer.opacity  = 1
@@ -918,102 +1000,140 @@ final class InkEffectEngine {
 
         rainbowHueOffset = 0
         sheenHueOffset   = 0
+        lastSheenPoint   = nil
     }
 
     // MARK: - Private: Sheen (holographic iridescent shimmer)
 
     private func setupSheenEmitter(color: UIColor) {
         emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 6, height: 6)
-        emitterLayer.renderMode   = .additive
+        emitterLayer.emitterSize  = CGSize(width: 10, height: 10)
         emitterLayer.isHidden     = false
+        sheenHueOffset   = 0
+        lastSheenPoint   = nil
         emitterLayer.emitterCells = [
             makeSheenCoreCell(color: color),
-            makeSheenDustCell(color: color),
+            makeSheenFlareCell(color: color),
+            makeSheenDustCell(),
         ]
         emitterLayer.birthRate = 0
-        configureSheenGlow(color: color)
-        sheenGlowLayer.isHidden = true
+        configureSheenGlow(hue: sheenHueOffset)
     }
 
-    /// Core sheen particles — large diamond shapes, slight rise, moderate scatter.
+    /// Core cell: fast-spinning diamonds that cluster tightly around the nib
+    /// for a dense glittering nucleus.
     private func makeSheenCoreCell(color: UIColor) -> CAEmitterCell {
         let physics = ParticlePhysics.sheenCorePhysics
-        let budget  = Float(min(tier.maxParticles, SheenTuning.maxBirthRate))
-        let cell           = CAEmitterCell()
-        cell.name          = "sheenCore"
-        cell.birthRate     = budget * SheenTuning.coreFraction
-        cell.lifetime      = 0.55
-        cell.lifetimeRange = 0.20
-        cell.velocity      = 40
-        cell.velocityRange = CGFloat(physics.turbulence)
-        cell.yAcceleration = physics.gravity
-        cell.xAcceleration = physics.wind
-        cell.emissionRange = .pi * 2
-        cell.scale         = 0.03
-        cell.scaleRange    = 0.015
-        cell.scaleSpeed    = -0.018
-        cell.alphaSpeed    = -2.0
-        cell.spin          = 2.0
-        cell.spinRange     = physics.spinRange
-        cell.color         = color.cgColor
-        cell.redRange      = 0.50
-        cell.greenRange    = 0.50
-        cell.blueRange     = 0.50
-        cell.contents      = diamondCGImage(size: 8)
+        let cell               = CAEmitterCell()
+        cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxCoreParticles)) * SheenTuning.coreBirthFraction
+        cell.lifetime          = 0.90
+        cell.lifetimeRange     = 0.35
+        cell.velocity          = 85
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi * 2  // omnidirectional shimmer
+        cell.scale             = 0.11
+        cell.scaleRange        = 0.05
+        cell.scaleSpeed        = -0.025
+        cell.alphaSpeed        = -0.85
+        cell.spin              = 2.5
+        cell.spinRange         = physics.spinRange
+        cell.color             = color.cgColor
+        cell.redRange          = 0.60
+        cell.greenRange        = 0.60
+        cell.blueRange         = 0.60
+        cell.contents          = diamondCGImage(size: 24)
         return cell
     }
 
-    /// Dust sheen particles — small circles, phase-offset hue, chaotic scatter.
-    private func makeSheenDustCell(color: UIColor) -> CAEmitterCell {
+    /// Flare cell: medium elongated streaks that add directional prismatic shimmer
+    /// between the tight core and the broad dust halo.
+    private func makeSheenFlareCell(color: UIColor) -> CAEmitterCell {
+        let physics = ParticlePhysics.sheenFlarePhysics
+        let flareColor = UIColor(hue: SheenTuning.flareHuePhaseOffset,
+                                 saturation: 0.90, brightness: 1.0, alpha: 0.80)
+        let cell               = CAEmitterCell()
+        cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxFlareParticles)) * SheenTuning.flareBirthFraction
+        cell.lifetime          = 0.65
+        cell.lifetimeRange     = 0.20
+        cell.velocity          = 55
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi * 2
+        cell.scale             = 0.07
+        cell.scaleRange        = 0.03
+        cell.scaleSpeed        = -0.030
+        cell.alphaSpeed        = -1.1
+        cell.spin              = 3.5
+        cell.spinRange         = physics.spinRange
+        cell.color             = flareColor.cgColor
+        cell.redRange          = 0.50
+        cell.greenRange        = 0.50
+        cell.blueRange         = 0.50
+        cell.contents          = diamondCGImage(size: 16)
+        return cell
+    }
+
+    /// Dust cell: large, slow soft circles that fan out into a broad iridescent halo.
+    private func makeSheenDustCell() -> CAEmitterCell {
         let physics = ParticlePhysics.sheenDustPhysics
-        let budget  = Float(min(tier.maxParticles, SheenTuning.maxBirthRate))
-        // Phase-offset the dust hue by 0.20 for a complementary shimmer
-        var h: CGFloat = 0, s: CGFloat = 0, v: CGFloat = 0
-        color.getHue(&h, saturation: &s, brightness: &v, alpha: nil)
-        let dustHue   = (h + SheenTuning.dustHuePhaseOffset).truncatingRemainder(dividingBy: 1.0)
-        let dustColor = UIColor(hue: dustHue, saturation: s, brightness: v, alpha: 0.70)
-        let cell           = CAEmitterCell()
-        cell.name          = "sheenDust"
-        cell.birthRate     = budget * SheenTuning.dustFraction
-        cell.lifetime      = 0.30
-        cell.lifetimeRange = 0.12
-        cell.velocity      = 20
-        cell.velocityRange = CGFloat(physics.turbulence)
-        cell.yAcceleration = physics.gravity
-        cell.xAcceleration = physics.wind
-        cell.emissionRange = .pi * 2
-        cell.scale         = 0.016
-        cell.scaleRange    = 0.008
-        cell.scaleSpeed    = -0.030
-        cell.alphaSpeed    = -2.8
-        cell.spin          = 1.5
-        cell.spinRange     = physics.spinRange
-        cell.color         = dustColor.cgColor
-        cell.redRange      = 0.40
-        cell.greenRange    = 0.40
-        cell.blueRange     = 0.40
-        cell.contents      = circleCGImage(diameter: 5)
+        // Initialise at the dust-phase-offset hue so it immediately contrasts with core.
+        let dustColor = UIColor(hue: SheenTuning.dustHuePhaseOffset,
+                                saturation: 0.75, brightness: 1.0, alpha: 0.55)
+        let cell               = CAEmitterCell()
+        cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxDustParticles)) * SheenTuning.dustBirthFraction
+        cell.lifetime          = 0.95
+        cell.lifetimeRange     = 0.30
+        cell.velocity          = 38
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity
+        cell.xAcceleration     = physics.wind
+        cell.emissionRange     = .pi * 2
+        cell.scale             = 0.045
+        cell.scaleRange        = 0.020
+        cell.scaleSpeed        = -0.012
+        cell.alphaSpeed        = -0.90
+        cell.spin              = 1.2
+        cell.spinRange         = physics.spinRange
+        cell.color             = dustColor.cgColor
+        cell.redRange          = 0.50
+        cell.greenRange        = 0.50
+        cell.blueRange         = 0.50
+        cell.contents          = circleCGImage(diameter: 14)
         return cell
     }
 
-    /// Configures the iridescent 3-stop radial glow using the current ink colour.
-    private func configureSheenGlow(color: UIColor) {
-        sheenGlowLayer.locations = [0.0, 0.5, 1.0]
-        var h: CGFloat = 0, s: CGFloat = 0, v: CGFloat = 0
-        color.getHue(&h, saturation: &s, brightness: &v, alpha: nil)
-        updateSheenGlowColors(for: h)
+    /// Updates all three sheen cells to the current hue cycle, maintaining phase offsets
+    /// between core, flare, and dust layers for a rich split-hue iridescent look.
+    private func recolourSheenEmitter(hue: CGFloat) {
+        guard var cells = emitterLayer.emitterCells, cells.count >= 3 else { return }
+        cells[0].color = UIColor(hue: hue,
+                                 saturation: 1.0, brightness: 1.0, alpha: 0.90).cgColor
+        let flareHue   = fmod(hue + SheenTuning.flareHuePhaseOffset, 1.0)
+        cells[1].color = UIColor(hue: flareHue,
+                                 saturation: 0.90, brightness: 1.0, alpha: 0.80).cgColor
+        let dustHue    = fmod(hue + SheenTuning.dustHuePhaseOffset, 1.0)
+        cells[2].color = UIColor(hue: dustHue,
+                                 saturation: 0.75, brightness: 1.0, alpha: 0.60).cgColor
+        emitterLayer.emitterCells = cells
     }
 
-    /// Updates the glow's 3 colour stops to a cycling iridescent rainbow.
-    private func updateSheenGlowColors(for hue: CGFloat) {
-        let h2 = (hue + 0.33).truncatingRemainder(dividingBy: 1.0)
-        let h3 = (hue + 0.66).truncatingRemainder(dividingBy: 1.0)
-        sheenGlowLayer.colors = [
-            UIColor(hue: hue, saturation: 0.80, brightness: 1.0, alpha: 0.28).cgColor,
-            UIColor(hue: h2,  saturation: 0.80, brightness: 1.0, alpha: 0.12).cgColor,
-            UIColor(hue: h3,  saturation: 0.80, brightness: 1.0, alpha: 0.0).cgColor,
-        ]
+    /// Recolours the sheen glow layer with a four-stop iridescent gradient derived
+    /// from `hue`.  The stops cycle through distinct hues to simulate the
+    /// wavelength-dependent colour shift of real holographic material.
+    private func configureSheenGlow(hue: CGFloat) {
+        let c0 = UIColor(hue: hue,
+                         saturation: 0.90, brightness: 1.0, alpha: 0.40).cgColor
+        let c1 = UIColor(hue: fmod(hue + SheenTuning.flareHuePhaseOffset, 1.0),
+                         saturation: 0.85, brightness: 1.0, alpha: 0.25).cgColor
+        let c2 = UIColor(hue: fmod(hue + SheenTuning.dustHuePhaseOffset, 1.0),
+                         saturation: 0.80, brightness: 1.0, alpha: 0.10).cgColor
+        let c3 = UIColor(hue: fmod(hue + 0.50, 1.0),
+                         saturation: 0.70, brightness: 1.0, alpha: 0.00).cgColor
+        sheenGlowLayer.colors    = [c0, c1, c2, c3]
+        sheenGlowLayer.locations = [0.0, 0.30, 0.65, 1.0]
     }
 
     private func updateSheenGlowPosition(_ point: CGPoint) {
@@ -1023,14 +1143,6 @@ final class InkEffectEngine {
         CATransaction.commit()
     }
 
-    /// Recolours both sheen cells with a phase-offset dust hue, and refreshes the glow.
-    private func recolourSheenEmitter(hue: CGFloat, baseColor: UIColor) {
-        guard var cells = emitterLayer.emitterCells, cells.count >= 2 else { return }
-        cells[0].color = UIColor(hue: hue, saturation: 1.0, brightness: 1.0, alpha: 0.85).cgColor
-        let dustHue    = (hue + SheenTuning.dustHuePhaseOffset).truncatingRemainder(dividingBy: 1.0)
-        cells[1].color = UIColor(hue: dustHue, saturation: 0.90, brightness: 0.90, alpha: 0.70).cgColor
-        emitterLayer.emitterCells = cells
-    }
 
     // MARK: - Private: Shadow (billowing smoke cloud behind strokes)
     //
@@ -1053,6 +1165,7 @@ final class InkEffectEngine {
         shadowEmitterLayer.birthRate = 0   // enabled on stroke begin
         shadowEmitterLayer.isHidden  = false
     }
+
 
     /// Large, slow, billowing primary smoke puffs.
     private func makeShadowPuffCell(color: UIColor) -> CAEmitterCell {

@@ -2235,6 +2235,7 @@ struct CanvasView: UIViewRepresentable {
         var snapAlignEffectEngine: SnapAlignEffectEngine { effects.snapAlignEffectEngine }
         var interactionFeedback: InteractionFeedbackEngine { effects.interactionFeedbackEngine }
 
+
         /// Shape objects canvas for the current page.
         weak var shapeCanvas: ShapeCanvasView?
 
