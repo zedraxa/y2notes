@@ -463,8 +463,33 @@ struct FloatingToolbarCapsule: View {
                     Divider().padding(.leading, 48)
                 }
             }
+
+            Divider()
+
+            // Sound toggle row.
+            Button {
+                toolStore.isAmbientSoundEnabled.toggle()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: toolStore.isAmbientSoundEnabled
+                          ? "speaker.wave.2" : "speaker.slash")
+                        .font(.system(size: 16))
+                        .frame(width: 24)
+                        .foregroundStyle(toolStore.isAmbientSoundEnabled
+                                         ? Color.accentColor
+                                         : Color(uiColor: .secondaryLabel))
+                    Text("Sound")
+                        .font(.subheadline)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color(uiColor: .label))
         }
-        .frame(width: 160)
+        .frame(width: 180)
         .padding(.vertical, 4)
     }
 

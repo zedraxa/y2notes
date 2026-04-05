@@ -398,7 +398,9 @@ struct NoteEditorView: View {
             },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
-            isStudyModeActive: toolStore.isStudyModeActive
+            isStudyModeActive: toolStore.isStudyModeActive,
+            activeAmbientScene: toolStore.activeAmbientScene,
+            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
@@ -1554,6 +1556,10 @@ struct CanvasView: UIViewRepresentable {
     var isMagicModeActive: Bool = false
     /// Whether Study Mode is active (heading glow, checklist pulse, timer pulse).
     var isStudyModeActive: Bool = false
+    /// The currently active ambient environment scene, or `nil` when inactive.
+    var activeAmbientScene: AmbientScene?
+    /// Whether ambient soundscapes are enabled.
+    var isAmbientSoundEnabled: Bool = true
 
     // MARK: - Page dimensions
 
@@ -2006,6 +2012,20 @@ struct CanvasView: UIViewRepresentable {
             studyEngine.activate(on: uiView.layer)
         } else if !isStudyModeActive && studyEngine.isActive {
             studyEngine.deactivate()
+        }
+
+        // Sync ambient environment engine — activate/deactivate/sound when scene changes.
+        let ambientEngine = context.coordinator.ambientEngine
+        ambientEngine.soundEnabled = isAmbientSoundEnabled
+        if let ts = toolStoreForFade {
+            if let scene = activeAmbientScene, ambientEngine.activeScene != scene {
+                ambientEngine.activate(scene, on: uiView.layer, toolStore: ts)
+            } else if activeAmbientScene == nil, ambientEngine.activeScene != nil {
+                ambientEngine.deactivate(toolStore: ts)
+            }
+        }
+        if ambientEngine.activeScene != nil {
+            ambientEngine.updateLayout(containerBounds: uiView.bounds)
         }
 
         // Sync ink effect engine configuration when FX type or colour changes.
