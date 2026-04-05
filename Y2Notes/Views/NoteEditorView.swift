@@ -1958,6 +1958,10 @@ struct CanvasView: UIViewRepresentable {
         } else if !isMagicModeActive && magicEngine.isActive {
             magicEngine.deactivate()
         }
+        // Keep emitter frame in sync when the canvas resizes (rotation, multitasking).
+        if magicEngine.isActive {
+            magicEngine.updateLayout(containerBounds: uiView.bounds)
+        }
 
         // Sync study mode engine — activate/deactivate when toggle changes.
         let studyEngine = context.coordinator.studyModeEngine
