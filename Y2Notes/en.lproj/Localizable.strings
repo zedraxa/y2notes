@@ -346,3 +346,18 @@
 "ToolExpansion.LongPressToExpand" = "Long-press to expand toolbar";
 "ToolExpansion.Pixel"             = "Pixel";
 "ToolExpansion.Stroke"            = "Stroke";
+
+/* ── Text Style Editor ────────────────────────────────────────── */
+
+"TextStyle.Title"                 = "Text Style";
+"TextStyle.Font"                  = "Font";
+"TextStyle.Bold"                  = "Bold";
+"TextStyle.Size"                  = "Size";
+"TextStyle.Colour"                = "Colour";
+"TextStyle.Align"                 = "Align";
+"TextStyle.Background"            = "Background";
+"TextStyle.Fill"                  = "Fill";
+"TextStyle.Border"                = "Border";
+"TextStyle.BorderColour"          = "Border Colour";
+"TextStyle.Thickness"             = "Thickness";
+"TextStyle.Corners"               = "Corners";
