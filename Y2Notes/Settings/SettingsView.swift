@@ -16,6 +16,8 @@ struct SettingsView: View {
 
     @State private var showDiagnostics = false
     @State private var showResetConfirmation = false
+    @State private var showWritingInsights = false
+    @State private var showOpenSourceCredits = false
 
     var body: some View {
         NavigationStack {
@@ -23,7 +25,9 @@ struct SettingsView: View {
                 appearanceSection
                 documentDefaultsSection
                 toolPreferencesSection
+                effectsSection
                 accessibilitySection
+                insightsSection
                 aboutSection
                 resetSection
             }
@@ -35,6 +39,12 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showDiagnostics) {
                 DiagnosticsView()
+            }
+            .sheet(isPresented: $showWritingInsights) {
+                WritingInsightsView()
+            }
+            .sheet(isPresented: $showOpenSourceCredits) {
+                OpenSourceCreditsView()
             }
             .confirmationDialog(
                 "Reset All Settings",
@@ -75,8 +85,34 @@ struct SettingsView: View {
             }
             .accessibilityLabel("App theme")
 
-            // Contrast row — shows the primary text ratio alongside the pass/fail badge.
+            // Active theme indicator when scheduling is on.
+            if themeStore.autoScheduleEnabled {
+                HStack {
+                    Label("Active", systemImage: "clock.arrow.2.circlepath")
+                        .font(.subheadline)
+                    Spacer()
+                    Text(themeStore.effectiveTheme.displayName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Auto-schedule active. Current theme is \(themeStore.effectiveTheme.displayName).")
+            }
+
+            // Colour palette preview.
             let def = themeStore.definition
+            HStack(spacing: 6) {
+                Text("Palette")
+                Spacer()
+                paletteCircle(def.canvasBackgroundColor, border: true)
+                paletteCircle(def.primaryTextColor)
+                paletteCircle(def.secondaryTextColor)
+                paletteCircle(def.accentColor)
+                paletteCircle(def.toolbarBackgroundColor, border: true)
+                paletteCircle(def.surfaceSwiftUIColor, border: true)
+            }
+            .accessibilityHidden(true)
+
+            // Contrast row — shows the primary text ratio alongside the pass/fail badge.
             HStack {
                 Text("Contrast")
                 Spacer()
@@ -103,6 +139,16 @@ struct SettingsView: View {
         } header: {
             Text("Appearance")
         }
+    }
+
+    private func paletteCircle(_ color: Color, border: Bool = false) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 18, height: 18)
+            .overlay(
+                Circle()
+                    .strokeBorder(Color(uiColor: .separator).opacity(border ? 0.4 : 0), lineWidth: 0.5)
+            )
     }
 
     // MARK: - Document Defaults
@@ -179,6 +225,26 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Ink Effects
+
+    private var effectsSection: some View {
+        Section {
+            Toggle(isOn: $toolStore.isMagicModeActive) {
+                Label("Magic Mode", systemImage: "sparkles")
+            }
+            .accessibilityLabel("Magic Mode. Adds writing particles, keyword glow, and underline highlight animation.")
+
+            Toggle(isOn: $toolStore.isStudyModeActive) {
+                Label("Study Mode", systemImage: "graduationcap")
+            }
+            .accessibilityLabel("Study Mode. Adds heading glow, checklist completion animation, and timer pulse.")
+        } header: {
+            Text("Ink Effects")
+        } footer: {
+            Text("Magic Mode adds subtle sparkle particles while writing. Study Mode provides satisfying feedback for headings, completed checklists, and timers.")
+        }
+    }
+
     // MARK: - Accessibility
 
     private var accessibilitySection: some View {
@@ -196,6 +262,23 @@ struct SettingsView: View {
             Text("Accessibility")
         } footer: {
             Text("Reduce Motion suppresses transitions. Increase Contrast enhances borders and text weight.")
+        }
+    }
+
+    // MARK: - Insights
+
+    private var insightsSection: some View {
+        Section {
+            Button {
+                showWritingInsights = true
+            } label: {
+                Label("Writing Insights", systemImage: "chart.bar.xaxis")
+            }
+            .accessibilityLabel("Open writing insights dashboard")
+        } header: {
+            Text("Insights")
+        } footer: {
+            Text("View writing statistics, streaks, and activity inspired by open-source analytics tools.")
         }
     }
 
@@ -218,6 +301,13 @@ struct SettingsView: View {
                 Label("Diagnostics & Support", systemImage: "wrench.and.screwdriver")
             }
             .accessibilityLabel("Open diagnostics and support")
+
+            Button {
+                showOpenSourceCredits = true
+            } label: {
+                Label("Open Source Inspirations", systemImage: "heart.text.square")
+            }
+            .accessibilityLabel("View open source inspirations and credits")
         } header: {
             Text("About")
         }

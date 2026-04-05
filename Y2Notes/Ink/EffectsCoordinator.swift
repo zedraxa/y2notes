@@ -54,6 +54,16 @@ final class EffectsCoordinator {
     /// Core + advanced writing effects (glow pen, neon ink, ink trail, gradient ink).
     let writingEffectsPipeline = WritingEffectsPipeline()
 
+    /// Physical micro-interactions (tap ripple, selection glow, snap bounce, etc.).
+    let microInteractionEngine = MicroInteractionEngine()
+
+    /// Visual feedback for snap/alignment events.
+    let snapAlignEffectEngine = SnapAlignEffectEngine()
+
+    /// Centralized haptic + visual feedback for UI interactions.
+    let interactionFeedbackEngine = InteractionFeedbackEngine()
+
+
     // MARK: - Private
 
     private var cancellables: Set<AnyCancellable> = []
@@ -88,6 +98,9 @@ final class EffectsCoordinator {
         magicModeEngine.effectIntensity = intensity
         studyModeEngine.effectIntensity = intensity
         writingEffectsPipeline.effectIntensity = intensity
+        microInteractionEngine.effectIntensity = intensity
+        snapAlignEffectEngine.effectIntensity = intensity
+        interactionFeedbackEngine.effectIntensity = intensity
         shapeCanvas?.effectIntensity = intensity
         attachmentCanvas?.effectIntensity = intensity
         widgetCanvas?.effectIntensity = intensity

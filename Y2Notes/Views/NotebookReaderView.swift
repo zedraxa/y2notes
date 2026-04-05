@@ -20,7 +20,11 @@ struct NotebookReaderView: View {
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var navigationStore: NavigationStore
+    @Environment(TabWorkspaceStore.self) private var workspace
     let notebook: Notebook
+    /// The tab ID for state sync. `nil` when the reader is not hosted inside
+    /// the tab workspace (e.g. launched directly from a shortcut or widget).
+    let tabID: UUID?
 
     @State private var flatPageIndex = 0
     @State private var didRestorePosition = false
@@ -139,7 +143,7 @@ struct NotebookReaderView: View {
     }
 
     private var effectiveTheme: AppTheme {
-        currentNote?.themeOverride ?? notebook.defaultTheme ?? themeStore.selectedTheme
+        currentNote?.themeOverride ?? notebook.defaultTheme ?? themeStore.effectiveTheme
     }
 
     private var effectiveDefinition: ThemeDefinition {
@@ -378,7 +382,12 @@ struct NotebookReaderView: View {
         .onAppear {
             navigationStore.activateNotebook(notebook.id)
             if !didRestorePosition {
-                let saved = noteStore.lastPageIndex(for: notebook.id)
+                // Prefer the tab's persisted page index when running inside the
+                // tab workspace; fall back to the notebook-level last-page store.
+                let tabPage = tabID.flatMap { id in
+                    workspace.tabs.first(where: { $0.id == id })?.pageIndex
+                }
+                let saved = tabPage ?? noteStore.lastPageIndex(for: notebook.id)
                 let maxIdx = max(0, allPages.count - 1)
                 flatPageIndex = min(saved, maxIdx)
                 didRestorePosition = true
@@ -387,6 +396,9 @@ struct NotebookReaderView: View {
         // Persist page position on every page turn + push history
         .onChange(of: flatPageIndex) { _, newIndex in
             noteStore.setLastPageIndex(newIndex, for: notebook.id)
+            if let id = tabID {
+                workspace.updateTabState(id, pageIndex: newIndex)
+            }
             pushCurrentPageToHistory()
             if isShowingCoverPage {
                 withAnimation(.easeOut(duration: 0.2)) { isShowingCoverPage = false }
@@ -1187,6 +1199,14 @@ struct NotebookReaderView: View {
                 .foregroundStyle(.secondary.opacity(0.3))
         case .dot:
             Image(systemName: "circle.grid.3x3")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .cornell:
+            Image(systemName: "rectangle.split.2x1")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .music:
+            Image(systemName: "music.note.list")
                 .font(.title3)
                 .foregroundStyle(.secondary.opacity(0.3))
         case .blank:

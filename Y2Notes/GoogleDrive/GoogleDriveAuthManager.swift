@@ -34,8 +34,9 @@ final class GoogleDriveAuthManager: NSObject, ObservableObject {
     }()
     /// Redirect URI registered in Google Cloud Console (custom scheme).
     static let redirectURI = "com.y2notes.app:/oauth2redirect"
-    /// Scopes: Drive file access (read/write files created by the app) + user info email.
-    static let scopes = "https://www.googleapis.com/auth/drive.file email"
+    /// Scopes: Drive file access (read/write files created by the app),
+    /// read-only access to all Drive files (for browsing), and user info email.
+    static let scopes = "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly email"
 
     private static let tokenEndpoint = "https://oauth2.googleapis.com/token"
     private static let authEndpoint  = "https://accounts.google.com/o/oauth2/v2/auth"
