@@ -141,7 +141,6 @@ struct DocumentLibraryView: View {
     /// Callback invoked with a companion note's ID so the parent can open it in a tab.
     var onOpenCompanionNote: ((UUID) -> Void)?
 
-    @Binding var selectedDocumentID: UUID?
     @State private var showImporter = false
     @State private var importError: String?
     @State private var sortOrder: DocumentSortOrder = .dateImported
