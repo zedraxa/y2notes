@@ -48,6 +48,8 @@ struct ToolExpansionView: View {
                 eraserExpansion
             } else if expandedTool == .shape {
                 shapeExpansion
+            } else if expandedTool == .text {
+                textExpansion
             }
         }
         .padding(.horizontal, 12)
@@ -433,6 +435,105 @@ struct ToolExpansionView: View {
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
+    }
+
+    // MARK: - Text Expansion
+
+    @ViewBuilder
+    private var textExpansion: some View {
+        VStack(spacing: 8) {
+            // Font family picker row
+            HStack(spacing: 4) {
+                ForEach(TextFontFamily.allCases) { family in
+                    let isSelected = toolStore.activeTextFontFamily == family
+                    Button {
+                        toolStore.activeTextFontFamily = family
+                        resetTimeout()
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: family.systemImage)
+                                .font(.system(size: 12))
+                            Text(family.displayName)
+                                .font(.system(size: 8))
+                        }
+                        .frame(width: 50, height: 32)
+                        .background(
+                            isSelected
+                                ? Color.accentColor.opacity(0.15)
+                                : Color(.systemGray5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Bold toggle
+                let boldActive = toolStore.activeTextBold
+                Button {
+                    toolStore.activeTextBold.toggle()
+                    resetTimeout()
+                } label: {
+                    Image(systemName: "bold")
+                        .font(.system(size: 14, weight: boldActive ? .bold : .regular))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            boldActive
+                                ? Color.accentColor.opacity(0.15)
+                                : Color(.systemGray5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .foregroundStyle(boldActive ? Color.accentColor : Color(uiColor: .label))
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Font size slider
+            HStack(spacing: 6) {
+                Image(systemName: "textformat.size")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: $toolStore.activeTextFontSize,
+                    in: TextObjectConstants.minFontSize...TextObjectConstants.maxFontSize,
+                    step: 1
+                )
+                .frame(minWidth: 120)
+                .onChange(of: toolStore.activeTextFontSize) { _, _ in resetTimeout() }
+                Text("\(Int(toolStore.activeTextFontSize))pt")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .frame(width: 32)
+            }
+
+            // Alignment buttons
+            HStack(spacing: 4) {
+                alignmentButton(0, icon: "text.alignleft")
+                alignmentButton(1, icon: "text.aligncenter")
+                alignmentButton(2, icon: "text.alignright")
+            }
+        }
+        .frame(maxWidth: 300)
+    }
+
+    private func alignmentButton(_ rawValue: Int, icon: String) -> some View {
+        let isSelected = toolStore.activeTextAlignmentRaw == rawValue
+        return Button {
+            toolStore.activeTextAlignmentRaw = rawValue
+            resetTimeout()
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .frame(width: 36, height: 32)
+                .background(
+                    isSelected
+                        ? Color.accentColor.opacity(0.15)
+                        : Color(.systemGray5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Helpers
