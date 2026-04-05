@@ -64,6 +64,8 @@ enum NotebookCover: String, CaseIterable, Codable {
 struct Notebook: Identifiable, Codable, Hashable {
     let id: UUID
     var name: String
+    /// Optional subtitle or tagline shown on the notebook cover page.
+    var description: String
     var createdAt: Date
     var modifiedAt: Date
     var cover: NotebookCover
@@ -85,6 +87,7 @@ struct Notebook: Identifiable, Codable, Hashable {
     init(
         id: UUID = UUID(),
         name: String,
+        description: String = "",
         createdAt: Date = Date(),
         modifiedAt: Date = Date(),
         cover: NotebookCover = .ocean,
@@ -97,6 +100,7 @@ struct Notebook: Identifiable, Codable, Hashable {
     ) {
         self.id = id
         self.name = name
+        self.description = description
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
         self.cover = cover
@@ -111,7 +115,7 @@ struct Notebook: Identifiable, Codable, Hashable {
     // MARK: Codable — custom decoder for backward compatibility with saves that pre-date
     // the pageType / pageSize / orientation / defaultTheme / paperMaterial / customCoverData fields.
     enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, modifiedAt, cover
+        case id, name, description, createdAt, modifiedAt, cover
         case pageType, pageSize, orientation, defaultTheme, paperMaterial, customCoverData
     }
 
@@ -119,6 +123,7 @@ struct Notebook: Identifiable, Codable, Hashable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id              = try c.decode(UUID.self,          forKey: .id)
         name            = try c.decode(String.self,        forKey: .name)
+        description     = try c.decodeIfPresent(String.self,         forKey: .description)     ?? ""
         createdAt       = try c.decode(Date.self,          forKey: .createdAt)
         modifiedAt      = try c.decode(Date.self,          forKey: .modifiedAt)
         cover           = try c.decode(NotebookCover.self, forKey: .cover)

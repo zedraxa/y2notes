@@ -39,6 +39,7 @@ final class ContextualPencilPaletteView: UIView {
         at anchorPoint: CGPoint,
         in window: UIWindow,
         canvas: PKCanvasView,
+        eraserType: PKEraserTool.EraserType = .vector,
         colors: [UIColor] = ContextualPencilPaletteView.defaultColors
     ) {
         // Dismiss any existing palette.
@@ -48,6 +49,7 @@ final class ContextualPencilPaletteView: UIView {
             anchorPoint: anchorPoint,
             window: window,
             canvas: canvas,
+            eraserType: eraserType,
             colors: colors
         )
         window.addSubview(palette)
@@ -62,6 +64,7 @@ final class ContextualPencilPaletteView: UIView {
     // MARK: - Init
 
     private weak var canvas: PKCanvasView?
+    private var eraserType: PKEraserTool.EraserType = .vector
     private var dismissTapGesture: UITapGestureRecognizer?
     private var backgroundTapView: UIView?   // full-screen invisible tap-to-dismiss
 
@@ -69,9 +72,11 @@ final class ContextualPencilPaletteView: UIView {
         anchorPoint: CGPoint,
         window: UIWindow,
         canvas: PKCanvasView,
+        eraserType: PKEraserTool.EraserType,
         colors: [UIColor]
     ) {
         self.canvas = canvas
+        self.eraserType = eraserType
         super.init(frame: .zero)
 
         setupBackground(in: window)
@@ -282,7 +287,7 @@ final class ContextualPencilPaletteView: UIView {
 
     private func selectEraser() {
         guard let canvas = canvas else { dismiss(); return }
-        canvas.tool = PKEraserTool(.vector)
+        canvas.tool = PKEraserTool(eraserType)
         dismiss()
     }
 

@@ -185,6 +185,42 @@ enum PerformanceConstraints {
     /// Total setup overhead < 0.3 ms, all one-shot self-removing.
     static let studyModeBudgetMs: Double = 0.3
 
+    // MARK: 9. Deepened Physics & Animation Budgets (AGENT-22)
+
+    /// Velocity-driven page transition budget.
+    /// Includes 3D perspective transform setup, velocity-scaled shadow,
+    /// and dynamic duration calculation.  < 0.5 ms total.
+    static let velocityPageTransitionBudgetMs: Double = 0.5
+
+    /// Interactive page drag budget per frame.
+    /// Updates position, shadow, bend, and 3D rotation via
+    /// `CATransaction.setDisableActions(true)` — zero animation overhead.
+    static let interactiveDragBudgetMs: Double = 0.3
+
+    /// Velocity-dependent spring profile resolution budget.
+    /// Three float multiplications + two comparisons — trivially < 0.05 ms.
+    static let springProfileResolutionBudgetMs: Double = 0.05
+
+    /// Chain animation (lift-and-glow) setup budget.
+    /// Four `CABasicAnimation` / `CASpringAnimation` in a group — GPU-composited.
+    static let chainAnimationSetupBudgetMs: Double = 0.4
+
+    /// Momentum shadow depth budget per drag frame.
+    /// Three `CABasicAnimation` in a group — GPU-composited.
+    static let momentumShadowBudgetMs: Double = 0.2
+
+    /// Ink flow physics evaluation budget per stroke segment.
+    /// Pooling/thinning/bead calculations — pure arithmetic.
+    static let inkFlowPhysicsBudgetMs: Double = 0.1
+
+    /// Pressure response curve evaluation budget per stroke point.
+    /// Two comparisons + one linear interpolation.
+    static let pressureCurveBudgetMs: Double = 0.05
+
+    /// Thermal state evaluation overhead per notification.
+    /// One enum comparison — trivially < 0.01 ms.
+    static let thermalStateEvaluationBudgetMs: Double = 0.01
+
     // MARK: 8. Future — Transcript Search
 
     /// Speech-to-text processing: post-recording only, `.background` QoS.

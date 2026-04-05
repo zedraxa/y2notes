@@ -108,6 +108,7 @@
 		AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000128 /* WidgetCanvasView.swift */; };
 		AA000100000000000000012B /* WidgetHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012A /* WidgetHandlesView.swift */; };
 		AA000100000000000000012D /* WidgetPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012C /* WidgetPickerView.swift */; };
+		AA0001000000000000000153 /* WidgetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000152 /* WidgetEditorView.swift */; };
 		AA000100000000000000012F /* PageRegion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012E /* PageRegion.swift */; };
 		AA0001000000000000000131 /* WritingEffectModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000130 /* WritingEffectModel.swift */; };
 		AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000132 /* MicroInteractionEngine.swift */; };
@@ -118,6 +119,16 @@
 		AA000100000000000000013D /* AdaptiveEffectsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013C /* AdaptiveEffectsEngine.swift */; };
 		AA000100000000000000013F /* MagicModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013E /* MagicModeEngine.swift */; };
 		AA0001000000000000000141 /* StudyModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000140 /* StudyModeEngine.swift */; };
+		AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000142 /* ReduceMotionObserver.swift */; };
+		AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000144 /* EffectsCoordinator.swift */; };
+		AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000146 /* WritingEffectsPipeline.swift */; };
+		AA0001000000000000000149 /* EraserCursorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* EraserCursorOverlay.swift */; };
+		AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014A /* InteractionFeedbackEngine.swift */; };
+		AA0001000000000000000155 /* WritingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000154 /* WritingInsights.swift */; };
+		AA0001000000000000000157 /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000156 /* QuickAction.swift */; };
+		AA0001000000000000000159 /* WritingInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000158 /* WritingInsightsView.swift */; };
+		AA000100000000000000015B /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015A /* CommandPaletteView.swift */; };
+		AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015C /* OpenSourceCreditsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -178,6 +189,16 @@
 		AA000100000000000000013C /* AdaptiveEffectsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveEffectsEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000013E /* MagicModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MagicModeEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000140 /* StudyModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyModeEngine.swift; sourceTree = "<group>"; };
+		AA0001000000000000000142 /* ReduceMotionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReduceMotionObserver.swift; sourceTree = "<group>"; };
+		AA0001000000000000000144 /* EffectsCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectsCoordinator.swift; sourceTree = "<group>"; };
+		AA0001000000000000000146 /* WritingEffectsPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectsPipeline.swift; sourceTree = "<group>"; };
+		AA0001000000000000000148 /* EraserCursorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraserCursorOverlay.swift; sourceTree = "<group>"; };
+		AA000100000000000000014A /* InteractionFeedbackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionFeedbackEngine.swift; sourceTree = "<group>"; };
+		AA0001000000000000000154 /* WritingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsights.swift; sourceTree = "<group>"; };
+		AA0001000000000000000156 /* QuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAction.swift; sourceTree = "<group>"; };
+		AA0001000000000000000158 /* WritingInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsightsView.swift; sourceTree = "<group>"; };
+		AA000100000000000000015A /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
+		AA000100000000000000015C /* OpenSourceCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSourceCreditsView.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -191,6 +212,7 @@
 		AA00010000000000000000B9 /* GoogleDriveSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncEngine.swift; sourceTree = "<group>"; };
 		AA00010000000000000000BA /* GoogleDriveOfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveOfflineQueue.swift; sourceTree = "<group>"; };
 		AA00010000000000000000BB /* GoogleDriveSyncStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveSyncStatusView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000148 /* GoogleDriveFileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveFileBrowserView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000C7 /* NoteCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteCreationSheet.swift; sourceTree = "<group>"; };
 		AA00010000000000000000C9 /* StudyStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyStatsView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000CB /* ImportedDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedDocument.swift; sourceTree = "<group>"; };
@@ -233,6 +255,7 @@
 		AA0001000000000000000128 /* WidgetCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetCanvasView.swift; sourceTree = "<group>"; };
 		AA000100000000000000012A /* WidgetHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetHandlesView.swift; sourceTree = "<group>"; };
 		AA000100000000000000012C /* WidgetPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPickerView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000152 /* WidgetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetEditorView.swift; sourceTree = "<group>"; };
 		AA000100000000000000012E /* PageRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRegion.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -307,6 +330,8 @@
 				AA0001000000000000000120 /* SnapshotModel.swift */,
 				AA0001000000000000000126 /* WidgetModel.swift */,
 				AA000100000000000000012E /* PageRegion.swift */,
+				AA0001000000000000000154 /* WritingInsights.swift */,
+				AA0001000000000000000156 /* QuickAction.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -354,6 +379,9 @@
 				AA0001000000000000000128 /* WidgetCanvasView.swift */,
 				AA000100000000000000012A /* WidgetHandlesView.swift */,
 				AA000100000000000000012C /* WidgetPickerView.swift */,
+				AA0001000000000000000152 /* WidgetEditorView.swift */,
+				AA0001000000000000000158 /* WritingInsightsView.swift */,
+				AA000100000000000000015A /* CommandPaletteView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -387,6 +415,7 @@
 				AA0001000000000000000053 /* PencilInteractionCoordinator.swift */,
 				AA0001000000000000000054 /* PencilHoverOverlayView.swift */,
 				AA0001000000000000000055 /* ContextualPencilPaletteView.swift */,
+				AA0001000000000000000148 /* EraserCursorOverlay.swift */,
 			);
 			path = PencilKit;
 			sourceTree = "<group>";
@@ -442,6 +471,10 @@
 				AA000100000000000000013C /* AdaptiveEffectsEngine.swift */,
 				AA000100000000000000013E /* MagicModeEngine.swift */,
 				AA0001000000000000000140 /* StudyModeEngine.swift */,
+				AA0001000000000000000142 /* ReduceMotionObserver.swift */,
+				AA0001000000000000000144 /* EffectsCoordinator.swift */,
+				AA0001000000000000000146 /* WritingEffectsPipeline.swift */,
+				AA000100000000000000014A /* InteractionFeedbackEngine.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -461,6 +494,7 @@
 				AA00010000000000000000A7 /* AppSettingsStore.swift */,
 				AA00010000000000000000A9 /* SettingsView.swift */,
 				AA00010000000000000000AB /* DiagnosticsView.swift */,
+				AA000100000000000000015C /* OpenSourceCreditsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -482,6 +516,7 @@
 				AA00010000000000000000B9 /* GoogleDriveSyncEngine.swift */,
 				AA00010000000000000000BA /* GoogleDriveOfflineQueue.swift */,
 				AA00010000000000000000BB /* GoogleDriveSyncStatusView.swift */,
+				AA0001000000000000000148 /* GoogleDriveFileBrowserView.swift */,
 			);
 			path = GoogleDrive;
 			sourceTree = "<group>";
@@ -588,6 +623,7 @@
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
+				AA0001000000000000000149 /* EraserCursorOverlay.swift in Sources */,
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
 				AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */,
@@ -615,6 +651,7 @@
 				AA00010000000000000000BF /* GoogleDriveSyncEngine.swift in Sources */,
 				AA00010000000000000000C0 /* GoogleDriveOfflineQueue.swift in Sources */,
 				AA00010000000000000000C1 /* GoogleDriveSyncStatusView.swift in Sources */,
+				AA0001000000000000000149 /* GoogleDriveFileBrowserView.swift in Sources */,
 				AA00010000000000000000C8 /* NoteCreationSheet.swift in Sources */,
 				AA00010000000000000000CA /* StudyStatsView.swift in Sources */,
 				AA00010000000000000000CE /* ImportedDocument.swift in Sources */,
@@ -657,6 +694,7 @@
 				AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */,
 				AA000100000000000000012B /* WidgetHandlesView.swift in Sources */,
 				AA000100000000000000012D /* WidgetPickerView.swift in Sources */,
+				AA0001000000000000000153 /* WidgetEditorView.swift in Sources */,
 				AA000100000000000000012F /* PageRegion.swift in Sources */,
 				AA0001000000000000000131 /* WritingEffectModel.swift in Sources */,
 				AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */,
@@ -667,6 +705,15 @@
 				AA000100000000000000013D /* AdaptiveEffectsEngine.swift in Sources */,
 				AA000100000000000000013F /* MagicModeEngine.swift in Sources */,
 				AA0001000000000000000141 /* StudyModeEngine.swift in Sources */,
+				AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */,
+				AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */,
+				AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */,
+				AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */,
+				AA0001000000000000000155 /* WritingInsights.swift in Sources */,
+				AA0001000000000000000157 /* QuickAction.swift in Sources */,
+				AA0001000000000000000159 /* WritingInsightsView.swift in Sources */,
+				AA000100000000000000015B /* CommandPaletteView.swift in Sources */,
+				AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

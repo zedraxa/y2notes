@@ -8,7 +8,7 @@ private let canvasLogger = Logger(subsystem: "com.y2notes", category: "Attachmen
 ///
 /// Inserted between `StickerCanvasView` and `ShapeCanvasView` in the overlay stack.
 /// Pencil touches always pass through to `PKCanvasView` for drawing.
-final class AttachmentCanvasView: UIView {
+final class AttachmentCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - Public State
 
