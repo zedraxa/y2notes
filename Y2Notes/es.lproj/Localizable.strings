@@ -342,3 +342,6 @@
 
 "ToolExpansion.TapToExpand"       = "Toca para expandir opciones de herramienta";
 "ToolExpansion.TapToActivate"     = "Toca para activar herramienta";
+"ToolExpansion.LongPressToExpand" = "Mantén presionado para expandir la barra";
+"ToolExpansion.Pixel"             = "Píxel";
+"ToolExpansion.Stroke"            = "Trazo";

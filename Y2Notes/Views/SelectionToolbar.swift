@@ -15,6 +15,7 @@ struct SelectionToolbar: View {
     var body: some View {
         selectionCapsule
             .transition(.scale(scale: 0.9).combined(with: .opacity))
+            .background { selectionKeyboardShortcuts }
     }
 
     // MARK: - Selection Capsule
@@ -31,6 +32,24 @@ struct SelectionToolbar: View {
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Keyboard Shortcuts
+
+    @ViewBuilder
+    private var selectionKeyboardShortcuts: some View {
+        Button("") { onAction(.cut) }
+            .keyboardShortcut("x", modifiers: .command)
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false).accessibilityHidden(true)
+        Button("") { onAction(.copy) }
+            .keyboardShortcut("c", modifiers: .command)
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false).accessibilityHidden(true)
+        Button("") { onAction(.duplicate) }
+            .keyboardShortcut("d", modifiers: .command)
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false).accessibilityHidden(true)
+        Button("") { onAction(.delete) }
+            .keyboardShortcut(.delete, modifiers: [])
+            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false).accessibilityHidden(true)
     }
 
     // MARK: - Helpers

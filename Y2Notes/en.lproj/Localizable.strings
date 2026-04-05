@@ -343,3 +343,6 @@
 
 "ToolExpansion.TapToExpand"       = "Tap to expand tool options";
 "ToolExpansion.TapToActivate"     = "Tap to activate tool";
+"ToolExpansion.LongPressToExpand" = "Long-press to expand toolbar";
+"ToolExpansion.Pixel"             = "Pixel";
+"ToolExpansion.Stroke"            = "Stroke";
