@@ -192,7 +192,11 @@ struct DocumentLibraryView: View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160, maximum: 200))], spacing: 16) {
                 ForEach(documentStore.documents) { doc in
-                    DocumentCell(document: doc, isSelected: doc.id == selectedDocumentID) {
+                    DocumentCell(
+                        document: doc,
+                        isSelected: doc.id == selectedDocumentID,
+                        hasCompanionNote: noteStore.notes(forDocument: doc.id).first != nil
+                    ) {
                         selectedDocumentID = doc.id
                     }
                     .contextMenu {
@@ -238,29 +242,41 @@ struct DocumentLibraryView: View {
 private struct DocumentCell: View {
     let document: ImportedDocument
     let isSelected: Bool
+    var hasCompanionNote: Bool = false
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 8) {
-                Image(systemName: document.documentType.systemImage)
-                    .font(.system(size: 40))
-                    .foregroundStyle(isSelected ? .white : .accentColor)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 80)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(isSelected ? Color.accentColor : Color(uiColor: .secondarySystemBackground))
-                    )
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: 8) {
+                    Image(systemName: document.documentType.systemImage)
+                        .font(.system(size: 40))
+                        .foregroundStyle(isSelected ? .white : .accentColor)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 80)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(isSelected ? Color.accentColor : Color(uiColor: .secondarySystemBackground))
+                        )
 
-                Text(document.displayName)
-                    .font(.caption.weight(.medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
+                    Text(document.displayName)
+                        .font(.caption.weight(.medium))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
 
-                Text(document.documentType.displayName)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    Text(document.documentType.displayName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if hasCompanionNote {
+                    Image(systemName: "note.text")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(4)
+                        .background(Circle().fill(Color(red: 0.3, green: 0.5, blue: 0.7).opacity(0.9)))
+                        .offset(x: 2, y: -2)
+                }
             }
         }
         .buttonStyle(.plain)

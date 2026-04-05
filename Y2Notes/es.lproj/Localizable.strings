@@ -348,12 +348,29 @@
 
 /* ── Import Notes ─────────────────────────────────────────────── */
 
-"Import.SidebarTitle"             = "Notas de importación";
-"Import.CompanionNote"            = "Nota adjunta";
-"Import.OpenCompanionNote"        = "Abrir nota adjunta";
-"Import.CreateCompanionNote"      = "Crear nota adjunta";
+"Import.SidebarTitle"             = "Notas de Importación";
+"Import.CompanionNote"            = "Nota Adjunta";
+"Import.OpenCompanionNote"        = "Abrir Nota Adjunta";
+"Import.CreateCompanionNote"      = "Crear Nota Adjunta";
 "Import.LinkedTo"                 = "Vinculado a: %@";
 "Import.TapToOpen"                = "Toca para abrir";
 "Import.SourceDeleted"            = "El archivo fuente fue eliminado";
-"Import.NoImportNotes"            = "Sin notas de importación";
+"Import.NoImportNotes"            = "Sin Notas de Importación";
 "Import.NoImportNotesSubtitle"    = "Importa un PDF o documento para crear una nota adjunta.";
+"Import.SortModified"             = "Última Modificación";
+"Import.SortCreated"              = "Fecha de Creación";
+"Import.SortName"                 = "Nombre";
+"Import.SortBy"                   = "Ordenar por";
+"Import.FilterAll"                = "Todo";
+"Import.FilterPDFs"               = "PDFs";
+"Import.FilterDocuments"          = "Documentos";
+"Import.FilterBy"                 = "Filtrar";
+"Import.SortAndFilter"            = "Ordenar y Filtrar";
+"Import.Unlink"                   = "Desvincular";
+"Import.UnlinkTitle"              = "¿Desvincular Nota Adjunta?";
+"Import.UnlinkMessage"            = "La nota permanecerá en tu biblioteca pero ya no estará vinculada a este archivo.";
+"Import.CleanUpOrphans"           = "Eliminar %lld Nota(s) Huérfana(s)";
+"Import.CleanUpOrphansTitle"      = "¿Eliminar Notas Huérfanas?";
+"Import.CleanUpOrphansMessage"    = "Estas notas están vinculadas a archivos que han sido eliminados. Las notas en sí no serán eliminadas.";
+"Import.CleanUpOrphansConfirm"    = "Eliminar Vínculos";
+"Import.HasCompanionNote"         = "Tiene nota adjunta";

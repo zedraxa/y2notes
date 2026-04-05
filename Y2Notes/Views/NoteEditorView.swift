@@ -83,6 +83,7 @@ struct NoteEditorView: View {
 
     /// Whether the version history sheet is visible.
     @State private var showVersionHistory = false
+    @State private var showUnlinkConfirm = false
 
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
@@ -1191,36 +1192,60 @@ struct NoteEditorView: View {
     /// Tappable banner shown below the title when this note is linked to an imported document.
     /// Shows the source file name and type; tapping opens the linked file in its viewer tab.
     private var linkedImportBanner: some View {
-        Button(action: openLinkedImport) {
-            HStack(spacing: 8) {
-                Image(systemName: linkedImportIcon)
-                    .font(.subheadline)
-                    .foregroundStyle(.accentColor)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(String(
-                        format: NSLocalizedString("Import.LinkedTo", comment: ""),
-                        linkedImportTitle
-                    ))
-                        .font(.caption.weight(.medium))
-                        .lineLimit(1)
-                    Text(linkedImportSubtitle)
-                        .font(.caption2)
+        HStack(spacing: 8) {
+            Button(action: openLinkedImport) {
+                HStack(spacing: 8) {
+                    Image(systemName: linkedImportIcon)
+                        .font(.subheadline)
+                        .foregroundStyle(.accentColor)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(
+                            format: NSLocalizedString("Import.LinkedTo", comment: ""),
+                            linkedImportTitle
+                        ))
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                        Text(linkedImportSubtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "arrow.up.forward.square")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
-                Image(systemName: "arrow.up.forward.square")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(
+                format: NSLocalizedString("Import.LinkedTo", comment: ""),
+                linkedImportTitle
+            ))
+
+            Button {
+                showUnlinkConfirm = true
+            } label: {
+                Image(systemName: "link.badge.minus")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+                    .padding(.leading, 4)
+                    .padding(.trailing, 16)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.accentColor.opacity(0.08))
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("Import.Unlink", comment: ""))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(String(
-            format: NSLocalizedString("Import.LinkedTo", comment: ""),
-            linkedImportTitle
-        ))
+        .background(Color.accentColor.opacity(0.08))
+        .alert(
+            NSLocalizedString("Import.UnlinkTitle", comment: ""),
+            isPresented: $showUnlinkConfirm
+        ) {
+            Button(NSLocalizedString("Import.Unlink", comment: ""), role: .destructive) {
+                noteStore.unlinkCompanionNote(id: note.id)
+            }
+            Button(NSLocalizedString("Common.Cancel", comment: ""), role: .cancel) {}
+        } message: {
+            Text(NSLocalizedString("Import.UnlinkMessage", comment: ""))
+        }
     }
 
     private var linkedImportIcon: String {

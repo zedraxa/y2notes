@@ -274,6 +274,32 @@ final class NoteStore: ObservableObject {
         notes.contains { $0.linkedDocumentID == docID }
     }
 
+    /// Removes the companion-note link from a note without deleting the note itself.
+    func unlinkCompanionNote(id: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == id }) else { return }
+        notes[idx].linkedPDFID = nil
+        notes[idx].linkedDocumentID = nil
+        save()
+    }
+
+    /// Returns all import-linked notes whose source PDF/document is no longer present.
+    /// The caller must supply the set of live PDF and document IDs.
+    func orphanedImportNotes(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) -> [Note] {
+        notes.filter {
+            if let pdfID = $0.linkedPDFID { return !livePDFIDs.contains(pdfID) }
+            if let docID = $0.linkedDocumentID { return !liveDocumentIDs.contains(docID) }
+            return false
+        }
+    }
+
+    /// Removes companion-note links from notes whose source is no longer present.
+    func removeOrphanedImportLinks(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) {
+        let orphans = orphanedImportNotes(livePDFIDs: livePDFIDs, liveDocumentIDs: liveDocumentIDs)
+        for orphan in orphans {
+            unlinkCompanionNote(id: orphan.id)
+        }
+    }
+
     func deleteNotes(at offsets: IndexSet) {
         for i in offsets {
             createPreDestructiveSnapshot(for: notes[i].id)
