@@ -139,462 +139,495 @@ struct NoteEditorView: View {
         )
     }
 
-    // swiftlint:disable:next function_body_length
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 0) {
-                titleField
-                if effectiveDefinition.canvasIsDark && !isTextMode {
-                    contrastBanner
+        editorZStack
+            .animation(.easeInOut(duration: 0.35), value: toolStore.isFocusModeActive)
+            .animation(.easeInOut(duration: 0.45), value: toolStore.activeAmbientScene)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showAdvancedPanel)
+            .navigationBarTitleDisplayMode(.inline)
+            .animation(.spring(duration: 0.25), value: showFindBar)
+            .animation(.spring(duration: 0.25), value: isTextMode)
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    saveStateIndicator
                 }
-                Divider()
-                if showFindBar {
-                    findBar
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    trailingToolbarContent
                 }
-                if isTextMode {
-                    textLayer
+            }
+            .onAppear {
+                refreshUndoRedoState()
+                toolStore.currentPaperMaterial = effectivePaperMaterial
+            }
+            .onDisappear {
+                toolStore.currentPaperMaterial = .standard
+            }
+            .onChange(of: toolStore.isFocusModeActive) { _, isActive in
+                // Toolbar opacity is driven directly by the SwiftUI toolbarOpacity
+                // binding.  The paper glow (CALayer) is handled here via the
+                // Coordinator's FocusModeEngine.
+                if isActive {
+                    toolStore.toolbarOpacity = 0.35
                 } else {
-                    let safePageIndex: Int = {
-                        guard !note.pages.isEmpty else { return 0 }
-                        return min(currentPageIndex, note.pages.count - 1)
-                    }()
-                    let currentPageData = note.pages.indices.contains(safePageIndex)
-                        ? note.pages[safePageIndex] : Data()
-
-                    CanvasView(
-                        noteID: note.id,
-                        drawingData: currentPageData,
-                        backgroundColor: canvasBackgroundColor,
-                        defaultInkColor: effectiveDefinition.contrastingInkColor,
-                        currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
-                        isShapeToolActive: toolStore.activeTool == .shape,
-                        activeShapeType: toolStore.activeShapeType,
-                        shapeColor: toolStore.activeColor,
-                        shapeWidth: toolStore.activeWidth,
-                        drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
-                        zoomResetTrigger: zoomResetTrigger,
-                        pageType: effectivePageType(forPage: safePageIndex),
-                        paperMaterial: effectivePaperMaterial,
-                        activeFX: inkStore.resolvedFX,
-                        fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
-                        pageIndex: safePageIndex,
-                        onDrawingChanged: { data in
-                            noteStore.updateDrawing(for: note.id, pageIndex: safePageIndex, data: data)
-                        },
-                        onSaveRequested: {
-                            noteStore.save()
-                        },
-                        onUndoStateChanged: { canUndoVal, canRedoVal in
-                            canUndo = canUndoVal
-                            canRedo = canRedoVal
-                        },
-                        onPageSwipe: { direction in
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                                if direction > 0 {
-                                    if currentPageIndex >= note.pageCount - 1 {
-                                        // Swipe past last page → auto-create new page
-                                        if let newIndex = noteStore.addPage(to: note.id) {
-                                            currentPageIndex = newIndex
-                                        }
-                                    } else {
-                                        currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
-                                    }
-                                } else {
-                                    currentPageIndex = max(0, currentPageIndex - 1)
-                                }
-                            }
-                        },
-                        onPinchToOverview: {
-                            showPageOverview = true
-                        },
-                        pdfURL: noteStore.notePDFURL(for: note),
-                        toolStoreForFade: toolStore,
-                        currentPageShapes: note.shapes(forPage: safePageIndex),
-                        onShapesChanged: { shapes in
-                            noteStore.updateShapes(for: note.id, pageIndex: safePageIndex, shapes: shapes)
-                        },
-                        currentPageAttachments: note.attachments(forPage: safePageIndex),
-                        attachmentNoteID: note.id,
-                        onAttachmentsChanged: { attachments in
-                            noteStore.updateAttachments(for: note.id, pageIndex: safePageIndex, attachments: attachments)
-                        },
-                        onAttachmentSelectionChanged: { attachmentID in
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                                toolStore.activeAttachmentSelection = attachmentID
-                                // Clear other selections when attachment is selected
-                                if attachmentID != nil {
-                                    toolStore.activeShapeSelection = nil
-                                    toolStore.activeStickerSelection = nil
-                                    toolStore.activeWidgetSelection = nil
-                                    toolStore.hasActiveSelection = false
-                                }
-                            }
-                        },
-                        currentPageWidgets: note.widgets(forPage: safePageIndex),
-                        onWidgetsChanged: { widgets in
-                            noteStore.updateWidgets(for: note.id, pageIndex: safePageIndex, widgets: widgets)
-                        },
-                        onWidgetSelectionChanged: { widgetID in
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                                toolStore.activeWidgetSelection = widgetID
-                                // Clear other selections when widget is selected
-                                if widgetID != nil {
-                                    toolStore.activeShapeSelection = nil
-                                    toolStore.activeStickerSelection = nil
-                                    toolStore.activeAttachmentSelection = nil
-                                    toolStore.hasActiveSelection = false
-                                }
-                            }
-                        },
-                        pageCount: note.pageCount,
-                        isMagicModeActive: toolStore.isMagicModeActive,
-                        isStudyModeActive: toolStore.isStudyModeActive
-                    )
-                    // Force recreation on page change so makeUIView loads the new drawing.
-                    .id("\(note.id)-\(safePageIndex)")
-                    // Cross-fade transition between pages: SwiftUI animates the opacity
-                    // removal of the old canvas and insertion of the new one via .id().
-                    .transition(.opacity)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
-                    .padding(.horizontal, 1)
-                    .animation(.easeInOut(duration: 0.22), value: safePageIndex)
-
-                    // Page navigation bar — book-like experience
-                    pageNavigationBar
+                    toolStore.toolbarOpacity = 1.0
                 }
-            }  // end VStack
-
-            // Floating toolbar capsule — bottom-center, above page navigation bar
-            if !isTextMode {
-                VStack {
-                    Spacer()
-                    FloatingToolbarCapsule(
-                        toolStore: toolStore,
-                        inkStore: inkStore,
-                        stickerStore: stickerStore,
-                        canUndo: canUndo,
-                        canRedo: canRedo,
-                        onUndo: { undoManager?.undo() },
-                        onRedo: { undoManager?.redo() },
-                        onOpenInspector: {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                showAdvancedPanel.toggle()
-                            }
-                        },
-                        onSelectionAction: { action in
-                            handleSelectionAction(action)
+            }
+            .onChange(of: toolStore.activeAmbientScene) { _, scene in
+                // Ambient environment scenes are driven via the Coordinator's
+                // AmbientEnvironmentEngine — all effects are GPU-composited
+                // CALayers added to the editor container layer.
+                //
+                // When an ambient scene becomes active, focus mode is
+                // deactivated (they share toolbar dimming).
+                if scene != nil {
+                    if toolStore.isFocusModeActive {
+                        toolStore.isFocusModeActive = false
+                    }
+                }
+            }
+            // Notification-based fallback to keep undo/redo state in sync even when the
+            // canvas delegate fires before the onUndoStateChanged callback is invoked.
+            .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
+                refreshUndoRedoState()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidUndoChange)) { _ in
+                refreshUndoRedoState()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { _ in
+                refreshUndoRedoState()
+            }
+            .onReceive(noteStore.$saveState) { state in
+                if state == .saved {
+                    showSavedBadge = true
+                    let now = Date()
+                    badgeShownAt = now
+                    // Each rapid save updates `badgeShownAt`; only the last scheduled
+                    // callback will actually hide the badge, avoiding premature dismissal.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        if badgeShownAt == now {
+                            showSavedBadge = false
                         }
-                    )
-                    .opacity(toolStore.toolbarOpacity)
-                    .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
-                    .allowsHitTesting(toolStore.toolbarOpacity > 0.5)
-                    .padding(.bottom, 8)
-                }
-                .zIndex(0.5)
-            }
-
-            // Shape action bar — appears when a shape object is selected
-            if toolStore.hasActiveShapeSelection,
-               let selectedID = toolStore.activeShapeSelection,
-               let selectedShape = note.shapes(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
-                VStack {
-                    ShapeHandlesView(
-                        toolStore: toolStore,
-                        selectedShape: selectedShape,
-                        onAction: { action in
-                            handleShapeAction(action, for: selectedID)
-                        }
-                    )
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
-                    Spacer()
-                }
-                .padding(.top, 60)
-                .zIndex(0.6)
-            }
-
-            // Attachment action bar — appears when an attachment is selected
-            if toolStore.hasActiveAttachmentSelection,
-               let selectedID = toolStore.activeAttachmentSelection,
-               let selectedAttachment = note.attachments(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
-                VStack {
-                    AttachmentHandlesView(
-                        attachment: selectedAttachment,
-                        onAction: { action in
-                            handleAttachmentAction(action, for: selectedID)
-                        }
-                    )
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
-                    Spacer()
-                }
-                .padding(.top, 60)
-                .zIndex(0.7)
-            }
-
-            // Widget action bar — appears when a widget is selected
-            if toolStore.hasActiveWidgetSelection,
-               let selectedID = toolStore.activeWidgetSelection,
-               let selectedWidget = note.widgets(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
-                VStack {
-                    WidgetHandlesView(
-                        widget: selectedWidget,
-                        onAction: { action in
-                            handleWidgetAction(action, for: selectedID)
-                        }
-                    )
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
-                    Spacer()
-                }
-                .padding(.top, 60)
-                .zIndex(0.75)
-            }
-
-            // Advanced tools inspector — slides in from the right
-            if showAdvancedPanel {
-                AdvancedToolsPanel(toolStore: toolStore, isPresented: $showAdvancedPanel)
-                    .padding(.top, 8)
-                    .padding(.trailing, 8)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                        removal:   .move(edge: .trailing).combined(with: .opacity)
-                    ))
-                    .zIndex(1)
-            }
-
-            // Focus-mode ambient overlays — vignette + dim.
-            // Applied via SwiftUI so they participate in the view hierarchy
-            // and auto-size on rotation.  The paper glow is applied to the
-            // canvas CALayer separately via FocusModeEngine.
-            if toolStore.isFocusModeActive {
-                focusModeOverlay
-                    .zIndex(0.4)   // behind toolbar capsules, above canvas
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
-            }
-
-            // Ambient environment scene indicator — a thin tinted
-            // overlay matching the active scene's colour.  The bulk
-            // of the effect (rain streaks, grain, warm wash) is
-            // handled via CALayers by AmbientEnvironmentEngine.
-            if toolStore.activeAmbientScene != nil {
-                ambientSceneOverlay
-                    .zIndex(0.35)  // below focus overlay and toolbars
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
-            }
-        }  // end ZStack
-        .animation(.easeInOut(duration: 0.35), value: toolStore.isFocusModeActive)
-        .animation(.easeInOut(duration: 0.45), value: toolStore.activeAmbientScene)
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showAdvancedPanel)
-        .navigationBarTitleDisplayMode(.inline)
-        .animation(.spring(duration: 0.25), value: showFindBar)
-        .animation(.spring(duration: 0.25), value: isTextMode)
-        .toolbar {
-            ToolbarItemGroup(placement: .navigationBarLeading) {
-                saveStateIndicator
-            }
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                noteThemeMenu
-
-                // Page setup menu — GoodNotes-style per-page paper type & material picker.
-                pageSetupMenu
-
-                // Create flashcard from this note.
-                Button {
-                    showCreateFlashcard = true
-                } label: {
-                    Image(systemName: "rectangle.on.rectangle.angled")
-                }
-                .accessibilityLabel("Create Flashcard")
-
-                // Export menu — PDF (single page), PDF (all pages), PNG image.
-                exportMenu
-
-                // Version history browser.
-                Button {
-                    showVersionHistory = true
-                } label: {
-                    Image(systemName: "clock.arrow.circlepath")
-                }
-                .accessibilityLabel("Version History")
-
-                // Import document into the library.
-                Button {
-                    showDocumentImporter = true
-                } label: {
-                    Image(systemName: "square.and.arrow.down")
-                }
-                .accessibilityLabel("Import document")
-
-                // Draw ↔ Type mode toggle.
-                // "keyboard" switches to text mode; "pencil" returns to drawing mode.
-                Button {
-                    flushTextNow()
-                    isTextMode.toggle()
-                } label: {
-                    Image(systemName: isTextMode ? "pencil" : "keyboard")
-                }
-                .accessibilityLabel(isTextMode ? "Switch to drawing mode" : "Switch to text mode")
-
-                // In-document find bar toggle.
-                Button {
-                    showFindBar.toggle()
-                    if !showFindBar {
-                        findQuery = ""
-                        findMatches = []
                     }
-                } label: {
-                    Image(systemName: showFindBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
-                }
-                .accessibilityLabel(showFindBar ? "Hide find bar" : "Find in note")
-
-                if !isTextMode {
-                    // Finger / Pencil drawing policy toggle.
-                    Button {
-                        pencilOnlyDrawing.toggle()
-                    } label: {
-                        Image(systemName: pencilOnlyDrawing ? "pencil.tip" : "hand.and.pencil")
-                    }
-                    .accessibilityLabel(
-                        pencilOnlyDrawing ? "Enable finger drawing" : "Enable Pencil-only drawing"
-                    )
-
-                    // Zoom reset — animates the canvas back to 1× scale.
-                    Button {
-                        zoomResetTrigger.toggle()
-                    } label: {
-                        Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    }
-                    .accessibilityLabel("Reset zoom to 100%")
-
-                    Button {
-                        undoManager?.undo()
-                    } label: {
-                        Image(systemName: "arrow.uturn.backward")
-                    }
-                    .disabled(!canUndo)
-                    .accessibilityLabel("Undo")
-
-                    Button {
-                        undoManager?.redo()
-                    } label: {
-                        Image(systemName: "arrow.uturn.forward")
-                    }
-                    .disabled(!canRedo)
-                    .accessibilityLabel("Redo")
                 }
             }
-        }
-        .onAppear {
-            refreshUndoRedoState()
-            toolStore.currentPaperMaterial = effectivePaperMaterial
-        }
-        .onDisappear {
-            toolStore.currentPaperMaterial = .standard
-        }
-        .onChange(of: toolStore.isFocusModeActive) { _, isActive in
-            // Toolbar opacity is driven directly by the SwiftUI toolbarOpacity
-            // binding.  The paper glow (CALayer) is handled here via the
-            // Coordinator's FocusModeEngine.
-            if isActive {
-                toolStore.toolbarOpacity = 0.35
-            } else {
-                toolStore.toolbarOpacity = 1.0
-            }
-        }
-        .onChange(of: toolStore.activeAmbientScene) { _, scene in
-            // Ambient environment scenes are driven via the Coordinator's
-            // AmbientEnvironmentEngine — all effects are GPU-composited
-            // CALayers added to the editor container layer.
-            //
-            // When an ambient scene becomes active, focus mode is
-            // deactivated (they share toolbar dimming).
-            if scene != nil {
+            .onDisappear {
+                flushTextNow()
+                toolStore.currentPaperMaterial = .standard
+                // Reset focus mode on editor tear-down so state doesn't leak.
                 if toolStore.isFocusModeActive {
                     toolStore.isFocusModeActive = false
+                    toolStore.toolbarOpacity = 1.0
+                }
+                // Reset ambient scene.
+                if toolStore.activeAmbientScene != nil {
+                    toolStore.activeAmbientScene = nil
+                    toolStore.toolbarOpacity = 1.0
+                }
+                noteStore.save()
+            }
+            .sheet(isPresented: $showCreateFlashcard) {
+                NoteFlashcardSheet(note: note)
+            }
+            .sheet(isPresented: $showVersionHistory) {
+                VersionHistoryView(noteID: note.id)
+                    .environmentObject(noteStore)
+                    .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showPageOverview) {
+                PageOverviewGrid(
+                    note: note,
+                    currentPageIndex: $currentPageIndex,
+                    canvasBackground: canvasBackgroundColor,
+                    onDismiss: { showPageOverview = false }
+                )
+            }
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(activityItems: shareItems)
+            }
+            .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
+                StickerLibraryView(stickerStore: stickerStore) { asset in
+                    placeSticker(asset)
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
+                WidgetPickerView { kind in
+                    placeWidget(kind)
+                }
+                .presentationDetents([.medium])
+            }
+            .fileImporter(
+                isPresented: $showDocumentImporter,
+                allowedContentTypes: ImportedDocumentType.allUTTypes,
+                allowsMultipleSelection: false
+            ) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    documentStore.importDocument(from: url)
                 }
             }
+    }
+
+    // MARK: - Body sub-views (extracted to help Swift type-checker)
+
+    /// Top-level ZStack that composes the editor content layers.
+    private var editorZStack: some View {
+        ZStack(alignment: .topTrailing) {
+            mainContentStack
+            floatingToolbarOverlay
+            selectionActionBars
+            advancedPanelOverlay
+            effectOverlays
         }
-        // Notification-based fallback to keep undo/redo state in sync even when the
-        // canvas delegate fires before the onUndoStateChanged callback is invoked.
-        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in
-            refreshUndoRedoState()
+    }
+
+    /// Primary VStack: title, contrast banner, find bar, canvas or text layer, page bar.
+    private var mainContentStack: some View {
+        VStack(spacing: 0) {
+            titleField
+            if effectiveDefinition.canvasIsDark && !isTextMode {
+                contrastBanner
+            }
+            Divider()
+            if showFindBar {
+                findBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            if isTextMode {
+                textLayer
+            } else {
+                canvasSection
+                pageNavigationBar
+            }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidUndoChange)) { _ in
-            refreshUndoRedoState()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { _ in
-            refreshUndoRedoState()
-        }
-        .onReceive(noteStore.$saveState) { state in
-            if state == .saved {
-                showSavedBadge = true
-                let now = Date()
-                badgeShownAt = now
-                // Each rapid save updates `badgeShownAt`; only the last scheduled
-                // callback will actually hide the badge, avoiding premature dismissal.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    if badgeShownAt == now {
-                        showSavedBadge = false
+    }
+
+    /// PencilKit canvas view with all callbacks and modifiers.
+    @ViewBuilder
+    private var canvasSection: some View {
+        let safePageIndex: Int = {
+            guard !note.pages.isEmpty else { return 0 }
+            return min(currentPageIndex, note.pages.count - 1)
+        }()
+        let currentPageData = note.pages.indices.contains(safePageIndex)
+            ? note.pages[safePageIndex] : Data()
+
+        CanvasView(
+            noteID: note.id,
+            drawingData: currentPageData,
+            backgroundColor: canvasBackgroundColor,
+            defaultInkColor: effectiveDefinition.contrastingInkColor,
+            currentTool: inkStore.activePreset?.pkTool ?? toolStore.pkTool,
+            isShapeToolActive: toolStore.activeTool == .shape,
+            activeShapeType: toolStore.activeShapeType,
+            shapeColor: toolStore.activeColor,
+            shapeWidth: toolStore.activeWidth,
+            drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
+            zoomResetTrigger: zoomResetTrigger,
+            pageType: effectivePageType(forPage: safePageIndex),
+            paperMaterial: effectivePaperMaterial,
+            activeFX: inkStore.resolvedFX,
+            fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
+            pageIndex: safePageIndex,
+            onDrawingChanged: { data in
+                noteStore.updateDrawing(for: note.id, pageIndex: safePageIndex, data: data)
+            },
+            onSaveRequested: {
+                noteStore.save()
+            },
+            onUndoStateChanged: { canUndoVal, canRedoVal in
+                canUndo = canUndoVal
+                canRedo = canRedoVal
+            },
+            onPageSwipe: { direction in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                    if direction > 0 {
+                        if currentPageIndex >= note.pageCount - 1 {
+                            // Swipe past last page → auto-create new page
+                            if let newIndex = noteStore.addPage(to: note.id) {
+                                currentPageIndex = newIndex
+                            }
+                        } else {
+                            currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
+                        }
+                    } else {
+                        currentPageIndex = max(0, currentPageIndex - 1)
                     }
                 }
+            },
+            onPinchToOverview: {
+                showPageOverview = true
+            },
+            pdfURL: noteStore.notePDFURL(for: note),
+            toolStoreForFade: toolStore,
+            currentPageShapes: note.shapes(forPage: safePageIndex),
+            onShapesChanged: { shapes in
+                noteStore.updateShapes(for: note.id, pageIndex: safePageIndex, shapes: shapes)
+            },
+            currentPageAttachments: note.attachments(forPage: safePageIndex),
+            attachmentNoteID: note.id,
+            onAttachmentsChanged: { attachments in
+                noteStore.updateAttachments(for: note.id, pageIndex: safePageIndex, attachments: attachments)
+            },
+            onAttachmentSelectionChanged: { attachmentID in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeAttachmentSelection = attachmentID
+                    // Clear other selections when attachment is selected
+                    if attachmentID != nil {
+                        toolStore.activeShapeSelection = nil
+                        toolStore.activeStickerSelection = nil
+                        toolStore.activeWidgetSelection = nil
+                        toolStore.hasActiveSelection = false
+                    }
+                }
+            },
+            currentPageWidgets: note.widgets(forPage: safePageIndex),
+            onWidgetsChanged: { widgets in
+                noteStore.updateWidgets(for: note.id, pageIndex: safePageIndex, widgets: widgets)
+            },
+            onWidgetSelectionChanged: { widgetID in
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    toolStore.activeWidgetSelection = widgetID
+                    // Clear other selections when widget is selected
+                    if widgetID != nil {
+                        toolStore.activeShapeSelection = nil
+                        toolStore.activeStickerSelection = nil
+                        toolStore.activeAttachmentSelection = nil
+                        toolStore.hasActiveSelection = false
+                    }
+                }
+            },
+            pageCount: note.pageCount,
+            isMagicModeActive: toolStore.isMagicModeActive,
+            isStudyModeActive: toolStore.isStudyModeActive
+        )
+        // Force recreation on page change so makeUIView loads the new drawing.
+        .id("\(note.id)-\(safePageIndex)")
+        // Cross-fade transition between pages: SwiftUI animates the opacity
+        // removal of the old canvas and insertion of the new one via .id().
+        .transition(.opacity)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
+        .padding(.horizontal, 1)
+        .animation(.easeInOut(duration: 0.22), value: safePageIndex)
+    }
+
+    /// Floating toolbar capsule — bottom-center, above page navigation bar.
+    @ViewBuilder
+    private var floatingToolbarOverlay: some View {
+        if !isTextMode {
+            VStack {
+                Spacer()
+                FloatingToolbarCapsule(
+                    toolStore: toolStore,
+                    inkStore: inkStore,
+                    stickerStore: stickerStore,
+                    canUndo: canUndo,
+                    canRedo: canRedo,
+                    onUndo: { undoManager?.undo() },
+                    onRedo: { undoManager?.redo() },
+                    onOpenInspector: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            showAdvancedPanel.toggle()
+                        }
+                    },
+                    onSelectionAction: { action in
+                        handleSelectionAction(action)
+                    }
+                )
+                .opacity(toolStore.toolbarOpacity)
+                .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
+                .allowsHitTesting(toolStore.toolbarOpacity > 0.5)
+                .padding(.bottom, 8)
             }
+            .zIndex(0.5)
         }
-        .onDisappear {
+    }
+
+    /// Shape / attachment / widget action bars — appear when an object is selected.
+    @ViewBuilder
+    private var selectionActionBars: some View {
+        // Shape action bar
+        if toolStore.hasActiveShapeSelection,
+           let selectedID = toolStore.activeShapeSelection,
+           let selectedShape = note.shapes(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+            VStack {
+                ShapeHandlesView(
+                    toolStore: toolStore,
+                    selectedShape: selectedShape,
+                    onAction: { action in
+                        handleShapeAction(action, for: selectedID)
+                    }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                Spacer()
+            }
+            .padding(.top, 60)
+            .zIndex(0.6)
+        }
+
+        // Attachment action bar
+        if toolStore.hasActiveAttachmentSelection,
+           let selectedID = toolStore.activeAttachmentSelection,
+           let selectedAttachment = note.attachments(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+            VStack {
+                AttachmentHandlesView(
+                    attachment: selectedAttachment,
+                    onAction: { action in
+                        handleAttachmentAction(action, for: selectedID)
+                    }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                Spacer()
+            }
+            .padding(.top, 60)
+            .zIndex(0.7)
+        }
+
+        // Widget action bar
+        if toolStore.hasActiveWidgetSelection,
+           let selectedID = toolStore.activeWidgetSelection,
+           let selectedWidget = note.widgets(forPage: currentPageIndex).first(where: { $0.id == selectedID }) {
+            VStack {
+                WidgetHandlesView(
+                    widget: selectedWidget,
+                    onAction: { action in
+                        handleWidgetAction(action, for: selectedID)
+                    }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                Spacer()
+            }
+            .padding(.top, 60)
+            .zIndex(0.75)
+        }
+    }
+
+    /// Advanced tools inspector — slides in from the right.
+    @ViewBuilder
+    private var advancedPanelOverlay: some View {
+        if showAdvancedPanel {
+            AdvancedToolsPanel(toolStore: toolStore, isPresented: $showAdvancedPanel)
+                .padding(.top, 8)
+                .padding(.trailing, 8)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal:   .move(edge: .trailing).combined(with: .opacity)
+                ))
+                .zIndex(1)
+        }
+    }
+
+    /// Focus-mode and ambient scene overlays.
+    @ViewBuilder
+    private var effectOverlays: some View {
+        // Focus-mode ambient overlays — vignette + dim.
+        if toolStore.isFocusModeActive {
+            focusModeOverlay
+                .zIndex(0.4)
+                .allowsHitTesting(false)
+                .transition(.opacity)
+        }
+
+        // Ambient environment scene indicator.
+        if toolStore.activeAmbientScene != nil {
+            ambientSceneOverlay
+                .zIndex(0.35)
+                .allowsHitTesting(false)
+                .transition(.opacity)
+        }
+    }
+
+    /// Trailing navigation bar toolbar items.
+    @ViewBuilder
+    private var trailingToolbarContent: some View {
+        noteThemeMenu
+
+        // Page setup menu — GoodNotes-style per-page paper type & material picker.
+        pageSetupMenu
+
+        // Create flashcard from this note.
+        Button {
+            showCreateFlashcard = true
+        } label: {
+            Image(systemName: "rectangle.on.rectangle.angled")
+        }
+        .accessibilityLabel("Create Flashcard")
+
+        // Export menu — PDF (single page), PDF (all pages), PNG image.
+        exportMenu
+
+        // Version history browser.
+        Button {
+            showVersionHistory = true
+        } label: {
+            Image(systemName: "clock.arrow.circlepath")
+        }
+        .accessibilityLabel("Version History")
+
+        // Import document into the library.
+        Button {
+            showDocumentImporter = true
+        } label: {
+            Image(systemName: "square.and.arrow.down")
+        }
+        .accessibilityLabel("Import document")
+
+        // Draw ↔ Type mode toggle.
+        // "keyboard" switches to text mode; "pencil" returns to drawing mode.
+        Button {
             flushTextNow()
-            toolStore.currentPaperMaterial = .standard
-            // Reset focus mode on editor tear-down so state doesn't leak.
-            if toolStore.isFocusModeActive {
-                toolStore.isFocusModeActive = false
-                toolStore.toolbarOpacity = 1.0
+            isTextMode.toggle()
+        } label: {
+            Image(systemName: isTextMode ? "pencil" : "keyboard")
+        }
+        .accessibilityLabel(isTextMode ? "Switch to drawing mode" : "Switch to text mode")
+
+        // In-document find bar toggle.
+        Button {
+            showFindBar.toggle()
+            if !showFindBar {
+                findQuery = ""
+                findMatches = []
             }
-            // Reset ambient scene.
-            if toolStore.activeAmbientScene != nil {
-                toolStore.activeAmbientScene = nil
-                toolStore.toolbarOpacity = 1.0
+        } label: {
+            Image(systemName: showFindBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+        }
+        .accessibilityLabel(showFindBar ? "Hide find bar" : "Find in note")
+
+        if !isTextMode {
+            // Finger / Pencil drawing policy toggle.
+            Button {
+                pencilOnlyDrawing.toggle()
+            } label: {
+                Image(systemName: pencilOnlyDrawing ? "pencil.tip" : "hand.and.pencil")
             }
-            noteStore.save()
-        }
-        .sheet(isPresented: $showCreateFlashcard) {
-            NoteFlashcardSheet(note: note)
-        }
-        .sheet(isPresented: $showVersionHistory) {
-            VersionHistoryView(noteID: note.id)
-                .environmentObject(noteStore)
-                .presentationDetents([.medium, .large])
-        }
-        .sheet(isPresented: $showPageOverview) {
-            PageOverviewGrid(
-                note: note,
-                currentPageIndex: $currentPageIndex,
-                canvasBackground: canvasBackgroundColor,
-                onDismiss: { showPageOverview = false }
+            .accessibilityLabel(
+                pencilOnlyDrawing ? "Enable finger drawing" : "Enable Pencil-only drawing"
             )
-        }
-        .sheet(isPresented: $showShareSheet) {
-            ShareSheet(activityItems: shareItems)
-        }
-        .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
-            StickerLibraryView(stickerStore: stickerStore) { asset in
-                placeSticker(asset)
+
+            // Zoom reset — animates the canvas back to 1× scale.
+            Button {
+                zoomResetTrigger.toggle()
+            } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
             }
-            .presentationDetents([.medium, .large])
-        }
-        .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
-            WidgetPickerView { kind in
-                placeWidget(kind)
+            .accessibilityLabel("Reset zoom to 100%")
+
+            Button {
+                undoManager?.undo()
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
             }
-            .presentationDetents([.medium])
-        }
-        .fileImporter(
-            isPresented: $showDocumentImporter,
-            allowedContentTypes: ImportedDocumentType.allUTTypes,
-            allowsMultipleSelection: false
-        ) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                documentStore.importDocument(from: url)
+            .disabled(!canUndo)
+            .accessibilityLabel("Undo")
+
+            Button {
+                undoManager?.redo()
+            } label: {
+                Image(systemName: "arrow.uturn.forward")
             }
+            .disabled(!canRedo)
+            .accessibilityLabel("Redo")
         }
     }
 
@@ -3337,6 +3370,9 @@ private struct PageOverviewGrid: View {
             return
         }
 
+        // Capture screen scale on the main actor before entering the detached task.
+        let screenScale = UIScreen.main.scale
+
         let image = await Task.detached(priority: .utility) {
             guard let drawing = try? PKDrawing(data: data) else { return nil as UIImage? }
             let bounds = drawing.bounds
@@ -3350,7 +3386,7 @@ private struct PageOverviewGrid: View {
             let maxDimension: CGFloat = 240
             let scale = min(maxDimension / renderRect.width, maxDimension / renderRect.height, 1.0)
 
-            return drawing.image(from: renderRect, scale: scale * UIScreen.main.scale)
+            return await drawing.image(from: renderRect, scale: scale * screenScale)
         }.value
 
         if let image {
