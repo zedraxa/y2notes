@@ -130,28 +130,55 @@ struct ToolExpansionView: View {
 
     @ViewBuilder
     private var eraserExpansion: some View {
-        HStack(spacing: 6) {
-            ForEach(EraserMode.allCases, id: \.rawValue) { mode in
-                let isSelected = toolStore.eraserMode == mode
-                Button {
-                    toolStore.eraserMode = mode
-                    resetTimeout()
-                } label: {
-                    Text(mode.displayName)
-                        .font(.caption.weight(isSelected ? .semibold : .regular))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+        VStack(alignment: .leading, spacing: 8) {
+            // Sub-type row
+            HStack(spacing: 6) {
+                ForEach(EraserSubType.allCases, id: \.rawValue) { sub in
+                    let isSelected = toolStore.eraserSubType == sub
+                    Button {
+                        toolStore.eraserSubType = sub
+                        resetTimeout()
+                    } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: sub.systemImage)
+                                .font(.system(size: 13))
+                            Text(sub.displayName)
+                                .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
+                        }
+                        .frame(width: 50, height: 42)
                         .background(
                             isSelected
                                 ? Color.accentColor.opacity(0.15)
                                 : Color(.systemGray5)
                         )
-                        .clipShape(Capsule())
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+            }
+
+            // Width slider — only for pixel-mode sub-types
+            if toolStore.eraserSubType.supportsWidthAdjustment {
+                HStack(spacing: 6) {
+                    Image(systemName: "eraser")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Slider(
+                        value: $toolStore.eraserWidth,
+                        in: toolStore.eraserSubType.minWidth...toolStore.eraserSubType.maxWidth,
+                        step: 1
+                    ) { editing in
+                        if !editing { resetTimeout() }
+                    }
+                    Text("\(Int(toolStore.eraserWidth))pt")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, alignment: .trailing)
+                }
             }
         }
+        .frame(maxWidth: 300)
     }
 
     // MARK: - Shape Expansion
