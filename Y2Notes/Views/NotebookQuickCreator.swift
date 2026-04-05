@@ -574,6 +574,68 @@ private struct PageTypeMiniCanvas: View {
                     p.addLine(to: .init(x: size.width, y: y))
                     context.stroke(p, with: lineColor, lineWidth: 0.6)
                 }
+
+            case .cornell:
+                let marginX: CGFloat = size.width * 0.28
+                let headerY: CGFloat = size.height * 0.18
+                let summaryY: CGFloat = size.height * 0.82
+                var p = Path()
+                p.move(to: .init(x: marginX, y: 0)); p.addLine(to: .init(x: marginX, y: size.height))
+                context.stroke(p, with: lineColor, lineWidth: 0.75)
+                p = Path()
+                p.move(to: .init(x: 0, y: headerY)); p.addLine(to: .init(x: size.width, y: headerY))
+                context.stroke(p, with: lineColor, lineWidth: 0.75)
+                p = Path()
+                p.move(to: .init(x: 0, y: summaryY)); p.addLine(to: .init(x: size.width, y: summaryY))
+                context.stroke(p, with: lineColor, lineWidth: 0.75)
+                let ruledSpacing = (summaryY - headerY) / 4
+                for i in 1..<4 {
+                    let y = headerY + CGFloat(i) * ruledSpacing
+                    p = Path()
+                    p.move(to: .init(x: marginX, y: y)); p.addLine(to: .init(x: size.width - 4, y: y))
+                    context.stroke(p, with: lineColor, lineWidth: 0.5)
+                }
+
+            case .hexagonal:
+                let r: CGFloat = min(size.width, size.height) / 6
+                let colStep = r * sqrt(3.0)
+                let rowStep = r * 1.5
+                let cols = Int(ceil(size.width  / colStep)) + 2
+                let rows = Int(ceil(size.height / rowStep)) + 2
+                for row in -1 ..< rows {
+                    for col in -1 ..< cols {
+                        let ox: CGFloat = (row & 1) != 0 ? colStep * 0.5 : 0
+                        let cx = CGFloat(col) * colStep + ox
+                        let cy = CGFloat(row) * rowStep
+                        var hex = Path()
+                        let startA: CGFloat = .pi / 2
+                        let stepA:  CGFloat = .pi / 3
+                        hex.move(to: .init(x: cx + r * cos(startA), y: cy - r * sin(startA)))
+                        for i in 1 ..< 6 {
+                            let a = startA + CGFloat(i) * stepA
+                            hex.addLine(to: .init(x: cx + r * cos(a), y: cy - r * sin(a)))
+                        }
+                        hex.closeSubpath()
+                        context.stroke(hex, with: lineColor, lineWidth: 0.5)
+                    }
+                }
+
+            case .music:
+                let lineGap:  CGFloat = size.height / 14
+                let staffGap: CGFloat = lineGap * 3
+                let staffH:   CGFloat = lineGap * 4
+                let pitch:    CGFloat = staffH + staffGap
+                var topY: CGFloat = staffGap * 0.5
+                while topY <= size.height + pitch {
+                    for lineIdx in 0 ..< 5 {
+                        let y = topY + CGFloat(lineIdx) * lineGap
+                        guard y <= size.height else { break }
+                        var p = Path()
+                        p.move(to: .init(x: 4, y: y)); p.addLine(to: .init(x: size.width - 4, y: y))
+                        context.stroke(p, with: lineColor, lineWidth: 0.5)
+                    }
+                    topY += pitch
+                }
             }
         }
     }

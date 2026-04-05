@@ -187,9 +187,12 @@ enum NotePDFGenerator {
         let lineColor = rulingLineColor(for: backgroundColor)
         switch pageType {
         case .blank: break
-        case .ruled: drawRuledLines(ctx: ctx, rect: rect, color: lineColor)
-        case .dot:   drawDotGrid(ctx: ctx, rect: rect, color: lineColor)
-        case .grid:  drawSquareGrid(ctx: ctx, rect: rect, color: lineColor)
+        case .ruled:      drawRuledLines(ctx: ctx, rect: rect, color: lineColor)
+        case .dot:        drawDotGrid(ctx: ctx, rect: rect, color: lineColor)
+        case .grid:       drawSquareGrid(ctx: ctx, rect: rect, color: lineColor)
+        case .cornell:    drawCornellRuling(ctx: ctx, rect: rect, color: lineColor)
+        case .hexagonal:  drawHexGrid(ctx: ctx, rect: rect, color: lineColor)
+        case .music:      drawMusicStaff(ctx: ctx, rect: rect, color: lineColor)
         }
     }
 
@@ -286,6 +289,78 @@ enum NotePDFGenerator {
             ctx.move(to: CGPoint(x: x, y: rect.minY))
             ctx.addLine(to: CGPoint(x: x, y: rect.maxY))
             x += 24
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    private static func drawCornellRuling(ctx: CGContext, rect: CGRect, color: UIColor) {
+        ctx.saveGState()
+        let marginX:  CGFloat = round(rect.width * 0.28)
+        let headerY:  CGFloat = 56
+        let summaryY: CGFloat = rect.maxY - 84
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(0.75)
+        ctx.move(to: CGPoint(x: marginX, y: rect.minY)); ctx.addLine(to: CGPoint(x: marginX, y: rect.maxY))
+        ctx.move(to: CGPoint(x: rect.minX, y: headerY)); ctx.addLine(to: CGPoint(x: rect.maxX, y: headerY))
+        ctx.move(to: CGPoint(x: rect.minX, y: summaryY)); ctx.addLine(to: CGPoint(x: rect.maxX, y: summaryY))
+        ctx.strokePath()
+        ctx.setLineWidth(0.5)
+        var y = headerY + 28
+        while y < summaryY - 1 {
+            ctx.move(to: CGPoint(x: marginX, y: y))
+            ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
+            y += 28
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    private static func drawHexGrid(ctx: CGContext, rect: CGRect, color: UIColor) {
+        ctx.saveGState()
+        ctx.setStrokeColor(color.withAlphaComponent(color.cgColor.alpha * 0.9).cgColor)
+        ctx.setLineWidth(0.5)
+        let r: CGFloat = 18
+        let colStep = r * sqrt(3.0)
+        let rowStep = r * 1.5
+        let cols = Int(ceil(rect.width  / colStep)) + 2
+        let rows = Int(ceil(rect.height / rowStep)) + 2
+        for row in -1 ..< rows {
+            for col in -1 ..< cols {
+                let ox: CGFloat = (row & 1) != 0 ? colStep * 0.5 : 0
+                let cx = rect.minX + CGFloat(col) * colStep + ox
+                let cy = rect.minY + CGFloat(row) * rowStep
+                let startAngle: CGFloat = .pi / 2
+                let step:       CGFloat = .pi / 3
+                ctx.move(to: CGPoint(x: cx + r * cos(startAngle), y: cy - r * sin(startAngle)))
+                for i in 1 ..< 6 {
+                    let a = startAngle + CGFloat(i) * step
+                    ctx.addLine(to: CGPoint(x: cx + r * cos(a), y: cy - r * sin(a)))
+                }
+                ctx.closePath()
+            }
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    private static func drawMusicStaff(ctx: CGContext, rect: CGRect, color: UIColor) {
+        ctx.saveGState()
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(0.6)
+        let lineGap:  CGFloat = 7
+        let staffGap: CGFloat = 44
+        let staffH:   CGFloat = lineGap * 4
+        let pitch:    CGFloat = staffH + staffGap
+        var topY: CGFloat = staffGap * 0.5
+        while topY <= rect.maxY + pitch {
+            for lineIdx in 0 ..< 5 {
+                let y = topY + CGFloat(lineIdx) * lineGap
+                guard y <= rect.maxY else { break }
+                ctx.move(to: CGPoint(x: rect.minX + 16, y: y))
+                ctx.addLine(to: CGPoint(x: rect.maxX - 16, y: y))
+            }
+            topY += pitch
         }
         ctx.strokePath()
         ctx.restoreGState()

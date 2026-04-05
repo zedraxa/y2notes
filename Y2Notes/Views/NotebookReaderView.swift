@@ -1191,6 +1191,18 @@ struct NotebookReaderView: View {
                 .foregroundStyle(.secondary.opacity(0.3))
         case .blank:
             EmptyView()
+        case .cornell:
+            Image(systemName: "rectangle.split.2x1")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .hexagonal:
+            Image(systemName: "hexagon")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
+        case .music:
+            Image(systemName: "music.note.list")
+                .font(.title3)
+                .foregroundStyle(.secondary.opacity(0.3))
         }
     }
 }

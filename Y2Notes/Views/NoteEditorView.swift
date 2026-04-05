@@ -1600,10 +1600,10 @@ struct CanvasView: UIViewRepresentable {
         // zooms and scrolls together with the PencilKit drawing content.
         let ps = Self.pageSize
         let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: ps))
-        pageBackground.pageColor    = backgroundColor
-        pageBackground.pageType     = pageType
-        pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
-        pageBackground.showGrain    = paperMaterial.hasGrainTexture
+        pageBackground.pageColor      = backgroundColor
+        pageBackground.pageType       = pageType
+        pageBackground.lineColor      = Self.rulingLineColor(for: backgroundColor, material: paperMaterial)
+        pageBackground.grainIntensity = paperMaterial.grainIntensity
         pageBackground.isUserInteractionEnabled = false
 
         container.addSubview(pageBackground)
@@ -1881,15 +1881,19 @@ struct CanvasView: UIViewRepresentable {
         // Sync page background (ruling view).
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
-                bg.pageColor  = backgroundColor
-                bg.lineColor  = Self.rulingLineColor(for: backgroundColor)
+                bg.pageColor = backgroundColor
+            }
+            // Recompute line colour whenever background or material may have changed.
+            let newLineColor = Self.rulingLineColor(for: backgroundColor, material: paperMaterial)
+            if bg.lineColor != newLineColor {
+                bg.lineColor = newLineColor
             }
             if bg.pageType != pageType {
                 bg.pageType = pageType
             }
-            let grainWanted = paperMaterial.hasGrainTexture
-            if bg.showGrain != grainWanted {
-                bg.showGrain = grainWanted
+            let grainWanted = paperMaterial.grainIntensity
+            if bg.grainIntensity != grainWanted {
+                bg.grainIntensity = grainWanted
             }
             // Re-sync position/scale in case SwiftUI re-rendered while
             // the canvas was scrolled or zoomed.
@@ -2010,10 +2014,11 @@ struct CanvasView: UIViewRepresentable {
 
     // MARK: - Ruling line color helper
 
-    /// Returns a ruling line color that is visible against the given background.
+    /// Returns a ruling line color that is visible against the given background,
+    /// optionally biased toward the material's ruling tint for a subtle hue character.
     /// On dark backgrounds the lines are white at low opacity; on light backgrounds
     /// they are black at low opacity.
-    private static func rulingLineColor(for background: UIColor) -> UIColor {
+    private static func rulingLineColor(for background: UIColor, material: PaperMaterial = .standard) -> UIColor {
         let isDarkBackground: Bool = {
             var white: CGFloat = 0
             if background.getWhite(&white, alpha: nil) {
@@ -2034,9 +2039,25 @@ struct CanvasView: UIViewRepresentable {
             return false
         }()
 
-        return isDarkBackground
+        let baseColor = isDarkBackground
             ? UIColor.white.withAlphaComponent(0.12)
             : UIColor.label.withAlphaComponent(0.10)
+
+        guard let tint = material.rulingTint else { return baseColor }
+
+        // Blend the base line colour with the material tint at a low weight (~18 %)
+        // so the ruling retains its neutral character while gaining a subtle hue.
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        var tr: CGFloat = 0, tg: CGFloat = 0, tb: CGFloat = 0
+        baseColor.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        tint.getRed(&tr, green: &tg, blue: &tb, alpha: nil)
+        let w: CGFloat = 0.18
+        return UIColor(
+            red:   br + (tr - br) * w,
+            green: bg + (tg - bg) * w,
+            blue:  bb + (tb - bb) * w,
+            alpha: ba
+        )
     }
 
     // MARK: - Coordinator
