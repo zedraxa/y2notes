@@ -307,8 +307,8 @@ final class InkEffectEngine {
         cell.lifetime          = 0.45
         cell.lifetimeRange     = 0.25
         cell.velocity          = 70
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity     // negative = rise (flames go up)
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity  // negative = rise (flames go up)
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi / 5
         cell.emissionLongitude = -.pi / 2  // upward
@@ -349,8 +349,8 @@ final class InkEffectEngine {
         cell.lifetime          = 0.35
         cell.lifetimeRange     = 0.20
         cell.velocity          = 45
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi * 2  // omnidirectional
         cell.scale             = 0.025
@@ -384,8 +384,8 @@ final class InkEffectEngine {
         cell.lifetime          = 0.6
         cell.lifetimeRange     = 0.3
         cell.velocity          = 30
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi * 2
         cell.scale             = 0.03
@@ -420,9 +420,9 @@ final class InkEffectEngine {
         cell.lifetime          = 1.2
         cell.lifetimeRange     = 0.5
         cell.velocity          = 15
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity      // gentle descent
-        cell.xAcceleration     = physics.wind          // sideways drift
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity  // gentle descent
+        cell.xAcceleration     = physics.wind               // sideways drift
         cell.emissionRange     = .pi * 2
         cell.scale             = 0.02
         cell.scaleRange        = 0.015
@@ -460,8 +460,8 @@ final class InkEffectEngine {
         cell.lifetime          = 0.55
         cell.lifetimeRange     = 0.3
         cell.velocity          = 50
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity      // crumble downward
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity  // crumble downward
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi * 2
         cell.scale             = 0.018
@@ -717,8 +717,8 @@ final class InkEffectEngine {
         cell.lifetime          = 0.55
         cell.lifetimeRange     = 0.20
         cell.velocity          = 40
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi * 2  // omnidirectional shimmer
         cell.scale             = 0.03
@@ -770,9 +770,9 @@ final class InkEffectEngine {
         cell.lifetime          = puffLifetime
         cell.lifetimeRange     = 0.45
         cell.velocity          = 18               // slow initial drift
-        cell.velocityRange     = CGFloat(physics.turbulence) * 0.55
-        cell.yAcceleration     = physics.gravity  // negative = gentle upward float
-        cell.xAcceleration     = physics.wind     // lateral spread
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence) * 0.55
+        cell.yAcceleration     = physics.effectiveGravity  // negative = gentle upward float
+        cell.xAcceleration     = physics.wind              // lateral spread
         cell.emissionRange     = .pi * 2          // omnidirectional — smoke billows in all directions
         cell.scale             = 0.20             // start as a large, visible puff
         cell.scaleRange        = 0.08
@@ -808,8 +808,8 @@ final class InkEffectEngine {
         cell.lifetime          = wispLifetime
         cell.lifetimeRange     = 0.30
         cell.velocity          = 30               // faster initial burst
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi * 2
         cell.scale             = 0.07
@@ -863,8 +863,8 @@ final class InkEffectEngine {
         cell.lifetime          = 0.70
         cell.lifetimeRange     = 0.25
         cell.velocity          = 20
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity   // heavy downward pull
+        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
+        cell.yAcceleration     = physics.effectiveGravity   // heavy downward pull
         cell.xAcceleration     = physics.wind
         cell.emissionRange     = .pi / 6            // mostly downward splatter
         cell.emissionLongitude = .pi / 2            // emitting downward
