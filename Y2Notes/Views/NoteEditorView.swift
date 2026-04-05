@@ -82,6 +82,9 @@ struct NoteEditorView: View {
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
 
+    /// Widget being edited in the inline editor sheet.
+    @State private var widgetToEdit: NoteWidget?
+
     private let searchService = SearchService()
 
     init(note: Note) {
@@ -255,6 +258,17 @@ struct NoteEditorView: View {
                     placeWidget(kind)
                 }
                 .presentationDetents([.medium])
+            }
+            .sheet(item: $widgetToEdit) { widget in
+                WidgetEditorView(widget: widget) { updated in
+                    let pageIdx = currentPageIndex
+                    var widgets = note.widgets(forPage: pageIdx)
+                    if let idx = widgets.firstIndex(where: { $0.id == updated.id }) {
+                        widgets[idx] = updated
+                        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+                    }
+                }
+                .presentationDetents([.medium, .large])
             }
             .fileImporter(
                 isPresented: $showDocumentImporter,
@@ -818,6 +832,9 @@ struct NoteEditorView: View {
         guard let idx = widgets.firstIndex(where: { $0.id == widgetID }) else { return }
 
         switch action {
+        case .edit:
+            widgetToEdit = widgets[idx]
+
         case .duplicate:
             let source = widgets[idx]
             let copy = NoteWidget(
@@ -839,6 +856,18 @@ struct NoteEditorView: View {
 
         case .toggleLock:
             widgets[idx].isLocked.toggle()
+
+        case .bringForward:
+            let maxZ = widgets.map(\.zIndex).max() ?? 0
+            if widgets[idx].zIndex < maxZ {
+                widgets[idx].zIndex += 1
+            }
+
+        case .sendBack:
+            let minZ = widgets.map(\.zIndex).min() ?? 0
+            if widgets[idx].zIndex > minZ {
+                widgets[idx].zIndex -= 1
+            }
 
         case .delete:
             widgets.remove(at: idx)
