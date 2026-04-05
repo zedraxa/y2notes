@@ -10,6 +10,11 @@ struct WidgetEditorView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    // MARK: - Haptics
+
+    private let selectionFeedback = UISelectionFeedbackGenerator()
+    private let successFeedback = UINotificationFeedbackGenerator()
+
     init(widget: NoteWidget, onSave: @escaping (NoteWidget) -> Void) {
         self._widget = State(initialValue: widget)
         self.onSave = onSave
@@ -27,8 +32,12 @@ struct WidgetEditorView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { onSave(widget); dismiss() }
-                        .fontWeight(.semibold)
+                    Button("Done") {
+                        successFeedback.notificationOccurred(.success)
+                        onSave(widget)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
                 }
             }
         }
@@ -70,12 +79,17 @@ struct WidgetEditorView: View {
             ForEach(items) { item in
                 HStack(spacing: 10) {
                     Button {
+                        selectionFeedback.selectionChanged()
                         toggleItem(item, in: items, title: title)
                     } label: {
                         Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
                             .foregroundStyle(item.isChecked ? Color.accentColor : .secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(item.isChecked
+                        ? NSLocalizedString("WidgetEditor.ItemChecked", comment: "Checked")
+                        : NSLocalizedString("WidgetEditor.ItemUnchecked", comment: "Unchecked"))
+                    .accessibilityHint(NSLocalizedString("WidgetEditor.ToggleHint", comment: "Toggle completion"))
 
                     TextField("Item text", text: itemTextBinding(item, items: items, title: title))
                         .strikethrough(item.isChecked, color: .secondary)
@@ -85,6 +99,7 @@ struct WidgetEditorView: View {
                     Menu {
                         ForEach(ChecklistPriority.allCases, id: \.self) { p in
                             Button {
+                                selectionFeedback.selectionChanged()
                                 setPriority(p, on: item, in: items, title: title)
                             } label: {
                                 Label(p.displayName, systemImage: p.iconName)
@@ -96,6 +111,7 @@ struct WidgetEditorView: View {
                             .font(.system(size: 13))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(NSLocalizedString("WidgetEditor.Priority", comment: "Priority: ") + item.priority.displayName)
                 }
             }
             .onDelete { offsets in
@@ -113,9 +129,11 @@ struct WidgetEditorView: View {
                 var updated = items
                 updated.append(ChecklistItem())
                 widget.payload = .checklist(title: title, items: updated)
+                selectionFeedback.selectionChanged()
             } label: {
-                Label("Add Item", systemImage: "plus.circle.fill")
+                Label(NSLocalizedString("WidgetEditor.AddItem", comment: "Add Item"), systemImage: "plus.circle.fill")
             }
+            .accessibilityHint(NSLocalizedString("WidgetEditor.AddItemHint", comment: "Adds a new checklist item"))
         } header: {
             Text("Items")
         }
@@ -300,12 +318,15 @@ struct WidgetEditorView: View {
                         let newLevel = i == confidenceLevel ? 0 : i
                         widget.payload = .flashcard(front: front, back: back, isFlipped: isFlipped,
                                                     confidenceLevel: newLevel)
+                        selectionFeedback.selectionChanged()
                     } label: {
                         Image(systemName: i <= confidenceLevel ? "star.fill" : "star")
                             .foregroundStyle(i <= confidenceLevel ? Color.yellow : Color.secondary)
                             .font(.title3)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("\(i) \(i == 1 ? "star" : "stars")")
+                    .accessibilityAddTraits(i <= confidenceLevel ? .isSelected : [])
                 }
                 Spacer()
                 Text(confidenceName(confidenceLevel))
@@ -349,15 +370,19 @@ struct WidgetEditorView: View {
             HStack {
                 Button("Reset") {
                     widget.payload = .progressTracker(title: title, current: 0, total: total)
+                    selectionFeedback.selectionChanged()
                 }
                 .foregroundStyle(.orange)
+                .accessibilityHint(NSLocalizedString("WidgetEditor.ResetHint", comment: "Resets progress to zero"))
 
                 Spacer()
 
                 Button("Mark Complete") {
                     widget.payload = .progressTracker(title: title, current: total, total: total)
+                    successFeedback.notificationOccurred(.success)
                 }
                 .foregroundStyle(.green)
+                .accessibilityHint(NSLocalizedString("WidgetEditor.CompleteHint", comment: "Sets progress to the goal"))
             }
         }
     }
