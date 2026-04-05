@@ -104,6 +104,21 @@ final class InkEffectEngine {
         return v
     }()
 
+    // MARK: Budget tuning
+
+    private enum FireTuning {
+        /// Hard cap on fire particles used when computing the per-tier budget.
+        /// Keeps fire feeling visually dense regardless of tier ceiling.
+        static let maxParticles: Int             = 60
+        /// Fraction of the budget emitted by the bright inner core flame.
+        static let coreBudgetFraction: Float     = 0.28
+        /// Fraction of the budget emitted by the main orange mid-flame body.
+        static let midBudgetFraction: Float      = 0.62
+        /// Fraction of the budget emitted by rare ember sparks (sum = 1.00).
+        static let emberBudgetFraction: Float    = 0.10
+        static let glowDiameter: CGFloat         = 80
+    }
+
     // Emitter (fire / sparkle / rainbow / snow / dissolve / glow / sheen / blood)
     private let emitterLayer = CAEmitterLayer()
 
@@ -142,6 +157,16 @@ final class InkEffectEngine {
 
     // Fire glow — warm amber radial aura that follows the nib while writing with fire
     private let fireGlowLayer: CAGradientLayer = {
+        let g = CAGradientLayer()
+        g.type = .radial
+        g.startPoint = CGPoint(x: 0.5, y: 0.5)
+        g.endPoint   = CGPoint(x: 1.0, y: 1.0)
+        g.isHidden   = true
+        return g
+    }()
+
+    // Sheen glow — iridescent 3-stop radial gradient that tracks the nib
+    private let sheenGlowLayer: CAGradientLayer = {
         let g = CAGradientLayer()
         g.type = .radial
         g.startPoint = CGPoint(x: 0.5, y: 0.5)
@@ -192,10 +217,13 @@ final class InkEffectEngine {
         glowLayer.isHidden = true
         overlayView.layer.addSublayer(glowLayer)
         // Fire glow layer — 80×80 warm amber aura, initially hidden
-        fireGlowLayer.bounds = CGRect(x: 0, y: 0, width: 80, height: 80)
-        fireGlowLayer.cornerRadius = 40
+        fireGlowLayer.bounds = CGRect(x: 0, y: 0,
+                                      width:  FireTuning.glowDiameter,
+                                      height: FireTuning.glowDiameter)
+        fireGlowLayer.cornerRadius = FireTuning.glowDiameter / 2
         fireGlowLayer.isHidden = true
         overlayView.layer.addSublayer(fireGlowLayer)
+
 
         // Sheen glow layer — iridescent radial gradient, initially hidden
         let sd = SheenTuning.glowDiameter
@@ -229,6 +257,9 @@ final class InkEffectEngine {
     func syncLayerFrames() {
         if glitchLayer.frame != overlayView.bounds {
             glitchLayer.frame = overlayView.bounds
+        }
+        if shadowEmitterLayer.frame != overlayView.bounds {
+            shadowEmitterLayer.frame = overlayView.bounds
         }
     }
 
@@ -439,18 +470,6 @@ final class InkEffectEngine {
     }
 
     // MARK: - Private: Fire (multi-layer physics-driven)
-
-    private enum FireTuning {
-        /// Hard cap on fire particles used when computing the per-tier budget.
-        /// Keeps fire feeling visually dense regardless of tier ceiling.
-        static let maxParticles: Int = 60
-        /// Fraction of the budget emitted by the bright inner core flame.
-        static let coreBudgetFraction: Float = 0.28
-        /// Fraction of the budget emitted by the main orange mid-flame body.
-        static let midBudgetFraction: Float = 0.62
-        /// Fraction of the budget emitted by rare ember sparks (sum = 1.00).
-        static let emberBudgetFraction: Float = 0.10
-    }
 
     private func setupFireEmitter(color: UIColor) {
         // Calculate the per-layer budget once so cell fractions correctly sum to ≤ 1×budget.
@@ -961,6 +980,10 @@ final class InkEffectEngine {
         fireGlowLayer.isHidden = true
         fireGlowLayer.opacity  = 1
 
+        sheenGlowLayer.removeAllAnimations()
+        sheenGlowLayer.isHidden = true
+        sheenGlowLayer.opacity  = 1
+
         rippleLayers.forEach { $0.removeFromSuperlayer() }
         rippleLayers.removeAll()
 
@@ -1112,6 +1135,7 @@ final class InkEffectEngine {
         CATransaction.commit()
     }
 
+
     // MARK: - Private: Shadow (billowing smoke cloud behind strokes)
     //
     // Design goals:
@@ -1208,19 +1232,27 @@ final class InkEffectEngine {
         return cell
     }
 
-    /// Rebuilds the shadow emitter cells when the ink colour changes mid-session.
-    private func recolourShadowEmitter(color: UIColor) {
-        shadowEmitterLayer.emitterCells = [
-            makeShadowPuffCell(color: color),
-            makeShadowWispCell(color: color)
-        ]
-    }
-
     private func updateShadowEmitterPosition(_ point: CGPoint) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         shadowEmitterLayer.emitterPosition = point
         CATransaction.commit()
+    }
+
+    /// Recolours both shadow cells in-place without disrupting birth rates.
+    private func recolourShadowEmitter(color: UIColor) {
+        guard var cells = shadowEmitterLayer.emitterCells, cells.count >= 2 else { return }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: nil)
+        let pr = 0.30 + r * 0.12
+        let pg = 0.30 + g * 0.12
+        let pb = 0.34 + b * 0.10
+        cells[0].color = UIColor(red: pr, green: pg, blue: pb, alpha: 0.40).cgColor
+        let wr = 0.42 + r * 0.10
+        let wg = 0.42 + g * 0.10
+        let wb = 0.46 + b * 0.08
+        cells[1].color = UIColor(red: wr, green: wg, blue: wb, alpha: 0.25).cgColor
+        shadowEmitterLayer.emitterCells = cells
     }
 
     // MARK: - Private: Blood (viscous crimson drips)
