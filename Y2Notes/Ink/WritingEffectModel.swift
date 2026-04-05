@@ -530,7 +530,7 @@ enum InkFlowParams {
     static let viscosityThinningDamping: CGFloat = 0.6
 }
 
-// MARK: - Pressure Response Curve (AGENT-22)
+// MARK: - Pressure Response Curve
 
 /// Multi-segment pressure response curve for non-linear pencil force mapping.
 ///
@@ -579,7 +579,7 @@ enum PressureResponseCurve {
     }
 }
 
-// MARK: - Velocity-Aligned Texture Rotation (AGENT-22)
+// MARK: - Velocity-Aligned Texture Rotation
 // MARK: - Ink Flow Parameters
 
 /// Per-pen-sub-type ink flow characteristics that scale core writing effects.
