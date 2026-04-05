@@ -57,6 +57,7 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
     private var activeHandle: HandlePosition?
     private var isDragging = false
     private var rotationStartAngle: CGFloat = 0
+    private var pinchStartFontSize: CGFloat = 16
 
     // Inline editing
     private var editingTextView: UITextView?
@@ -65,6 +66,10 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
     // Engines
     private let microEngine = MicroInteractionEngine()
     private let snapAlignEngine = SnapAlignEffectEngine()
+
+    /// When true, `setNeedsLayout` is suppressed to avoid re-renders during
+    /// active pencil strokes on the ink canvas above.
+    var renderingPaused: Bool = false
 
     /// Current adaptive effect intensity.  Set by the editor coordinator.
     var effectIntensity: EffectIntensity = .full {
@@ -99,6 +104,10 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
         let rotate = UIRotationGestureRecognizer(target: self, action: #selector(handleRotation(_:)))
         rotate.delegate = self
         addGestureRecognizer(rotate)
+
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        pinch.delegate = self
+        addGestureRecognizer(pinch)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
@@ -107,6 +116,7 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        guard !renderingPaused else { return }
         renderTextObjects()
     }
 
@@ -146,13 +156,22 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
         CATransaction.setDisableActions(true)
 
         bgLayer.frame = obj.frame
-        bgLayer.cornerRadius = 4
+        bgLayer.cornerRadius = obj.borderRadius
         bgLayer.opacity = Float(obj.opacity)
 
         if let bg = obj.backgroundColor {
             bgLayer.backgroundColor = bg.cgColor
         } else {
             bgLayer.backgroundColor = UIColor.clear.cgColor
+        }
+
+        // Border
+        if obj.borderWidth > 0, let bc = obj.borderColor {
+            bgLayer.borderWidth = obj.borderWidth
+            bgLayer.borderColor = bc.cgColor
+        } else {
+            bgLayer.borderWidth = 0
+            bgLayer.borderColor = nil
         }
 
         // Apply rotation around object center
@@ -187,11 +206,25 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
         CATransaction.setDisableActions(true)
 
         textLayer.frame = obj.frame
-        textLayer.string = obj.content.isEmpty ? "" : obj.content
+        textLayer.font = obj.resolvedFont
         textLayer.fontSize = obj.fontSize
         textLayer.foregroundColor = obj.textColor.cgColor
         textLayer.alignmentMode = caAlignmentMode(for: obj.textAlignment)
         textLayer.opacity = Float(obj.opacity)
+
+        // Use attributed string for proper font family rendering
+        if !obj.content.isEmpty {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = obj.textAlignment
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: obj.resolvedFont,
+                .foregroundColor: obj.textColor,
+                .paragraphStyle: paragraphStyle,
+            ]
+            textLayer.string = NSAttributedString(string: obj.content, attributes: attrs)
+        } else {
+            textLayer.string = ""
+        }
 
         // Apply rotation around object center
         if obj.rotation != 0 {
@@ -228,7 +261,7 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
               let obj = textObjects.first(where: { $0.id == selectedID }) else { return }
 
         let border = CAShapeLayer()
-        border.path = UIBezierPath(roundedRect: obj.frame, cornerRadius: 4).cgPath
+        border.path = UIBezierPath(roundedRect: obj.frame, cornerRadius: obj.borderRadius).cgPath
         border.strokeColor = UIColor.systemBlue.cgColor
         border.lineWidth = 1.5
         border.fillColor = UIColor.systemBlue.withAlphaComponent(0.05).cgColor
@@ -417,6 +450,11 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
                 // Haptic feedback for perfect dual-axis alignment
                 snapAlignEngine.updatePerfectAlignment(isAligned: snappedX && snappedY)
 
+                // Bounce micro-interaction on snap
+                if (snappedX || snappedY), let l = textLayers[selectedID] {
+                    microEngine.playSnapBounce(on: l)
+                }
+
                 if let l = textLayers[selectedID] {
                     let vel = gesture.velocity(in: self)
                     let mag = max(hypot(vel.x, vel.y), 1)
@@ -478,6 +516,30 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
         }
     }
 
+    // MARK: - Pinch-to-Scale Gesture
+
+    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+        guard let selectedID = selectedTextObjectID,
+              let idx = textObjects.firstIndex(where: { $0.id == selectedID }),
+              !textObjects[idx].isLocked else { return }
+
+        switch gesture.state {
+        case .began:
+            pinchStartFontSize = textObjects[idx].fontSize
+        case .changed:
+            let scaledSize = pinchStartFontSize * gesture.scale
+            let clamped = min(max(scaledSize, TextObjectConstants.minFontSize),
+                              TextObjectConstants.maxFontSize)
+            textObjects[idx].fontSize = clamped
+            renderTextObjects()
+        case .ended, .cancelled:
+            onTextObjectsChanged?(textObjects)
+            onTextObjectTransformed?(textObjects[idx])
+        default:
+            break
+        }
+    }
+
     private func resizedFrame(_ original: CGRect, handle: HandlePosition, dx: CGFloat, dy: CGFloat) -> CGRect {
         var x = original.origin.x
         var y = original.origin.y
@@ -508,14 +570,14 @@ final class TextCanvasView: UIView, EffectIntensityReceiver {
 
         let tv = UITextView(frame: obj.frame)
         tv.text = obj.content
-        tv.font = UIFont.systemFont(ofSize: obj.fontSize)
+        tv.font = obj.resolvedFont
         tv.textColor = obj.textColor
         tv.textAlignment = obj.textAlignment
         tv.backgroundColor = obj.backgroundColor ?? .clear
         tv.isScrollEnabled = false
         tv.layer.borderColor = UIColor.systemBlue.cgColor
         tv.layer.borderWidth = 1.5
-        tv.layer.cornerRadius = 4
+        tv.layer.cornerRadius = obj.borderRadius
         tv.delegate = self
 
         addSubview(tv)
@@ -586,15 +648,15 @@ extension TextCanvasView: UITextViewDelegate {
 // MARK: - UIGestureRecognizerDelegate
 
 extension TextCanvasView: UIGestureRecognizerDelegate {
-    /// Allow rotation to be recognized simultaneously with pan.
+    /// Allow rotation + pinch + pan to be recognized simultaneously.
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        // Allow rotation + pan simultaneously
-        if gestureRecognizer is UIRotationGestureRecognizer || otherGestureRecognizer is UIRotationGestureRecognizer {
-            return true
-        }
-        return false
+        let isPinchOrRotate = gestureRecognizer is UIPinchGestureRecognizer ||
+                              gestureRecognizer is UIRotationGestureRecognizer
+        let otherIsPinchOrRotate = otherGestureRecognizer is UIPinchGestureRecognizer ||
+                                   otherGestureRecognizer is UIRotationGestureRecognizer
+        return isPinchOrRotate || otherIsPinchOrRotate
     }
 }

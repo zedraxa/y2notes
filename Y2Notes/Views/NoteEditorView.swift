@@ -820,6 +820,8 @@ struct NoteEditorView: View {
         let obj = TextObject(
             frame: frame,
             fontSize: toolStore.activeTextFontSize,
+            fontFamily: toolStore.activeTextFontFamily,
+            isBold: toolStore.activeTextBold,
             textColor: .label,
             alignment: toolStore.activeTextAlignment,
             zIndex: maxZ + 1
@@ -994,13 +996,18 @@ struct NoteEditorView: View {
                 content: source.content,
                 frame: source.frame.offsetBy(dx: 20, dy: 20),
                 fontSize: source.fontSize,
+                fontFamily: source.fontFamily,
+                isBold: source.isBold,
                 textColor: source.textColor,
                 backgroundColor: source.backgroundColor,
                 alignment: source.textAlignment,
                 rotation: source.rotation,
                 opacity: source.opacity,
                 zIndex: (textObjects.map(\.zIndex).max() ?? 0) + 1,
-                isLocked: false
+                isLocked: false,
+                borderRadius: source.borderRadius,
+                borderColor: source.borderColor,
+                borderWidth: source.borderWidth
             )
             textObjects.append(copy)
             toolStore.activeTextObjectSelection = copy.id
@@ -1023,6 +1030,12 @@ struct NoteEditorView: View {
         case .updateFontSize(let size):
             textObjects[idx].fontSize = size
 
+        case .updateFontFamily(let family):
+            textObjects[idx].fontFamily = family
+
+        case .toggleBold:
+            textObjects[idx].isBold.toggle()
+
         case .updateAlignment(let alignment):
             switch alignment {
             case .center: textObjects[idx].alignmentRaw = 1
@@ -1043,6 +1056,21 @@ struct NoteEditorView: View {
             } else {
                 textObjects[idx].backgroundColorComponents = nil
             }
+
+        case .updateBorderRadius(let radius):
+            textObjects[idx].borderRadius = radius
+
+        case .updateBorderColor(let color):
+            if let bc = color {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                bc.getRed(&r, green: &g, blue: &b, alpha: &a)
+                textObjects[idx].borderColorComponents = [Double(r), Double(g), Double(b), Double(a)]
+            } else {
+                textObjects[idx].borderColorComponents = nil
+            }
+
+        case .updateBorderWidth(let width):
+            textObjects[idx].borderWidth = width
         }
 
         noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: textObjects)

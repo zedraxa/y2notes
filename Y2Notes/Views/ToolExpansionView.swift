@@ -272,6 +272,52 @@ struct ToolExpansionView: View {
     @ViewBuilder
     private var textExpansion: some View {
         VStack(spacing: 8) {
+            // Font family picker row
+            HStack(spacing: 4) {
+                ForEach(TextFontFamily.allCases) { family in
+                    let isSelected = toolStore.activeTextFontFamily == family
+                    Button {
+                        toolStore.activeTextFontFamily = family
+                        resetTimeout()
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: family.systemImage)
+                                .font(.system(size: 12))
+                            Text(family.displayName)
+                                .font(.system(size: 8))
+                        }
+                        .frame(width: 50, height: 32)
+                        .background(
+                            isSelected
+                                ? Color.accentColor.opacity(0.15)
+                                : Color(.systemGray5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Bold toggle
+                let boldActive = toolStore.activeTextBold
+                Button {
+                    toolStore.activeTextBold.toggle()
+                    resetTimeout()
+                } label: {
+                    Image(systemName: "bold")
+                        .font(.system(size: 14, weight: boldActive ? .bold : .regular))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            boldActive
+                                ? Color.accentColor.opacity(0.15)
+                                : Color(.systemGray5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .foregroundStyle(boldActive ? Color.accentColor : Color(uiColor: .label))
+                }
+                .buttonStyle(.plain)
+            }
+
             // Font size slider
             HStack(spacing: 6) {
                 Image(systemName: "textformat.size")
@@ -297,7 +343,7 @@ struct ToolExpansionView: View {
                 alignmentButton(2, icon: "text.alignright")
             }
         }
-        .frame(maxWidth: 280)
+        .frame(maxWidth: 300)
     }
 
     private func alignmentButton(_ rawValue: Int, icon: String) -> some View {

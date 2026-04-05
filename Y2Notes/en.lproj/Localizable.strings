@@ -299,3 +299,18 @@
 "Credits.InspirationHeader"       = "Projects That Inspired Us";
 "Credits.PatternsHeader"          = "Design Patterns Adopted";
 "Credits.Footer"                  = "We gratefully acknowledge these projects and the wider open-source community.";
+
+/* ── Text Style Editor ────────────────────────────────────────── */
+
+"TextStyle.Title"                 = "Text Style";
+"TextStyle.Font"                  = "Font";
+"TextStyle.Bold"                  = "Bold";
+"TextStyle.Size"                  = "Size";
+"TextStyle.Colour"                = "Colour";
+"TextStyle.Align"                 = "Align";
+"TextStyle.Background"            = "Background";
+"TextStyle.Fill"                  = "Fill";
+"TextStyle.Border"                = "Border";
+"TextStyle.BorderColour"          = "Border Colour";
+"TextStyle.Thickness"             = "Thickness";
+"TextStyle.Corners"               = "Corners";

@@ -387,9 +387,14 @@ enum TextObjectAction {
     case bringToFront
     case sendToBack
     case updateFontSize(CGFloat)
+    case updateFontFamily(TextFontFamily)
+    case toggleBold
     case updateAlignment(NSTextAlignment)
     case updateTextColor(UIColor)
     case updateBackgroundColor(UIColor?)
+    case updateBorderRadius(CGFloat)
+    case updateBorderColor(UIColor?)
+    case updateBorderWidth(CGFloat)
 }
 
 // MARK: - Tool Preset

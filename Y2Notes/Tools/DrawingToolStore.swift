@@ -178,6 +178,16 @@ final class DrawingToolStore: ObservableObject {
         }
     }
 
+    /// Default font family for newly placed text objects (persisted).
+    @Published var activeTextFontFamily: TextFontFamily = .system {
+        didSet { UserDefaults.standard.set(activeTextFontFamily.rawValue, forKey: Keys.textFontFamily) }
+    }
+
+    /// Default bold state for newly placed text objects (persisted).
+    @Published var activeTextBold: Bool = false {
+        didSet { UserDefaults.standard.set(activeTextBold, forKey: Keys.textBold) }
+    }
+
     // MARK: - Recording State
 
     /// Whether an audio recording is currently in progress.
@@ -443,6 +453,8 @@ final class DrawingToolStore: ObservableObject {
         static let studyModeActive  = "y2notes.tool.studyModeActive"
         static let textFontSize     = "y2notes.tool.textFontSize"
         static let textAlignment    = "y2notes.tool.textAlignment"
+        static let textFontFamily   = "y2notes.tool.textFontFamily"
+        static let textBold         = "y2notes.tool.textBold"
     }
 
     // MARK: - Persistence Helpers
@@ -521,6 +533,13 @@ final class DrawingToolStore: ObservableObject {
         if tf > 0 { activeTextFontSize = CGFloat(tf) }
         if ud.object(forKey: Keys.textAlignment) != nil {
             activeTextAlignmentRaw = ud.integer(forKey: Keys.textAlignment)
+        }
+        if let raw = ud.string(forKey: Keys.textFontFamily),
+           let family = TextFontFamily(rawValue: raw) {
+            activeTextFontFamily = family
+        }
+        if ud.object(forKey: Keys.textBold) != nil {
+            activeTextBold = ud.bool(forKey: Keys.textBold)
         }
     }
 }
