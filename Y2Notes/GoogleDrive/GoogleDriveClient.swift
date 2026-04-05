@@ -235,6 +235,89 @@ struct GoogleDriveClient {
         )
     }
 
+    // MARK: - Browse user files
+
+    /// Lists files in any folder on the user's Drive (not limited to app-created files).
+    /// Supports pagination via `pageToken`. Returns folders first, then files.
+    static func listUserFiles(
+        inFolder folderID: String = "root",
+        pageToken: String? = nil,
+        accessToken: String
+    ) async throws -> DrivePagedFileList {
+        let q = "'\(folderID)' in parents and trashed=false"
+        let encodedQ = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let fields = "nextPageToken,files(id,name,mimeType,modifiedTime,size,md5Checksum,iconLink,thumbnailLink)"
+        var urlString = "\(apiBase)/files?q=\(encodedQ)&fields=\(fields)&orderBy=folder,name&pageSize=50"
+        if let token = pageToken {
+            urlString += "&pageToken=\(token)"
+        }
+        let url = URL(string: urlString)!
+        let response: PagedDriveListResponse = try await get(url, accessToken: accessToken)
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let metadata = response.files.map { file in
+            DriveFileMetadata(
+                id: file.id,
+                name: file.name,
+                mimeType: file.mimeType ?? "application/octet-stream",
+                modifiedTime: formatter.date(from: file.modifiedTime ?? "") ?? Date.distantPast,
+                size: file.size,
+                md5Checksum: file.md5Checksum
+            )
+        }
+        return DrivePagedFileList(files: metadata, nextPageToken: response.nextPageToken)
+    }
+
+    /// Searches the user's entire Drive for files matching a free-text query.
+    static func searchUserFiles(
+        query: String,
+        pageToken: String? = nil,
+        accessToken: String
+    ) async throws -> DrivePagedFileList {
+        let escaped = query.replacingOccurrences(of: "'", with: "\\'")
+        let q = "fullText contains '\(escaped)' and trashed=false"
+        let encodedQ = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let fields = "nextPageToken,files(id,name,mimeType,modifiedTime,size,md5Checksum)"
+        var urlString = "\(apiBase)/files?q=\(encodedQ)&fields=\(fields)&orderBy=modifiedTime desc&pageSize=50"
+        if let token = pageToken {
+            urlString += "&pageToken=\(token)"
+        }
+        let url = URL(string: urlString)!
+        let response: PagedDriveListResponse = try await get(url, accessToken: accessToken)
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let metadata = response.files.map { file in
+            DriveFileMetadata(
+                id: file.id,
+                name: file.name,
+                mimeType: file.mimeType ?? "application/octet-stream",
+                modifiedTime: formatter.date(from: file.modifiedTime ?? "") ?? Date.distantPast,
+                size: file.size,
+                md5Checksum: file.md5Checksum
+            )
+        }
+        return DrivePagedFileList(files: metadata, nextPageToken: response.nextPageToken)
+    }
+
+    // MARK: - Storage quota
+
+    /// Returns the authenticated user's Drive storage quota.
+    static func getStorageQuota(accessToken: String) async throws -> DriveStorageQuota {
+        let url = URL(string: "\(apiBase)/about?fields=storageQuota")!
+        let response: AboutResponse = try await get(url, accessToken: accessToken)
+        let sq = response.storageQuota
+        return DriveStorageQuota(
+            limitBytes: Int64(sq.limit ?? "0") ?? -1,
+            usageBytes: Int64(sq.usage ?? "0") ?? 0,
+            usageInDriveBytes: Int64(sq.usageInDrive ?? "0") ?? 0,
+            usageInDriveTrashBytes: Int64(sq.usageInDriveTrash ?? "0") ?? 0
+        )
+    }
+
     // MARK: - Internal networking
 
     private static func get<T: Decodable>(_ url: URL, accessToken: String) async throws -> T {
@@ -294,6 +377,11 @@ struct GoogleDriveClient {
         let files: [DriveFileResponse]
     }
 
+    private struct PagedDriveListResponse: Decodable {
+        let files: [DriveFileResponse]
+        let nextPageToken: String?
+    }
+
     struct DriveFileResponse: Decodable {
         let id: String
         let name: String
@@ -301,5 +389,16 @@ struct GoogleDriveClient {
         var modifiedTime: String?
         var size: Int64?
         var md5Checksum: String?
+    }
+
+    private struct AboutResponse: Decodable {
+        let storageQuota: StorageQuotaResponse
+    }
+
+    private struct StorageQuotaResponse: Decodable {
+        var limit: String?
+        var usage: String?
+        var usageInDrive: String?
+        var usageInDriveTrash: String?
     }
 }

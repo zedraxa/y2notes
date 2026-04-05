@@ -94,6 +94,14 @@ final class ThemeStore: ObservableObject {
         }
     }
 
+    /// Advance to the next theme in the `AppTheme.allCases` cycle.
+    func cycleToNext() {
+        let all = AppTheme.allCases
+        guard let index = all.firstIndex(of: selectedTheme) else { return }
+        let next = all[(index + 1) % all.count]
+        select(next)
+    }
+
     // MARK: - Schedule Helpers
 
     /// True when the current hour falls within the daytime range.

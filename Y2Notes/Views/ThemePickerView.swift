@@ -8,6 +8,8 @@ struct ThemePickerView: View {
     @EnvironmentObject var themeStore: ThemeStore
     @Environment(\.dismiss) private var dismiss
 
+    private let selectionFeedback = UISelectionFeedbackGenerator()
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -146,7 +148,10 @@ struct ThemePickerView: View {
         let isSelected = (themeStore.autoScheduleEnabled ? themeStore.effectiveTheme : themeStore.selectedTheme) == theme
 
         return Button {
-            themeStore.select(theme)
+            selectionFeedback.selectionChanged()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                themeStore.select(theme)
+            }
         } label: {
             VStack(spacing: 0) {
                 // Canvas preview
@@ -197,17 +202,19 @@ struct ThemePickerView: View {
                     Image(systemName: theme.systemImage)
                         .font(.caption2)
                         .foregroundStyle(isSelected ? def.accentColor : .secondary)
+                        .animation(.easeInOut(duration: 0.2), value: isSelected)
                     Text(theme.displayName)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(Color(uiColor: .label))
 
                     Spacer()
 
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(Color.accentColor)
-                    }
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                        .scaleEffect(isSelected ? 1.0 : 0.01)
+                        .opacity(isSelected ? 1 : 0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.65), value: isSelected)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
@@ -220,7 +227,8 @@ struct ThemePickerView: View {
                         lineWidth: isSelected ? 2 : 0.5
                     )
             )
-            .shadow(color: .black.opacity(isSelected ? 0.12 : 0.05), radius: isSelected ? 4 : 2, y: 1)
+            .shadow(color: isSelected ? Color.accentColor.opacity(0.2) : .black.opacity(0.05), radius: isSelected ? 4 : 2, y: 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isSelected)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

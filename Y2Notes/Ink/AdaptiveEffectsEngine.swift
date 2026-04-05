@@ -60,6 +60,10 @@ enum EffectIntensity: Int, Comparable, CaseIterable {
 
     /// Whether study-mode feedback effects (heading glow, checklist pulse) should run.
     var allowsStudyMode: Bool { self >= .reduced }
+
+    /// Whether interaction feedback visuals (flash, scale pulse, border highlight) should run.
+    /// Haptic feedback is unaffected — it always fires.
+    var allowsInteractionFeedback: Bool { self >= .reduced }
 }
 
 // MARK: - Adaptive Effects Engine

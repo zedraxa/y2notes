@@ -16,6 +16,8 @@ struct SettingsView: View {
 
     @State private var showDiagnostics = false
     @State private var showResetConfirmation = false
+    @State private var showWritingInsights = false
+    @State private var showOpenSourceCredits = false
 
     var body: some View {
         NavigationStack {
@@ -23,7 +25,9 @@ struct SettingsView: View {
                 appearanceSection
                 documentDefaultsSection
                 toolPreferencesSection
+                effectsSection
                 accessibilitySection
+                insightsSection
                 aboutSection
                 resetSection
             }
@@ -35,6 +39,12 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showDiagnostics) {
                 DiagnosticsView()
+            }
+            .sheet(isPresented: $showWritingInsights) {
+                WritingInsightsView()
+            }
+            .sheet(isPresented: $showOpenSourceCredits) {
+                OpenSourceCreditsView()
             }
             .confirmationDialog(
                 "Reset All Settings",
@@ -215,6 +225,26 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Ink Effects
+
+    private var effectsSection: some View {
+        Section {
+            Toggle(isOn: $toolStore.isMagicModeActive) {
+                Label("Magic Mode", systemImage: "sparkles")
+            }
+            .accessibilityLabel("Magic Mode. Adds writing particles, keyword glow, and underline highlight animation.")
+
+            Toggle(isOn: $toolStore.isStudyModeActive) {
+                Label("Study Mode", systemImage: "graduationcap")
+            }
+            .accessibilityLabel("Study Mode. Adds heading glow, checklist completion animation, and timer pulse.")
+        } header: {
+            Text("Ink Effects")
+        } footer: {
+            Text("Magic Mode adds subtle sparkle particles while writing. Study Mode provides satisfying feedback for headings, completed checklists, and timers.")
+        }
+    }
+
     // MARK: - Accessibility
 
     private var accessibilitySection: some View {
@@ -232,6 +262,23 @@ struct SettingsView: View {
             Text("Accessibility")
         } footer: {
             Text("Reduce Motion suppresses transitions. Increase Contrast enhances borders and text weight.")
+        }
+    }
+
+    // MARK: - Insights
+
+    private var insightsSection: some View {
+        Section {
+            Button {
+                showWritingInsights = true
+            } label: {
+                Label("Writing Insights", systemImage: "chart.bar.xaxis")
+            }
+            .accessibilityLabel("Open writing insights dashboard")
+        } header: {
+            Text("Insights")
+        } footer: {
+            Text("View writing statistics, streaks, and activity inspired by open-source analytics tools.")
         }
     }
 
@@ -254,6 +301,13 @@ struct SettingsView: View {
                 Label("Diagnostics & Support", systemImage: "wrench.and.screwdriver")
             }
             .accessibilityLabel("Open diagnostics and support")
+
+            Button {
+                showOpenSourceCredits = true
+            } label: {
+                Label("Open Source Inspirations", systemImage: "heart.text.square")
+            }
+            .accessibilityLabel("View open source inspirations and credits")
         } header: {
             Text("About")
         }
