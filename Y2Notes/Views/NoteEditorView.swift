@@ -819,8 +819,9 @@ struct NoteEditorView: View {
 
         let obj = TextObject(
             frame: frame,
-            fontSize: 16,
+            fontSize: toolStore.activeTextFontSize,
             textColor: .label,
+            alignment: toolStore.activeTextAlignment,
             zIndex: maxZ + 1
         )
 

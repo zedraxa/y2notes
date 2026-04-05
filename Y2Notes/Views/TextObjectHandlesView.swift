@@ -115,7 +115,7 @@ struct TextStyleEditorView: View {
         _fontSize = State(initialValue: textObject.fontSize)
         _textColor = State(initialValue: Color(uiColor: textObject.textColor))
         _hasBackground = State(initialValue: textObject.backgroundColor != nil)
-        _backgroundColor = State(initialValue: Color(uiColor: textObject.backgroundColor ?? .systemYellow.withAlphaComponent(0.15)))
+        _backgroundColor = State(initialValue: Color(uiColor: textObject.backgroundColor ?? .systemYellow.withAlphaComponent(TextObjectConstants.defaultBackgroundAlpha)))
         _alignmentRaw = State(initialValue: textObject.alignmentRaw)
     }
 

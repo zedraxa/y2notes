@@ -176,4 +176,6 @@ enum TextObjectConstants {
     static let hitTolerance: CGFloat = 8
     /// Save debounce interval (seconds).
     static let saveDebounce: TimeInterval = 0.8
+    /// Default background alpha when background is first enabled.
+    static let defaultBackgroundAlpha: CGFloat = 0.15
 }

@@ -488,7 +488,8 @@ final class DrawingToolStore: ObservableObject {
         // Text tool defaults.
         let tf = ud.double(forKey: Keys.textFontSize)
         if tf > 0 { activeTextFontSize = CGFloat(tf) }
-        let ta = ud.integer(forKey: Keys.textAlignment)
-        if ta > 0 { activeTextAlignmentRaw = ta }
+        if ud.object(forKey: Keys.textAlignment) != nil {
+            activeTextAlignmentRaw = ud.integer(forKey: Keys.textAlignment)
+        }
     }
 }
