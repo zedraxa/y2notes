@@ -216,6 +216,10 @@ struct DiagnosticsView: View {
         lines.append("  PDFs: \(pdfStore.records.count)")
         lines.append("")
         lines.append("Theme: \(themeStore.selectedTheme.displayName)")
+        if themeStore.autoScheduleEnabled {
+            lines.append("Auto-Schedule: ON (Day: \(themeStore.dayTheme.displayName), Night: \(themeStore.nightTheme.displayName))")
+            lines.append("Effective Theme: \(themeStore.effectiveTheme.displayName)")
+        }
         lines.append("Save State: \(saveStateText)")
         lines.append("")
         lines.append("Contrast Validation:")

@@ -144,7 +144,7 @@ struct OnboardingView: View {
 
     private func themeCard(_ theme: AppTheme) -> some View {
         let def = theme.definition
-        let isSelected = themeStore.selectedTheme == theme
+        let isSelected = themeStore.effectiveTheme == theme
         return Button {
             selectionFeedback.selectionChanged()
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {

@@ -143,7 +143,7 @@ struct NotebookReaderView: View {
     }
 
     private var effectiveTheme: AppTheme {
-        currentNote?.themeOverride ?? notebook.defaultTheme ?? themeStore.selectedTheme
+        currentNote?.themeOverride ?? notebook.defaultTheme ?? themeStore.effectiveTheme
     }
 
     private var effectiveDefinition: ThemeDefinition {
