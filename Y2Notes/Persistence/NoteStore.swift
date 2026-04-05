@@ -205,6 +205,104 @@ final class NoteStore: ObservableObject {
         return note
     }
 
+    /// Creates a companion note for an imported PDF record and returns it.
+    ///
+    /// The note is pre-titled with the PDF's title and has `linkedPDFID` set so the editor
+    /// can surface a quick-open action for the source file.
+    @discardableResult
+    func addNote(forPDF record: PDFNoteRecord) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [.blank]
+        )
+        let note = Note(
+            title: record.title,
+            pdfFilename: pdfFilename,
+            linkedPDFID: record.id
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    /// Creates a companion note for an imported document and returns it.
+    ///
+    /// The note is pre-titled with the document's display name and has `linkedDocumentID` set
+    /// so the editor can surface a quick-open action for the source file.
+    @discardableResult
+    func addNote(forDocument doc: ImportedDocument) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [.blank]
+        )
+        let note = Note(
+            title: doc.displayName,
+            pdfFilename: pdfFilename,
+            linkedDocumentID: doc.id
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    // MARK: - Import-linked note queries
+
+    /// Returns all notes that are linked to the given PDF record.
+    func notes(forPDF pdfID: UUID) -> [Note] {
+        notes.filter { $0.linkedPDFID == pdfID }
+    }
+
+    /// Returns all notes that are linked to the given imported document.
+    func notes(forDocument docID: UUID) -> [Note] {
+        notes.filter { $0.linkedDocumentID == docID }
+    }
+
+    /// Returns all notes that have any linked import (PDF or Document).
+    var importLinkedNotes: [Note] {
+        notes.filter { $0.linkedPDFID != nil || $0.linkedDocumentID != nil }
+    }
+
+    /// Returns true if a companion note already exists for the given PDF.
+    func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
+        notes.contains { $0.linkedPDFID == pdfID }
+    }
+
+    /// Returns true if a companion note already exists for the given document.
+    func hasCompanionNote(forDocument docID: UUID) -> Bool {
+        notes.contains { $0.linkedDocumentID == docID }
+    }
+
+    /// Removes the companion-note link from a note without deleting the note itself.
+    func unlinkCompanionNote(id: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == id }) else { return }
+        notes[idx].linkedPDFID = nil
+        notes[idx].linkedDocumentID = nil
+        save()
+    }
+
+    /// Returns all import-linked notes whose source PDF/document is no longer present.
+    /// The caller must supply the set of live PDF and document IDs.
+    func orphanedImportNotes(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) -> [Note] {
+        notes.filter {
+            if let pdfID = $0.linkedPDFID { return !livePDFIDs.contains(pdfID) }
+            if let docID = $0.linkedDocumentID { return !liveDocumentIDs.contains(docID) }
+            return false
+        }
+    }
+
+    /// Removes companion-note links from notes whose source is no longer present.
+    func removeOrphanedImportLinks(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) {
+        let orphans = orphanedImportNotes(livePDFIDs: livePDFIDs, liveDocumentIDs: liveDocumentIDs)
+        for orphan in orphans {
+            guard let idx = notes.firstIndex(where: { $0.id == orphan.id }) else { continue }
+            notes[idx].linkedPDFID = nil
+            notes[idx].linkedDocumentID = nil
+        }
+        if !orphans.isEmpty { save() }
+    }
+
     func deleteNotes(at offsets: IndexSet) {
         for i in offsets {
             createPreDestructiveSnapshot(for: notes[i].id)
@@ -863,20 +961,17 @@ final class NoteStore: ObservableObject {
     func addSection(
         toNotebook notebookID: UUID,
         name: String,
-        kind: SectionKind = .section,
         defaultTemplateID: String = "builtin.blank",
-        colorTag: SectionColorTag = .none,
-        defaultPageType: PageType? = nil
+        colorTag: SectionColorTag = .none
     ) -> NotebookSection {
         let nextOrder = nextSectionSortOrder(forNotebook: notebookID)
         let section = NotebookSection(
             notebookID: notebookID,
             name: name,
-            kind: kind,
+            kind: .section,
             sortOrder: nextOrder,
             defaultTemplateID: defaultTemplateID,
-            colorTag: colorTag,
-            defaultPageType: defaultPageType
+            colorTag: colorTag
         )
         sections.append(section)
         save()
@@ -960,8 +1055,7 @@ final class NoteStore: ObservableObject {
         defaultTheme: AppTheme? = nil,
         paperMaterial: PaperMaterial = .standard,
         customCoverData: Data? = nil,
-        coverTexture: CoverTexture = .smooth,
-        colorTag: NotebookColorTag = .none
+        coverTexture: CoverTexture = .smooth
     ) -> Notebook {
         let nb = Notebook(
             name: name,
@@ -973,8 +1067,7 @@ final class NoteStore: ObservableObject {
             defaultTheme: defaultTheme,
             paperMaterial: paperMaterial,
             customCoverData: customCoverData,
-            coverTexture: coverTexture,
-            colorTag: colorTag
+            coverTexture: coverTexture
         )
         notebooks.insert(nb, at: 0)
         save()
@@ -1033,29 +1126,6 @@ final class NoteStore: ObservableObject {
         save()
     }
 
-    /// Sets the colour tag for a notebook.
-    func updateNotebookColorTag(id: UUID, colorTag: NotebookColorTag) {
-        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
-        notebooks[idx].colorTag = colorTag
-        notebooks[idx].modifiedAt = Date()
-        save()
-    }
-
-    /// Records that a notebook was opened right now.
-    func updateNotebookLastOpened(id: UUID) {
-        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
-        notebooks[idx].lastOpenedAt = Date()
-        save()
-    }
-
-    /// Toggles the pinned state of a notebook (pinned notebooks sort first in the shelf).
-    func toggleNotebookPin(id: UUID) {
-        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
-        notebooks[idx].isPinned.toggle()
-        notebooks[idx].modifiedAt = Date()
-        save()
-    }
-
     /// Deletes a notebook, its sections, and unfiles all notes that belonged to it.
     func deleteNotebook(id: UUID) {
         for i in notes.indices where notes[i].notebookID == id {
@@ -1064,46 +1134,6 @@ final class NoteStore: ObservableObject {
         }
         sections.removeAll { $0.notebookID == id }
         notebooks.removeAll { $0.id == id }
-        save()
-    }
-
-    /// Duplicates a notebook including its sections (notes are *not* deep-copied).
-    @discardableResult
-    func duplicateNotebook(id: UUID) -> Notebook? {
-        guard let source = notebooks.first(where: { $0.id == id }) else { return nil }
-        let nb = addNotebook(
-            name: source.name + " Copy",
-            description: source.description,
-            cover: source.cover,
-            pageType: source.pageType,
-            pageSize: source.pageSize,
-            orientation: source.orientation,
-            defaultTheme: source.defaultTheme,
-            paperMaterial: source.paperMaterial,
-            customCoverData: source.customCoverData,
-            coverTexture: source.coverTexture,
-            colorTag: source.colorTag
-        )
-        // Duplicate sections preserving order and settings
-        let srcSections = self.sections(inNotebook: id)
-        for s in srcSections {
-            addSection(
-                toNotebook: nb.id,
-                name: s.name,
-                kind: s.kind,
-                defaultTemplateID: s.defaultTemplateID,
-                colorTag: s.colorTag,
-                defaultPageType: s.defaultPageType
-            )
-        }
-        return nb
-    }
-
-    /// Toggles the locked state of a notebook.
-    func toggleNotebookLock(id: UUID) {
-        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
-        notebooks[idx].isLocked.toggle()
-        notebooks[idx].modifiedAt = Date()
         save()
     }
 

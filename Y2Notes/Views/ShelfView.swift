@@ -10,12 +10,47 @@ enum LibrarySection: Hashable {
     case allNotes
     case recents
     case favorites
+    /// Notes linked to imported PDFs or documents.
+    case importNotes
     case notebook(UUID)
     case pdfLibrary
     case documentLibrary
     case importNotes
     /// Filter to notes that carry a specific tag.
     case tag(String)
+}
+
+// MARK: - Import Notes sort / filter
+
+enum ImportNotesSortOrder: String, CaseIterable, Identifiable {
+    case modifiedAt, createdAt, name
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .modifiedAt: return NSLocalizedString("Import.SortModified", comment: "")
+        case .createdAt:  return NSLocalizedString("Import.SortCreated", comment: "")
+        case .name:       return NSLocalizedString("Import.SortName", comment: "")
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .modifiedAt: return "clock"
+        case .createdAt:  return "calendar"
+        case .name:       return "textformat"
+        }
+    }
+}
+
+enum ImportNotesSourceFilter: String, CaseIterable, Identifiable {
+    case all, pdf, document
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .all:      return NSLocalizedString("Import.FilterAll", comment: "")
+        case .pdf:      return NSLocalizedString("Import.FilterPDFs", comment: "")
+        case .document: return NSLocalizedString("Import.FilterDocuments", comment: "")
+        }
+    }
 }
 
 // MARK: - Cover gradients (SwiftUI extension on model type)
@@ -242,6 +277,12 @@ private struct ShelfSidebarView: View {
                     .tag(LibrarySection.favorites)
                     .badge(noteStore.favoritedNotes.count)
                     .foregroundStyle(noteStore.favoritedNotes.isEmpty ? Color(uiColor: .secondaryLabel) : Color.yellow)
+
+                if !noteStore.importLinkedNotes.isEmpty {
+                    Label("Import Notes", systemImage: "paperclip")
+                        .tag(LibrarySection.importNotes)
+                        .badge(noteStore.importLinkedNotes.count)
+                }
 
                 Label("PDF Documents", systemImage: "doc.richtext")
                     .tag(LibrarySection.pdfLibrary)
@@ -605,6 +646,9 @@ struct NoteGridView: View {
     @State private var showPDFImporter = false
     @State private var versionHistoryNote: Note?
     @State private var tagPickerNote: Note?
+    @State private var importNotesSortOrder: ImportNotesSortOrder = .modifiedAt
+    @State private var importNotesSourceFilter: ImportNotesSourceFilter = .all
+    @State private var showCleanUpOrphansAlert = false
     @State private var gridAppeared = false
     @AppStorage("y2notes.notebookSortOrder") private var notebookSortOrderRaw: String = NotebookSortOrder.modified.rawValue
 
@@ -621,6 +665,18 @@ struct NoteGridView: View {
             return noteStore.recentNotes
         case .favorites:
             return noteStore.favoritedNotes
+        case .importNotes:
+            let filtered: [Note]
+            switch importNotesSourceFilter {
+            case .all:      filtered = noteStore.importLinkedNotes
+            case .pdf:      filtered = noteStore.importLinkedNotes.filter { $0.linkedPDFID != nil }
+            case .document: filtered = noteStore.importLinkedNotes.filter { $0.linkedDocumentID != nil }
+            }
+            switch importNotesSortOrder {
+            case .modifiedAt: return filtered.sorted { $0.modifiedAt > $1.modifiedAt }
+            case .createdAt:  return filtered.sorted { $0.createdAt > $1.createdAt }
+            case .name:       return filtered.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            }
         case .notebook(let id):
             return noteStore.notes(inNotebook: id).sorted { $0.modifiedAt > $1.modifiedAt }
         case .tag(let tag):
@@ -656,6 +712,7 @@ struct NoteGridView: View {
         case .allNotes:           return "All Notes"
         case .recents:            return "Recents"
         case .favorites:          return "Favorites"
+        case .importNotes:        return "Import Notes"
         case .notebook(let id):
             return noteStore.notebooks.first { $0.id == id }?.name ?? "Notebook"
         case .tag(let tag):       return "#\(tag)"
@@ -687,6 +744,11 @@ struct NoteGridView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 notebookToolbarMenu
+            }
+            if case .importNotes = section {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    importNotesToolbarMenu
+                }
             }
             if let nb = notebookForSection {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -765,6 +827,20 @@ struct NoteGridView: View {
             }
             Button("Cancel", role: .cancel) { sectionToRename = nil }
         }
+        .alert(
+            NSLocalizedString("Import.CleanUpOrphansTitle", comment: ""),
+            isPresented: $showCleanUpOrphansAlert
+        ) {
+            Button(NSLocalizedString("Import.CleanUpOrphansConfirm", comment: ""), role: .destructive) {
+                noteStore.removeOrphanedImportLinks(
+                    livePDFIDs: Set(pdfStore.records.map(\.id)),
+                    liveDocumentIDs: Set(documentStore.documents.map(\.id))
+                )
+            }
+            Button(NSLocalizedString("Common.Cancel", comment: ""), role: .cancel) {}
+        } message: {
+            Text(NSLocalizedString("Import.CleanUpOrphansMessage", comment: ""))
+        }
         .fileImporter(
             isPresented: $showPDFImporter,
             allowedContentTypes: [.pdf],
@@ -775,6 +851,12 @@ struct NoteGridView: View {
                     tabSession.openTab(
                         .pdf(id: record.id),
                         displayName: record.title,
+                        accentColor: [0.8, 0.3, 0.3]
+                    )
+                    let note = noteStore.addNote(forPDF: record)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
                         accentColor: [0.8, 0.3, 0.3]
                     )
                 }
@@ -791,6 +873,12 @@ struct NoteGridView: View {
                     tabSession.openTab(
                         .document(id: doc.id),
                         displayName: doc.displayName,
+                        accentColor: [0.3, 0.5, 0.7]
+                    )
+                    let note = noteStore.addNote(forDocument: doc)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
                         accentColor: [0.3, 0.5, 0.7]
                     )
                 }
@@ -866,6 +954,65 @@ struct NoteGridView: View {
             Image(systemName: "plus")
         }
         .accessibilityLabel("New")
+    }
+
+    private var importNotesToolbarMenu: some View {
+        let orphanCount = noteStore.orphanedImportNotes(
+            livePDFIDs: Set(pdfStore.records.map(\.id)),
+            liveDocumentIDs: Set(documentStore.documents.map(\.id))
+        ).count
+        return Menu {
+            Menu {
+                ForEach(ImportNotesSortOrder.allCases) { order in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            importNotesSortOrder = order
+                        }
+                    } label: {
+                        Label(order.label, systemImage: order.systemImage)
+                    }
+                }
+            } label: {
+                Label(NSLocalizedString("Import.SortBy", comment: ""), systemImage: "arrow.up.arrow.down")
+            }
+
+            Menu {
+                ForEach(ImportNotesSourceFilter.allCases) { filter in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            importNotesSourceFilter = filter
+                        }
+                    } label: {
+                        HStack {
+                            Text(filter.label)
+                            if importNotesSourceFilter == filter {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Label(NSLocalizedString("Import.FilterBy", comment: ""), systemImage: "line.3.horizontal.decrease.circle")
+            }
+
+            if orphanCount > 0 {
+                Divider()
+                Button(role: .destructive) {
+                    showCleanUpOrphansAlert = true
+                } label: {
+                    Label(
+                        String(format: NSLocalizedString("Import.CleanUpOrphans", comment: ""), orphanCount),
+                        systemImage: "trash"
+                    )
+                }
+            }
+        } label: {
+            Image(systemName: importNotesSourceFilter == .all
+                  ? "line.3.horizontal.decrease.circle"
+                  : "line.3.horizontal.decrease.circle.fill")
+        }
+        .accessibilityLabel(NSLocalizedString("Import.SortAndFilter", comment: ""))
     }
 
     // MARK: Flat grid (non-notebook views)
@@ -1375,6 +1522,7 @@ struct NoteGridView: View {
         case .allNotes:  return "square.and.pencil"
         case .recents:   return "clock"
         case .favorites: return "star"
+        case .importNotes: return "paperclip"
         case .notebook:  return "book.closed"
         case .tag:       return "tag"
         case .pdfLibrary: return "doc.richtext"
@@ -1388,6 +1536,7 @@ struct NoteGridView: View {
         case .allNotes:  return "No Notes Yet"
         case .recents:   return "No Recent Notes"
         case .favorites: return "No Favorites Yet"
+        case .importNotes: return "No Import Notes"
         case .notebook:  return "Empty Notebook"
         case .tag(let t): return "No Notes Tagged with "#\(t)""
         case .pdfLibrary: return "No PDFs Yet"
@@ -1401,6 +1550,7 @@ struct NoteGridView: View {
         case .allNotes:  return "Tap the pencil button to write your first note."
         case .recents:   return "Notes you open recently will appear here."
         case .favorites: return "Tap ★ in a note's menu to collect favorites here."
+        case .importNotes: return "Import a PDF or document to create a companion note."
         case .notebook:  return "Tap the pencil button to add notes to this notebook."
         case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
@@ -1801,6 +1951,22 @@ private struct NoteCardView: View {
                         Spacer()
                     }
                 }
+
+                // Import-linked badge — top-left corner paperclip
+                if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                    VStack {
+                        HStack {
+                            Image(systemName: "paperclip")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(4)
+                                .background(Circle().fill(Color.accentColor.opacity(0.85)))
+                                .padding(6)
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                }
             }
             .frame(height: 130)
             .frame(maxWidth: .infinity)
@@ -2119,7 +2285,11 @@ private struct PDFLibraryView: View {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {
                         ForEach(pdfStore.records) { record in
-                            PDFCardView(record: record, isSelected: selectedPDFID == record.id)
+                            PDFCardView(
+                                record: record,
+                                isSelected: selectedPDFID == record.id,
+                                hasCompanionNote: noteStore.hasCompanionNote(forPDF: record.id)
+                            )
                                 .onTapGesture { selectedPDFID = record.id }
                                 .contextMenu {
                                     if noteStore.hasCompanionNote(forPDF: record.id),
@@ -2174,6 +2344,12 @@ private struct PDFLibraryView: View {
             if case .success(let urls) = result, let url = urls.first {
                 if let record = pdfStore.importPDF(from: url) {
                     selectedPDFID = record.id
+                    let note = noteStore.addNote(forPDF: record)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
+                        accentColor: [0.8, 0.3, 0.3]
+                    )
                 }
             }
         }
@@ -2230,6 +2406,9 @@ private struct PDFLibraryView: View {
 private struct PDFCardView: View {
     let record: PDFNoteRecord
     let isSelected: Bool
+    var hasCompanionNote: Bool = false
+
+    private static let companionBadgeColor = Color(red: 0.8, green: 0.3, blue: 0.3)
 
     @State private var thumbnail: UIImage?
 
@@ -2247,6 +2426,21 @@ private struct PDFCardView: View {
                     Image(systemName: "doc.richtext")
                         .font(.system(size: 36, weight: .ultraLight))
                         .foregroundStyle(.quaternary)
+                }
+                // Companion-note badge — top-right corner
+                if hasCompanionNote {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "note.text")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(4)
+                                .background(Circle().fill(Self.companionBadgeColor.opacity(0.9)))
+                                .padding(6)
+                        }
+                        Spacer()
+                    }
                 }
             }
             .frame(height: 130)

@@ -83,6 +83,7 @@ struct NoteEditorView: View {
 
     /// Whether the version history sheet is visible.
     @State private var showVersionHistory = false
+    @State private var showUnlinkConfirm = false
 
     /// Zero-based index of the currently displayed page.
     @State private var currentPageIndex = 0
@@ -326,7 +327,7 @@ struct NoteEditorView: View {
         }
     }
 
-    /// Primary VStack: title, contrast banner, find bar, canvas or text layer, page bar.
+    /// Primary VStack: title, linked-import banner, contrast banner, find bar, canvas or text layer, page bar.
     private var mainContentStack: some View {
         VStack(spacing: 0) {
             titleField
@@ -666,6 +667,16 @@ struct NoteEditorView: View {
             Image(systemName: "square.and.arrow.down")
         }
         .accessibilityLabel("Import document")
+
+        // Open the PDF or document that this note was created for, if any.
+        if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+            Button {
+                openLinkedImport()
+            } label: {
+                Image(systemName: "doc.viewfinder")
+            }
+            .accessibilityLabel("Open linked document")
+        }
 
         // Draw ↔ Type mode toggle.
         // "keyboard" switches to text mode; "pencil" returns to drawing mode.
@@ -1394,9 +1405,120 @@ struct NoteEditorView: View {
         canRedo = undoManager?.canRedo ?? false
     }
 
-    // MARK: - Selection Actions
+    /// Opens the PDF or document that this note was created to accompany.
+    ///
+    /// If the linked import no longer exists (e.g. user deleted it), the action is a no-op.
+    private func openLinkedImport() {
+        if let pdfID = note.linkedPDFID,
+           let record = pdfStore.records.first(where: { $0.id == pdfID }) {
+            workspace.openTab(
+                .pdf(id: record.id),
+                displayName: record.title,
+                accentColor: [0.8, 0.3, 0.3]
+            )
+        } else if let docID = note.linkedDocumentID,
+                  let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            workspace.openTab(
+                .document(id: doc.id),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
+        }
+    }
 
-    /// Handles selection toolbar actions by dispatching standard edit commands
+    // MARK: - Linked Import Banner
+
+    /// Tappable banner shown below the title when this note is linked to an imported document.
+    /// Shows the source file name and type; tapping opens the linked file in its viewer tab.
+    private var linkedImportBanner: some View {
+        HStack(spacing: 8) {
+            Button(action: openLinkedImport) {
+                HStack(spacing: 8) {
+                    Image(systemName: linkedImportIcon)
+                        .font(.subheadline)
+                        .foregroundStyle(.accentColor)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(
+                            format: NSLocalizedString("Import.LinkedTo", comment: ""),
+                            linkedImportTitle
+                        ))
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                        Text(linkedImportSubtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "arrow.up.forward.square")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(
+                format: NSLocalizedString("Import.LinkedTo", comment: ""),
+                linkedImportTitle
+            ))
+
+            Button {
+                showUnlinkConfirm = true
+            } label: {
+                Image(systemName: "link.badge.minus")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+                    .padding(.leading, 4)
+                    .padding(.trailing, 16)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("Import.Unlink", comment: ""))
+        }
+        .background(Color.accentColor.opacity(0.08))
+        .alert(
+            NSLocalizedString("Import.UnlinkTitle", comment: ""),
+            isPresented: $showUnlinkConfirm
+        ) {
+            Button(NSLocalizedString("Import.Unlink", comment: ""), role: .destructive) {
+                noteStore.unlinkCompanionNote(id: note.id)
+            }
+            Button(NSLocalizedString("Common.Cancel", comment: ""), role: .cancel) {}
+        } message: {
+            Text(NSLocalizedString("Import.UnlinkMessage", comment: ""))
+        }
+    }
+
+    private var linkedImportIcon: String {
+        if note.linkedPDFID != nil { return "doc.richtext" }
+        return "doc"
+    }
+
+    private var linkedImportTitle: String {
+        if let pdfID = note.linkedPDFID,
+           let record = pdfStore.records.first(where: { $0.id == pdfID }) {
+            return record.title
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return doc.displayName
+        }
+        return NSLocalizedString("Import.SourceDeleted", comment: "")
+    }
+
+    private var linkedImportSubtitle: String {
+        if note.linkedPDFID != nil {
+            if pdfStore.records.first(where: { $0.id == note.linkedPDFID }) != nil {
+                return "PDF Document — " + NSLocalizedString("Import.TapToOpen", comment: "")
+            }
+            return NSLocalizedString("Import.SourceDeleted", comment: "")
+        }
+        if let docID = note.linkedDocumentID,
+           let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            return "\(doc.documentType.displayName) — " + NSLocalizedString("Import.TapToOpen", comment: "")
+        }
+        return NSLocalizedString("Import.SourceDeleted", comment: "")
+    }
+
+    // MARK: - Selection Actions
     /// to the canvas's responder chain. PencilKit's built-in lasso selection
     /// supports cut/copy/paste/delete through the standard UIResponder actions.
     private func handleSelectionAction(_ action: SelectionAction) {
@@ -3433,6 +3555,7 @@ struct CanvasView: UIViewRepresentable {
             onSaveRequested()
         }
 
+        // MARK: - Canvas scroll / zoom → background sync
         // MARK: - Hold-to-Straighten
 
         /// Replaces the last stroke in `canvasView.drawing` with a clean straight

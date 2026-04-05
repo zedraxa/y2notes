@@ -252,6 +252,7 @@ struct DocumentLibraryView: View {
                     DocumentGridCell(
                         document: doc,
                         isSelected: doc.id == selectedDocumentID,
+                        hasCompanionNote: noteStore.hasCompanionNote(forDocument: doc.id),
                         onTap: { selectedDocumentID = doc.id }
                     )
                     .contextMenu { contextMenu(for: doc) }
@@ -463,7 +464,7 @@ struct DocumentLibraryView: View {
                 .foregroundStyle(.secondary)
             Text("No Results")
                 .font(.title3.weight(.semibold))
-            Text("No documents match \"\(searchQuery)\".") 
+            Text("No documents match \"\(searchQuery)\".")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -477,7 +478,10 @@ struct DocumentLibraryView: View {
 private struct DocumentGridCell: View {
     let document: ImportedDocument
     let isSelected: Bool
+    var hasCompanionNote: Bool = false
     let onTap: () -> Void
+
+    private static let companionBadgeColor = Color(red: 0.3, green: 0.5, blue: 0.7)
 
     var body: some View {
         Button(action: onTap) {
@@ -495,12 +499,22 @@ private struct DocumentGridCell: View {
                                       : Color(uiColor: .secondarySystemBackground))
                         )
 
-                    if document.isFavorited {
-                        Image(systemName: "star.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.yellow)
-                            .padding(5)
+                    VStack(spacing: 2) {
+                        if document.isFavorited {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.yellow)
+                                .padding(4)
+                        }
+                        if hasCompanionNote {
+                            Image(systemName: "note.text")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(4)
+                                .background(Circle().fill(Self.companionBadgeColor.opacity(0.9)))
+                        }
                     }
+                    .padding(2)
                 }
 
                 Text(document.displayName)
