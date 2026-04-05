@@ -74,7 +74,7 @@ struct NoteCreationSheet: View {
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
-                                ForEach(PaperMaterial.allCases) { pm in
+                                ForEach(Array(PaperMaterial.allCases.enumerated()), id: \.element) { index, pm in
                                     MaterialChip(
                                         material: pm,
                                         isSelected: selectedMaterial == pm
@@ -82,9 +82,18 @@ struct NoteCreationSheet: View {
                                     .onTapGesture {
                                         if selectedMaterial != pm {
                                             selectionFeedback.impactOccurred(intensity: 0.6)
-                                            selectedMaterial = pm
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                selectedMaterial = pm
+                                            }
                                         }
                                     }
+                                    .opacity(gridAppeared ? 1 : 0)
+                                    .offset(y: gridAppeared ? 0 : 8)
+                                    .animation(
+                                        .spring(response: 0.35, dampingFraction: 0.8)
+                                            .delay(Double(index) * 0.04),
+                                        value: gridAppeared
+                                    )
                                 }
                             }
                             .padding(.horizontal, 4)

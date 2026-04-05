@@ -541,6 +541,7 @@ struct NoteGridView: View {
     @State private var showPDFImporter = false
     @State private var versionHistoryNote: Note?
     @State private var tagPickerNote: Note?
+    @State private var gridAppeared = false
 
     /// All notes for non-notebook views (flat).
     private var notes: [Note] {
@@ -805,13 +806,21 @@ struct NoteGridView: View {
                 }
 
                 LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(notes) { note in
+                    ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
                         NoteCardView(note: note, isSelected: selectedNoteID == note.id)
                             .onTapGesture { selectedNoteID = note.id }
                             .contextMenu { noteContextMenu(for: note) }
+                            .opacity(gridAppeared ? 1 : 0)
+                            .offset(y: gridAppeared ? 0 : 14)
+                            .animation(
+                                .spring(response: 0.35, dampingFraction: 0.82)
+                                    .delay(Double(index) * 0.03),
+                                value: gridAppeared
+                            )
                     }
                 }
                 .padding(20)
+                .onAppear { gridAppeared = true }
             }
         }
     }
