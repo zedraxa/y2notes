@@ -415,14 +415,24 @@ final class InteractionFeedbackEngine {
         CATransaction.commit()
     }
 
-    /// Scale pulse — layer scales up then back to original.
+    /// Scale pulse — spring impulse creates momentary overshoot then settles.
+    ///
+    /// Both `fromValue` and `toValue` are 1.0; the `initialVelocity` pushes
+    /// the layer past 1.0 (up or down depending on `peakScale`) and the spring
+    /// pulls it back.  Velocity magnitude scales with how far the peak is from 1.0.
     private func playScalePulse(on layer: CALayer, peakScale: CGFloat, duration: CFTimeInterval) {
         activeVisualCount += 1
+
+        // Scale velocity magnitude by how far the desired peak deviates from 1.0.
+        // A peakScale of 1.02 → velocity ~6, peakScale of 1.005 → velocity ~1.5.
+        let deviation = peakScale - 1.0
+        let velocityMagnitude: CGFloat = abs(deviation) * 300.0  // tuned for spring params
+        let velocity = deviation >= 0 ? velocityMagnitude : -velocityMagnitude
 
         let anim = CASpringAnimation(keyPath: "transform.scale")
         anim.fromValue = 1.0
         anim.toValue = 1.0
-        anim.initialVelocity = peakScale > 1.0 ? 6.0 : -6.0
+        anim.initialVelocity = velocity
         anim.damping = 14.0
         anim.stiffness = 300.0
         anim.mass = 0.8
