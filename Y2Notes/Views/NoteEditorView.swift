@@ -399,7 +399,9 @@ struct NoteEditorView: View {
             },
             pageCount: note.pageCount,
             isMagicModeActive: toolStore.isMagicModeActive,
-            isStudyModeActive: toolStore.isStudyModeActive
+            isStudyModeActive: toolStore.isStudyModeActive,
+            activeAmbientScene: toolStore.activeAmbientScene,
+            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled
         )
         // Force recreation on page change so makeUIView loads the new drawing.
         .id("\(note.id)-\(safePageIndex)")
@@ -1562,6 +1564,10 @@ struct CanvasView: UIViewRepresentable {
     var isMagicModeActive: Bool = false
     /// Whether Study Mode is active (heading glow, checklist pulse, timer pulse).
     var isStudyModeActive: Bool = false
+    /// The currently active ambient environment scene, or `nil` when inactive.
+    var activeAmbientScene: AmbientScene?
+    /// Whether ambient soundscapes are enabled.
+    var isAmbientSoundEnabled: Bool = true
 
     // MARK: - Page dimensions
 
@@ -2000,6 +2006,23 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.effects.setStudyMode(active: isStudyModeActive, on: uiView.layer)
         // Keep layout-sensitive engines in sync on resize / rotation.
         context.coordinator.effects.updateLayout(containerBounds: uiView.bounds)
+
+        // Sync ambient environment engine — activate/deactivate/sound when scene changes.
+        let ambientEngine = context.coordinator.ambientEngine
+        ambientEngine.soundEnabled = isAmbientSoundEnabled
+        if let ts = toolStoreForFade {
+            switch (activeAmbientScene, ambientEngine.activeScene) {
+            case let (scene?, current) where current != scene:
+                ambientEngine.activate(scene, on: uiView.layer, toolStore: ts)
+            case (nil, .some):
+                ambientEngine.deactivate(toolStore: ts)
+            default:
+                break
+            }
+        }
+        if ambientEngine.activeScene != nil {
+            ambientEngine.updateLayout(containerBounds: uiView.bounds)
+        }
 
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
