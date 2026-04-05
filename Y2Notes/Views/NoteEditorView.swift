@@ -2320,6 +2320,15 @@ struct CanvasView: UIViewRepresentable {
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
+            // If barrel-roll modulated the fountain-pen width during this stroke,
+            // the canvas tool is left at the modulated (drifted) width.
+            // Invalidate lastToolSnapshot so updateUIView resets canvas.tool to
+            // the canonical width from DrawingToolStore before the next stroke,
+            // preventing a compounding feedback loop where each stroke starts
+            // wider than the last.
+            if barrelRollBaseWidth != nil {
+                lastToolSnapshot = nil
+            }
             barrelRollBaseWidth = nil
 
             // Re-enable zoom after a short delay to prevent accidental zoom when
