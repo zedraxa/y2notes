@@ -108,6 +108,7 @@
 		AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000128 /* WidgetCanvasView.swift */; };
 		AA000100000000000000012B /* WidgetHandlesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012A /* WidgetHandlesView.swift */; };
 		AA000100000000000000012D /* WidgetPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012C /* WidgetPickerView.swift */; };
+		AA0001000000000000000153 /* WidgetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000152 /* WidgetEditorView.swift */; };
 		AA000100000000000000012F /* PageRegion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012E /* PageRegion.swift */; };
 		AA0001000000000000000131 /* WritingEffectModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000130 /* WritingEffectModel.swift */; };
 		AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000132 /* MicroInteractionEngine.swift */; };
@@ -240,6 +241,7 @@
 		AA0001000000000000000128 /* WidgetCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetCanvasView.swift; sourceTree = "<group>"; };
 		AA000100000000000000012A /* WidgetHandlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetHandlesView.swift; sourceTree = "<group>"; };
 		AA000100000000000000012C /* WidgetPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPickerView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000152 /* WidgetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetEditorView.swift; sourceTree = "<group>"; };
 		AA000100000000000000012E /* PageRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRegion.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -361,6 +363,7 @@
 				AA0001000000000000000128 /* WidgetCanvasView.swift */,
 				AA000100000000000000012A /* WidgetHandlesView.swift */,
 				AA000100000000000000012C /* WidgetPickerView.swift */,
+				AA0001000000000000000152 /* WidgetEditorView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -669,6 +672,7 @@
 				AA0001000000000000000129 /* WidgetCanvasView.swift in Sources */,
 				AA000100000000000000012B /* WidgetHandlesView.swift in Sources */,
 				AA000100000000000000012D /* WidgetPickerView.swift in Sources */,
+				AA0001000000000000000153 /* WidgetEditorView.swift in Sources */,
 				AA000100000000000000012F /* PageRegion.swift in Sources */,
 				AA0001000000000000000131 /* WritingEffectModel.swift in Sources */,
 				AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */,
