@@ -205,6 +205,104 @@ final class NoteStore: ObservableObject {
         return note
     }
 
+    /// Creates a companion note for an imported PDF record and returns it.
+    ///
+    /// The note is pre-titled with the PDF's title and has `linkedPDFID` set so the editor
+    /// can surface a quick-open action for the source file.
+    @discardableResult
+    func addNote(forPDF record: PDFNoteRecord) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [.blank]
+        )
+        let note = Note(
+            title: record.title,
+            pdfFilename: pdfFilename,
+            linkedPDFID: record.id
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    /// Creates a companion note for an imported document and returns it.
+    ///
+    /// The note is pre-titled with the document's display name and has `linkedDocumentID` set
+    /// so the editor can surface a quick-open action for the source file.
+    @discardableResult
+    func addNote(forDocument doc: ImportedDocument) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [.blank]
+        )
+        let note = Note(
+            title: doc.displayName,
+            pdfFilename: pdfFilename,
+            linkedDocumentID: doc.id
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    // MARK: - Import-linked note queries
+
+    /// Returns all notes that are linked to the given PDF record.
+    func notes(forPDF pdfID: UUID) -> [Note] {
+        notes.filter { $0.linkedPDFID == pdfID }
+    }
+
+    /// Returns all notes that are linked to the given imported document.
+    func notes(forDocument docID: UUID) -> [Note] {
+        notes.filter { $0.linkedDocumentID == docID }
+    }
+
+    /// Returns all notes that have any linked import (PDF or Document).
+    var importLinkedNotes: [Note] {
+        notes.filter { $0.linkedPDFID != nil || $0.linkedDocumentID != nil }
+    }
+
+    /// Returns true if a companion note already exists for the given PDF.
+    func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
+        notes.contains { $0.linkedPDFID == pdfID }
+    }
+
+    /// Returns true if a companion note already exists for the given document.
+    func hasCompanionNote(forDocument docID: UUID) -> Bool {
+        notes.contains { $0.linkedDocumentID == docID }
+    }
+
+    /// Removes the companion-note link from a note without deleting the note itself.
+    func unlinkCompanionNote(id: UUID) {
+        guard let idx = notes.firstIndex(where: { $0.id == id }) else { return }
+        notes[idx].linkedPDFID = nil
+        notes[idx].linkedDocumentID = nil
+        save()
+    }
+
+    /// Returns all import-linked notes whose source PDF/document is no longer present.
+    /// The caller must supply the set of live PDF and document IDs.
+    func orphanedImportNotes(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) -> [Note] {
+        notes.filter {
+            if let pdfID = $0.linkedPDFID { return !livePDFIDs.contains(pdfID) }
+            if let docID = $0.linkedDocumentID { return !liveDocumentIDs.contains(docID) }
+            return false
+        }
+    }
+
+    /// Removes companion-note links from notes whose source is no longer present.
+    func removeOrphanedImportLinks(livePDFIDs: Set<UUID>, liveDocumentIDs: Set<UUID>) {
+        let orphans = orphanedImportNotes(livePDFIDs: livePDFIDs, liveDocumentIDs: liveDocumentIDs)
+        for orphan in orphans {
+            guard let idx = notes.firstIndex(where: { $0.id == orphan.id }) else { continue }
+            notes[idx].linkedPDFID = nil
+            notes[idx].linkedDocumentID = nil
+        }
+        if !orphans.isEmpty { save() }
+    }
+
     func deleteNotes(at offsets: IndexSet) {
         for i in offsets {
             createPreDestructiveSnapshot(for: notes[i].id)
@@ -867,6 +965,8 @@ final class NoteStore: ObservableObject {
         defaultTemplateID: String = "builtin.blank",
         colorTag: SectionColorTag = .none,
         defaultPageType: PageType? = nil
+        defaultTemplateID: String = "builtin.blank",
+        colorTag: SectionColorTag = .none
     ) -> NotebookSection {
         let nextOrder = nextSectionSortOrder(forNotebook: notebookID)
         let section = NotebookSection(
@@ -877,6 +977,7 @@ final class NoteStore: ObservableObject {
             defaultTemplateID: defaultTemplateID,
             colorTag: colorTag,
             defaultPageType: defaultPageType
+            colorTag: colorTag
         )
         sections.append(section)
         save()
@@ -962,6 +1063,7 @@ final class NoteStore: ObservableObject {
         customCoverData: Data? = nil,
         coverTexture: CoverTexture = .smooth,
         colorTag: NotebookColorTag = .none
+        coverTexture: CoverTexture = .smooth
     ) -> Notebook {
         let nb = Notebook(
             name: name,
@@ -975,6 +1077,7 @@ final class NoteStore: ObservableObject {
             customCoverData: customCoverData,
             coverTexture: coverTexture,
             colorTag: colorTag
+            coverTexture: coverTexture
         )
         notebooks.insert(nb, at: 0)
         save()

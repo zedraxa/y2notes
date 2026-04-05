@@ -67,6 +67,7 @@ struct NoteListView: View {
             }
         }
         .animation(.default, value: displayedNotes.map(\.id))
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: displayedNotes.map(\.id))
         .navigationTitle("Y2Notes")
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search notes")
         .toolbar {

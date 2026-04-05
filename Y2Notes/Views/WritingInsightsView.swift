@@ -14,6 +14,8 @@ struct WritingInsightsView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var cardsAppeared = false
+
     // MARK: Body
 
     var body: some View {
@@ -33,6 +35,9 @@ struct WritingInsightsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("General.Done", comment: "")) { dismiss() }
                 }
+            }
+            .onAppear {
+                cardsAppeared = true
             }
         }
     }
@@ -89,6 +94,28 @@ struct WritingInsightsView: View {
                 icon: "chart.line.uptrend.xyaxis",
                 tint: .mint
             )
+        let cardData: [(title: String, value: String, icon: String, tint: Color)] = [
+            (NSLocalizedString("Insights.TotalNotes", comment: ""), "\(insights.totalNotes)", "doc.text", .blue),
+            (NSLocalizedString("Insights.TotalPages", comment: ""), "\(insights.totalPages)", "doc.on.doc", .indigo),
+            (NSLocalizedString("Insights.TotalWords", comment: ""), formattedNumber(insights.totalWords), "textformat.abc", .purple),
+            (NSLocalizedString("Insights.Notebooks", comment: ""), "\(insights.totalNotebooks)", "books.vertical", .orange),
+            (NSLocalizedString("Insights.AvgPages", comment: ""), String(format: "%.1f", insights.averagePagesPerNote), "chart.bar", .teal),
+            (NSLocalizedString("Insights.AvgWords", comment: ""), formattedNumber(Int(insights.averageWordsPerNote)), "chart.line.uptrend.xyaxis", .mint),
+        ]
+        return LazyVGrid(columns: [
+            GridItem(.flexible()),
+            GridItem(.flexible()),
+        ], spacing: 12) {
+            ForEach(Array(cardData.enumerated()), id: \.offset) { index, card in
+                statCard(title: card.title, value: card.value, icon: card.icon, tint: card.tint)
+                    .opacity(cardsAppeared ? 1 : 0)
+                    .offset(y: cardsAppeared ? 0 : 16)
+                    .animation(
+                        .spring(response: 0.4, dampingFraction: 0.8)
+                            .delay(Double(index) * 0.05),
+                        value: cardsAppeared
+                    )
+            }
         }
     }
 
@@ -132,11 +159,23 @@ struct WritingInsightsView: View {
                     icon: "flame.fill",
                     tint: .orange
                 )
+                .opacity(cardsAppeared ? 1 : 0)
+                .offset(x: cardsAppeared ? 0 : -12)
+                .animation(
+                    .spring(response: 0.4, dampingFraction: 0.8).delay(0.3),
+                    value: cardsAppeared
+                )
                 streakBadge(
                     label: NSLocalizedString("Insights.LongestStreak", comment: ""),
                     days: insights.longestStreak,
                     icon: "trophy.fill",
                     tint: .yellow
+                )
+                .opacity(cardsAppeared ? 1 : 0)
+                .offset(x: cardsAppeared ? 0 : -12)
+                .animation(
+                    .spring(response: 0.4, dampingFraction: 0.8).delay(0.38),
+                    value: cardsAppeared
                 )
             }
         }
@@ -246,6 +285,7 @@ struct WritingInsightsView: View {
                     .padding()
             } else {
                 ForEach(stats) { stat in
+                ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(stat.name)
@@ -258,6 +298,13 @@ struct WritingInsightsView: View {
                         notebookBar(stat: stat)
                     }
                     .padding(.vertical, 4)
+                    .opacity(cardsAppeared ? 1 : 0)
+                    .offset(x: cardsAppeared ? 0 : 14)
+                    .animation(
+                        .spring(response: 0.4, dampingFraction: 0.8)
+                            .delay(0.45 + Double(index) * 0.06),
+                        value: cardsAppeared
+                    )
                 }
             }
         }

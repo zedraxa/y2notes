@@ -40,6 +40,8 @@ struct ToolExpansionView: View {
 
     // MARK: - Body
 
+    @State private var panelAppeared = false
+
     var body: some View {
         Group {
             if expandedTool.isInking {
@@ -57,6 +59,13 @@ struct ToolExpansionView: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 3)
         .onAppear { resetTimeout() }
+        .scaleEffect(panelAppeared ? 1.0 : 0.92)
+        .opacity(panelAppeared ? 1.0 : 0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: panelAppeared)
+        .onAppear {
+            panelAppeared = true
+            resetTimeout()
+        }
         .onDisappear { dismissTask?.cancel() }
     }
 
@@ -91,7 +100,7 @@ struct ToolExpansionView: View {
     @ViewBuilder
     private var colorStrip: some View {
         HStack(spacing: 6) {
-            ForEach(Array(toolStore.recentColors.prefix(6).enumerated()), id: \.offset) { _, color in
+            ForEach(Array(toolStore.recentColors.prefix(6).enumerated()), id: \.offset) { index, color in
                 Circle()
                     .fill(Color(uiColor: color))
                     .frame(width: 24, height: 24)
@@ -99,12 +108,21 @@ struct ToolExpansionView: View {
                         Circle()
                             .strokeBorder(Color.accentColor, lineWidth: isSameColor(color, toolStore.activeColor) ? 2 : 0)
                     )
+                    .scaleEffect(isSameColor(color, toolStore.activeColor) ? 1.12 : 1.0)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: toolStore.activeColor)
                     .onTapGesture {
                         selectionFeedback.selectionChanged()
                         toolStore.activeColor = color
                         resetTimeout()
                     }
                     .accessibilityLabel(NSLocalizedString("ToolExpansion.RecentColor", comment: "Recent colour swatch"))
+                    .opacity(panelAppeared ? 1 : 0)
+                    .scaleEffect(panelAppeared ? 1.0 : 0.6)
+                    .animation(
+                        .spring(response: 0.3, dampingFraction: 0.75)
+                            .delay(Double(index) * 0.04),
+                        value: panelAppeared
+                    )
             }
 
             Spacer(minLength: 4)
@@ -112,6 +130,8 @@ struct ToolExpansionView: View {
             ColorPicker("", selection: colorBinding, supportsOpacity: false)
                 .labelsHidden()
                 .frame(width: 28, height: 28)
+                .opacity(panelAppeared ? 1 : 0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8).delay(0.25), value: panelAppeared)
         }
     }
 
@@ -264,294 +284,3 @@ struct ToolExpansionView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(PenSubType.allCases) { sub in
-                        let isSelected = toolStore.activePenSubType == sub
-                        Button {
-                            selectionFeedback.selectionChanged()
-                            toolStore.activePenSubType = sub
-                            resetTimeout()
-                        } label: {
-                            VStack(spacing: 3) {
-                                Image(systemName: sub.systemImage)
-                                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                                    .frame(height: 16)
-                                Text(sub.displayName)
-                                    .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
-                                    .lineLimit(1)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
-                            .background(
-                                isSelected
-                                    ? Color.accentColor.opacity(0.15)
-                                    : Color(.systemGray5)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                            .foregroundStyle(
-                                isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .strokeBorder(
-                                        isSelected ? Color.accentColor.opacity(0.5) : Color.clear,
-                                        lineWidth: 1
-                                    )
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("\(sub.displayName): \(sub.tagline)")
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Eraser Expansion
-
-    @ViewBuilder
-    private var eraserExpansion: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Quick pixel / stroke toggle
-            eraserModeToggle
-
-            // Sub-type row
-            HStack(spacing: 6) {
-                ForEach(EraserSubType.allCases, id: \.rawValue) { sub in
-                    let isSelected = toolStore.eraserSubType == sub
-                    Button {
-                        selectionFeedback.selectionChanged()
-                        toolStore.eraserSubType = sub
-                        resetTimeout()
-                    } label: {
-                        VStack(spacing: 3) {
-                            Image(systemName: sub.systemImage)
-                                .font(.system(size: 13))
-                            Text(sub.displayName)
-                                .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
-                        }
-                        .frame(width: 50, height: 42)
-                        .background(
-                            isSelected
-                                ? Color.accentColor.opacity(0.15)
-                                : Color(.systemGray5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            // Width slider — only for pixel-mode sub-types
-            if toolStore.eraserSubType.supportsWidthAdjustment {
-                HStack(spacing: 6) {
-                    Image(systemName: "eraser")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Slider(
-                        value: $toolStore.eraserWidth,
-                        in: toolStore.eraserSubType.minWidth...toolStore.eraserSubType.maxWidth,
-                        step: 1
-                    ) { editing in
-                        if !editing {
-                            lightImpact.impactOccurred(intensity: 0.4)
-                            resetTimeout()
-                        }
-                    }
-                    .accessibilityLabel(NSLocalizedString("ToolExpansion.EraserWidth", comment: "Eraser width slider"))
-                    .accessibilityValue("\(Int(toolStore.eraserWidth)) pt")
-                    Text("\(Int(toolStore.eraserWidth))pt")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, alignment: .trailing)
-                }
-            }
-        }
-        .frame(maxWidth: 300)
-    }
-
-    // MARK: - Eraser Mode Toggle
-
-    /// Quick segmented control that jumps between Pixel and Stroke mode,
-    /// auto-selecting the best sub-type for each mode.
-    @ViewBuilder
-    private var eraserModeToggle: some View {
-        HStack(spacing: 0) {
-            ForEach([EraserMode.bitmap, EraserMode.vector], id: \.rawValue) { mode in
-                let isActive = toolStore.eraserSubType.eraserMode == mode
-                Button {
-                    selectionFeedback.selectionChanged()
-                    // Jump to a sensible sub-type for this mode.
-                    if mode == .bitmap && toolStore.eraserSubType.eraserMode != .bitmap {
-                        toolStore.eraserSubType = .standard
-                    } else if mode == .vector && toolStore.eraserSubType.eraserMode != .vector {
-                        toolStore.eraserSubType = .stroke
-                    }
-                    resetTimeout()
-                } label: {
-                    Text(mode == .bitmap
-                         ? NSLocalizedString("ToolExpansion.Pixel", comment: "Pixel eraser mode")
-                         : NSLocalizedString("ToolExpansion.Stroke", comment: "Stroke eraser mode"))
-                        .font(.system(size: 11, weight: isActive ? .semibold : .regular))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
-                        .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(mode.displayName)
-                .accessibilityAddTraits(isActive ? .isSelected : [])
-            }
-        }
-        .background(Color(.systemGray5))
-        .clipShape(Capsule())
-    }
-
-    // MARK: - Shape Expansion
-
-    @ViewBuilder
-    private var shapeExpansion: some View {
-        HStack(spacing: 6) {
-            ForEach(ShapeType.allCases, id: \.rawValue) { shape in
-                let isSelected = toolStore.activeShapeType == shape
-                Button {
-                    selectionFeedback.selectionChanged()
-                    toolStore.activeShapeType = shape
-                    resetTimeout()
-                } label: {
-                    Image(systemName: shape.systemImage)
-                        .font(.system(size: 14))
-                        .frame(width: 36, height: 32)
-                        .background(
-                            isSelected
-                                ? Color.accentColor.opacity(0.15)
-                                : Color(.systemGray5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(shape.displayName)
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-            }
-        }
-    }
-
-    // MARK: - Text Expansion
-
-    @ViewBuilder
-    private var textExpansion: some View {
-        VStack(spacing: 8) {
-            // Font family picker row
-            HStack(spacing: 4) {
-                ForEach(TextFontFamily.allCases) { family in
-                    let isSelected = toolStore.activeTextFontFamily == family
-                    Button {
-                        toolStore.activeTextFontFamily = family
-                        resetTimeout()
-                    } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: family.systemImage)
-                                .font(.system(size: 12))
-                            Text(family.displayName)
-                                .font(.system(size: 8))
-                        }
-                        .frame(width: 50, height: 32)
-                        .background(
-                            isSelected
-                                ? Color.accentColor.opacity(0.15)
-                                : Color(.systemGray5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Bold toggle
-                let boldActive = toolStore.activeTextBold
-                Button {
-                    toolStore.activeTextBold.toggle()
-                    resetTimeout()
-                } label: {
-                    Image(systemName: "bold")
-                        .font(.system(size: 14, weight: boldActive ? .bold : .regular))
-                        .frame(width: 32, height: 32)
-                        .background(
-                            boldActive
-                                ? Color.accentColor.opacity(0.15)
-                                : Color(.systemGray5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        .foregroundStyle(boldActive ? Color.accentColor : Color(uiColor: .label))
-                }
-                .buttonStyle(.plain)
-            }
-
-            // Font size slider
-            HStack(spacing: 6) {
-                Image(systemName: "textformat.size")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                Slider(
-                    value: $toolStore.activeTextFontSize,
-                    in: TextObjectConstants.minFontSize...TextObjectConstants.maxFontSize,
-                    step: 1
-                )
-                .frame(minWidth: 120)
-                .onChange(of: toolStore.activeTextFontSize) { _, _ in resetTimeout() }
-                Text("\(Int(toolStore.activeTextFontSize))pt")
-                    .font(.caption)
-                    .monospacedDigit()
-                    .frame(width: 32)
-            }
-
-            // Alignment buttons
-            HStack(spacing: 4) {
-                alignmentButton(0, icon: "text.alignleft")
-                alignmentButton(1, icon: "text.aligncenter")
-                alignmentButton(2, icon: "text.alignright")
-            }
-        }
-        .frame(maxWidth: 300)
-    }
-
-    private func alignmentButton(_ rawValue: Int, icon: String) -> some View {
-        let isSelected = toolStore.activeTextAlignmentRaw == rawValue
-        return Button {
-            toolStore.activeTextAlignmentRaw = rawValue
-            resetTimeout()
-        } label: {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .frame(width: 36, height: 32)
-                .background(
-                    isSelected
-                        ? Color.accentColor.opacity(0.15)
-                        : Color(.systemGray5)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Helpers
-
-    private func resetTimeout() {
-        dismissTask?.cancel()
-        dismissTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(3))
-            guard !Task.isCancelled else { return }
-            onDismiss()
-        }
-    }
-
-    private func isSameColor(_ a: UIColor, _ b: UIColor) -> Bool {
-        var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0
-        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0
-        a.getRed(&ar, green: &ag, blue: &ab, alpha: nil)
-        b.getRed(&br, green: &bg, blue: &bb, alpha: nil)
-        return abs(ar - br) < 0.02 && abs(ag - bg) < 0.02 && abs(ab - bb) < 0.02
-    }
-}

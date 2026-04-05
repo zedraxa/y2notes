@@ -489,6 +489,7 @@ enum PressureCurvePreset: String, CaseIterable, Codable {
 /// width, opacity, and colour density.  All parameters are normalised to
 /// 0…1 ranges where applicable.
 enum InkFlowParams {
+enum InkFluidPhysicsParams {
     // ── Pooling (ink accumulates at low velocity) ────────────────────────
 
     /// Velocity (points/s) below which ink begins to pool.

@@ -1803,3 +1803,80 @@ No Xcode available in sandbox; correctness validated by structural inspection.
 - `NoteExporter.pdfPageSize` is `CGSize(width: 612, height: 792)` (US Letter). A future enhancement could expose a `pageSize` parameter to support A4 (595 × 842) or match the notebook's configured `PageSize`.
 - The OCR pass processes **all pages** every time any single page changes. For very long notes (20+ pages), a smarter approach would only re-OCR the changed page and merge the result into the existing per-page OCR text.
 - Next pbxproj UUID suffix: **D6**
+
+---
+
+## [2026-04-05T16:04:35Z] AGENT-23 — Sticker Library + Effects Architecture
+
+Branch: copilot/create-new-stickers
+Model used: claude-sonnet-4.6
+Scope: Deliver 40 programmatic stickers, wire StickerCanvasView into NoteEditorView, introduce EffectsCoordinator, WritingEffectsPipeline, and ReduceMotionObserver as the new effects architecture, and fully integrate them.
+
+### Part 1: 40 Programmatic Stickers (StickerRenderer)
+
+**New file** `Y2Notes/Ink/StickerRenderer.swift` (1 176 lines):
+- `enum StickerRenderer` with `render(id:size:) -> UIImage?` entry point.
+- **40 sticker IDs** across 5 categories:
+  - **Essentials** (10): star-gold, checkmark-green, arrow-right, badge-important, heart-red, thumbsup, lightning-bolt, trophy-gold, exclamation-red, pin-push
+  - **Academic** (8): grade-a, book-open, formula-e, microscope, pencil-sharp, lightbulb-idea, globe-world, chemistry-flask
+  - **Planner** (8): flag-priority, clock-time, calendar-day, pin-location, target-goal, hourglass-time, rocket-launch, notepad-memo
+  - **Decorative** (8): washi-stripe, corner-flourish, divider-dots, frame-simple, rainbow-arc, leaf-green, cloud-fluffy, diamond-gem
+  - **Emoji** (8): smile-happy, face-think, fire-hot, sparkles, clover-lucky, snowflake-ice, gem-crystal, music-note
+- All stickers drawn via Core Graphics at 2× device scale on transparent canvas.
+- `StickerStore.image(for:)` calls `StickerRenderer.render(id:size:)` as fallback when `UIImage(named:)` returns nil.
+
+### Part 2: StickerCanvasView wired into NoteEditorView
+
+**Modified** `Y2Notes/Views/NoteEditorView.swift`:
+- Added `StickerCanvasView` overlay in `makeUIView`, pinned to canvas bounds, inserted above WidgetCanvasView.
+- Coordinator gains `weak var stickerCanvas`, `stickerDebounceTimer`, `onStickersChanged`, `onStickerSelectionChanged` callbacks.
+- `updateUIView` syncs `stickerCanvas.stickers`, `.imageProvider`, `.selectedStickerID` on every SwiftUI update.
+- `placeSticker(_:)` helper creates `StickerInstance` centered on the current page and calls `noteStore.updateStickers`.
+- `.sheet` binding `toolStore.isStickerLibraryPresented` presents `StickerLibraryView`.
+
+### Part 3: Effects Architecture — EffectsCoordinator + WritingEffectsPipeline
+
+**New file** `Y2Notes/Ink/EffectsCoordinator.swift`:
+- `final class EffectsCoordinator` owns all seven effect engines:
+  `adaptiveEngine`, `pageTransitionEngine`, `focusModeEngine`, `ambientEngine`, `magicModeEngine`, `studyModeEngine`, `writingEffectsPipeline`.
+- Auto-distributes `AdaptiveEffectsEngine.intensity` to all sub-engines via Combine `sink`.
+- `distribute(intensity:shapeCanvas:attachmentCanvas:widgetCanvas:stickerCanvas:)` — propagates intensity to all engines and all four canvas overlays.
+- `setMagicMode(active:on:)` / `setStudyMode(active:on:)` — encapsulate activate/deactivate logic.
+- `updateLayout(containerBounds:)` — forwards bounds change to all layout-sensitive engines.
+- `protocol EffectIntensityReceiver` declared here; canvas views conform.
+
+**New file** `Y2Notes/Ink/WritingEffectsPipeline.swift` (372 lines):
+- Renders four advanced writing overlay effects: **Glow Pen** (CAGradientLayer follows nib), **Neon Ink** (screenBlendMode overlay), **Ink Trail Fade** (fading CAShapeLayer path), **Gradient Ink** (velocity-driven color interpolation).
+- `attach(to:)` / `detach()` lifecycle, `configure(config:color:)`, `onStrokeBegan/Updated/Ended`.
+- All animations suppressed when `ReduceMotionObserver.shared.isEnabled`.
+
+**New file** `Y2Notes/Ink/ReduceMotionObserver.swift`:
+- Singleton `ReduceMotionObserver.shared` — listens to `UIAccessibility.reduceMotionStatusDidChangeNotification`.
+- Provides `@Published var isEnabled: Bool` used by all effect engines.
+
+### Part 4: Full Wiring in NoteEditorView
+
+**Modified** `Y2Notes/Views/NoteEditorView.swift`:
+- `Coordinator` replaces 6 individual engine `let` declarations with `let effects = EffectsCoordinator()`.
+- Backward-compatible computed accessors (`pageTransitionEngine`, `focusModeEngine`, etc.) proxy to `effects.*` — zero call-site changes elsewhere.
+- `deinit` calls `effects.writingEffectsPipeline.detach()`.
+- `makeUIView`: calls `effects.writingEffectsPipeline.attach(to: canvas)`.
+- `updateUIView`: replaces 10 manual `effectIntensity =` lines with single `effects.distribute(intensity:shapeCanvas:attachmentCanvas:widgetCanvas:stickerCanvas:)` call; replaces magic/study engine blocks with `effects.setMagicMode` / `effects.setStudyMode`; adds `effects.writingEffectsPipeline.configure(config:color:)`.
+- Stroke callbacks: `effects.writingEffectsPipeline.onStrokeBegan/Updated/Ended` wired to `canvasViewDidBeginUsingTool`, `canvasViewDrawingDidChange`, `canvasViewDidEndUsingTool`.
+
+**Modified** `Y2Notes/Views/ShapeCanvasView.swift`, `AttachmentCanvasView.swift`, `WidgetCanvasView.swift`, `StickerCanvasView.swift`:
+- Added `: EffectIntensityReceiver` conformance — each already had the required `effectIntensity` property, so no body changes needed.
+
+### Part 5: Project Infrastructure
+
+**project.pbxproj**:
+- Added file refs + build files for: ReduceMotionObserver.swift (142/143), EffectsCoordinator.swift (144/145), WritingEffectsPipeline.swift (146/147), StickerRenderer.swift (148/149).
+
+### Summary
+
+| Area | Files Modified | Files Created | Net Change |
+|------|---------------|---------------|------------|
+| Stickers | NoteEditorView.swift, StickerStore.swift | StickerRenderer.swift | 40 programmatic stickers |
+| Effects Architecture | NoteEditorView.swift, 4 canvas views, project.pbxproj | EffectsCoordinator.swift, WritingEffectsPipeline.swift, ReduceMotionObserver.swift | Unified coordinator with auto-Combine wiring |
+
+Next pbxproj UUID suffix: **14A** (first available after 149)

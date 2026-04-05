@@ -400,6 +400,35 @@
 "ToolExpansion.Pixel"             = "Pixel";
 "ToolExpansion.Stroke"            = "Stroke";
 
+/* ── Import Notes ─────────────────────────────────────────────── */
+
+"Import.SidebarTitle"             = "Import Notes";
+"Import.CompanionNote"            = "Companion Note";
+"Import.OpenCompanionNote"        = "Open Companion Note";
+"Import.CreateCompanionNote"      = "Create Companion Note";
+"Import.LinkedTo"                 = "Linked to: %@";
+"Import.TapToOpen"                = "Tap to open";
+"Import.SourceDeleted"            = "Source file was deleted";
+"Import.NoImportNotes"            = "No Import Notes";
+"Import.NoImportNotesSubtitle"    = "Import a PDF or document to create a companion note.";
+"Import.SortModified"             = "Last Modified";
+"Import.SortCreated"              = "Date Created";
+"Import.SortName"                 = "Name";
+"Import.SortBy"                   = "Sort By";
+"Import.FilterAll"                = "All";
+"Import.FilterPDFs"               = "PDFs";
+"Import.FilterDocuments"          = "Documents";
+"Import.FilterBy"                 = "Filter";
+"Import.SortAndFilter"            = "Sort and Filter";
+"Import.Unlink"                   = "Unlink";
+"Import.UnlinkTitle"              = "Unlink Companion Note?";
+"Import.UnlinkMessage"            = "The note will remain in your library but will no longer be linked to this file.";
+"Import.CleanUpOrphans"           = "Remove %lld Orphaned Note(s)";
+"Import.CleanUpOrphansTitle"      = "Remove Orphaned Notes?";
+"Import.CleanUpOrphansMessage"    = "These notes are linked to files that have been deleted. The notes themselves will not be deleted.";
+"Import.CleanUpOrphansConfirm"    = "Remove Links";
+"Import.HasCompanionNote"         = "Has companion note";
+
 /* ── Text Style Editor ────────────────────────────────────────── */
 
 "TextStyle.Title"                 = "Text Style";
@@ -415,5 +444,3 @@
 "TextStyle.Thickness"             = "Thickness";
 "TextStyle.Corners"               = "Corners";
 
-// MARK: - Editor Actions
-"Editor.StraightenLine"           = "Straighten Line";

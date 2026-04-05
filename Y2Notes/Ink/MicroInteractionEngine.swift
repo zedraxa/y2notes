@@ -518,6 +518,24 @@ final class MicroInteractionEngine {
 
     // MARK: - Drag Inertia
 
+    // MARK: Velocity-Scaled Decay
+
+    /// Returns a velocity-scaled inertia decay factor in the range
+    /// `[inertiaDecayBase … inertiaDecayMax]`.
+    ///
+    /// A slow drag yields `inertiaDecayBase` (minimal carry); a fast flick
+    /// approaches `inertiaDecayMax` (full carry).  Canvas views should call
+    /// this instead of duplicating the formula.
+    ///
+    /// - Parameter speed: Scalar drag speed (points/second) at release.
+    /// - Returns: Decay factor to multiply by raw velocity for the inertia offset.
+    static func inertiaDecay(for speed: CGFloat) -> CGFloat {
+        let base: CGFloat    = 0.08
+        let divisor: CGFloat = 3000.0
+        let cap: CGFloat     = 0.12
+        return min(base + speed / divisor, cap)
+    }
+
     /// Applies momentum carry to a layer's position after a drag release.
     ///
     /// The layer decelerates from `velocity` (points/second) to zero over
@@ -692,6 +710,11 @@ final class MicroInteractionEngine {
         guard !shouldSuppressAnimations else {
             layer.removeAnimation(forKey: "liftScale")
             layer.transform     = CATransform3DIdentity
+    /// Resets all shadow properties changed by `playMomentumShadow` back to
+    /// the interaction-layer resting state (offset (0,2), radius 4, opacity 0.10).
+    func resetMomentumShadow(on layer: CALayer) {
+        guard !shouldSuppressAnimations else {
+            layer.shadowOffset  = CGSize(width: 0, height: 2)
             layer.shadowRadius  = 4.0
             layer.shadowOpacity = 0.10
             return
@@ -750,6 +773,47 @@ final class MicroInteractionEngine {
     /// the gesture — a fast fling carries farther (up to 40 pt) while a slow
     /// release barely moves.  The deceleration curve uses an ease-out quintic
     /// for a physically correct slowdown.
+        // Set model values immediately so the layer is in the correct state once
+        // the animation completes and is removed (prevents any visual flicker on
+        // interruption or removal).
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.shadowOffset  = CGSize(width: 0, height: 2)
+        layer.shadowRadius  = 4.0
+        layer.shadowOpacity = 0.10
+        CATransaction.commit()
+
+        let timing = CAMediaTimingFunction(controlPoints: 0.0, 0.0, 0.2, 1.0)
+
+        let offsetAnim = CABasicAnimation(keyPath: "shadowOffset")
+        offsetAnim.toValue          = NSValue(cgSize: CGSize(width: 0, height: 2))
+        offsetAnim.duration         = 0.2
+        offsetAnim.timingFunction   = timing
+
+        let radiusAnim = CABasicAnimation(keyPath: "shadowRadius")
+        radiusAnim.toValue          = 4.0
+        radiusAnim.duration         = 0.2
+        radiusAnim.timingFunction   = timing
+
+        let opacityAnim = CABasicAnimation(keyPath: "shadowOpacity")
+        opacityAnim.toValue         = Float(0.10)
+        opacityAnim.duration        = 0.2
+        opacityAnim.timingFunction  = timing
+
+        let group = CAAnimationGroup()
+        group.animations            = [offsetAnim, radiusAnim, opacityAnim]
+        group.duration              = 0.2
+        group.fillMode              = .forwards
+        group.isRemovedOnCompletion = false
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            layer.removeAnimation(forKey: "resetMomentumShadow")
+        }
+        layer.add(group, forKey: "resetMomentumShadow")
+        CATransaction.commit()
+    }
+
     // MARK: - Tool Switch Morph (AGENT-23)
 
     /// Plays a brief scale pulse on a layer when the user switches tools.
@@ -1059,16 +1123,15 @@ final class MicroInteractionEngine {
         CATransaction.commit()
     }
 
-    // MARK: - Momentum Shadow
+    // MARK: - Momentum Shadow Depth (AGENT-22)
 
-    /// Shifts and scales the layer shadow to track the velocity vector.
+    /// Shifts the layer's shadow to simulate depth based on drag momentum.
     ///
-    /// Shadow direction is opposite to the velocity direction (simulating
-    /// a light source above and ahead of motion).  Shadow radius scales from
-    /// 4 → 8 with speed, amplifying the perception of fast movement.
+    /// Faster drag velocity produces deeper shadow (larger offset and radius),
+    /// giving the illusion that the object lifts higher off the surface.
     ///
     /// - Parameters:
-    ///   - layer: The moving layer.
+    ///   - layer: The object layer.
     ///   - velocity: Current drag velocity (points/second).
     func playMomentumShadow(
         on layer: CALayer,
