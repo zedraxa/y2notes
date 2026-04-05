@@ -660,6 +660,66 @@ final class NoteStore: ObservableObject {
         notes.filter { $0.isFavorited }.sorted { $0.modifiedAt > $1.modifiedAt }
     }
 
+    /// All notes that are linked to a PDF or imported document (companion notes).
+    var importLinkedNotes: [Note] {
+        notes.filter { $0.linkedPDFID != nil || $0.linkedDocumentID != nil }
+            .sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    // MARK: - Companion notes (PDF / Document)
+
+    /// Creates a new companion note linked to a PDF record.
+    @discardableResult
+    func addNote(forPDF pdfID: UUID, title: String) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1, backgroundColor: .white, pageTypes: [.blank]
+        )
+        let note = Note(
+            title: title,
+            pdfFilename: pdfFilename,
+            linkedPDFID: pdfID
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    /// Creates a new companion note linked to an imported document.
+    @discardableResult
+    func addNote(forDocument documentID: UUID, title: String) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1, backgroundColor: .white, pageTypes: [.blank]
+        )
+        let note = Note(
+            title: title,
+            pdfFilename: pdfFilename,
+            linkedDocumentID: documentID
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    /// Notes linked to a specific PDF record.
+    func notes(forPDF pdfID: UUID) -> [Note] {
+        notes.filter { $0.linkedPDFID == pdfID }.sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    /// Notes linked to a specific imported document.
+    func notes(forDocument documentID: UUID) -> [Note] {
+        notes.filter { $0.linkedDocumentID == documentID }.sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    /// Whether a companion note already exists for the given PDF record.
+    func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
+        notes.contains { $0.linkedPDFID == pdfID }
+    }
+
+    /// Whether a companion note already exists for the given imported document.
+    func hasCompanionNote(forDocument documentID: UUID) -> Bool {
+        notes.contains { $0.linkedDocumentID == documentID }
+    }
+
     // MARK: - Page ordering
 
     /// Pages belonging to a section, sorted by `sortOrder` (then `modifiedAt` as tiebreaker).
