@@ -62,6 +62,15 @@ final class PageBackgroundView: UIView {
     private let staffLineSpacing:  CGFloat = 7    // points between lines within a music staff
     private let staffGroupGap:     CGFloat = 44   // points between bottom of one staff and top of next
     private let hexRadius:         CGFloat = 18   // circumradius of hexagonal cells
+    /// Blank space at the very top of the page before the first ruling or dot row.
+    /// Mirrors the header margin found on real college-ruled notebooks (~56 pt ≈ 20 mm).
+    private let topMargin:         CGFloat = 56
+    /// Horizontal offset of the left margin line from the page edge, matching
+    /// the standard single-margin position used in physical ruled notebooks.
+    /// The value (80 pt ≈ 28 mm) is fixed because the page width is always the
+    /// device's landscape dimension (~1024–1366 pt), making a proportional
+    /// ~7 % offset equivalent to roughly 28 mm on every supported device.
+    private let leftMarginOffset:  CGFloat = 80
 
     // MARK: - Grain cache
 
@@ -122,6 +131,14 @@ final class PageBackgroundView: UIView {
 
         // 4. Subtle edge vignette to give the page physical depth.
         drawPageEdgeShadow(in: ctx, rect: rect)
+
+        // 5. Draw a very subtle border so the page edge is perceptible on
+        //    the desk surface, especially when zoomed out.
+        ctx.saveGState()
+        ctx.setStrokeColor(UIColor.label.withAlphaComponent(0.07).cgColor)
+        ctx.setLineWidth(0.5)
+        ctx.stroke(rect.insetBy(dx: 0.25, dy: 0.25))
+        ctx.restoreGState()
     }
 
     // MARK: - Ruled lines
@@ -131,14 +148,27 @@ final class PageBackgroundView: UIView {
         ctx.setStrokeColor(lineColor.cgColor)
         ctx.setLineWidth(0.5)
 
-        // Start below the first line-spacing offset so there is a small top margin.
-        var y = ruledSpacing
+        // Start at the top-margin offset so there is a blank header area
+        // matching the look of real college-ruled paper.
+        var y = topMargin
         while y <= rect.maxY {
             ctx.move(to: CGPoint(x: rect.minX, y: y))
             ctx.addLine(to: CGPoint(x: rect.maxX, y: y))
             y += ruledSpacing
         }
         ctx.strokePath()
+
+        // Left margin line — the traditional pink/red vertical line that
+        // marks the writing margin on physical ruled notebooks.
+        let marginX = rect.minX + leftMarginOffset
+        if marginX < rect.maxX {
+            ctx.setStrokeColor(UIColor.systemRed.withAlphaComponent(0.22).cgColor)
+            ctx.setLineWidth(0.75)
+            ctx.move(to: CGPoint(x: marginX, y: rect.minY))
+            ctx.addLine(to: CGPoint(x: marginX, y: rect.maxY))
+            ctx.strokePath()
+        }
+
         ctx.restoreGState()
     }
 
@@ -148,7 +178,9 @@ final class PageBackgroundView: UIView {
         ctx.saveGState()
         ctx.setFillColor(lineColor.cgColor)
 
-        var y = dotSpacing
+        // Start below the top margin so dot rows align with where text would
+        // sit on ruled paper — giving a consistent feel across page types.
+        var y = topMargin
         while y <= rect.maxY {
             var x = dotSpacing
             while x <= rect.maxX {
