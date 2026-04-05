@@ -110,6 +110,20 @@ struct GoogleDriveSettingsView: View {
             }
 
             if syncEngine.authManager.isAuthenticated {
+                // MARK: - Browse Drive
+                Section("Your Drive") {
+                    NavigationLink {
+                        GoogleDriveFileBrowserView()
+                            .environmentObject(syncEngine)
+                    } label: {
+                        HStack {
+                            Image(systemName: "folder.fill")
+                                .foregroundStyle(.blue)
+                            Text("Browse My Drive")
+                        }
+                    }
+                }
+
                 // MARK: - Sync section
                 Section("Sync") {
                     Toggle("Auto-sync", isOn: $syncEngine.autoSyncEnabled)

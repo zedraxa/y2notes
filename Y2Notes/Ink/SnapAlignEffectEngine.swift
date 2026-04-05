@@ -64,7 +64,6 @@ final class SnapAlignEffectEngine {
 
     // MARK: - State
 
-    private let reduceMotion: Bool
     private var activeEffectCount: Int = 0
 
     /// Maximum simultaneous snap/align effects (mirrors `InteractionRules`).
@@ -80,7 +79,6 @@ final class SnapAlignEffectEngine {
     // MARK: - Init
 
     init() {
-        reduceMotion = UIAccessibility.isReduceMotionEnabled
         hapticGenerator = UIImpactFeedbackGenerator(style: HapticConstants.style)
         hapticGenerator.prepare()
     }
@@ -103,7 +101,7 @@ final class SnapAlignEffectEngine {
         on layer: CALayer,
         color: UIColor = UIColor.systemBlue.withAlphaComponent(0.6)
     ) {
-        guard !reduceMotion, effectIntensity.allowsSnapAlignVisuals else { return }
+        guard !ReduceMotionObserver.shared.isEnabled, effectIntensity.allowsSnapAlignVisuals else { return }
         guard activeEffectCount < Self.maxSimultaneousEffects else { return }
 
         let previousShadowColor   = layer.shadowColor
@@ -163,7 +161,7 @@ final class SnapAlignEffectEngine {
         in container: CALayer,
         color: UIColor = UIColor.systemRed.withAlphaComponent(0.5)
     ) {
-        guard !reduceMotion, effectIntensity.allowsSnapAlignVisuals else { return }
+        guard !ReduceMotionObserver.shared.isEnabled, effectIntensity.allowsSnapAlignVisuals else { return }
         guard activeEffectCount < Self.maxSimultaneousEffects else { return }
 
         let path = UIBezierPath()

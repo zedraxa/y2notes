@@ -198,23 +198,16 @@ final class MicroInteractionEngine {
 
     private var activeAnimationCount: Int = 0
 
-    /// Whether Reduce Motion is enabled — cached once per engine lifetime.
-    private let reduceMotion: Bool
-
     /// Current adaptive effect intensity.  Updated by the owning view
     /// whenever `AdaptiveEffectsEngine.intensity` changes.  Defaults to
     /// `.full` so existing callers that don't set it get original behaviour.
     var effectIntensity: EffectIntensity = .full
 
-    init() {
-        reduceMotion = InteractionRules.respectReduceMotion
-            && UIAccessibility.isReduceMotionEnabled
-    }
-
     /// Convenience guard: returns `true` when the animation should be skipped
     /// due to Reduce Motion or adaptive intensity.
     private var shouldSuppressAnimations: Bool {
-        reduceMotion || !effectIntensity.allowsMicroInteractions
+        (InteractionRules.respectReduceMotion && ReduceMotionObserver.shared.isEnabled)
+            || !effectIntensity.allowsMicroInteractions
     }
 
     // MARK: - Tap Ripple

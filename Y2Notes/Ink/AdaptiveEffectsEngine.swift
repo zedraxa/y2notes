@@ -114,6 +114,11 @@ final class AdaptiveEffectsEngine: ObservableObject {
         didSet { reevaluate() }
     }
 
+    /// Current thermal state of the device.  Updated via notification.
+    private var thermalState: ProcessInfo.ThermalState = .nominal {
+        didSet { reevaluate() }
+    }
+
     // MARK: - Thresholds
 
     private enum Thresholds {
@@ -188,6 +193,16 @@ final class AdaptiveEffectsEngine: ObservableObject {
                 self?.isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
             }
         }
+
+        thermalStateObserver = NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.thermalState = ProcessInfo.processInfo.thermalState
+            }
+        }
     }
 
     deinit {
@@ -231,18 +246,19 @@ final class AdaptiveEffectsEngine: ObservableObject {
     /// Recomputes `intensity` from all current signals.
     ///
     /// Priority order (highest priority wins lowest intensity):
-    /// 1. Low-power mode
-    /// 2. Extreme zoom-out
-    /// 3. Very fast writing
-    /// 4. Large notebook / complex page
-    /// 5. Moderate zoom-out or fast writing
+    /// 1. Thermal state (device overheating)
+    /// 2. Low-power mode
+    /// 3. Extreme zoom-out
+    /// 4. Very fast writing
+    /// 5. Large notebook / complex page
+    /// 6. Moderate zoom-out or fast writing
     private func reevaluate() {
         var proposed: EffectIntensity = .full
 
-        // 1. Thermal state — highest priority: device overheating trumps all
-        if thermalState >= Thresholds.thermalMinimalState {
+        // 1. Thermal state — highest priority; critical thermal → minimal
+        if thermalState.rawValue >= Thresholds.thermalMinimalState.rawValue {
             proposed = min(proposed, .minimal)
-        } else if thermalState >= Thresholds.thermalReduceState {
+        } else if thermalState.rawValue >= Thresholds.thermalReduceState.rawValue {
             proposed = min(proposed, .reduced)
         }
 
