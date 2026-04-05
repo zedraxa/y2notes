@@ -129,6 +129,7 @@
 		AA0001000000000000000159 /* WritingInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000158 /* WritingInsightsView.swift */; };
 		AA000100000000000000015B /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015A /* CommandPaletteView.swift */; };
 		AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015C /* OpenSourceCreditsView.swift */; };
+		AA000100000000000000015F /* PencilHapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015E /* PencilHapticEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -199,6 +200,7 @@
 		AA0001000000000000000158 /* WritingInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsightsView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015A /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015C /* OpenSourceCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSourceCreditsView.swift; sourceTree = "<group>"; };
+		AA000100000000000000015E /* PencilHapticEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilHapticEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -416,6 +418,7 @@
 				AA0001000000000000000054 /* PencilHoverOverlayView.swift */,
 				AA0001000000000000000055 /* ContextualPencilPaletteView.swift */,
 				AA0001000000000000000148 /* EraserCursorOverlay.swift */,
+				AA000100000000000000015E /* PencilHapticEngine.swift */,
 			);
 			path = PencilKit;
 			sourceTree = "<group>";
@@ -714,6 +717,7 @@
 				AA0001000000000000000159 /* WritingInsightsView.swift in Sources */,
 				AA000100000000000000015B /* CommandPaletteView.swift in Sources */,
 				AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */,
+				AA000100000000000000015F /* PencilHapticEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

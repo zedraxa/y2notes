@@ -34,8 +34,10 @@ protocol PencilActionDelegate: AnyObject {
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat)
 
     /// Barrel-roll angle changed (Apple Pencil Pro, iOS 17.5+).
-    /// - Parameter angle: Roll in radians; 0 = neutral orientation.
-    func pencilBarrelRollChanged(angle: CGFloat)
+    /// - Parameters:
+    ///   - angle: Roll in radians; 0 = neutral orientation.
+    ///   - position: Touch position in canvas coordinates.
+    func pencilBarrelRollChanged(angle: CGFloat, position: CGPoint)
 }
 
 // MARK: - PencilInteractionCoordinator
@@ -119,7 +121,7 @@ final class PencilInteractionCoordinator: NSObject {
         observer.delaysTouchesEnded   = false
         observer.onBarrelRoll = { [weak self] angle, position in
             self?.lastPencilPosition = position
-            self?.delegate?.pencilBarrelRollChanged(angle: angle)
+            self?.delegate?.pencilBarrelRollChanged(angle: angle, position: position)
         }
         view.addGestureRecognizer(observer)
     }
