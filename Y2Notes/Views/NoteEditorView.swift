@@ -2696,6 +2696,15 @@ struct CanvasView: UIViewRepresentable {
         /// between quick successive strokes.
         private var postStrokeZoomUnlockTimer: Timer?
 
+        /// Timer that fires when the user holds the pen still after drawing a stroke,
+        /// triggering automatic straightening of the last stroke into a clean line.
+        private var holdToStraightenTimer: Timer?
+
+        /// True while `straightenLastStroke` is replacing the canvas drawing so
+        /// `canvasViewDrawingDidChange` does not restart `holdToStraightenTimer`
+        /// on the programmatic change.
+        private var isStraightening = false
+
         /// Tracks Apple Pencil contact timing for palm rejection in `.anyInput` mode.
         let palmGuard = PalmGuardState()
 
@@ -2909,6 +2918,10 @@ struct CanvasView: UIViewRepresentable {
             postStrokeZoomUnlockTimer?.invalidate()
             postStrokeZoomUnlockTimer = nil
 
+            // Cancel any pending hold-to-straighten from the previous stroke.
+            holdToStraightenTimer?.invalidate()
+            holdToStraightenTimer = nil
+
             // Lock zoom during writing to prevent accidental zoom drift from
             // multi-touch interference (e.g. palm resting on screen).
             if WritingConfig.lockZoomDuringWriting {
@@ -2956,6 +2969,9 @@ struct CanvasView: UIViewRepresentable {
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             isDrawing = false
+            // Pen lifted — discard any pending hold-to-straighten.
+            holdToStraightenTimer?.invalidate()
+            holdToStraightenTimer = nil
             // If barrel-roll modulated the fountain-pen width during this stroke,
             // the canvas tool is left at the modulated (drifted) width.
             // Invalidate lastToolSnapshot so updateUIView resets canvas.tool to
@@ -3378,6 +3394,22 @@ struct CanvasView: UIViewRepresentable {
                 self?.adaptiveEffectsEngine.reportStrokeChange()
             }
 
+            // Hold-to-straighten: restart the timer on every new drawing change
+            // while the pen is still down. If drawing stops changing (user holds
+            // the pen still), the timer fires and replaces the last stroke with a
+            // clean straight line between its start and end points.
+            if isDrawing, !isStraightening, canvasView.tool is PKInkingTool {
+                holdToStraightenTimer?.invalidate()
+                holdToStraightenTimer = Timer.scheduledTimer(
+                    withTimeInterval: WritingConfig.holdToStraightenDelay,
+                    repeats: false
+                ) { [weak self, weak canvasView] _ in
+                    guard let self, self.isDrawing, let canvasView else { return }
+                    self.holdToStraightenTimer = nil
+                    self.straightenLastStroke(in: canvasView)
+                }
+            }
+
             // Debounce disk writes using config constant.
             debounceTimer?.invalidate()
             debounceTimer = Timer.scheduledTimer(withTimeInterval: WritingConfig.saveDebounceInterval, repeats: false) { [weak self] _ in
@@ -3396,7 +3428,80 @@ struct CanvasView: UIViewRepresentable {
             onSaveRequested()
         }
 
-        // MARK: - Canvas scroll / zoom → background sync
+        // MARK: - Hold-to-Straighten
+
+        /// Replaces the last stroke in `canvasView.drawing` with a clean straight
+        /// line from its first point to its last point, preserving the original
+        /// ink colour, tool type, and per-point pressure/tilt attributes.
+        ///
+        /// Called by `holdToStraightenTimer` when the user holds the pen still
+        /// after drawing without lifting it. The replacement is registered with
+        /// the canvas's own `UndoManager` so it can be reversed with undo.
+        private func straightenLastStroke(in canvasView: PKCanvasView) {
+            let drawing = canvasView.drawing
+            let strokes = Array(drawing.strokes)
+            guard !strokes.isEmpty else { return }
+            let strokeIndex = strokes.count - 1
+            let stroke = strokes[strokeIndex]
+            let path = stroke.path
+            guard path.count >= 2,
+                  let firstPoint = path.first,
+                  let lastPoint  = path.last else { return }
+
+            let dx = lastPoint.location.x - firstPoint.location.x
+            let dy = lastPoint.location.y - firstPoint.location.y
+            let length = sqrt(dx * dx + dy * dy)
+            guard length >= WritingConfig.holdToStraightenMinLength else { return }
+
+            // Build a straight-line path by mapping original point attributes
+            // (size, force, tilt) onto evenly-spaced locations along the new line.
+            // This preserves pressure dynamics while straightening the geometry.
+            let pointCount = max(3, min(path.count, WritingConfig.holdToStraightenMaxPoints))
+            let straightPoints: [PKStrokePoint] = (0 ..< pointCount).map { i in
+                let t = CGFloat(i) / CGFloat(pointCount - 1)
+                let loc = CGPoint(
+                    x: firstPoint.location.x + t * dx,
+                    y: firstPoint.location.y + t * dy
+                )
+                // +0.5 performs nearest-neighbour rounding when mapping the
+                // straight-line position t back to an original path index.
+                let origIdx = min(Int(t * CGFloat(path.count - 1) + 0.5), path.count - 1)
+                let orig = path[origIdx]
+                return PKStrokePoint(
+                    location: loc,
+                    timeOffset: firstPoint.timeOffset + t * (lastPoint.timeOffset - firstPoint.timeOffset),
+                    size: orig.size,
+                    opacity: orig.opacity,
+                    force: orig.force,
+                    azimuth: orig.azimuth,
+                    altitude: orig.altitude
+                )
+            }
+
+            let straightPath   = PKStrokePath(controlPoints: straightPoints, creationDate: path.creationDate)
+            let straightStroke = PKStroke(ink: stroke.ink, path: straightPath,
+                                          transform: stroke.transform, mask: stroke.mask)
+
+            var newStrokes = strokes
+            newStrokes[strokeIndex] = straightStroke
+            let newDrawing = PKDrawing(strokes: newStrokes)
+
+            let oldDrawing = drawing
+            isStraightening = true
+            canvasView.undoManager?.registerUndo(withTarget: canvasView) { cv in
+                cv.drawing = oldDrawing
+            }
+            canvasView.undoManager?.setActionName(
+                NSLocalizedString("Editor.StraightenLine", comment: "Undo action name for hold-to-straighten")
+            )
+            canvasView.drawing = newDrawing
+            isStraightening = false
+
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.prepare()
+            haptic.impactOccurred()
+        }
+
 
         /// Start observing the canvas's contentOffset and zoomScale via KVO so
         /// the page background (ruling) follows zoom and scroll.

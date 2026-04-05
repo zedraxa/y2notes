@@ -337,6 +337,7 @@ final class PageBackgroundView: UIView {
         let staffGroupHeight = CGFloat(staffLinesCount - 1) * staffLineSpacing
         let periodHeight = staffGroupHeight + staffGroupGap
 
+
         ctx.saveGState()
         ctx.setStrokeColor(lineColor.cgColor)
         ctx.setLineWidth(0.75)

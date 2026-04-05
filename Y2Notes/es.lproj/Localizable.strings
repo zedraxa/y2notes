@@ -201,7 +201,30 @@
 "Creation.NewNote"                = "Nueva Nota";
 "Creation.NoteTitle"              = "Título de la Nota";
 "Creation.Template"               = "Plantilla";
+"Creation.Templates"              = "Plantillas";
 "Creation.Create"                 = "Crear";
+
+/* ── Notebook Info ─────────────────────────────────────────────── */
+
+"NotebookInfo.Title"              = "Info del Cuaderno";
+"NotebookInfo.Statistics"         = "Estadísticas";
+"NotebookInfo.TotalPages"        = "Total de Páginas";
+"NotebookInfo.Notes"              = "Notas";
+"NotebookInfo.Sections"           = "Secciones";
+"NotebookInfo.Created"            = "Creado";
+"NotebookInfo.LastModified"       = "Última Modificación";
+"NotebookInfo.Configuration"      = "Configuración";
+"NotebookInfo.PageType"           = "Tipo de Página";
+"NotebookInfo.PageSize"           = "Tamaño de Página";
+"NotebookInfo.Orientation"        = "Orientación";
+"NotebookInfo.Material"           = "Material de Papel";
+"NotebookInfo.Texture"            = "Textura de Portada";
+"NotebookInfo.Theme"              = "Tema Predeterminado";
+"NotebookInfo.SectionsBreakdown"  = "Secciones";
+"NotebookInfo.Lock"               = "Bloquear Cuaderno";
+"NotebookInfo.Unlock"             = "Desbloquear Cuaderno";
+"NotebookInfo.Locked"             = "Bloqueado";
+"NotebookInfo.Duplicate"          = "Duplicar Cuaderno";
 
 /* ── Search ────────────────────────────────────────────────────── */
 
@@ -394,3 +417,6 @@
 /* ── Borrar trazando ──────────────────────────────────────────── */
 
 "Editor.ScratchDelete.UndoAction" = "Borrar trazando";
+
+// MARK: - Editor Actions
+"Editor.StraightenLine"           = "Enderezar línea";

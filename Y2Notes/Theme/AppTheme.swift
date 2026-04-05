@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - ThemeCategory
 
@@ -342,11 +343,8 @@ struct ThemeDefinition {
     /// Drawing tools should use a light default ink colour when this returns true so that new
     /// strokes are immediately visible against the canvas.
     var canvasIsDark: Bool {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        canvasBackground.getRed(&r, green: &g, blue: &b, alpha: &a)
-        // Relative luminance (WCAG 2.1 formula).
-        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-        return luminance < 0.5
+        // Use the custom WCAG-compliant luminance from ColorScience (linear sRGB, not gamma).
+        ContrastRatio.relativeLuminance(of: canvasBackground) < 0.5
     }
 
     /// A safe default ink colour that contrasts with the canvas background (near-white or
@@ -355,5 +353,36 @@ struct ThemeDefinition {
         canvasIsDark
             ? UIColor(red: 0.90, green: 0.92, blue: 0.95, alpha: 1)  // light slate
             : UIColor(red: 0.05, green: 0.05, blue: 0.08, alpha: 1)  // near-black
+    }
+
+    // MARK: Perceptual Color Science (OKLAB)
+
+    /// WCAG 2.1 contrast ratio between the primary text and the surface color.
+    /// Computed using hand-implemented sRGB→linear→luminance — no library.
+    var primaryTextContrastRatio: Double {
+        ContrastRatio.ratio(primaryText, surfaceColor)
+    }
+
+    /// Returns true when the primary text meets WCAG AA (≥ 4.5:1) against the surface.
+    var meetsContrastAA: Bool {
+        ContrastRatio.meetsAA(primaryText, surfaceColor)
+    }
+
+    /// Perceptual ΔE distance between the accent and canvas background in OKLAB space.
+    /// Values > 0.1 mean the accent is clearly distinguishable from the background.
+    var accentCanvasDeltaE: Double {
+        ColorDistance.deltaE(accent, canvasBackground)
+    }
+
+    /// Complementary accent color, rotated 180° in OKLCH hue space.
+    /// Useful for contrast highlights without manually specifying colors per theme.
+    var complementaryAccent: UIColor {
+        ColorHarmony.complementary(of: accent)
+    }
+
+    /// Perceptually interpolated midpoint between the toolbar and surface backgrounds.
+    /// Useful for rendering subtle depth layers (cards on sheets, etc.).
+    var midSurface: UIColor {
+        ColorInterpolation.interpolateOKLab(toolbarBackground, surfaceColor, t: 0.5)
     }
 }

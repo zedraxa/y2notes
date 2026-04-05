@@ -63,6 +63,8 @@ struct NotebookSection: Identifiable, Codable, Hashable {
     var defaultTemplateID: String
     /// Optional color tag shown in section tabs. `.none` falls back to the app accent color.
     var colorTag: SectionColorTag
+    /// Optional per-section page type override. `nil` = inherit the notebook's `pageType`.
+    var defaultPageType: PageType?
     var createdAt: Date
     var modifiedAt: Date
 
@@ -74,6 +76,7 @@ struct NotebookSection: Identifiable, Codable, Hashable {
         sortOrder: Int = 0,
         defaultTemplateID: String = "builtin.blank",
         colorTag: SectionColorTag = .none,
+        defaultPageType: PageType? = nil,
         createdAt: Date = Date(),
         modifiedAt: Date = Date()
     ) {
@@ -84,6 +87,7 @@ struct NotebookSection: Identifiable, Codable, Hashable {
         self.sortOrder = sortOrder
         self.defaultTemplateID = defaultTemplateID
         self.colorTag = colorTag
+        self.defaultPageType = defaultPageType
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
     }
@@ -91,7 +95,7 @@ struct NotebookSection: Identifiable, Codable, Hashable {
     // MARK: Codable — decodeIfPresent for new fields to enable smooth schema evolution.
 
     enum CodingKeys: String, CodingKey {
-        case id, notebookID, name, kind, sortOrder, defaultTemplateID, colorTag, createdAt, modifiedAt
+        case id, notebookID, name, kind, sortOrder, defaultTemplateID, colorTag, defaultPageType, createdAt, modifiedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -105,6 +109,7 @@ struct NotebookSection: Identifiable, Codable, Hashable {
         sortOrder         = try c.decodeIfPresent(Int.self,              forKey: .sortOrder)         ?? 0
         defaultTemplateID = try c.decodeIfPresent(String.self,           forKey: .defaultTemplateID) ?? "builtin.blank"
         colorTag          = try c.decodeIfPresent(SectionColorTag.self,  forKey: .colorTag)          ?? .none
+        defaultPageType   = try c.decodeIfPresent(PageType.self,         forKey: .defaultPageType)
     }
 
     // MARK: Hashable — identity only so that list selections stay stable while content changes.
