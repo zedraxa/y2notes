@@ -1810,6 +1810,14 @@ struct CanvasView: UIViewRepresentable {
         widgetCanvas.onWidgetsChanged = { widgets in
             context.coordinator.handleWidgetsChanged(widgets)
         }
+        // Study mode: fire checklist completion animation.
+        widgetCanvas.onChecklistCompleted = { _, center in
+            context.coordinator.studyModeEngine.checklistComplete(at: center)
+        }
+        // Study mode: fire timer/progress completion animation.
+        widgetCanvas.onTimerCompleted = { _, _ in
+            context.coordinator.studyModeEngine.timerComplete()
+        }
         context.coordinator.onWidgetsChanged = onWidgetsChanged
         context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
         container.addSubview(widgetCanvas)
