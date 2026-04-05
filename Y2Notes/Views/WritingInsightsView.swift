@@ -54,6 +54,46 @@ struct WritingInsightsView: View {
     // MARK: - Summary Cards
 
     private var summaryCardsGrid: some View {
+        LazyVGrid(columns: [
+            GridItem(.flexible()),
+            GridItem(.flexible()),
+        ], spacing: 12) {
+            statCard(
+                title: NSLocalizedString("Insights.TotalNotes", comment: ""),
+                value: "\(insights.totalNotes)",
+                icon: "doc.text",
+                tint: .blue
+            )
+            statCard(
+                title: NSLocalizedString("Insights.TotalPages", comment: ""),
+                value: "\(insights.totalPages)",
+                icon: "doc.on.doc",
+                tint: .indigo
+            )
+            statCard(
+                title: NSLocalizedString("Insights.TotalWords", comment: ""),
+                value: formattedNumber(insights.totalWords),
+                icon: "textformat.abc",
+                tint: .purple
+            )
+            statCard(
+                title: NSLocalizedString("Insights.Notebooks", comment: ""),
+                value: "\(insights.totalNotebooks)",
+                icon: "books.vertical",
+                tint: .orange
+            )
+            statCard(
+                title: NSLocalizedString("Insights.AvgPages", comment: ""),
+                value: String(format: "%.1f", insights.averagePagesPerNote),
+                icon: "chart.bar",
+                tint: .teal
+            )
+            statCard(
+                title: NSLocalizedString("Insights.AvgWords", comment: ""),
+                value: formattedNumber(Int(insights.averageWordsPerNote)),
+                icon: "chart.line.uptrend.xyaxis",
+                tint: .mint
+            )
         let cardData: [(title: String, value: String, icon: String, tint: Color)] = [
             (NSLocalizedString("Insights.TotalNotes", comment: ""), "\(insights.totalNotes)", "doc.text", .blue),
             (NSLocalizedString("Insights.TotalPages", comment: ""), "\(insights.totalPages)", "doc.on.doc", .indigo),
@@ -244,6 +284,7 @@ struct WritingInsightsView: View {
                     .foregroundStyle(.secondary)
                     .padding()
             } else {
+                ForEach(stats) { stat in
                 ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {

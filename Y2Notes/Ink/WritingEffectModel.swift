@@ -488,6 +488,7 @@ enum PressureCurvePreset: String, CaseIterable, Codable {
 /// The engine evaluates these per stroke segment (< 0.1 ms) to modulate
 /// width, opacity, and colour density.  All parameters are normalised to
 /// 0…1 ranges where applicable.
+enum InkFlowParams {
 enum InkFluidPhysicsParams {
     // ── Pooling (ink accumulates at low velocity) ────────────────────────
 
@@ -579,6 +580,7 @@ enum PressureResponseCurve {
     }
 }
 
+// MARK: - Velocity-Aligned Texture Rotation
 // MARK: - Ink Flow Parameters
 
 /// Per-pen-sub-type ink flow characteristics that scale core writing effects.

@@ -24,6 +24,10 @@ struct NoteCreationSheet: View {
     private let confirmFeedback   = UINotificationFeedbackGenerator()
     private let cancelFeedback    = UIImpactFeedbackGenerator(style: .light)
 
+    private let selectionFeedback = UIImpactFeedbackGenerator(style: .medium)
+    private let confirmFeedback   = UINotificationFeedbackGenerator()
+    private let cancelFeedback    = UIImpactFeedbackGenerator(style: .light)
+
     // Two-column grid for the paper type cards.
     private let columns = [
         GridItem(.flexible(), spacing: 12),
@@ -51,6 +55,9 @@ struct NoteCreationSheet: View {
                                 .onTapGesture {
                                     if selectedPageType != pt {
                                         selectionFeedback.impactOccurred()
+                                        selectedPageType = pt
+                                    }
+                                }
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                             selectedPageType = pt
                                         }
@@ -83,6 +90,9 @@ struct NoteCreationSheet: View {
                                     .onTapGesture {
                                         if selectedMaterial != pm {
                                             selectionFeedback.impactOccurred(intensity: 0.6)
+                                            selectedMaterial = pm
+                                        }
+                                    }
                                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                                 selectedMaterial = pm
                                             }
@@ -115,6 +125,12 @@ struct NoteCreationSheet: View {
                                     .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
                             .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.98)),
+                                removal: .opacity
+                            ))
+                            .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
+                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedPageType)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedMaterial)
                                 insertion: .opacity.combined(with: .scale(scale: 0.97)),
                                 removal: .opacity
                             ))

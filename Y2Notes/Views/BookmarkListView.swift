@@ -29,6 +29,10 @@ struct BookmarkListView: View {
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, bookmark in
                         bookmarkRow(bookmark)
                             .opacity(rowsAppeared ? 1 : 0)
+                            .offset(y: rowsAppeared ? 0 : 8)
+                            .animation(
+                                .spring(response: 0.35, dampingFraction: 0.8)
+                                .delay(Double(index) * 0.05),
                             .offset(y: rowsAppeared ? 0 : 12)
                             .animation(
                                 .spring(response: 0.35, dampingFraction: 0.8)

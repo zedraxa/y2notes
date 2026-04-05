@@ -194,6 +194,9 @@ final class AdaptiveEffectsEngine: ObservableObject {
     }
 
     deinit {
+        if let observer = thermalStateObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         if let observer = powerStateObserver {
             NotificationCenter.default.removeObserver(observer)
         }

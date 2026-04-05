@@ -219,6 +219,7 @@ struct StudySessionView: View {
                     Capsule()
                         .fill(Color.accentColor)
                         .frame(width: max(geo.size.width * fraction, 0), height: 6)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: fraction)
                         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: fraction)
                 }
             }
@@ -268,16 +269,19 @@ struct StudySessionView: View {
                     .foregroundStyle(.yellow)
                     .scaleEffect(showFinishedContent ? 1.0 : 0.3)
                     .opacity(showFinishedContent ? 1 : 0)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.6), value: showFinishedContent)
                     .animation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.1), value: showFinishedContent)
                 Text("Session Complete!")
                     .font(.title.weight(.bold))
                     .opacity(showFinishedContent ? 1 : 0)
                     .offset(y: showFinishedContent ? 0 : 12)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(0.1), value: showFinishedContent)
                     .animation(.easeOut(duration: 0.35).delay(0.25), value: showFinishedContent)
                 Text("You reviewed \(completedCount) card\(completedCount == 1 ? "" : "s").")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .opacity(showFinishedContent ? 1 : 0)
+                    .animation(.easeOut(duration: 0.3).delay(0.2), value: showFinishedContent)
                     .offset(y: showFinishedContent ? 0 : 8)
                     .animation(.easeOut(duration: 0.35).delay(0.35), value: showFinishedContent)
 
@@ -418,6 +422,8 @@ struct StudySessionView: View {
                 currentIndex = 0
             } else {
                 completionFeedback.notificationOccurred(.success)
+                sessionFinished = true
+                showFinishedContent = false
                 withAnimation(.easeInOut(duration: 0.3)) {
                     sessionFinished = true
                     showFinishedContent = false

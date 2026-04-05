@@ -1,6 +1,31 @@
 import UIKit
 import QuartzCore
 
+// MARK: - Spring Profile
+
+/// Reusable spring animation parameters for physically correct UI feedback.
+///
+/// Presets cover the range from snappy tool-feedback to gentle content-lift
+/// without requiring callers to reason about spring physics constants.
+struct SpringProfile {
+    let damping: CGFloat
+    let stiffness: CGFloat
+    let mass: CGFloat
+    let initialVelocity: CGFloat
+
+    /// Snappy: fast settle with no overshoot — ideal for selection / snap feedback.
+    static let snappy = SpringProfile(damping: 18, stiffness: 400, mass: 1, initialVelocity: 12)
+
+    /// Gentle: slow, smooth settle — ideal for content floating into place.
+    static let gentle = SpringProfile(damping: 14, stiffness: 200, mass: 1, initialVelocity: 4)
+
+    /// Bouncy: light overshoot for playful tap / pop effects.
+    static let bouncy = SpringProfile(damping: 8,  stiffness: 300, mass: 1, initialVelocity: 10)
+
+    /// Stiff: very fast, minimal travel — almost-instant positional lock.
+    static let stiff  = SpringProfile(damping: 25, stiffness: 600, mass: 1, initialVelocity: 8)
+}
+
 // MARK: - Micro-Interaction Type
 
 /// Catalogue of physical micro-interactions that make the app feel alive.
@@ -18,6 +43,10 @@ enum MicroInteractionType: String, CaseIterable {
     case snapBounce      // tiny scale bounce on snap-to-grid alignment
     case dragInertia     // momentum carry after drag release
     case softShadow      // shadow shifts to follow finger/object movement
+    case liftAndGlow     // combined scale lift + shadow elevation + glow
+    case settleFromLift  // spring-settle back to identity + fade glow
+    case velocityDragInertia  // velocity-magnitude-scaled momentum carry
+    case momentumShadow  // shadow direction and radius track velocity vector
 
     // ── Deepened interaction types (AGENT-23) ───────────────────────────
     case toolSwitchMorph // brief scale pulse when switching tools
@@ -150,6 +179,11 @@ final class MicroInteractionEngine {
         repeatCount: 0
     )
 
+    /// Lift and glow: scale 1.0 → 1.06 + shadow elevation + accent glow.
+    /// Duration: 0.28 s, spring overshoot for tactile "pick-up" sensation.
+    static let liftAndGlowSpec = MicroAnimationSpec(
+        type: .liftAndGlow,
+        duration: 0.28,
     // ── Deepened interaction specs (AGENT-23) ───────────────────────────
 
     /// Tool switch morph: brief scale pulse when switching tools.
@@ -188,6 +222,11 @@ final class MicroInteractionEngine {
         repeatCount: 0
     )
 
+    /// Settle from lift: spring-return to 1.0 + glow fade.
+    /// Duration: 0.22 s, ease-out deceleration.
+    static let settleFromLiftSpec = MicroAnimationSpec(
+        type: .settleFromLift,
+        duration: 0.22,
     /// Canvas first touch: very faint expanding ring on initial tap.
     /// Duration: 0.4 s, ease-out.
     /// Scale: 0 → 1, Opacity: 0.15 → 0.
@@ -596,6 +635,81 @@ final class MicroInteractionEngine {
         layer.add(anim, forKey: "softShadowReset")
     }
 
+    // MARK: - Lift and Glow
+
+    /// Plays a combined scale-lift + shadow elevation + accent glow on selection.
+    ///
+    /// Scale animates 1.0 → 1.06 with a spring overshoot (tactile "pick-up").
+    /// Shadow radius increases from 4 → 10 and opacity from 0.10 → 0.28.
+    /// An optional accent glow pulses via `shadowColor`.
+    ///
+    /// Pairs with `playSettleFromLift` on deselection.
+    ///
+    /// - Parameters:
+    ///   - layer: The object layer to lift.
+    ///   - color: Glow accent colour (default: accent blue).
+    ///   - profile: Spring profile controlling the lift feel.
+    func playLiftAndGlow(
+        on layer: CALayer,
+        color: UIColor = UIColor.systemBlue,
+        profile: SpringProfile = .gentle
+    ) {
+        guard !shouldSuppressAnimations else { return }
+
+        // Scale spring — tactile lift
+        let scaleAnim             = CASpringAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue       = 1.0
+        scaleAnim.toValue         = 1.06
+        scaleAnim.initialVelocity = profile.initialVelocity
+        scaleAnim.damping         = profile.damping
+        scaleAnim.stiffness       = profile.stiffness
+        scaleAnim.mass            = profile.mass
+        scaleAnim.duration        = scaleAnim.settlingDuration
+        scaleAnim.fillMode        = .forwards
+        scaleAnim.isRemovedOnCompletion = false
+
+        // Shadow radius 4 → 10
+        let radiusAnim               = CABasicAnimation(keyPath: "shadowRadius")
+        radiusAnim.fromValue         = 4.0
+        radiusAnim.toValue           = 10.0
+        radiusAnim.duration          = Self.liftAndGlowSpec.duration
+        radiusAnim.timingFunction    = CAMediaTimingFunction(name: .easeOut)
+        radiusAnim.fillMode          = .forwards
+        radiusAnim.isRemovedOnCompletion = false
+
+        // Shadow opacity 0.10 → 0.28
+        let opacityAnim              = CABasicAnimation(keyPath: "shadowOpacity")
+        opacityAnim.fromValue        = Float(0.10)
+        opacityAnim.toValue          = Float(0.28)
+        opacityAnim.duration         = Self.liftAndGlowSpec.duration
+        opacityAnim.timingFunction   = CAMediaTimingFunction(name: .easeOut)
+        opacityAnim.fillMode         = .forwards
+        opacityAnim.isRemovedOnCompletion = false
+
+        layer.shadowColor = color.cgColor
+
+        layer.add(scaleAnim,   forKey: "liftScale")
+        layer.add(radiusAnim,  forKey: "liftShadowRadius")
+        layer.add(opacityAnim, forKey: "liftShadowOpacity")
+    }
+
+    // MARK: - Settle from Lift
+
+    /// Spring-returns a lifted layer to its resting identity state.
+    ///
+    /// Scale springs 1.06 → 1.0, shadow radius and opacity ease back to
+    /// their resting values.  Pairs with `playLiftAndGlow`.
+    ///
+    /// - Parameters:
+    ///   - layer: The lifted layer (must have had `playLiftAndGlow` applied).
+    ///   - profile: Spring profile controlling the settle feel.
+    func playSettleFromLift(
+        on layer: CALayer,
+        profile: SpringProfile = .snappy
+    ) {
+        guard !shouldSuppressAnimations else {
+            layer.removeAnimation(forKey: "liftScale")
+            layer.transform     = CATransform3DIdentity
     /// Resets all shadow properties changed by `playMomentumShadow` back to
     /// the interaction-layer resting state (offset (0,2), radius 4, opacity 0.10).
     func resetMomentumShadow(on layer: CALayer) {
@@ -606,6 +720,59 @@ final class MicroInteractionEngine {
             return
         }
 
+        let scaleAnim             = CASpringAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue       = 1.06
+        scaleAnim.toValue         = 1.0
+        scaleAnim.initialVelocity = profile.initialVelocity
+        scaleAnim.damping         = profile.damping
+        scaleAnim.stiffness       = profile.stiffness
+        scaleAnim.mass            = profile.mass
+        scaleAnim.duration        = scaleAnim.settlingDuration
+        scaleAnim.fillMode        = .forwards
+        scaleAnim.isRemovedOnCompletion = false
+
+        let spec   = Self.settleFromLiftSpec
+        let timing = CAMediaTimingFunction(controlPoints:
+            Float(spec.timingControlPoints.0), Float(spec.timingControlPoints.1),
+            Float(spec.timingControlPoints.2), Float(spec.timingControlPoints.3))
+
+        let radiusAnim              = CABasicAnimation(keyPath: "shadowRadius")
+        radiusAnim.toValue          = 4.0
+        radiusAnim.duration         = spec.duration
+        radiusAnim.timingFunction   = timing
+        radiusAnim.fillMode         = .forwards
+        radiusAnim.isRemovedOnCompletion = false
+
+        let opacityAnim             = CABasicAnimation(keyPath: "shadowOpacity")
+        opacityAnim.toValue         = Float(0.10)
+        opacityAnim.duration        = spec.duration
+        opacityAnim.timingFunction  = timing
+        opacityAnim.fillMode        = .forwards
+        opacityAnim.isRemovedOnCompletion = false
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            layer.removeAnimation(forKey: "liftScale")
+            layer.removeAnimation(forKey: "liftShadowRadius")
+            layer.removeAnimation(forKey: "liftShadowOpacity")
+            layer.transform     = CATransform3DIdentity
+            layer.shadowRadius  = 4.0
+            layer.shadowOpacity = 0.10
+        }
+        layer.add(scaleAnim,   forKey: "liftScale")
+        layer.add(radiusAnim,  forKey: "liftShadowRadius")
+        layer.add(opacityAnim, forKey: "liftShadowOpacity")
+        CATransaction.commit()
+    }
+
+    // MARK: - Velocity Drag Inertia
+
+    /// Applies velocity-magnitude-scaled momentum carry to a layer's position.
+    ///
+    /// Unlike `playDragInertia`, the carry distance scales with the speed of
+    /// the gesture — a fast fling carries farther (up to 40 pt) while a slow
+    /// release barely moves.  The deceleration curve uses an ease-out quintic
+    /// for a physically correct slowdown.
         // Set model values immediately so the layer is in the correct state once
         // the animation completes and is removed (prevents any visual flicker on
         // interruption or removal).

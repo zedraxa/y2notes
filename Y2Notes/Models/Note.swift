@@ -278,6 +278,7 @@ struct Note: Identifiable, Codable, Hashable {
         typedText: String = "",
         ocrText: String = "",
         tags: [String] = [],
+        colorLabel: NoteColorLabel? = nil
         colorLabel: NoteColorLabel? = nil,
         linkedPDFID: UUID? = nil,
         linkedDocumentID: UUID? = nil
@@ -404,16 +405,3 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encode(ocrText,       forKey: .ocrText)
         try c.encode(tags,          forKey: .tags)
         try c.encodeIfPresent(colorLabel, forKey: .colorLabel)
-        try c.encodeIfPresent(linkedPDFID,      forKey: .linkedPDFID)
-        try c.encodeIfPresent(linkedDocumentID, forKey: .linkedDocumentID)
-    }
-
-    // MARK: Hashable — identity only, so list selection stays stable while content changes.
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-
-    static func == (lhs: Note, rhs: Note) -> Bool {
-        lhs.id == rhs.id
-    }
-}

@@ -534,6 +534,42 @@ struct ParticlePhysics: Equatable {
         noiseAmplitude: 5.0,  // subtle lateral displacement
         velocitySpawnSpread: .pi / 3  // fast strokes create wide splatter
     )
+
+    /// Sheen core layer — rising diamond particles with rapid hue cycling.
+    static let sheenCorePhysics = ParticlePhysics(
+        gravity: -18,         // core diamonds float upward
+        wind: 0,
+        turbulence: 28,       // moderate scatter for sparkle feel
+        drag: 0.95,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 2.2,
+        fadeOut: true,
+        mass: 0.7,
+        attractorStrength: 0.20,  // pulled toward nib for tight shimmer
+        noiseFrequency: 3.0,      // high-frequency noise for iridescent shimmer
+        noiseAmplitude: 8,
+        velocitySpawnSpread: .pi / 7
+    )
+
+    /// Sheen dust layer — micro-particles with slightly different physics for
+    /// the layered holographic look.  Hue offset by 0.20 in the engine.
+    static let sheenDustPhysics = ParticlePhysics(
+        gravity: 10,          // dust settles very gently
+        wind: 0,
+        turbulence: 50,       // high spread for a cloud-of-colour feel
+        drag: 0.93,
+        bounceOffBounds: false,
+        bounciness: 0,
+        spinRange: 1.0,
+        fadeOut: true,
+        mass: 1.3,
+        attractorStrength: 0,
+        noiseFrequency: 1.5,
+        noiseAmplitude: 20,
+        velocitySpawnSpread: .pi / 4  // wide dust cloud on fast strokes
+    )
+    )
 }
 
 // MARK: - Ink Preset

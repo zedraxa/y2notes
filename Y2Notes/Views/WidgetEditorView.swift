@@ -128,6 +128,7 @@ struct WidgetEditorView: View {
             Button {
                 var updated = items
                 updated.append(ChecklistItem())
+                widget.payload = .checklist(title: title, items: updated)
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     widget.payload = .checklist(title: title, items: updated)
                 }
@@ -146,6 +147,7 @@ struct WidgetEditorView: View {
         if let idx = updated.firstIndex(where: { $0.id == item.id }) {
             updated[idx].isChecked.toggle()
         }
+        widget.payload = .checklist(title: title, items: updated)
         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
             widget.payload = .checklist(title: title, items: updated)
         }
@@ -232,6 +234,7 @@ struct WidgetEditorView: View {
         Section("Style") {
             Picker("Style", selection: Binding(
                 get: { style },
+                set: { widget.payload = .calloutBox(title: title, body: body, style: $0) }
                 set: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         widget.payload = .calloutBox(title: title, body: body, style: $0)
@@ -281,6 +284,7 @@ struct WidgetEditorView: View {
         Section("Color") {
             Picker("Color", selection: Binding(
                 get: { color },
+                set: { widget.payload = .stickyNote(body: body, color: $0) }
                 set: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         widget.payload = .stickyNote(body: body, color: $0)
@@ -328,6 +332,8 @@ struct WidgetEditorView: View {
                 ForEach(1...4, id: \.self) { i in
                     Button {
                         let newLevel = i == confidenceLevel ? 0 : i
+                        widget.payload = .flashcard(front: front, back: back, isFlipped: isFlipped,
+                                                    confidenceLevel: newLevel)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                             widget.payload = .flashcard(front: front, back: back, isFlipped: isFlipped,
                                                         confidenceLevel: newLevel)
@@ -387,6 +393,7 @@ struct WidgetEditorView: View {
 
             HStack {
                 Button("Reset") {
+                    widget.payload = .progressTracker(title: title, current: 0, total: total)
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         widget.payload = .progressTracker(title: title, current: 0, total: total)
                     }
@@ -398,6 +405,7 @@ struct WidgetEditorView: View {
                 Spacer()
 
                 Button("Mark Complete") {
+                    widget.payload = .progressTracker(title: title, current: total, total: total)
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         widget.payload = .progressTracker(title: title, current: total, total: total)
                     }
