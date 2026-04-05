@@ -71,6 +71,8 @@ private struct QLPreviewRepresentable: UIViewControllerRepresentable {
 struct DocumentLibraryView: View {
 
     @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var noteStore: NoteStore
+    @Environment(TabWorkspaceStore.self) private var tabSession
 
     @Binding var selectedDocumentID: UUID?
     @State private var showImporter = false
@@ -110,6 +112,12 @@ struct DocumentLibraryView: View {
                 if let url = urls.first {
                     if let doc = documentStore.importDocument(from: url) {
                         selectedDocumentID = doc.id
+                        let note = noteStore.addNote(forDocument: doc)
+                        tabSession.openTab(
+                            .note(id: note.id),
+                            displayName: note.title,
+                            accentColor: [0.3, 0.5, 0.7]
+                        )
                     } else {
                         importError = "Unable to import \"\(url.lastPathComponent)\". The file format may not be supported."
                     }

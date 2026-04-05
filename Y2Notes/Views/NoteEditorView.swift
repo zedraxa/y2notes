@@ -22,6 +22,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var pdfStore: PDFStore
     @EnvironmentObject var stickerStore: StickerStore
     @Environment(\.undoManager) private var undoManager
     @Environment(TabWorkspaceStore.self) private var workspace
@@ -612,6 +613,16 @@ struct NoteEditorView: View {
         }
         .accessibilityLabel("Import document")
 
+        // Open the PDF or document that this note was created for, if any.
+        if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+            Button {
+                openLinkedImport()
+            } label: {
+                Image(systemName: "doc.viewfinder")
+            }
+            .accessibilityLabel("Open linked document")
+        }
+
         // Draw ↔ Type mode toggle.
         // "keyboard" switches to text mode; "pencil" returns to drawing mode.
         Button {
@@ -1151,7 +1162,28 @@ struct NoteEditorView: View {
         canRedo = undoManager?.canRedo ?? false
     }
 
-    // MARK: - Selection Actions
+    /// Opens the PDF or document that this note was created to accompany.
+    ///
+    /// If the linked import no longer exists (e.g. user deleted it), the action is a no-op.
+    private func openLinkedImport() {
+        if let pdfID = note.linkedPDFID,
+           let record = pdfStore.records.first(where: { $0.id == pdfID }) {
+            workspace.openTab(
+                .pdf(id: record.id),
+                displayName: record.title,
+                accentColor: [0.8, 0.3, 0.3]
+            )
+        } else if let docID = note.linkedDocumentID,
+                  let doc = documentStore.documents.first(where: { $0.id == docID }) {
+            workspace.openTab(
+                .document(id: doc.id),
+                displayName: doc.displayName,
+                accentColor: [0.3, 0.5, 0.7]
+            )
+        }
+    }
+
+
 
     /// Handles selection toolbar actions by dispatching standard edit commands
     /// to the canvas's responder chain. PencilKit's built-in lasso selection

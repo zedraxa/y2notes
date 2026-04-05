@@ -704,6 +704,12 @@ struct NoteGridView: View {
                         displayName: record.title,
                         accentColor: [0.8, 0.3, 0.3]
                     )
+                    let note = noteStore.addNote(forPDF: record)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
+                        accentColor: [0.8, 0.3, 0.3]
+                    )
                 }
             }
         }
@@ -717,6 +723,12 @@ struct NoteGridView: View {
                     tabSession.openTab(
                         .document(id: doc.id),
                         displayName: doc.displayName,
+                        accentColor: [0.3, 0.5, 0.7]
+                    )
+                    let note = noteStore.addNote(forDocument: doc)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
                         accentColor: [0.3, 0.5, 0.7]
                     )
                 }
@@ -1822,6 +1834,8 @@ private struct NotebookCoverCard: View {
 
 private struct PDFLibraryView: View {
     @EnvironmentObject var pdfStore: PDFStore
+    @EnvironmentObject var noteStore: NoteStore
+    @Environment(TabWorkspaceStore.self) private var tabSession
     @Binding var selectedPDFID: UUID?
 
     @State private var showImporter = false
@@ -1872,6 +1886,12 @@ private struct PDFLibraryView: View {
             if case .success(let urls) = result, let url = urls.first {
                 if let record = pdfStore.importPDF(from: url) {
                     selectedPDFID = record.id
+                    let note = noteStore.addNote(forPDF: record)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
+                        accentColor: [0.8, 0.3, 0.3]
+                    )
                 }
             }
         }

@@ -205,7 +205,49 @@ final class NoteStore: ObservableObject {
         return note
     }
 
-    func deleteNotes(at offsets: IndexSet) {
+    /// Creates a companion note for an imported PDF record and returns it.
+    ///
+    /// The note is pre-titled with the PDF's title and has `linkedPDFID` set so the editor
+    /// can surface a quick-open action for the source file.
+    @discardableResult
+    func addNote(forPDF record: PDFNoteRecord) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [.blank]
+        )
+        let note = Note(
+            title: record.title,
+            pdfFilename: pdfFilename,
+            linkedPDFID: record.id
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+    /// Creates a companion note for an imported document and returns it.
+    ///
+    /// The note is pre-titled with the document's display name and has `linkedDocumentID` set
+    /// so the editor can surface a quick-open action for the source file.
+    @discardableResult
+    func addNote(forDocument doc: ImportedDocument) -> Note {
+        let pdfFilename = NotePDFGenerator.generateTemplatePDF(
+            pageCount: 1,
+            backgroundColor: .white,
+            pageTypes: [.blank]
+        )
+        let note = Note(
+            title: doc.displayName,
+            pdfFilename: pdfFilename,
+            linkedDocumentID: doc.id
+        )
+        notes.insert(note, at: 0)
+        save()
+        return note
+    }
+
+
         for i in offsets {
             createPreDestructiveSnapshot(for: notes[i].id)
             if let filename = notes[i].pdfFilename {
