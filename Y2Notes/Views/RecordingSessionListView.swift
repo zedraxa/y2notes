@@ -16,6 +16,9 @@ struct RecordingSessionListView: View {
     @State private var renameText = ""
     @State private var showRenameAlert = false
     @State private var sessionToDelete: UUID?
+    /// Timeline events loaded for the currently playing session.
+    /// Used to render tick marks on the scrubber.
+    @State private var playingEvents: [TimelineEvent] = []
 
     private let selectionFeedback = UISelectionFeedbackGenerator()
 
@@ -74,6 +77,15 @@ struct RecordingSessionListView: View {
         }
         .onDisappear {
             // Don't stop playback when sheet dismisses — let it continue.
+        }
+        // Load timeline events whenever the playing session changes so
+        // the scrubber can render page-change and stroke tick marks.
+        .task(id: recordingStore.playingSession?.id) {
+            guard let session = recordingStore.playingSession else {
+                playingEvents = []
+                return
+            }
+            playingEvents = recordingStore.loadEvents(for: session.id)
         }
     }
 
@@ -226,6 +238,23 @@ struct RecordingSessionListView: View {
                             .fill(Color(uiColor: .systemGray4))
                             .frame(height: 4)
 
+                        // Event tick marks — page events in orange, stroke/other in gray.
+                        // Rendered between track and fill so the red fill overlaps past marks.
+                        if !playingEvents.isEmpty && recordingStore.playbackDuration > 0 {
+                            let duration = recordingStore.playbackDuration
+                            ForEach(playingEvents.prefix(200), id: \.id) { event in
+                                Capsule()
+                                    .fill(
+                                        event.kind == .page
+                                            ? Color.orange.opacity(0.85)
+                                            : Color(uiColor: .systemGray2).opacity(0.7)
+                                    )
+                                    .frame(width: 2, height: 10)
+                                    .offset(x: geo.size.width * (event.offset / duration) - 1)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+
                         // Fill
                         Capsule()
                             .fill(Color.red)
@@ -244,7 +273,7 @@ struct RecordingSessionListView: View {
                             }
                     )
                 }
-                .frame(height: 4)
+                .frame(height: 10)
 
                 // Time labels
                 HStack {

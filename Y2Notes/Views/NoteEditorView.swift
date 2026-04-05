@@ -102,6 +102,18 @@ struct NoteEditorView: View {
     /// Whether the microphone permission denied alert is showing.
     @State private var showMicPermissionDeniedAlert = false
 
+    /// Bidirectional audio ↔ note timeline linking controller.
+    /// Wired to `recordingStore` whenever a session is playing so that
+    /// playback drives page switches and canvas highlights, and tapping a
+    /// stroke can seek the audio to the matching recording moment.
+    @State private var timelineController = AudioTimelineLinkingController()
+
+    /// Opacity of the transient canvas highlight flash driven by the timeline controller.
+    @State private var timelineHighlightOpacity: Double = 0
+
+    /// Color of the transient canvas highlight flash.
+    @State private var timelineHighlightColor: Color = .white
+
     /// Tracks scene phase for audio checkpoint on backgrounding.
     @Environment(\.scenePhase) private var scenePhase
 
@@ -208,6 +220,36 @@ struct NoteEditorView: View {
                     workspace.updateTabState(id, showAdvancedPanel: isOpen)
                 }
             }
+            // Audio timeline sync: attach/detach linking controller as sessions play.
+            .onChange(of: recordingStore.playingSession) { _, session in
+                if let session {
+                    let events = recordingStore.loadEvents(for: session.id)
+                    timelineController.attach(session: session, events: events)
+                    timelineController.isAudioDriving = true
+                    timelineController.onSeekAudio = { offset in
+                        recordingStore.seekPlayback(to: offset)
+                    }
+                    recordingStore.onPlaybackPositionChanged = { offset in
+                        timelineController.updatePlaybackPosition(offset)
+                    }
+                } else {
+                    timelineController.detach()
+                    recordingStore.onPlaybackPositionChanged = nil
+                }
+            }
+            // Drive page switching from audio playback position.
+            .onChange(of: timelineController.requestedPageSwitch) { _, request in
+                guard let request else { return }
+                if request.noteID == note.id {
+                    currentPageIndex = request.pageIndex
+                }
+                timelineController.acknowledgePageSwitch()
+            }
+            // Show canvas highlight flash when timeline emits a highlight moment.
+            .onChange(of: timelineController.highlightMoment) { _, moment in
+                guard let moment, moment.noteID == note.id else { return }
+                applyTimelineHighlight(for: moment)
+            }
             .onChange(of: toolStore.isFocusModeActive) { _, isActive in
                 // Toolbar opacity is driven directly by the SwiftUI toolbarOpacity
                 // binding.  The paper glow (CALayer) is handled here via the
@@ -285,6 +327,9 @@ struct NoteEditorView: View {
                 if recordingStore.isPlaying {
                     recordingStore.stopPlayback()
                 }
+                // Detach timeline linking controller and clear its callback.
+                timelineController.detach()
+                recordingStore.onPlaybackPositionChanged = nil
                 noteStore.save()
             }
             .sheet(isPresented: $showCreateFlashcard) {
@@ -376,6 +421,12 @@ struct NoteEditorView: View {
             selectionActionBars
             advancedPanelOverlay
             effectOverlays
+            // Transient canvas highlight driven by audio timeline sync
+            timelineHighlightColor
+                .opacity(timelineHighlightOpacity)
+                .allowsHitTesting(false)
+                .ignoresSafeArea()
+                .zIndex(1.5)
             // Recording indicator — always above all other overlays
             RecordingIndicatorView(recordingStore: recordingStore) {
                 toolStore.isRecordingSessionListPresented = true
@@ -1496,6 +1547,34 @@ struct NoteEditorView: View {
         toolStore.isRecording = false
         toolStore.activeRecordingSession = nil
         recordingFeedback.notificationOccurred(.success)
+    }
+
+    /// Applies a transient canvas highlight flash driven by the audio timeline controller.
+    ///
+    /// - For `.strokePulse` events the canvas flashes with the accent color so the
+    ///   user knows which writing moment the audio is playing back.
+    /// - For `.fullPageFlash` / `.objectHighlight` events a softer white flash marks
+    ///   a page turn or placed object in the recording.
+    ///
+    /// The animation is: fast fade-in (0.1 s) → hold (0.25 s) → fade-out (0.2 s).
+    /// After the full cycle the controller's `highlightMoment` is cleared so the
+    /// same event can trigger again on the next playback pass.
+    private func applyTimelineHighlight(for moment: HighlightMoment) {
+        switch moment.style {
+        case .strokePulse:
+            timelineHighlightColor = Color.accentColor
+        case .fullPageFlash, .objectHighlight:
+            timelineHighlightColor = .white
+        }
+        withAnimation(.easeIn(duration: 0.1)) {
+            timelineHighlightOpacity = 0.18
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                self.timelineHighlightOpacity = 0
+            }
+            self.timelineController.clearHighlight()
+        }
     }
 
     // MARK: - Selection Actions
