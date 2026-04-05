@@ -157,6 +157,11 @@ struct NoteEditorView: View {
     }
 
     var body: some View {
+        editorWithLifecycle
+    }
+
+    /// Animations and navigation chrome — kept short to help the Swift type-checker.
+    private var editorWithChrome: some View {
         editorZStack
             .animation(.easeInOut(duration: 0.35), value: toolStore.isFocusModeActive)
             .animation(.easeInOut(duration: 0.45), value: toolStore.activeAmbientScene)
@@ -172,6 +177,67 @@ struct NoteEditorView: View {
                     trailingToolbarContent
                 }
             }
+    }
+
+    /// Sheets and document importer — separated to reduce type-checker load.
+    private var editorWithPresentations: some View {
+        editorWithChrome
+            .sheet(isPresented: $showCreateFlashcard) {
+                NoteFlashcardSheet(note: note)
+            }
+            .sheet(isPresented: $showVersionHistory) {
+                VersionHistoryView(noteID: note.id)
+                    .environmentObject(noteStore)
+                    .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showPageOverview) {
+                PageOverviewGrid(
+                    note: note,
+                    currentPageIndex: $currentPageIndex,
+                    canvasBackground: canvasBackgroundColor,
+                    onDismiss: { showPageOverview = false }
+                )
+            }
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(activityItems: shareItems)
+            }
+            .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
+                StickerLibraryView(stickerStore: stickerStore) { asset in
+                    placeSticker(asset)
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
+                WidgetPickerView { kind in
+                    placeWidget(kind)
+                }
+                .presentationDetents([.medium])
+            }
+            .sheet(item: $widgetToEdit) { widget in
+                WidgetEditorView(widget: widget) { updated in
+                    let pageIdx = currentPageIndex
+                    var widgets = note.widgets(forPage: pageIdx)
+                    if let idx = widgets.firstIndex(where: { $0.id == updated.id }) {
+                        widgets[idx] = updated
+                        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .fileImporter(
+                isPresented: $showDocumentImporter,
+                allowedContentTypes: ImportedDocumentType.allUTTypes,
+                allowsMultipleSelection: true
+            ) { result in
+                if case .success(let urls) = result {
+                    documentStore.importDocuments(from: urls)
+                }
+            }
+    }
+
+    /// Lifecycle modifiers — separated to keep each modifier chain short.
+    private var editorWithLifecycle: some View {
+        editorWithPresentations
             .onAppear {
                 refreshUndoRedoState()
                 toolStore.currentPaperMaterial = effectivePaperMaterial
@@ -260,57 +326,6 @@ struct NoteEditorView: View {
                     toolStore.toolbarOpacity = 1.0
                 }
                 noteStore.save()
-            }
-            .sheet(isPresented: $showCreateFlashcard) {
-                NoteFlashcardSheet(note: note)
-            }
-            .sheet(isPresented: $showVersionHistory) {
-                VersionHistoryView(noteID: note.id)
-                    .environmentObject(noteStore)
-                    .presentationDetents([.medium, .large])
-            }
-            .sheet(isPresented: $showPageOverview) {
-                PageOverviewGrid(
-                    note: note,
-                    currentPageIndex: $currentPageIndex,
-                    canvasBackground: canvasBackgroundColor,
-                    onDismiss: { showPageOverview = false }
-                )
-            }
-            .sheet(isPresented: $showShareSheet) {
-                ShareSheet(activityItems: shareItems)
-            }
-            .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
-                StickerLibraryView(stickerStore: stickerStore) { asset in
-                    placeSticker(asset)
-                }
-                .presentationDetents([.medium, .large])
-            }
-            .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
-                WidgetPickerView { kind in
-                    placeWidget(kind)
-                }
-                .presentationDetents([.medium])
-            }
-            .sheet(item: $widgetToEdit) { widget in
-                WidgetEditorView(widget: widget) { updated in
-                    let pageIdx = currentPageIndex
-                    var widgets = note.widgets(forPage: pageIdx)
-                    if let idx = widgets.firstIndex(where: { $0.id == updated.id }) {
-                        widgets[idx] = updated
-                        noteStore.updateWidgets(for: note.id, pageIndex: pageIdx, widgets: widgets)
-                    }
-                }
-                .presentationDetents([.medium, .large])
-            }
-            .fileImporter(
-                isPresented: $showDocumentImporter,
-                allowedContentTypes: ImportedDocumentType.allUTTypes,
-                allowsMultipleSelection: true
-            ) { result in
-                if case .success(let urls) = result {
-                    documentStore.importDocuments(from: urls)
-                }
             }
     }
 
@@ -1263,58 +1278,6 @@ struct NoteEditorView: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(uiColor: effectiveDefinition.canvasBackground).opacity(0.8))
-    }
-
-    // MARK: - Linked import banner
-
-    /// Shows a tappable banner when this note is a companion to a PDF or imported document.
-    private var linkedImportBanner: some View {
-        Button(action: openLinkedImport) {
-            HStack(spacing: 6) {
-                Image(systemName: "paperclip")
-                    .font(.caption2)
-                Text(linkedImportLabel)
-                    .font(.caption2)
-                Spacer()
-                Image(systemName: "arrow.up.forward")
-                    .font(.caption2)
-            }
-            .foregroundStyle(.accentColor)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-            .background(Color.accentColor.opacity(0.08))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Open linked import")
-    }
-
-    private var linkedImportLabel: String {
-        if let pdfID = note.linkedPDFID,
-           let rec = pdfStore.records.first(where: { $0.id == pdfID }) {
-            return "Linked to \(rec.title)"
-        }
-        if let docID = note.linkedDocumentID,
-           let doc = documentStore.documents.first(where: { $0.id == docID }) {
-            return "Linked to \(doc.displayName)"
-        }
-        return "Linked to import"
-    }
-
-    private func openLinkedImport() {
-        if let pdfID = note.linkedPDFID {
-            workspace.openTab(
-                .pdf(id: pdfID),
-                displayName: pdfStore.records.first(where: { $0.id == pdfID })?.title ?? "PDF",
-                accentColor: [0.85, 0.25, 0.25]
-            )
-        } else if let docID = note.linkedDocumentID,
-                  let doc = documentStore.documents.first(where: { $0.id == docID }) {
-            workspace.openTab(
-                .document(id: docID),
-                displayName: doc.displayName,
-                accentColor: [0.3, 0.5, 0.7]
-            )
-        }
     }
 
     // MARK: - Focus Mode Overlay
@@ -2590,20 +2553,6 @@ struct CanvasView: UIViewRepresentable {
             ambientEngine.updateLayout(containerBounds: uiView.bounds)
         }
 
-        // Sync ambient environment engine — activate/deactivate as the
-        // selected scene changes.  The engine owns rain-streak / grain /
-        // warm-wash CALayers and the looping ambient soundscape.
-        let ambientEngine = context.coordinator.ambientEngine
-        if let scene = activeAmbientScene {
-            if ambientEngine.activeScene != scene {
-                // Scene changed (or was nil) — (re-)activate with the new scene.
-                ambientEngine.activate(scene, on: uiView.layer, toolStore: toolStoreForFade ?? DrawingToolStore())
-            }
-            ambientEngine.updateLayout(containerBounds: uiView.bounds)
-        } else if ambientEngine.activeScene != nil {
-            ambientEngine.deactivate(toolStore: toolStoreForFade ?? DrawingToolStore())
-        }
-
         // Sync ink effect engine configuration when FX type or colour changes.
         if let engine = context.coordinator.effectEngine {
             engine.syncLayerFrames()
@@ -2612,8 +2561,8 @@ struct CanvasView: UIViewRepresentable {
 
         // Sync writing effects pipeline when the pen tool or colour changes.
         context.coordinator.writingPipeline.configure(
-            config: toolStoreRef?.writingEffectConfig ?? .default,
-            color: toolStoreRef?.activeColor ?? .black
+            config: toolStoreForFade?.writingEffectConfig ?? .default,
+            color: toolStoreForFade?.activeColor ?? .black
         )
     }
 
@@ -4474,7 +4423,7 @@ private struct PageOverviewGrid: View {
             let maxDimension: CGFloat = 240
             let scale = min(maxDimension / renderRect.width, maxDimension / renderRect.height, 1.0)
 
-            return drawing.image(from: renderRect, scale: scale * screenScale)
+            return await drawing.image(from: renderRect, scale: scale * screenScale)
         }.value
 
         if let image {
