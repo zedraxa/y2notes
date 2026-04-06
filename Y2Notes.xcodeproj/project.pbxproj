@@ -151,6 +151,15 @@
 		AA0001000000000000000174 /* NoteEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000173 /* NoteEncodingTests.swift */; };
 		AA0001000000000000000167 /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */; };
 		AA0001000000000000000197 /* StickerRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000196 /* StickerRenderer.swift */; };
+		AA0001000000000000000199 /* NoteEditorView+Toolbars.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */; };
+		AA000100000000000000019B /* NoteEditorView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019A /* NoteEditorView+Actions.swift */; };
+		AA000100000000000000019D /* NoteEditorView+SubViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019C /* NoteEditorView+SubViews.swift */; };
+		AA000100000000000000019F /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019E /* CanvasView.swift */; };
+		AA00010000000000000001A1 /* CanvasViewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A0 /* CanvasViewCoordinator.swift */; };
+		AA00010000000000000001A3 /* ToolSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A2 /* ToolSnapshot.swift */; };
+		AA00010000000000000001A5 /* ShapeOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A4 /* ShapeOverlayView.swift */; };
+		AA00010000000000000001A7 /* NoteFlashcardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A6 /* NoteFlashcardSheet.swift */; };
+		AA00010000000000000001A9 /* PageOverviewGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A8 /* PageOverviewGrid.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -306,6 +315,15 @@
 		AA000100000000000000012E /* PageRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRegion.swift; sourceTree = "<group>"; };
 		AA0001000000000000000173 /* NoteEncodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteEncodingTests.swift; sourceTree = "<group>"; };
 		AA0001000000000000000175 /* Y2NotesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Y2NotesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Toolbars.swift"; sourceTree = "<group>"; };
+		AA000100000000000000019A /* NoteEditorView+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Actions.swift"; sourceTree = "<group>"; };
+		AA000100000000000000019C /* NoteEditorView+SubViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+SubViews.swift"; sourceTree = "<group>"; };
+		AA000100000000000000019E /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A0 /* CanvasViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewCoordinator.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A2 /* ToolSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSnapshot.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A4 /* ShapeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeOverlayView.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A6 /* NoteFlashcardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteFlashcardSheet.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A8 /* PageOverviewGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageOverviewGrid.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -403,6 +421,15 @@
 			children = (
 				AA0001000000000000000014 /* NoteListView.swift */,
 				AA0001000000000000000015 /* NoteEditorView.swift */,
+				AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */,
+				AA000100000000000000019A /* NoteEditorView+Actions.swift */,
+				AA000100000000000000019C /* NoteEditorView+SubViews.swift */,
+				AA000100000000000000019E /* CanvasView.swift */,
+				AA00010000000000000001A0 /* CanvasViewCoordinator.swift */,
+				AA00010000000000000001A2 /* ToolSnapshot.swift */,
+				AA00010000000000000001A4 /* ShapeOverlayView.swift */,
+				AA00010000000000000001A6 /* NoteFlashcardSheet.swift */,
+				AA00010000000000000001A8 /* PageOverviewGrid.swift */,
 				AA0001000000000000000186 /* NotePageCarouselView.swift */,
 				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
@@ -631,6 +658,12 @@
 			dependencies = (
 			);
 			name = Y2Notes;
+			packageProductDependencies = (
+				AA00010000000000000001AE /* Y2Core */,
+				AA00010000000000000001AF /* Y2Engine */,
+				AA00010000000000000001B0 /* Y2Components */,
+				AA00010000000000000001B1 /* Y2GoogleDrive */,
+			);
 			productName = Y2Notes;
 			productReference = AA0001000000000000000003 /* Y2Notes.app */;
 			productType = "com.apple.product-type.application";
@@ -681,6 +714,12 @@
 				Base,
 			);
 			mainGroup = AA000100000000000000000B;
+			packageReferences = (
+				AA00010000000000000001AA /* XCLocalSwiftPackageReference "Packages/Y2Core" */,
+				AA00010000000000000001AB /* XCLocalSwiftPackageReference "Packages/Y2Engine" */,
+				AA00010000000000000001AC /* XCLocalSwiftPackageReference "Packages/Y2Components" */,
+				AA00010000000000000001AD /* XCLocalSwiftPackageReference "Packages/Y2GoogleDrive" */,
+			);
 			productRefGroup = AA000100000000000000000C /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -713,6 +752,15 @@
 				AA000100000000000000001B /* Note.swift in Sources */,
 				AA000100000000000000001C /* NoteListView.swift in Sources */,
 				AA000100000000000000001D /* NoteEditorView.swift in Sources */,
+				AA0001000000000000000199 /* NoteEditorView+Toolbars.swift in Sources */,
+				AA000100000000000000019B /* NoteEditorView+Actions.swift in Sources */,
+				AA000100000000000000019D /* NoteEditorView+SubViews.swift in Sources */,
+				AA000100000000000000019F /* CanvasView.swift in Sources */,
+				AA00010000000000000001A1 /* CanvasViewCoordinator.swift in Sources */,
+				AA00010000000000000001A3 /* ToolSnapshot.swift in Sources */,
+				AA00010000000000000001A5 /* ShapeOverlayView.swift in Sources */,
+				AA00010000000000000001A7 /* NoteFlashcardSheet.swift in Sources */,
+				AA00010000000000000001A9 /* PageOverviewGrid.swift in Sources */,
 				AA000100000000000000001E /* NoteStore.swift in Sources */,
 				AA0001000000000000000023 /* Notebook.swift in Sources */,
 				AA0001000000000000000025 /* ShelfView.swift in Sources */,
@@ -1092,6 +1140,44 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA00010000000000000001AA /* XCLocalSwiftPackageReference "Packages/Y2Core" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Y2Core;
+		};
+		AA00010000000000000001AB /* XCLocalSwiftPackageReference "Packages/Y2Engine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Y2Engine;
+		};
+		AA00010000000000000001AC /* XCLocalSwiftPackageReference "Packages/Y2Components" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Y2Components;
+		};
+		AA00010000000000000001AD /* XCLocalSwiftPackageReference "Packages/Y2GoogleDrive" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Y2GoogleDrive;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA00010000000000000001AE /* Y2Core */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Y2Core;
+		};
+		AA00010000000000000001AF /* Y2Engine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Y2Engine;
+		};
+		AA00010000000000000001B0 /* Y2Components */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Y2Components;
+		};
+		AA00010000000000000001B1 /* Y2GoogleDrive */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Y2GoogleDrive;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 	};
 	rootObject = AA0001000000000000000001 /* Project object */;

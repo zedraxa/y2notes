@@ -9,6 +9,61 @@ The app follows a unidirectional data flow pattern where observable stores hold 
 SwiftUI views react to published changes, and UIKit bridges (`UIViewRepresentable`) connect
 PencilKit's `PKCanvasView` to the SwiftUI hierarchy.
 
+The codebase is modularised into four local Swift packages under `Packages/`, with the
+main `Y2Notes` app target acting as a thin shell that imports them all.
+
+---
+
+## SPM Package Diagram
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                      Y2Notes.app  (main target)                      │
+│                                                                      │
+│  Thin shell: Y2NotesApp, ContentView, app-specific SwiftUI views     │
+│  Imports: Y2Core, Y2Engine, Y2Components, Y2GoogleDrive              │
+└──────┬───────────┬───────────────┬──────────────────┬────────────────┘
+       │           │               │                  │
+       ▼           ▼               ▼                  ▼
+┌────────────┐ ┌──────────┐ ┌──────────────┐ ┌───────────────┐
+│  Y2Core    │ │ Y2Engine │ │ Y2Components │ │ Y2GoogleDrive │
+│            │ │          │ │              │ │               │
+│ Models     │ │ Ink FX   │ │ Reusable UI  │ │ Auth, Sync,   │
+│ Persistence│ │ Tools    │ │ Components   │ │ Offline Queue │
+│ StudySets  │ │ Search   │ │              │ │               │
+│ PageTypes  │ │ Colors   │ │              │ │               │
+└────────────┘ └────┬─────┘ └──────┬───────┘ └───────┬───────┘
+                    │              │                  │
+                    └──────────────┴──────────────────┘
+                           depends on Y2Core
+```
+
+### Package Responsibilities
+
+| Package | Contents | Dependencies |
+|---------|----------|--------------|
+| **Y2Core** | Data models (Note, Notebook, StudySet, PageTemplate, etc.), persistence types, SM-2 algorithm | None |
+| **Y2Engine** | Ink effects engine, tool models, writing config, effects coordinator, color science, trie index | Y2Core |
+| **Y2Components** | Reusable SwiftUI view components (future extraction) | Y2Core, Y2Engine |
+| **Y2GoogleDrive** | Google Drive auth, sync engine, offline queue | Y2Core |
+
+### NoteEditorView Split
+
+The monolithic `NoteEditorView.swift` (4451 lines) has been split into focused files:
+
+| File | Lines | Contents |
+|------|-------|----------|
+| `NoteEditorView.swift` | ~500 | Main struct, body chain, canvas section |
+| `NoteEditorView+Toolbars.swift` | ~430 | Floating toolbar, selection bars, menus |
+| `NoteEditorView+Actions.swift` | ~600 | Action handlers, export, find/text logic |
+| `NoteEditorView+SubViews.swift` | ~370 | Banners, overlays, title, find bar, page nav |
+| `CanvasView.swift` | ~830 | UIViewRepresentable PencilKit bridge |
+| `CanvasViewCoordinator.swift` | ~1170 | Coordinator + PencilActionDelegate |
+| `ToolSnapshot.swift` | ~30 | PKTool identity snapshot |
+| `ShapeOverlayView.swift` | ~190 | Shape gesture overlay |
+| `NoteFlashcardSheet.swift` | ~160 | Flashcard creation sheet |
+| `PageOverviewGrid.swift` | ~240 | Page thumbnail grid |
+
 ---
 
 ## Module Map
