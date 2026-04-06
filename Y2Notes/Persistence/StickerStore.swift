@@ -69,8 +69,8 @@ final class StickerStore: ObservableObject {
             let url = customStickersDir.appendingPathComponent(asset.filename)
             img = UIImage(contentsOfFile: url.path)
         } else {
-            // Built-in stickers loaded from bundle
-            img = UIImage(named: asset.filename)
+            // Prefer a bundle PNG; fall back to the programmatic renderer.
+            img = UIImage(named: asset.filename) ?? StickerRenderer.render(id: asset.id)
         }
         if let img {
             imageCache.setObject(img, forKey: key)
@@ -231,46 +231,66 @@ final class StickerStore: ObservableObject {
             ("badge-important", "Important Badge",  ["badge", "important", "alert"]),
             ("heart-red",       "Red Heart",        ["heart", "love", "favorite"]),
             ("thumbsup",        "Thumbs Up",        ["thumb", "like", "good"]),
+            ("lightning-bolt",  "Lightning Bolt",   ["lightning", "bolt", "energy", "power", "electric"]),
+            ("trophy-gold",     "Gold Trophy",      ["trophy", "award", "win", "achievement", "first"]),
+            ("exclamation-red", "Red Exclamation",  ["exclamation", "attention", "warning", "notice"]),
+            ("pin-push",        "Push Pin",         ["pin", "tack", "note", "mark", "board"]),
         ]
         for (id, name, tags) in essentials {
             assets.append(StickerAsset(id: id, name: name, category: .essentials, filename: "sticker_\(id)", tags: tags))
         }
 
         let academic: [(String, String, [String])] = [
-            ("grade-a",     "Grade A",      ["grade", "school", "excellent"]),
-            ("book-open",   "Open Book",    ["book", "reading", "study"]),
-            ("formula-e",   "Euler Formula",["math", "formula", "equation"]),
-            ("microscope",  "Microscope",   ["science", "lab", "biology"]),
+            ("grade-a",           "Grade A",          ["grade", "school", "excellent"]),
+            ("book-open",         "Open Book",        ["book", "reading", "study"]),
+            ("formula-e",         "Euler Formula",    ["math", "formula", "equation"]),
+            ("microscope",        "Microscope",       ["science", "lab", "biology"]),
+            ("pencil-sharp",      "Sharp Pencil",     ["pencil", "write", "draft", "note"]),
+            ("lightbulb-idea",    "Light Bulb",       ["idea", "light", "think", "concept", "bulb"]),
+            ("globe-world",       "World Globe",      ["globe", "world", "geography", "earth"]),
+            ("chemistry-flask",   "Chemistry Flask",  ["chemistry", "flask", "science", "experiment", "beaker"]),
         ]
         for (id, name, tags) in academic {
             assets.append(StickerAsset(id: id, name: name, category: .academic, filename: "sticker_\(id)", tags: tags))
         }
 
         let planner: [(String, String, [String])] = [
-            ("flag-priority", "Priority Flag", ["flag", "priority", "urgent"]),
-            ("clock-time",    "Clock",         ["clock", "time", "deadline"]),
-            ("calendar-day",  "Calendar Day",  ["calendar", "date", "schedule"]),
-            ("pin-location",  "Location Pin",  ["pin", "location", "place"]),
+            ("flag-priority",  "Priority Flag",  ["flag", "priority", "urgent"]),
+            ("clock-time",     "Clock",          ["clock", "time", "deadline"]),
+            ("calendar-day",   "Calendar Day",   ["calendar", "date", "schedule"]),
+            ("pin-location",   "Location Pin",   ["pin", "location", "place"]),
+            ("target-goal",    "Bullseye Target", ["target", "goal", "aim", "focus", "bullseye"]),
+            ("hourglass-time", "Hourglass",       ["hourglass", "time", "deadline", "waiting", "sand"]),
+            ("rocket-launch",  "Rocket Launch",   ["rocket", "launch", "start", "boost", "fast"]),
+            ("notepad-memo",   "Notepad",         ["notepad", "memo", "notes", "list", "write"]),
         ]
         for (id, name, tags) in planner {
             assets.append(StickerAsset(id: id, name: name, category: .planner, filename: "sticker_\(id)", tags: tags))
         }
 
         let decorative: [(String, String, [String])] = [
-            ("washi-stripe",     "Washi Tape Stripe",  ["washi", "tape", "decoration"]),
-            ("corner-flourish",  "Corner Flourish",    ["corner", "flourish", "ornament"]),
-            ("divider-dots",     "Dot Divider",        ["divider", "dots", "separator"]),
-            ("frame-simple",     "Simple Frame",       ["frame", "border", "box"]),
+            ("washi-stripe",    "Washi Tape Stripe",  ["washi", "tape", "decoration"]),
+            ("corner-flourish", "Corner Flourish",    ["corner", "flourish", "ornament"]),
+            ("divider-dots",    "Dot Divider",        ["divider", "dots", "separator"]),
+            ("frame-simple",    "Simple Frame",       ["frame", "border", "box"]),
+            ("rainbow-arc",     "Rainbow Arc",        ["rainbow", "colorful", "bright", "arc", "colors"]),
+            ("leaf-green",      "Green Leaf",         ["leaf", "nature", "plant", "organic", "green"]),
+            ("cloud-fluffy",    "Fluffy Cloud",       ["cloud", "sky", "soft", "fluffy", "weather"]),
+            ("diamond-gem",     "Diamond",            ["diamond", "gem", "precious", "crystal", "jewel"]),
         ]
         for (id, name, tags) in decorative {
             assets.append(StickerAsset(id: id, name: name, category: .decorative, filename: "sticker_\(id)", tags: tags))
         }
 
         let emoji: [(String, String, [String])] = [
-            ("smile-happy",  "Happy Smile",   ["smile", "happy", "face"]),
-            ("face-think",   "Thinking Face", ["think", "face", "hmm"]),
-            ("fire-hot",     "Fire",          ["fire", "hot", "trending"]),
-            ("sparkles",     "Sparkles",      ["sparkle", "shine", "magic"]),
+            ("smile-happy",   "Happy Smile",    ["smile", "happy", "face"]),
+            ("face-think",    "Thinking Face",  ["think", "face", "hmm"]),
+            ("fire-hot",      "Fire",           ["fire", "hot", "trending"]),
+            ("sparkles",      "Sparkles",       ["sparkle", "shine", "magic"]),
+            ("clover-lucky",  "Lucky Clover",   ["clover", "luck", "lucky", "green", "four"]),
+            ("snowflake-ice", "Snowflake",      ["snowflake", "snow", "winter", "cold", "ice"]),
+            ("gem-crystal",   "Crystal Gem",    ["gem", "crystal", "precious", "purple", "jewel"]),
+            ("music-note",    "Music Note",     ["music", "note", "sound", "song", "melody"]),
         ]
         for (id, name, tags) in emoji {
             assets.append(StickerAsset(id: id, name: name, category: .emoji, filename: "sticker_\(id)", tags: tags))

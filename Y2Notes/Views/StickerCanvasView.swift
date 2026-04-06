@@ -6,7 +6,7 @@ import UIKit
 /// Inserted into the CanvasView layer stack between PKCanvasView and
 /// ShapeOverlayView.  When the drawing tool is NOT `.sticker` / `.lasso`,
 /// touch interaction is disabled so events pass through to the canvas below.
-final class StickerCanvasView: UIView {
+final class StickerCanvasView: UIView, EffectIntensityReceiver {
 
     // MARK: - State
 

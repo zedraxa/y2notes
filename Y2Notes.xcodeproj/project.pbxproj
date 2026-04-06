@@ -149,6 +149,8 @@
 		AA0001000000000000000167 /* PerlinNoise.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* PerlinNoise.swift */; };
 		AA0001000000000000000169 /* FluidSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000168 /* FluidSimulation.swift */; };
 		AA0001000000000000000174 /* NoteEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000173 /* NoteEncodingTests.swift */; };
+		AA0001000000000000000167 /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */; };
+		AA0001000000000000000197 /* StickerRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000196 /* StickerRenderer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -242,6 +244,8 @@
 		AA000100000000000000016E /* ColorScience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorScience.swift; sourceTree = "<group>"; };
 		AA0001000000000000000166 /* PerlinNoise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerlinNoise.swift; sourceTree = "<group>"; };
 		AA0001000000000000000168 /* FluidSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluidSimulation.swift; sourceTree = "<group>"; };
+		AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
+		AA0001000000000000000196 /* StickerRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerRenderer.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -545,8 +549,7 @@
 				AA000100000000000000014A /* InteractionFeedbackEngine.swift */,
 				AA0001000000000000000166 /* PerlinNoise.swift */,
 				AA0001000000000000000168 /* FluidSimulation.swift */,
-			);
-			path = Ink;
+				AA0001000000000000000196 /* StickerRenderer.swift */,
 			sourceTree = "<group>";
 		};
 		AA0001000000000000000188 /* Native */ = {
@@ -844,8 +847,7 @@
 				AA0001000000000000000161 /* TextObject.swift in Sources */,
 				AA0001000000000000000163 /* TextCanvasView.swift in Sources */,
 				AA0001000000000000000165 /* TextObjectHandlesView.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
+				AA0001000000000000000197 /* StickerRenderer.swift in Sources */,
 		};
 		AA0001000000000000000176 /* Sources (Y2NotesTests) */ = {
 			isa = PBXSourcesBuildPhase;
