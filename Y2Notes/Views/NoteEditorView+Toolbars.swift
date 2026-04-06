@@ -300,7 +300,6 @@ extension NoteEditorView {
     /// GoodNotes-style page setup menu — lets users change the page ruling and paper material
     /// for the current note without leaving the editor.
     var pageSetupMenu: some View {
-        let safePageIndex: Int = min(currentPageIndex, max(0, note.pageCount - 1))
         let currentPagePT = effectivePageType(forPage: safePageIndex)
         return Menu {
             // Per-page ruling section — only changes the current page
@@ -396,8 +395,7 @@ extension NoteEditorView {
 
     /// Toolbar menu that offers PDF and image export options for the current note.
     var exportMenu: some View {
-        let safePageIndex: Int = min(currentPageIndex, max(0, note.pageCount - 1))
-        return Menu {
+        Menu {
             Section("Export") {
                 Button {
                     exportCurrentPageAsPDF(pageIndex: safePageIndex)

@@ -152,8 +152,7 @@ struct NoteEditorView: View {
     /// Canvas background: per-page colour → theme base blended with paper material tint.
     var canvasBackgroundColor: UIColor {
         // Per-page colour takes absolute precedence when set.
-        let safeIdx = min(currentPageIndex, max(0, note.pages.count - 1))
-        if let explicit = note.pageColor(forPage: safeIdx) {
+        if let explicit = note.pageColor(forPage: safePageIndex) {
             return explicit
         }
         return blendedBackground(
