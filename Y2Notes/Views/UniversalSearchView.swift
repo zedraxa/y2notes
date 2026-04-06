@@ -209,6 +209,8 @@ struct UniversalSearchView: View {
             name = "clock.badge.waveform"
         case .widgetContent:
             name = "square.grid.2x2"
+        case .noteTag:
+            name = "tag"
         }
         return Image(systemName: name)
     }
@@ -229,6 +231,7 @@ struct UniversalSearchView: View {
             case .audioSession:    return ("waveform", "Audio")
             case .audioTimestamp:  return ("clock.badge.waveform", "Timestamp")
             case .widgetContent:   return ("square.grid.2x2", "Widget")
+            case .noteTag:         return ("tag", "Tag")
             }
         }()
 
@@ -280,6 +283,9 @@ struct UniversalSearchView: View {
             if let noteID = extractNoteID(from: result.entry.id) {
                 onSelectNote(noteID)
             }
+        case .noteTag:
+            // Tag-based results do not navigate directly; the user can refine the search.
+            break
         }
     }
 

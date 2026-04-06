@@ -142,6 +142,12 @@ final class InkEffectStore: ObservableObject {
             return builtIn.filter { $0.family == .glitch || $0.family == .phantom || $0.family == .neon }
         case .ocean:
             return builtIn.filter { $0.family == .watercolor || $0.family == .neon }
+        case .rose, .lavender:
+            return builtIn.filter { $0.family == .watercolor || $0.family == .standard }
+        case .forest:
+            return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
+        case .slate, .ember:
+            return builtIn.filter { $0.family == .standard || $0.family == .metallic }
         }
     }
 

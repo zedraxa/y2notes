@@ -13,7 +13,6 @@ struct PDFViewerView: View {
     @EnvironmentObject var pdfStore:  PDFStore
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var toolStore: DrawingToolStore
-    @EnvironmentObject var noteStore: NoteStore
     @Environment(TabWorkspaceStore.self) private var workspace
 
     let record: PDFNoteRecord
@@ -191,35 +190,6 @@ struct PDFViewerView: View {
             Image(systemName: "square.and.arrow.up")
         }
         .accessibilityLabel("Share options")
-    }
-
-    // MARK: - Companion note
-
-    private var companionNote: Note? {
-        noteStore.notes(forPDF: record.id).first
-    }
-
-    @ViewBuilder
-    private var companionNoteButton: some View {
-        if let existing = companionNote {
-            Button {
-                onOpenCompanionNote?(existing.id)
-            } label: {
-                Image(systemName: "note.text")
-            }
-            .accessibilityLabel("Open companion note")
-        } else {
-            Button {
-                let note = noteStore.addNote(
-                    forPDF: record.id,
-                    title: "\(liveRecord.title) — Notes"
-                )
-                onOpenCompanionNote?(note.id)
-            } label: {
-                Image(systemName: "note.text.badge.plus")
-            }
-            .accessibilityLabel("Create companion note")
-        }
     }
 
     // MARK: - Page navigation bar

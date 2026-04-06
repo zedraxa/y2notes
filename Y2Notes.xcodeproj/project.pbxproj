@@ -123,6 +123,7 @@
 		AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000144 /* EffectsCoordinator.swift */; };
 		AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000146 /* WritingEffectsPipeline.swift */; };
 		AA000100000000000000017D /* EraserCursorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000017C /* EraserCursorOverlay.swift */; };
+		AA0001000000000000000181 /* GoogleDriveFileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* GoogleDriveFileBrowserView.swift */; };
 		AA000100000000000000017F /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */; };
 		AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014A /* InteractionFeedbackEngine.swift */; };
 		AA0001000000000000000155 /* WritingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000154 /* WritingInsights.swift */; };
@@ -731,7 +732,7 @@
 				AA00010000000000000000BF /* GoogleDriveSyncEngine.swift in Sources */,
 				AA00010000000000000000C0 /* GoogleDriveOfflineQueue.swift in Sources */,
 				AA00010000000000000000C1 /* GoogleDriveSyncStatusView.swift in Sources */,
-				AA0001000000000000000149 /* GoogleDriveFileBrowserView.swift in Sources */,
+				AA0001000000000000000181 /* GoogleDriveFileBrowserView.swift in Sources */,
 				AA00010000000000000000C8 /* NoteCreationSheet.swift in Sources */,
 				AA00010000000000000000CA /* StudyStatsView.swift in Sources */,
 				AA00010000000000000000CE /* ImportedDocument.swift in Sources */,

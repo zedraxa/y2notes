@@ -340,7 +340,7 @@ struct DrawingToolbarView: View {
                     .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .label))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(mode.displayName) eraser")
+                .accessibilityLabel("\(sub.displayName) eraser")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
             Spacer()

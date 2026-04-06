@@ -76,7 +76,8 @@ final class PageTransitionEngine {
 
     private enum InteractiveTuning {
         /// Fraction of page width that must be covered for the drag to commit.
-        static let commitThreshold: CGFloat = 0.38
+        /// Value 0.30 is used by the AGENT-22 interactive drag implementation.
+        static let commitThreshold: CGFloat = 0.30
         /// Pan velocity (points/second) that counts as a committed swipe
         /// even when the drag hasn't crossed `commitThreshold`.
         static let commitVelocity: CGFloat = 400
@@ -89,6 +90,14 @@ final class PageTransitionEngine {
         /// Translation multiplier when dragging in the wrong direction
         /// (rubber-band resistance).
         static let rubberBandFactor: CGFloat = 0.22
+        /// Spring damping for the finish/cancel snap-back animation.
+        static let springDamping: CGFloat = 0.85
+        /// Spring response for the finish/cancel animation (seconds).
+        static let springResponse: TimeInterval = 0.35
+        /// Maximum shadow opacity during interactive drag.
+        static let dragShadowOpacity: Float = 0.22
+        /// Maximum 3D rotation angle during interactive drag (radians).
+        static let dragMaxRotation: CGFloat = .pi / 30  // ~6°
     }
 
     // MARK: - State
@@ -767,20 +776,6 @@ final class PageTransitionEngine {
     }
 
     // MARK: - Interactive Page Drag (AGENT-22)
-
-    /// Tuning for interactive drag-to-turn gestures.
-    private enum InteractiveTuning {
-        /// Fraction of page width required to commit the transition.
-        static let commitThreshold: CGFloat = 0.30
-        /// Spring damping for the finish/cancel snap-back animation.
-        static let springDamping: CGFloat = 0.85
-        /// Spring response for the finish/cancel animation (seconds).
-        static let springResponse: TimeInterval = 0.35
-        /// Maximum shadow opacity during interactive drag.
-        static let dragShadowOpacity: Float = 0.22
-        /// Maximum 3D rotation angle during interactive drag (radians).
-        static let dragMaxRotation: CGFloat = .pi / 30  // ~6°
-    }
 
     /// State tracking for an in-progress interactive drag.
     private var interactiveState: InteractiveDragState?

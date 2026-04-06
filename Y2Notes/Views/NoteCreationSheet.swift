@@ -284,6 +284,7 @@ private struct PaperTypeCard: View {
                     )
                     y += spacing
                 }
+                let headerY: CGFloat = size.height * 0.20
                 let accent = Color(uiColor: .secondaryLabel).opacity(0.28)
                 ctx.stroke(Path { p in p.move(to: .init(x: 0, y: headerY)); p.addLine(to: .init(x: size.width, y: headerY)) }, with: .color(accent), lineWidth: 0.75)
                 ctx.stroke(Path { p in p.move(to: .init(x: cueX, y: headerY)); p.addLine(to: .init(x: cueX, y: summaryY)) }, with: .color(accent), lineWidth: 0.75)

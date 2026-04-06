@@ -232,9 +232,9 @@ struct WidgetEditorView: View {
         Section("Style") {
             Picker("Style", selection: Binding(
                 get: { style },
-                set: {
+                set: { newValue in
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        widget.payload = .calloutBox(title: title, body: body, style: $0)
+                        widget.payload = .calloutBox(title: title, body: body, style: newValue)
                     }
                 }
             )) {
@@ -281,9 +281,9 @@ struct WidgetEditorView: View {
         Section("Color") {
             Picker("Color", selection: Binding(
                 get: { color },
-                set: {
+                set: { newValue in
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        widget.payload = .stickyNote(body: body, color: $0)
+                        widget.payload = .stickyNote(body: body, color: newValue)
                     }
                 }
             )) {

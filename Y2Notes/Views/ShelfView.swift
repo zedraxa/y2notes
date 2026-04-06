@@ -10,6 +10,8 @@ enum LibrarySection: Hashable {
     case allNotes
     case recents
     case favorites
+    case pdfLibrary
+    case documentLibrary
     /// Notes linked to imported PDFs or documents.
     case importNotes
     case notebook(UUID)
@@ -245,6 +247,7 @@ private struct ShelfSidebarView: View {
     @EnvironmentObject var documentStore: DocumentStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var themeStore: ThemeStore
+    @EnvironmentObject var syncEngine: GoogleDriveSyncEngine
     @Binding var selectedSection: LibrarySection?
 
     @State private var showNewNotebookSheet = false

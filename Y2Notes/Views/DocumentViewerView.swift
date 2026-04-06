@@ -426,37 +426,6 @@ struct DocumentLibraryView: View {
         .onAppear { emptyAppeared = true }
     }
 
-    private var documentGrid: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160, maximum: 200))], spacing: 16) {
-                ForEach(Array(documentStore.documents.enumerated()), id: \.element.id) { index, doc in
-                    DocumentCell(document: doc, isSelected: doc.id == selectedDocumentID) {
-                        selectedDocumentID = doc.id
-                    }
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                                documentStore.delete(doc)
-                                if selectedDocumentID == doc.id { selectedDocumentID = nil }
-                            }
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                    .opacity(docsAppeared ? 1 : 0)
-                    .offset(y: docsAppeared ? 0 : 14)
-                    .animation(
-                        .spring(response: 0.35, dampingFraction: 0.82)
-                            .delay(Double(index) * 0.04),
-                        value: docsAppeared
-                    )
-                }
-            }
-            .padding()
-            .onAppear { docsAppeared = true }
-        }
-    }
-
     private var noResultsState: some View {
         VStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
@@ -562,7 +531,7 @@ private struct DocumentListRow: View {
             HStack(spacing: 12) {
                 Image(systemName: document.documentType.systemImage)
                     .font(.title2)
-                    .foregroundStyle(isSelected ? .accentColor : .secondary)
+                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
                     .frame(width: 36)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -611,16 +580,4 @@ private struct DocumentListRow: View {
         .accessibilityLabel("\(document.displayName), \(document.documentType.displayName)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
-}
-
-// MARK: - ShareSheet
-
-private struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

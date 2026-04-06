@@ -29,6 +29,7 @@ import Combine
 /// // Propagate intensity to canvas sub-views:
 /// effects.applyIntensity(to: shapeCanvas, attachmentCanvas, widgetCanvas)
 /// ```
+@MainActor
 final class EffectsCoordinator {
 
     // MARK: - Engines

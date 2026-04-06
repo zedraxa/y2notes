@@ -858,6 +858,51 @@ final class NoteExporter {
                         withAttributes: bodyAttrs
                     )
                 }
+
+            case .stickyNote(let body, _):
+                if !body.isEmpty {
+                    (body as NSString).draw(
+                        in: CGRect(x: exportRect.minX + pad, y: exportRect.minY + pad,
+                                   width: exportRect.width - pad * 2,
+                                   height: exportRect.height - pad * 2),
+                        withAttributes: bodyAttrs
+                    )
+                }
+
+            case .flashcard(let front, let back, _, _):
+                var y = exportRect.minY + pad
+                if !front.isEmpty {
+                    (front as NSString).draw(
+                        in: CGRect(x: exportRect.minX + pad, y: y,
+                                   width: exportRect.width - pad * 2, height: titleSize + 4 * drawingScale),
+                        withAttributes: titleAttrs
+                    )
+                    y += titleSize + 8 * drawingScale
+                }
+                if !back.isEmpty {
+                    (back as NSString).draw(
+                        in: CGRect(x: exportRect.minX + pad, y: y,
+                                   width: exportRect.width - pad * 2, height: exportRect.maxY - y - pad),
+                        withAttributes: bodyAttrs
+                    )
+                }
+
+            case .progressTracker(let title, let current, let total):
+                var y = exportRect.minY + pad
+                if !title.isEmpty {
+                    (title as NSString).draw(
+                        in: CGRect(x: exportRect.minX + pad, y: y,
+                                   width: exportRect.width - pad * 2, height: titleSize + 4 * drawingScale),
+                        withAttributes: titleAttrs
+                    )
+                    y += titleSize + 8 * drawingScale
+                }
+                let progressText = "\(current) / \(total)" as NSString
+                progressText.draw(
+                    in: CGRect(x: exportRect.minX + pad, y: y,
+                               width: exportRect.width - pad * 2, height: exportRect.maxY - y - pad),
+                    withAttributes: bodyAttrs
+                )
             }
 
             ctx.restoreGState()
