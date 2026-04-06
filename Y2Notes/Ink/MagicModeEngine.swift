@@ -268,7 +268,7 @@ final class MagicModeEngine {
         sparkle.emissionRange = .pi * 2
         sparkle.scale = Tuning.sparkleScale
         sparkle.scaleRange = Tuning.sparkleScale * 0.4
-        sparkle.scaleSpeed = -Tuning.sparkleScale * 0.3
+        sparkle.scaleSpeed = Float(-Tuning.sparkleScale * 0.3)
         sparkle.alphaSpeed = -Float(1.0 / Double(Tuning.sparkleLifetime))
         sparkle.color = UIColor.white.withAlphaComponent(CGFloat(Tuning.particleAlpha)).cgColor
         sparkle.contents = MagicModeEngine.sparkleImage.cgImage
@@ -283,7 +283,7 @@ final class MagicModeEngine {
         shimmer.emissionRange = .pi * 2
         shimmer.scale = Tuning.shimmerScale
         shimmer.scaleRange = Tuning.shimmerScale * 0.3
-        shimmer.scaleSpeed = -Tuning.shimmerScale * 0.15
+        shimmer.scaleSpeed = Float(-Tuning.shimmerScale * 0.15)
         shimmer.alphaSpeed = -Float(1.0 / Double(Tuning.shimmerLifetime))
         shimmer.spin = .pi * 0.5
         shimmer.spinRange = .pi
