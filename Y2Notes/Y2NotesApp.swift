@@ -42,9 +42,9 @@ struct Y2NotesApp: App {
                 // Legacy stores that views still depend on by type.
                 // These will be replaced by ObservableXxxStore adapters
                 // once views are migrated to use the adapter types.
-                .environmentObject(ThemeStore())
-                .environmentObject(InkEffectStore())
-                .environmentObject(AppSettingsStore())
+                .environmentObject(container.legacyThemeStore)
+                .environmentObject(container.legacyInkEffectStore)
+                .environmentObject(container.legacySettingsStore)
 
                 .environment(tabSession)
         }

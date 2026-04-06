@@ -55,6 +55,15 @@ final class ServiceContainer {
     let stickerStore: StickerStore
     let navigationStore: NavigationStore
 
+    /// Legacy theme store — views still reference `ThemeStore` by type.
+    let legacyThemeStore: ThemeStore
+
+    /// Legacy ink effect store — views still reference `InkEffectStore` by type.
+    let legacyInkEffectStore: InkEffectStore
+
+    /// Legacy settings store — views still reference `AppSettingsStore` by type.
+    let legacySettingsStore: AppSettingsStore
+
     // MARK: - Concrete accessors (for SwiftUI @StateObject injection)
     //
     // These expose the underlying concrete types so that Y2NotesApp can
@@ -101,6 +110,9 @@ final class ServiceContainer {
         documentStore = DocumentStore()
         stickerStore = StickerStore()
         navigationStore = NavigationStore()
+        legacyThemeStore = ThemeStore()
+        legacyInkEffectStore = InkEffectStore()
+        legacySettingsStore = AppSettingsStore()
 
         logger.info("ServiceContainer initialised with all services.")
     }
