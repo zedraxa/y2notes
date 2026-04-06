@@ -104,7 +104,11 @@ final class NoteStore: ObservableObject {
         UserDefaults.standard.set(lastPageCache, forKey: Self.lastPageKey)
     }
 
-    init() {
+    /// - Parameter persistenceDriver: Optional storage backend.
+    ///   When provided, `load()` reads from the driver first and
+    ///   migrates legacy JSON files on the initial launch.
+    init(persistenceDriver: PersistenceDriver? = nil) {
+        self.persistenceDriver = persistenceDriver
         load()
         loadStudy()
         ensurePDFsForLegacyNotes()
