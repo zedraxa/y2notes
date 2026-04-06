@@ -851,7 +851,7 @@ public final class MicroInteractionEngine {
     /// Instead of fixed spring constants, the profile derives stiffness and
     /// damping from the drag velocity — fast gestures produce snappy, energetic
     /// springs while slow gestures feel gentle and deliberate.
-    struct SpringProfile: Equatable {
+    public struct SpringProfile: Equatable {
         /// Base spring stiffness (Newton/meter analogy).
         let baseStiffness: CGFloat
         /// Base damping ratio.
@@ -879,7 +879,7 @@ public final class MicroInteractionEngine {
         // ── Named profiles ──────────────────────────────────────────────
 
         /// Snappy selection scale — responds to tap/drag velocity.
-        static let selectScale = SpringProfile(
+        public static let selectScale = SpringProfile(
             baseStiffness: 280,
             baseDamping: 12,
             mass: 1.0,
@@ -888,7 +888,7 @@ public final class MicroInteractionEngine {
         )
 
         /// Energetic bounce on snap — velocity makes it bouncier.
-        static let snapBounce = SpringProfile(
+        public static let snapBounce = SpringProfile(
             baseStiffness: 300,
             baseDamping: 15,
             mass: 1.0,
@@ -897,7 +897,7 @@ public final class MicroInteractionEngine {
         )
 
         /// Release settle — faster release gives snappier settle.
-        static let releaseSettle = SpringProfile(
+        public static let releaseSettle = SpringProfile(
             baseStiffness: 300,
             baseDamping: 10,
             mass: 1.0,

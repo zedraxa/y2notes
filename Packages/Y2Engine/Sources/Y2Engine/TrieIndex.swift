@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Y2Native
 
 // MARK: - Trie Data Structure
 
