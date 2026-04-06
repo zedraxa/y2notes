@@ -297,3 +297,89 @@ handwritten note is 5–50 KB of base64 data. Multi-page notes store an array of
   "ocrText": ""
 }
 ```
+
+---
+
+## Embedded Canvas Objects (ARCH-06)
+
+### CanvasObjectWrapper
+
+Type-erased `Codable` container stored per-page in `Note.embeddedObjectLayers`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `id` | `UUID` | auto-generated | Stable identity |
+| `frame` | `CGRect` | required | Position + size in page content coordinates |
+| `rotation` | `CGFloat` | `0` | Rotation in degrees (clockwise positive) |
+| `zIndex` | `Int` | `0` | Z-ordering within the object layer |
+| `isLocked` | `Bool` | `false` | Prevents move/resize |
+| `objectType` | `CanvasObjectType` | required | Typed payload (image / scannedDocument / audioClip / sticker / link / textBlock) |
+
+**JSON discriminator**: `objectType.type` + `objectType.payload`.
+
+### ImageObject (payload for `.image`)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `relativePath` | `String` | required | `NoteMedia/{noteID}/{objectID}.jpg` relative to Documents/ |
+| `originalFilename` | `String?` | `nil` | Source filename from photo library or file picker |
+| `cropRect` | `CGRect?` | `nil` | Normalised crop rectangle (0…1) |
+| `borderStyle` | `BorderStyle` | `.none` | `none` / `thin` / `rounded` / `shadow` |
+| `opacity` | `CGFloat` | `1.0` | Overall opacity |
+| `thumbnailData` | `Data?` | `nil` | Inline JPEG thumbnail ≤ 200×200 px for fast display |
+
+### AudioClipObject (payload for `.audioClip`)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `audioFilename` | `String` | required | `{objectID}.m4a` filename (no path) in Documents/AudioClips/ |
+| `duration` | `TimeInterval` | required | Recording duration in seconds |
+| `waveformData` | `[Float]` | `[]` | ~200 normalised (0…1) amplitude samples for visualisation |
+| `transcription` | `String?` | `nil` | Speech-to-text result (populated lazily) |
+| `playbackPosition` | `TimeInterval` | `0` | Last resume position in seconds |
+| `title` | `String` | `""` | Display title on the widget |
+| `recordedAt` | `Date` | `Date()` | Recording timestamp |
+
+### StickerObject (payload for `.sticker`)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `stickerID` | `String` | required | Pack-namespaced identifier, e.g. `"academic.star.filled"` |
+| `stickerData` | `Data?` | `nil` | Inline PNG for third-party stickers (nil for built-in) |
+| `category` | `String` | `""` | Display category (e.g. `"Academic"`) |
+| `tintColor` | `StickerTintColor?` | `nil` | Optional RGBA recolour |
+| `isBuiltIn` | `Bool` | `true` | Whether the sticker can be regenerated without inline data |
+
+### LinkObject (payload for `.link`)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `urlString` | `String` | required | Destination URL string |
+| `title` | `String?` | `nil` | Open Graph or HTML page title |
+| `faviconData` | `Data?` | `nil` | Site favicon PNG ≤ 32×32 px |
+| `previewImageData` | `Data?` | `nil` | og:image JPEG ≤ 480 px wide |
+| `displayDomain` | `String?` | `nil` | Root domain for display (e.g. `"github.com"`) |
+| `displayStyle` | `LinkDisplayStyle` | `.chip` | `chip` / `card` / `inline` |
+
+### Note.embeddedObjectLayers
+
+A parallel array to `Note.pages`:
+
+```swift
+var embeddedObjectLayers: [[CanvasObjectWrapper]?]
+```
+
+- Index `i` contains the embedded objects for `pages[i]`.
+- A `nil` element means no objects have been placed on that page (saves storage).
+- An empty outer array (`[]`) means the note predates ARCH-06 (all pages have no objects).
+- Missing key on decode defaults to `[]` (fully backward compatible).
+
+### Media File Storage
+
+| Content | Location | Naming |
+|---------|----------|--------|
+| Image files | `Documents/NoteMedia/{noteID}/{objectID}.jpg` | JPEG 0.8 quality, ≤ 2048 px long edge |
+| Audio recordings | `Documents/AudioClips/{objectID}.m4a` | AAC 128 kbps mono |
+| Scan thumbnails | `Documents/Scans/{objectID}_scan.jpg` | JPEG 0.7 quality, ≤ 240 px |
+
+JSON stores only relative paths and metadata — never inline binary blobs — to keep note JSON files small.

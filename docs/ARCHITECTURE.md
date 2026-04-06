@@ -688,3 +688,101 @@ NoteStore (persistence)
    value types, not domain models.
 4. **Accessible** — VoiceOver labels, Dynamic Type, context menus on every interactive element.
 5. **Async thumbnails** — `Y2PageThumbnailRenderer` renders on background queue with LRU cache.
+
+---
+
+## Content Embedding & Media Pipeline (ARCH-06)
+
+### Overview
+
+Y2Notes supports rich embedded objects placed directly on the canvas alongside ink strokes and typed text. Objects are rendered in a transparent overlay view inserted between `PKCanvasView` and the ink-effects layer.
+
+### Object Z-Order
+
+```
+Bottom (furthest back)
+├── Page background (ruling lines, paper texture)
+├── Embedded objects (sorted by zIndex) ← Y2ObjectOverlayController
+│   ├── Images (Y2ImageObjectView)
+│   ├── Audio clips (Y2AudioClipView)
+│   ├── Stickers (Y2StickerObjectView)
+│   └── Links (Y2LinkObjectView)
+├── PKCanvasView (drawing strokes — always above objects)
+└── EffectOverlayLayer (particles, sparkles — topmost)
+Top (nearest to user)
+```
+
+### Coordinate Space
+
+All embedded objects use the **same page content coordinate space** as `PKDrawing` strokes. `Y2ObjectOverlayController.applyTransform(zoomScale:contentOffset:)` ensures objects pan and zoom identically to ink.
+
+### Core Object Model (`Y2Notes/Core/EmbeddedObjects/`)
+
+| File | Purpose |
+|------|---------|
+| `CanvasObject.swift` | `CanvasObject` protocol + `CanvasObjectType` enum (image / scannedDocument / audioClip / sticker / link / textBlock) |
+| `ImageObject.swift` | Image metadata + `BorderStyle` enum; pixel data stored externally |
+| `AudioClipObject.swift` | Audio clip metadata; `.m4a` file stored in `Documents/AudioClips/` |
+| `StickerObject.swift` | Sticker metadata + `StickerTintColor`; built-in stickers rendered on demand |
+| `LinkObject.swift` | Link URL + Open Graph metadata + `LinkDisplayStyle` enum |
+| `CanvasObjectWrapper.swift` | Type-erased `Codable` container; stored per-page in `Note.embeddedObjectLayers` |
+
+### Engine — Object Overlay (`Y2Notes/Engine/Objects/`)
+
+| File | Purpose |
+|------|---------|
+| `Y2ObjectOverlayController.swift` | `UIViewController` that hosts all object views; handles gesture routing (finger-only), context menus, z-order management |
+| `Y2ObjectSelectionHandler.swift` | Selection state, undo registration, copy/paste via `UIPasteboard` |
+| `Views/Y2ImageObjectView.swift` | Lazy full-res loading from `MediaFileManager`; border styles; VoiceOver |
+| `Views/Y2AudioClipView.swift` | Live waveform bars; AVAudioPlayer; speed control (0.5×–2×) |
+| `Views/Y2StickerObjectView.swift` | Built-in CG rendering or inline PNG; tint support |
+| `Views/Y2LinkObjectView.swift` | Chip / Card / Inline styles; opens URL in `SFSafariViewController` |
+
+### Engine — Media Pipeline (`Y2Notes/Engine/Media/`)
+
+| File | Purpose |
+|------|---------|
+| `Y2ImageInsertionController.swift` | `PHPickerViewController` + camera + file import; JPEG compression (0.8 quality, ≤ 2048 px) |
+| `Y2ImageCropController.swift` | In-canvas crop overlay with draggable handles; normalised crop rect |
+| `Y2DocumentScannerBridge.swift` | `VNDocumentCameraViewController` wrapper; processes scans into image objects |
+
+### Engine — Audio (`Y2Notes/Engine/Audio/`)
+
+| File | Purpose |
+|------|---------|
+| `Y2AudioRecorder.swift` | `AVAudioRecorder` wrapper; M4A/AAC 128 kbps; max 30 min; live level metering |
+| `Y2AudioPlayerWidget.swift` | Floating record-button + timer + scrolling waveform animation |
+| `Y2WaveformGenerator.swift` | Async `AVAudioFile` reader; downsamples to ~200 points; normalised 0…1 |
+
+### Engine — Stickers (`Y2Notes/Engine/Stickers/`)
+
+| File | Purpose |
+|------|---------|
+| `StickerPackProviding.swift` | Protocol + `StickerRegistry` (singleton); extensible pack system |
+| `BuiltInStickerPack.swift` | 19 CG-rendered stickers in 4 categories (Academic, Shapes, Icons, Decorative) |
+| `Y2StickerPanelController.swift` | UICollectionView panel with search; tapping inserts sticker at canvas centre |
+
+### Engine — Links (`Y2Notes/Engine/Links/`)
+
+| File | Purpose |
+|------|---------|
+| `Y2LinkInsertionController.swift` | URL entry form; fetches metadata preview; chip/card/inline style picker |
+| `Y2LinkMetadataFetcher.swift` | `URLSession` + minimal HTML parser (og:title, og:image, favicon) |
+
+### Persistence (`Y2Notes/Core/Persistence/MediaFileManager.swift`)
+
+- **Images**: `Documents/NoteMedia/{noteID}/{objectID}.jpg`
+- **Audio**: `Documents/AudioClips/{objectID}.m4a`
+- **Scans**: `Documents/Scans/{objectID}_scan.jpg`
+- JSON stores only metadata (relative paths, frames, settings) — **never binary blobs**
+- `deleteMediaForNote(noteID:)` called automatically from `NoteStore.deleteNotes` (cascade delete)
+- `cleanup(referencedPaths:)` removes orphaned files not referenced by any live note
+- `diskUsage()` returns total managed storage in bytes
+
+### Gesture Separation
+
+Apple Pencil always routes to `PKCanvasView` (drawing). Embedded object gestures use `UIGestureRecognizer` with `allowedTouchTypes = [UITouch.TouchType.direct]` to respond to fingers only.
+
+### Undo Integration
+
+Every object operation (insert, move, resize, delete) registers with `UndoManager` via `Y2ObjectSelectionHandler`. Undo of a delete restores the captured `CanvasObjectWrapper`; undo of a move restores the previous `frame`.
