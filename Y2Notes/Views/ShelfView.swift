@@ -2556,7 +2556,7 @@ private struct TagPickerSheet: View {
                             } label: {
                                 HStack {
                                     Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                                        .foregroundStyle(isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                                         .font(.body)
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text("#\(tag)")
