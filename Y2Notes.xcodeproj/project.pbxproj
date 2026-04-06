@@ -432,6 +432,11 @@
 		AA0001000000000000000249 /* StickerPackProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerPackProviding.swift; sourceTree = "<group>"; };
 		AA000100000000000000024B /* Y2LinkInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkInsertionController.swift; sourceTree = "<group>"; };
 		AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkMetadataFetcher.swift; sourceTree = "<group>"; };
+		AA000100000000000000024F /* Metal */ = {isa = PBXGroup; children = (AA0001000000000000000250 /* Y2ParticleSystem.metal */, AA0001000000000000000252 /* MetalParticleRenderer.swift */,); name = Metal; path = Metal; sourceTree = "<group>"; };
+		AA0001000000000000000250 /* Y2ParticleSystem.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Y2ParticleSystem.metal; sourceTree = "<group>"; };
+		AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000250 /* Y2ParticleSystem.metal */; };
+		AA0001000000000000000252 /* MetalParticleRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalParticleRenderer.swift; sourceTree = "<group>"; };
+		AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000252 /* MetalParticleRenderer.swift */; };
 		AA000100000000000000019E /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A0 /* CanvasViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewCoordinator.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A2 /* ToolSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSnapshot.swift; sourceTree = "<group>"; };
@@ -523,6 +528,7 @@
 				AA00010000000000000000B4 /* Accessibility */,
 				AA00010000000000000000B5 /* GoogleDrive */,
 				AA0001000000000000000188 /* Native */,
+				AA000100000000000000024F /* Metal */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 				AA000100000000000000018F /* Y2Notes-Bridging-Header.h */,
@@ -1172,6 +1178,8 @@
 				AA0001000000000000000185 /* CanvasPageView.swift in Sources */,
 				AA0001000000000000000187 /* NotePageCarouselView.swift in Sources */,
 				AA000100000000000000018B /* y2_perlin.c in Sources */,
+				AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */,
+				AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */,
 				AA000100000000000000018E /* y2_sph.c in Sources */,
 				AA0001000000000000000192 /* y2_color.c in Sources */,
 				AA0001000000000000000195 /* y2_levenshtein.c in Sources */,

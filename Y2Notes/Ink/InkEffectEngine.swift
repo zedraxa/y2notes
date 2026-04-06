@@ -1,4 +1,5 @@
 import UIKit
+import Metal
 import QuartzCore
 
     /// Performance-budgeted overlay engine for writing effects with 2D physics.
@@ -43,49 +44,22 @@ final class InkEffectEngine {
 
     // MARK: - SheenTuning
 
-    /// Centralised budget and timing constants for the holographic sheen effect.
-    ///
-    /// The renewed sheen uses a **three-cell** emitter architecture:
-    ///   1. **Core diamonds** — small, fast-spinning facets that catch light.
-    ///   2. **Prismatic flares** — medium elongated streaks for directional shimmer.
-    ///   3. **Dust halo** — large, soft circles that create a broad iridescent aura.
-    ///
-    /// A radial glow layer tracks the nib for an ambient colour wash.
+    /// Glow geometry, timing, and hue-cycling constants for the holographic sheen effect.
+    /// The Metal particle renderer handles particle budgets independently.
     private enum SheenTuning {
-        // ── Particle budgets ────────────────────────────────────────────
-        /// Hard cap on core (bright-diamond) particles before tier scaling.
-        static let maxCoreParticles: Int       = 80
-        /// Hard cap on prismatic flare particles before tier scaling.
-        static let maxFlareParticles: Int      = 35
-        /// Hard cap on dust (soft-circle) particles before tier scaling.
-        static let maxDustParticles: Int       = 40
-        /// Fraction of `maxCoreParticles` emitted per second.
-        static let coreBirthFraction: Float    = 0.75
-        /// Fraction of `maxFlareParticles` emitted per second.
-        static let flareBirthFraction: Float   = 0.60
-        /// Fraction of `maxDustParticles` emitted per second.
-        static let dustBirthFraction: Float    = 0.65
-
         // ── Glow geometry ───────────────────────────────────────────────
         /// Diameter of the iridescent radial glow that follows the nib.
         static let glowDiameter: CGFloat       = 72
         /// Duration of the glow fade-out animation when the stroke ends.
         static let glowFadeDuration: Double    = 0.35
 
-        // ── Hue cycling ─────────────────────────────────────────────────
+        // ── Hue cycling (CAGradientLayer glow only) ─────────────────────
         /// Hue advance per `onStrokeUpdated` call — controls cycle speed.
         static let hueStepPerUpdate: CGFloat   = 0.035
-        /// Phase offset applied to the flare cell's hue relative to the core cell.
+        /// Phase offset applied to the flare colour's hue relative to the core.
         static let flareHuePhaseOffset: CGFloat = 0.15
-        /// Phase offset applied to the dust cell's hue relative to the core cell,
-        /// giving the three-layer iridescent split-hue look.
+        /// Phase offset applied to the dust colour's hue relative to the core.
         static let dustHuePhaseOffset: CGFloat  = 0.33
-
-        // ── Velocity-responsive emission ────────────────────────────────
-        /// Multiplier applied to birth rate when nib velocity exceeds the base threshold.
-        static let velocityBoostMultiplier: Float = 1.6
-        /// Nib speed (points/update) above which the velocity boost kicks in.
-        static let velocityBoostThreshold: CGFloat = 4.0
     }
 
     // MARK: - Properties
@@ -104,18 +78,9 @@ final class InkEffectEngine {
         return v
     }()
 
-    // Emitter (fire / sparkle / rainbow / snow / dissolve / glow / sheen / blood)
-    private let emitterLayer = CAEmitterLayer()
-
-    // Shadow smoke — dedicated layer so it can use normal compositing instead of
-    // additive blending.  Additive mode makes dark particles invisible on white paper;
-    // normal mode lets semi-transparent grey puffs composite correctly.
-    private let shadowEmitterLayer: CAEmitterLayer = {
-        let l = CAEmitterLayer()
-        l.renderMode = .unordered   // standard compositing — correct grey-on-white appearance
-        l.isHidden   = true
-        return l
-    }()
+    // Metal GPU particle renderer — replaces CAEmitterLayer for all emitter-based effects.
+    // Nil only if the device somehow lacks Metal support (unreachable on iOS 17+).
+    private var metalRenderer: MetalParticleRenderer?
 
     // Glitch
     private let glitchLayer  = CALayer()
@@ -177,15 +142,6 @@ final class InkEffectEngine {
     init(tier: DeviceCapabilityTier) {
         self.tier = tier
 
-        // Emitter layer — shared between all emitter-based effects except shadow
-        emitterLayer.renderMode = .additive
-        emitterLayer.isHidden   = true
-        overlayView.layer.addSublayer(emitterLayer)
-
-        // Shadow smoke emitter — added on top of the shared emitter so smoke
-        // composites over fire/sparkle effects if both were ever active.
-        overlayView.layer.addSublayer(shadowEmitterLayer)
-
         // Glitch layer — full-bounds, initially hidden
         glitchLayer.isHidden = true
         overlayView.layer.addSublayer(glitchLayer)
@@ -225,15 +181,19 @@ final class InkEffectEngine {
             overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         overlayView.isHidden = (activeFX == .none)
+
+        // Create the Metal particle renderer now that the overlay is in the hierarchy.
+        metalRenderer = MetalParticleRenderer(overlayLayer: overlayView.layer)
     }
 
-    /// Keeps the glitch layer frame in sync with the overlay after layout.
-    /// Call from `updateUIView` or `layoutSubviews` so the glitch layer
-    /// matches the overlay's resolved size.
+    /// Keeps layer frames in sync with the overlay after layout.
+    /// Call from `updateUIView` or `layoutSubviews`.
     func syncLayerFrames() {
-        if glitchLayer.frame != overlayView.bounds {
-            glitchLayer.frame = overlayView.bounds
+        let bounds = overlayView.bounds
+        if glitchLayer.frame != bounds {
+            glitchLayer.frame = bounds
         }
+        metalRenderer?.syncFrame(to: bounds)
     }
 
     /// Stops all FX and removes the overlay from its superview.
@@ -252,16 +212,17 @@ final class InkEffectEngine {
         // Gracefully downgrade FX that the device cannot support.
         let resolved = fx.isSupported(on: tier) ? fx : .none
         guard resolved != activeFX else {
-            // Same FX, but colour might have changed — recolour emitter cells.
+            // Same FX, same effect — only the colour changed.
+            // Update the Metal renderer's color mode so new particles use the updated colour.
             switch resolved {
             case .fire:
-                recolourFireEmitter(color: color)
-            case .sparkle, .snow, .dissolve, .rainbow, .blood:
-                recolourEmitter(color: color)
-            case .shadow:
-                recolourShadowEmitter(color: color)
+                metalRenderer?.updateColorMode(.firePalette(inkTint: color.simd4))
+            case .sparkle, .dissolve, .blood:
+                metalRenderer?.updateColorMode(.solid(color.simd4))
+            case .snow:
+                metalRenderer?.updateColorMode(.solid(snowColor(from: color).simd4))
             case .sheen:
-                sheenHueOffset = 0  // hue cycles automatically in onStrokeUpdated
+                sheenHueOffset = 0
                 configureSheenGlow(hue: sheenHueOffset)
             case .glow:
                 configureGlowColor(color)
@@ -276,18 +237,41 @@ final class InkEffectEngine {
         overlayView.isHidden = (resolved == .none)
 
         switch resolved {
-        case .fire:      setupFireEmitter(color: color)
-        case .sparkle:   setupSparkleEmitter(color: color)
+        case .fire:
+            metalRenderer?.configure(preset: .fire,
+                                     colorMode: .firePalette(inkTint: color.simd4))
+            metalRenderer?.start()
+            configureFireGlow(color: color)
+        case .sparkle:
+            metalRenderer?.configure(preset: .sparkle, colorMode: .solid(color.simd4))
+            metalRenderer?.start()
+        case .rainbow:
+            metalRenderer?.configure(preset: .rainbow,
+                                     colorMode: .cyclingHue(saturation: 0.90, brightness: 1.0, alpha: 0.85))
+            metalRenderer?.start()
+        case .snow:
+            metalRenderer?.configure(preset: .snow,
+                                     colorMode: .solid(snowColor(from: color).simd4))
+            metalRenderer?.start()
+        case .dissolve:
+            metalRenderer?.configure(preset: .dissolve, colorMode: .solid(color.simd4))
+            metalRenderer?.start()
+        case .sheen:
+            sheenHueOffset = 0
+            metalRenderer?.configure(preset: .sheen,
+                                     colorMode: .cyclingHue(saturation: 1.0, brightness: 1.0, alpha: 0.88))
+            metalRenderer?.start()
+            configureSheenGlow(hue: sheenHueOffset)
+        case .shadow:
+            metalRenderer?.configure(preset: .shadow, colorMode: .shadow)
+            metalRenderer?.start()
+        case .blood:
+            metalRenderer?.configure(preset: .blood, colorMode: .blood)
+            metalRenderer?.start()
         case .glitch:    setupGlitchLayer()
-        case .ripple:    break  // triggered per-stroke via onStrokeEnded
-        case .rainbow:   setupRainbowEmitter()
-        case .snow:      setupSnowEmitter(color: color)
-        case .lightning:  break  // triggered per-stroke via onStrokeEnded
-        case .dissolve:  setupDissolveEmitter(color: color)
+        case .ripple:    break   // triggered per-stroke via onStrokeEnded
+        case .lightning: break   // triggered per-stroke via onStrokeEnded
         case .glow:      setupGlowLayer(color: color)
-        case .sheen:     setupSheenEmitter(color: color)
-        case .shadow:    setupShadowEmitter(color: color)
-        case .blood:     setupBloodEmitter(color: color)
         case .none:      break
         }
     }
@@ -297,13 +281,12 @@ final class InkEffectEngine {
     /// Call when the pencil begins a new stroke (first touch down).
     func onStrokeBegan(at point: CGPoint) {
         guard activeFX != .none else { return }
-        // Cancel any pending end-of-stroke burst/deactivation from the previous stroke.
+        // Cancel any pending end-of-stroke burst timer from the previous stroke.
         strokeEndGeneration += 1
         switch activeFX {
-        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood:
-            emitterLayer.isHidden   = false
-            emitterLayer.birthRate  = 1
-            updateEmitterPosition(point)
+        case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood, .shadow:
+            metalRenderer?.emitterPosition      = point
+            metalRenderer?.birthRateMultiplier  = 1.0
             if activeFX == .fire {
                 fireGlowLayer.isHidden = false
                 updateFireGlowPosition(point)
@@ -315,10 +298,6 @@ final class InkEffectEngine {
                 lastSheenPoint = point
                 updateSheenGlowPosition(point)
             }
-        case .shadow:
-            shadowEmitterLayer.isHidden  = false
-            shadowEmitterLayer.birthRate = 1
-            updateShadowEmitterPosition(point)
         case .glitch:
             glitchLayer.isHidden = false
             triggerGlitchPulse()
@@ -334,40 +313,34 @@ final class InkEffectEngine {
     ///
     /// - Parameters:
     ///   - point: Current nib position in viewport coordinates.
-    ///   - pressure: Normalised Apple Pencil force (0–1+). Modulates particle birth rate.
-    ///   - velocity: Instantaneous tip speed in points/second. Modulates emitter shape.
+    ///   - pressure: Normalised Apple Pencil force (0–1+). Modulates particle spawn rate.
+    ///   - velocity: Instantaneous tip speed in points/second.
     func onStrokeUpdated(at point: CGPoint, pressure: CGFloat = 1.0, velocity: CGFloat = 500) {
         guard activeFX != .none else { return }
         switch activeFX {
         case .fire, .sparkle, .snow, .dissolve, .blood:
-            // Pressure → birth rate: light touch emits fewer particles.
-            emitterLayer.birthRate = Float(max(0.3, min(1.5, pressure)))
-            // Velocity → emitter shape: fast strokes spread in a line.
-            emitterLayer.emitterShape = velocity > 400 ? .line : .point
-            updateEmitterPosition(point)
+            // Pressure → Metal birth rate multiplier: light touch = fewer particles.
+            metalRenderer?.birthRateMultiplier = Float(max(0.3, min(1.5, pressure)))
+            metalRenderer?.emitterPosition     = point
             if activeFX == .fire {
                 updateFireGlowPosition(point)
             }
         case .shadow:
-            shadowEmitterLayer.birthRate = Float(max(0.3, min(1.5, pressure)))
-            updateShadowEmitterPosition(point)
+            metalRenderer?.birthRateMultiplier = Float(max(0.3, min(1.5, pressure)))
+            metalRenderer?.emitterPosition     = point
         case .rainbow:
-            rainbowHueOffset += 0.02
-            if rainbowHueOffset > 1.0 { rainbowHueOffset -= 1.0 }
-            recolourEmitter(color: UIColor(hue: rainbowHueOffset, saturation: 0.9, brightness: 1.0, alpha: 0.9))
-            emitterLayer.birthRate = Float(max(0.3, min(1.5, pressure)))
-            emitterLayer.emitterShape = velocity > 400 ? .line : .point
-            updateEmitterPosition(point)
+            // Color cycling is handled inside MetalParticleRenderer (.cyclingHue mode picks
+            // a random hue per spawn); just update position and rate here.
+            metalRenderer?.birthRateMultiplier = Float(max(0.3, min(1.5, pressure)))
+            metalRenderer?.emitterPosition     = point
         case .sheen:
+            // Advance the sheen glow hue (the CAGradientLayer ambient aura).
             sheenHueOffset += SheenTuning.hueStepPerUpdate
             if sheenHueOffset > 1.0 { sheenHueOffset -= 1.0 }
-            recolourSheenEmitter(hue: sheenHueOffset)
             configureSheenGlow(hue: sheenHueOffset)
-            // Pressure × velocity-responsive birth rate.
-            let boost: Float = velocity > 60 ? SheenTuning.velocityBoostMultiplier : 1.0
-            emitterLayer.birthRate = Float(max(0.3, min(2.0, pressure))) * boost
+            metalRenderer?.birthRateMultiplier = Float(max(0.3, min(1.5, pressure)))
+            metalRenderer?.emitterPosition     = point
             lastSheenPoint = point
-            updateEmitterPosition(point)
             updateSheenGlowPosition(point)
         case .glitch:
             triggerGlitchPulse()
@@ -382,15 +355,14 @@ final class InkEffectEngine {
     func onStrokeEnded(at point: CGPoint) {
         switch activeFX {
         case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood:
-            // End-of-stroke burst: briefly triple the birth rate so particles
+            // End-of-stroke burst: triple the birth rate for 80 ms so particles
             // scatter from the final nib position before fading out naturally.
-            let burstRate = max(emitterLayer.birthRate * 3, 3.0)
-            emitterLayer.birthRate = burstRate
+            metalRenderer?.birthRateMultiplier = 3.0
             strokeEndGeneration += 1
             let gen = strokeEndGeneration
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
                 guard let self, self.strokeEndGeneration == gen else { return }
-                self.emitterLayer.birthRate = 0
+                self.metalRenderer?.birthRateMultiplier = 0
             }
             if activeFX == .fire {
                 let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
@@ -410,7 +382,6 @@ final class InkEffectEngine {
                 CATransaction.commit()
             }
             if activeFX == .sheen {
-                // Smooth fade-out of the iridescent glow when the stroke ends.
                 let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
                 fadeAnim.fromValue             = Float(1)
                 fadeAnim.toValue               = Float(0)
@@ -429,14 +400,13 @@ final class InkEffectEngine {
                 lastSheenPoint = nil
             }
         case .shadow:
-            // Stop emitting; existing puffs/wisps linger naturally until their lifetime expires.
-            shadowEmitterLayer.birthRate = 0
+            // Stop emitting; existing puffs linger naturally until their Metal lifetime expires.
+            metalRenderer?.birthRateMultiplier = 0
         case .ripple:
             triggerRipple(at: point)
         case .lightning:
             triggerLightning(at: point)
         case .glow:
-            // Fade glow out smoothly
             CATransaction.begin()
             CATransaction.setAnimationDuration(0.3)
             glowLayer.opacity = 0
@@ -459,260 +429,7 @@ final class InkEffectEngine {
         overlayView.isHidden = true
     }
 
-    // MARK: - Private: Fire (multi-layer physics-driven)
-
-    private enum FireTuning {
-        /// Hard cap on fire particles used when computing the per-tier budget.
-        /// Keeps fire feeling visually dense regardless of tier ceiling.
-        static let maxParticles: Int = 60
-        /// Fraction of the budget emitted by the bright inner core flame.
-        static let coreBudgetFraction: Float = 0.28
-        /// Fraction of the budget emitted by the main orange mid-flame body.
-        static let midBudgetFraction: Float = 0.62
-        /// Fraction of the budget emitted by rare ember sparks (sum = 1.00).
-        static let emberBudgetFraction: Float = 0.10
-    }
-
-    private func setupFireEmitter(color: UIColor) {
-        // Calculate the per-layer budget once so cell fractions correctly sum to ≤ 1×budget.
-        let budget = Float(min(tier.maxParticles, FireTuning.maxParticles))
-        emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
-        emitterLayer.isHidden     = false
-        emitterLayer.emitterCells = [
-            makeCoreFlameCell(budget: budget),
-            makeMidFlameCell(color: color, budget: budget),
-            makeFireEmberCell(budget: budget)
-        ]
-        emitterLayer.birthRate = 0  // enabled on stroke begin
-        configureFireGlow(color: color)
-    }
-
-    /// Bright yellow-white inner core: the hottest, fastest-rising column.
-    private func makeCoreFlameCell(budget: Float) -> CAEmitterCell {
-        let physics = ParticlePhysics.fireCorePhysics
-        let cell               = CAEmitterCell()
-        cell.birthRate         = budget * FireTuning.coreBudgetFraction
-        cell.lifetime          = 0.28
-        cell.lifetimeRange     = 0.12
-        cell.velocity          = 95
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity  // strong upward rise
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi / 8          // tight column
-        cell.emissionLongitude = -.pi / 2         // straight up
-        cell.scale             = 0.040
-        cell.scaleRange        = 0.012
-        cell.scaleSpeed        = -0.022            // shrinks as it cools
-        cell.alphaSpeed        = -3.5              // fades fast — hot core is brief
-        cell.spin              = 0.8
-        cell.spinRange         = physics.spinRange
-        // Pale yellow-white: inner fire colour
-        cell.color             = UIColor(red: 1.0, green: 0.96, blue: 0.62, alpha: 0.95).cgColor
-        cell.redRange          = 0.04
-        cell.greenRange        = 0.06
-        cell.contents          = circleCGImage(diameter: 8)
-        return cell
-    }
-
-    /// Orange mid-flame: main visible body; hue is biased from the user's ink colour.
-    private func makeMidFlameCell(color: UIColor, budget: Float) -> CAEmitterCell {
-        let physics = ParticlePhysics.firePhysics
-        let cell               = CAEmitterCell()
-        cell.birthRate         = budget * FireTuning.midBudgetFraction
-        cell.lifetime          = 0.65
-        cell.lifetimeRange     = 0.35
-        cell.velocity          = 100
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity  // negative = rise (flames go up)
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi / 4           // wider than core
-        cell.emissionLongitude = -.pi / 2
-        cell.scale             = 0.14
-        cell.scaleRange        = 0.06
-        cell.scaleSpeed        = -0.020
-        cell.alphaSpeed        = -1.2
-        cell.spin              = 0.6
-        cell.spinRange         = physics.spinRange
-        cell.color             = fireMidFlameColor(from: color).cgColor
-        cell.redRange          = 0.16
-        cell.greenRange        = 0.18
-        cell.contents          = circleCGImage(diameter: 14)
-        return cell
-    }
-
-    /// Ember sparks: occasional bright orange flecks that scatter and fall.
-    private func makeFireEmberCell(budget: Float) -> CAEmitterCell {
-        let physics = ParticlePhysics.fireEmberPhysics
-        let cell               = CAEmitterCell()
-        cell.birthRate         = budget * FireTuning.emberBudgetFraction  // rare
-        cell.lifetime          = 0.75
-        cell.lifetimeRange     = 0.30
-        cell.velocity          = 60
-        cell.velocityRange     = CGFloat(physics.turbulence)
-        cell.yAcceleration     = physics.gravity  // positive = downward after initial rise
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 0.9        // wide scatter
-        cell.emissionLongitude = -.pi / 2
-        cell.scale             = 0.018
-        cell.scaleRange        = 0.010
-        cell.scaleSpeed        = -0.008
-        cell.alphaSpeed        = -1.3
-        cell.spin              = 2.2
-        cell.spinRange         = physics.spinRange
-        // Vivid deep-orange ember — independent of user colour
-        cell.color             = UIColor(red: 1.0, green: 0.50, blue: 0.04, alpha: 0.95).cgColor
-        cell.redRange          = 0.08
-        cell.greenRange        = 0.20
-        cell.contents          = circleCGImage(diameter: 6)
-        return cell
-    }
-
-    // MARK: - Private: Sparkle (physics-driven)
-
-    private func setupSparkleEmitter(color: UIColor) {
-        emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
-        emitterLayer.isHidden     = false
-        emitterLayer.emitterCells = [makeSparkleCell(color: color)]
-        emitterLayer.birthRate    = 0
-    }
-
-    private func makeSparkleCell(color: UIColor) -> CAEmitterCell {
-        let physics = ParticlePhysics.sparklePhysics
-        let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 30)) * 0.6
-        cell.lifetime          = 0.60
-        cell.lifetimeRange     = 0.30
-        cell.velocity          = 80
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 2  // omnidirectional
-        cell.scale             = 0.08
-        cell.scaleRange        = 0.04
-        cell.scaleSpeed        = -0.025
-        cell.alphaSpeed        = -1.4
-        cell.spin              = 1.0
-        cell.spinRange         = physics.spinRange
-        cell.color             = color.withAlphaComponent(0.95).cgColor
-        cell.redRange          = 0.12
-        cell.blueRange         = 0.12
-        cell.contents          = circleCGImage(diameter: 20)
-        return cell
-    }
-
-    // MARK: - Private: Rainbow (hue-cycling emitter)
-
-    private func setupRainbowEmitter() {
-        emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
-        emitterLayer.isHidden     = false
-        rainbowHueOffset = 0
-        emitterLayer.emitterCells = [makeRainbowCell()]
-        emitterLayer.birthRate    = 0
-    }
-
-    private func makeRainbowCell() -> CAEmitterCell {
-        let physics = ParticlePhysics.rainbowPhysics
-        let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 45)) * 0.7
-        cell.lifetime          = 0.90
-        cell.lifetimeRange     = 0.40
-        cell.velocity          = 60
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 2
-        cell.scale             = 0.09
-        cell.scaleRange        = 0.04
-        cell.scaleSpeed        = -0.015
-        cell.alphaSpeed        = -0.8
-        cell.spin              = 0.3
-        cell.spinRange         = physics.spinRange
-        // Start with red — hue will cycle via recolourEmitter on each update
-        cell.color             = UIColor(hue: 0, saturation: 0.9, brightness: 1.0, alpha: 0.85).cgColor
-        cell.redRange          = 0.15
-        cell.greenRange        = 0.15
-        cell.blueRange         = 0.15
-        cell.contents          = circleCGImage(diameter: 22)
-        return cell
-    }
-
-    // MARK: - Private: Snow (physics-driven falling particles)
-
-    private func setupSnowEmitter(color: UIColor) {
-        emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 35, height: 8)
-        emitterLayer.isHidden     = false
-        emitterLayer.emitterCells = [makeSnowCell(color: color)]
-        emitterLayer.birthRate    = 0
-    }
-
-    private func makeSnowCell(color: UIColor) -> CAEmitterCell {
-        let physics = ParticlePhysics.snowPhysics
-        let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 35)) * 0.5
-        cell.lifetime          = 1.8
-        cell.lifetimeRange     = 0.7
-        cell.velocity          = 28
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity  // gentle descent
-        cell.xAcceleration     = physics.wind               // sideways drift
-        cell.emissionRange     = .pi * 2
-        cell.scale             = 0.06
-        cell.scaleRange        = 0.04
-        cell.scaleSpeed        = -0.006
-        cell.alphaSpeed        = -0.45
-        cell.spin              = 0.3
-        cell.spinRange         = physics.spinRange
-        // White-ish with a tint from the user's colour
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: nil)
-        let sr = min(1.0, 0.7 + r * 0.3)
-        let sg = min(1.0, 0.7 + g * 0.3)
-        let sb = min(1.0, 0.7 + b * 0.3)
-        cell.color             = UIColor(red: sr, green: sg, blue: sb, alpha: 0.85).cgColor
-        cell.redRange          = 0.08
-        cell.blueRange         = 0.08
-        cell.contents          = snowflakeCGImage(diameter: 24)
-        return cell
-    }
-
-    // MARK: - Private: Dissolve (chaotic disintegration particles)
-
-    private func setupDissolveEmitter(color: UIColor) {
-        emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 14, height: 14)
-        emitterLayer.isHidden     = false
-        emitterLayer.emitterCells = [makeDissolveCell(color: color)]
-        emitterLayer.birthRate    = 0
-    }
-
-    private func makeDissolveCell(color: UIColor) -> CAEmitterCell {
-        let physics = ParticlePhysics.dissolvePhysics
-        let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 55)) * 0.7
-        cell.lifetime          = 0.80
-        cell.lifetimeRange     = 0.40
-        cell.velocity          = 85
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity  // crumble downward
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 2
-        cell.scale             = 0.06
-        cell.scaleRange        = 0.035
-        cell.scaleSpeed        = -0.040   // shrink as they disintegrate
-        cell.alphaSpeed        = -1.0
-        cell.spin              = 1.5
-        cell.spinRange         = physics.spinRange
-        cell.color             = color.withAlphaComponent(0.80).cgColor
-        cell.redRange          = 0.10
-        cell.greenRange        = 0.10
-        cell.contents          = squareCGImage(size: 14)
-        return cell
-    }
-
+    // MARK: - Private: Glow (soft luminous aura)
     // MARK: - Private: Glow (soft luminous aura)
 
     private func setupGlowLayer(color: UIColor) {
@@ -814,33 +531,7 @@ final class InkEffectEngine {
         return path.cgPath
     }
 
-    private func recolourEmitter(color: UIColor) {
-        guard let cell = emitterLayer.emitterCells?.first else { return }
-        cell.color = color.cgColor
-        emitterLayer.emitterCells = [cell]
-    }
-
-    /// Updates only the mid-flame cell colour on fire ink-colour change,
-    /// preserving the fixed core (yellow-white) and ember (deep orange) colours.
-    private func recolourFireEmitter(color: UIColor) {
-        guard var cells = emitterLayer.emitterCells, cells.count >= 3 else { return }
-        // Cell index 1 = mid flame (the only cell that uses user colour)
-        cells[1].color = fireMidFlameColor(from: color).cgColor
-        emitterLayer.emitterCells = cells
-        configureFireGlow(color: color)
-    }
-
-    /// Derives the mid-flame particle colour: user hue strongly biased toward fire orange-red.
-    private func fireMidFlameColor(from color: UIColor) -> UIColor {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: nil)
-        return UIColor(
-            red:   min(1.0, r * 0.35 + 0.72),
-            green: min(1.0, g * 0.25 + 0.22),
-            blue:  max(0.0, b * 0.08),
-            alpha: 0.90
-        )
-    }
+    // MARK: - Private: Fire glow helpers (still used with Metal renderer)
 
     /// Derives the fire glow ambient colour: user hue biased toward warm amber.
     private func fireGlowAmbientColor(from color: UIColor) -> UIColor {
@@ -865,13 +556,6 @@ final class InkEffectEngine {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         fireGlowLayer.position = point
-        CATransaction.commit()
-    }
-
-    private func updateEmitterPosition(_ point: CGPoint) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        emitterLayer.emitterPosition = point
         CATransaction.commit()
     }
 
@@ -960,13 +644,10 @@ final class InkEffectEngine {
     // MARK: - Private: Stop
 
     private func stopCurrentFX() {
-        emitterLayer.birthRate    = 0
-        emitterLayer.emitterCells = []
-        emitterLayer.isHidden     = true
-
-        shadowEmitterLayer.birthRate    = 0
-        shadowEmitterLayer.emitterCells = []
-        shadowEmitterLayer.isHidden     = true
+        // Stop Metal particle emission immediately.
+        metalRenderer?.birthRateMultiplier = 0
+        // Keep the display link running so existing particles fade out naturally.
+        // `metalRenderer?.stop()` would kill them immediately — not desired here.
 
         glitchLayer.removeAllAnimations()
         glitchLayer.isHidden = true
@@ -993,126 +674,9 @@ final class InkEffectEngine {
         lastSheenPoint   = nil
     }
 
-    // MARK: - Private: Sheen (holographic iridescent shimmer)
+    // MARK: - Private: Sheen glow helpers
 
-    private func setupSheenEmitter(color: UIColor) {
-        emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 10, height: 10)
-        emitterLayer.isHidden     = false
-        sheenHueOffset   = 0
-        lastSheenPoint   = nil
-        emitterLayer.emitterCells = [
-            makeSheenCoreCell(color: color),
-            makeSheenFlareCell(color: color),
-            makeSheenDustCell(),
-        ]
-        emitterLayer.birthRate = 0
-        configureSheenGlow(hue: sheenHueOffset)
-    }
-
-    /// Core cell: fast-spinning diamonds that cluster tightly around the nib
-    /// for a dense glittering nucleus.
-    private func makeSheenCoreCell(color: UIColor) -> CAEmitterCell {
-        let physics = ParticlePhysics.sheenCorePhysics
-        let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxCoreParticles)) * SheenTuning.coreBirthFraction
-        cell.lifetime          = 0.90
-        cell.lifetimeRange     = 0.35
-        cell.velocity          = 85
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 2  // omnidirectional shimmer
-        cell.scale             = 0.11
-        cell.scaleRange        = 0.05
-        cell.scaleSpeed        = -0.025
-        cell.alphaSpeed        = -0.85
-        cell.spin              = 2.5
-        cell.spinRange         = physics.spinRange
-        cell.color             = color.cgColor
-        cell.redRange          = 0.60
-        cell.greenRange        = 0.60
-        cell.blueRange         = 0.60
-        cell.contents          = diamondCGImage(size: 24)
-        return cell
-    }
-
-    /// Flare cell: medium elongated streaks that add directional prismatic shimmer
-    /// between the tight core and the broad dust halo.
-    private func makeSheenFlareCell(color: UIColor) -> CAEmitterCell {
-        let physics = ParticlePhysics.sheenFlarePhysics
-        let flareColor = UIColor(hue: SheenTuning.flareHuePhaseOffset,
-                                 saturation: 0.90, brightness: 1.0, alpha: 0.80)
-        let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxFlareParticles)) * SheenTuning.flareBirthFraction
-        cell.lifetime          = 0.65
-        cell.lifetimeRange     = 0.20
-        cell.velocity          = 55
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 2
-        cell.scale             = 0.07
-        cell.scaleRange        = 0.03
-        cell.scaleSpeed        = -0.030
-        cell.alphaSpeed        = -1.1
-        cell.spin              = 3.5
-        cell.spinRange         = physics.spinRange
-        cell.color             = flareColor.cgColor
-        cell.redRange          = 0.50
-        cell.greenRange        = 0.50
-        cell.blueRange         = 0.50
-        cell.contents          = diamondCGImage(size: 16)
-        return cell
-    }
-
-    /// Dust cell: large, slow soft circles that fan out into a broad iridescent halo.
-    private func makeSheenDustCell() -> CAEmitterCell {
-        let physics = ParticlePhysics.sheenDustPhysics
-        // Initialise at the dust-phase-offset hue so it immediately contrasts with core.
-        let dustColor = UIColor(hue: SheenTuning.dustHuePhaseOffset,
-                                saturation: 0.75, brightness: 1.0, alpha: 0.55)
-        let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxDustParticles)) * SheenTuning.dustBirthFraction
-        cell.lifetime          = 0.95
-        cell.lifetimeRange     = 0.30
-        cell.velocity          = 38
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 2
-        cell.scale             = 0.045
-        cell.scaleRange        = 0.020
-        cell.scaleSpeed        = -0.012
-        cell.alphaSpeed        = -0.90
-        cell.spin              = 1.2
-        cell.spinRange         = physics.spinRange
-        cell.color             = dustColor.cgColor
-        cell.redRange          = 0.50
-        cell.greenRange        = 0.50
-        cell.blueRange         = 0.50
-        cell.contents          = circleCGImage(diameter: 14)
-        return cell
-    }
-
-    /// Updates all three sheen cells to the current hue cycle, maintaining phase offsets
-    /// between core, flare, and dust layers for a rich split-hue iridescent look.
-    private func recolourSheenEmitter(hue: CGFloat) {
-        guard var cells = emitterLayer.emitterCells, cells.count >= 3 else { return }
-        cells[0].color = UIColor(hue: hue,
-                                 saturation: 1.0, brightness: 1.0, alpha: 0.90).cgColor
-        let flareHue   = fmod(hue + SheenTuning.flareHuePhaseOffset, 1.0)
-        cells[1].color = UIColor(hue: flareHue,
-                                 saturation: 0.90, brightness: 1.0, alpha: 0.80).cgColor
-        let dustHue    = fmod(hue + SheenTuning.dustHuePhaseOffset, 1.0)
-        cells[2].color = UIColor(hue: dustHue,
-                                 saturation: 0.75, brightness: 1.0, alpha: 0.60).cgColor
-        emitterLayer.emitterCells = cells
-    }
-
-    /// Recolours the sheen glow layer with a four-stop iridescent gradient derived
-    /// from `hue`.  The stops cycle through distinct hues to simulate the
-    /// wavelength-dependent colour shift of real holographic material.
+    /// Recolours the sheen glow gradient with a four-stop iridescent colour sweep.
     private func configureSheenGlow(hue: CGFloat) {
         let c0 = UIColor(hue: hue,
                          saturation: 0.90, brightness: 1.0, alpha: 0.40).cgColor
@@ -1133,271 +697,17 @@ final class InkEffectEngine {
         CATransaction.commit()
     }
 
-    // MARK: - Private: Shadow (billowing smoke cloud behind strokes)
-    //
-    // Design goals:
-    //   • Looks like real smoke — large grey puffs that rise and expand, plus fine
-    //     erratic wisps that disperse laterally.
-    //   • Uses `shadowEmitterLayer` (renderMode .unordered) so semi-transparent grey
-    //     particles composite correctly on white paper.  The shared emitterLayer uses
-    //     additive blending which makes dark particles invisible on light backgrounds.
-    //   • Two-cell system: primary billowing puffs + secondary wispy tendrils.
-    //   • Particles survive after pen lifts (birthRate→0) and drift away naturally.
+    // MARK: - Private: Snow colour helper
 
-    private func setupShadowEmitter(color: UIColor) {
-        shadowEmitterLayer.emitterShape = .point
-        shadowEmitterLayer.emitterSize  = CGSize(width: 8, height: 8)
-        shadowEmitterLayer.emitterCells = [
-            makeShadowPuffCell(color: color),
-            makeShadowWispCell(color: color)
-        ]
-        shadowEmitterLayer.birthRate = 0   // enabled on stroke begin
-        shadowEmitterLayer.isHidden  = false
-    }
-
-
-    /// Large, slow, billowing primary smoke puffs.
-    private func makeShadowPuffCell(color: UIColor) -> CAEmitterCell {
-        let physics = ParticlePhysics.shadowPhysics
-        let cell               = CAEmitterCell()
-        // Budget: simultaneous particles ≈ birthRate × lifetime.  Reserve 60% of the
-        // tier's budget for puffs so the combined total (puffs + wisps) stays ≤ maxParticles.
-        //   birthRate = maxParticles × 0.60 / lifetime  →  simultaneous ≈ maxParticles × 0.60
-        let puffLifetime: Float = 1.40
-        cell.birthRate         = Float(tier.maxParticles) * 0.60 / puffLifetime
-        cell.lifetime          = puffLifetime
-        cell.lifetimeRange     = 0.45
-        cell.velocity          = 18               // slow initial drift
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence) * 0.55
-        cell.yAcceleration     = physics.effectiveGravity  // negative = gentle upward float
-        cell.xAcceleration     = physics.wind              // lateral spread
-        cell.emissionRange     = .pi * 2          // omnidirectional — smoke billows in all directions
-        cell.scale             = 0.20             // start as a large, visible puff
-        cell.scaleRange        = 0.08
-        cell.scaleSpeed        = 0.022            // expands as it rises — realistic smoke expansion
-        // Fade rate derived from starting alpha and lifetime:
-        //   alphaSpeed = -startAlpha / puffLifetime ≈ -0.40 / 1.40 ≈ −0.286
-        //   Rounded to −0.29 so the particle is nearly transparent exactly at lifetime.
-        cell.alphaSpeed        = -0.29
-        cell.spin              = 0.5
-        cell.spinRange         = physics.spinRange
-
-        // Colour: mid-grey with a subtle cool tint and a hint of the user's ink colour.
-        // Normal blend mode means these are truly grey on white paper (not invisible).
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let pr = 0.30 + r * 0.12
-        let pg = 0.30 + g * 0.12
-        let pb = 0.34 + b * 0.10   // slight cool/blue tint — classic smoke hue
-        cell.color    = UIColor(red: pr, green: pg, blue: pb, alpha: 0.40).cgColor
-        cell.contents = smokeCloudCGImage(diameter: 36)
-        return cell
-    }
-
-    /// Small, fast, erratic secondary wisps that give smoke its tendrilly character.
-    private func makeShadowWispCell(color: UIColor) -> CAEmitterCell {
-        let physics = ParticlePhysics.shadowWispPhysics
-        let cell               = CAEmitterCell()
-        // Reserve the remaining 40% of the tier budget for wisps.
-        //   birthRate = maxParticles × 0.40 / lifetime  →  simultaneous ≈ maxParticles × 0.40
-        // Combined with puffs (60%) the total simultaneous count ≈ maxParticles × 1.0.
-        let wispLifetime: Float = 0.75
-        cell.birthRate         = Float(tier.maxParticles) * 0.40 / wispLifetime
-        cell.lifetime          = wispLifetime
-        cell.lifetimeRange     = 0.30
-        cell.velocity          = 30               // faster initial burst
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi * 2
-        cell.scale             = 0.07
-        cell.scaleRange        = 0.03
-        cell.scaleSpeed        = 0.018            // wisps also expand slightly
-        // Fade rate: -startAlpha / wispLifetime ≈ -0.25 / 0.75 ≈ −0.333 → −0.34
-        cell.alphaSpeed        = -0.34
-        cell.spin              = 1.0
-        cell.spinRange         = physics.spinRange
-
-        // Slightly lighter than the main puffs so they feel like wispy tendrils.
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let wr = 0.42 + r * 0.10
-        let wg = 0.42 + g * 0.10
-        let wb = 0.46 + b * 0.08
-        cell.color    = UIColor(red: wr, green: wg, blue: wb, alpha: 0.25).cgColor
-        cell.contents = smokeCloudCGImage(diameter: 16)
-        return cell
-    }
-
-    /// Rebuilds the shadow emitter cells when the ink colour changes mid-session.
-    private func recolourShadowEmitter(color: UIColor) {
-        shadowEmitterLayer.emitterCells = [
-            makeShadowPuffCell(color: color),
-            makeShadowWispCell(color: color)
-        ]
-    }
-
-    private func updateShadowEmitterPosition(_ point: CGPoint) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        shadowEmitterLayer.emitterPosition = point
-        CATransaction.commit()
-    }
-
-    // MARK: - Private: Blood (viscous crimson drips)
-
-    private func setupBloodEmitter(color: UIColor) {
-        let physics = ParticlePhysics.bloodPhysics
-        emitterLayer.emitterShape = .point
-        emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
-        emitterLayer.isHidden     = false
-        emitterLayer.emitterCells = [makeBloodCell(physics: physics)]
-        emitterLayer.birthRate    = 0
-    }
-
-    private func makeBloodCell(physics: ParticlePhysics) -> CAEmitterCell {
-        let cell               = CAEmitterCell()
-        cell.birthRate         = Float(min(tier.maxParticles, 45)) * 0.5
-        cell.lifetime          = 1.0
-        cell.lifetimeRange     = 0.35
-        cell.velocity          = 45
-        cell.velocityRange     = CGFloat(physics.effectiveTurbulence)
-        cell.yAcceleration     = physics.effectiveGravity   // heavy downward pull
-        cell.xAcceleration     = physics.wind
-        cell.emissionRange     = .pi / 6            // mostly downward splatter
-        cell.emissionLongitude = .pi / 2            // emitting downward
-        cell.scale             = 0.12
-        cell.scaleRange        = 0.06
-        cell.scaleSpeed        = -0.015
-        cell.alphaSpeed        = -0.8
-        cell.spin              = 0
-        cell.spinRange         = physics.spinRange
-        // Deep crimson — not user-customisable for maximum horror effect
-        cell.color      = UIColor(red: 0.55, green: 0.02, blue: 0.02, alpha: 0.92).cgColor
-        cell.redRange   = 0.15
-        cell.contents   = dropCGImage(size: 22)
-        return cell
-    }
-
-    // MARK: - Private: Helpers
-
-    private func circleCGImage(diameter: CGFloat) -> CGImage? {
-        let size = CGSize(width: diameter, height: diameter)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { _ in
-            UIColor.white.setFill()
-            UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
-        }.cgImage
-    }
-
-    /// Soft-edged smoke cloud bitmap: white at the centre fading to transparent at the
-    /// perimeter.  This feathered gradient makes overlapping puffs blend smoothly,
-    /// giving the emitter system a volumetric, cloud-like appearance.
-    private func smokeCloudCGImage(diameter: CGFloat) -> CGImage? {
-        let size   = CGSize(width: diameter, height: diameter)
-        let center = CGPoint(x: diameter / 2, y: diameter / 2)
-        let radius = diameter / 2
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { ctx in
-            let cgCtx       = ctx.cgContext
-            let colorSpace  = CGColorSpaceCreateDeviceRGB()
-            // Radial gradient: opaque white at the centre → fully transparent at the edge.
-            // When CAEmitterCell tints this white image with cell.color, the soft edge
-            // blends naturally with neighbouring particles and the page background.
-            let colors: [CGFloat] = [
-                1.0, 1.0, 1.0, 0.90,   // centre: near-opaque white
-                1.0, 1.0, 1.0, 0.40,   // mid-point: partial opacity for soft shoulder
-                1.0, 1.0, 1.0, 0.00    // edge: fully transparent
-            ]
-            let locations: [CGFloat] = [0.0, 0.5, 1.0]
-            if let gradient = CGGradient(
-                colorSpace: colorSpace,
-                colorComponents: colors,
-                locations: locations,
-                count: 3
-            ) {
-                cgCtx.drawRadialGradient(
-                    gradient,
-                    startCenter: center, startRadius: 0,
-                    endCenter:   center, endRadius:   radius,
-                    options:     []
-                )
-            }
-        }.cgImage
-    }
-
-    /// Six-pointed snowflake bitmap for the snow effect.
-    private func snowflakeCGImage(diameter: CGFloat) -> CGImage? {
-        let size = CGSize(width: diameter, height: diameter)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { ctx in
-            let center = CGPoint(x: diameter / 2, y: diameter / 2)
-            let radius = diameter / 2 - 1
-            UIColor.white.setStroke()
-            let path = UIBezierPath()
-            path.lineWidth = 1.0
-            // Draw 6 radial arms
-            for i in 0..<6 {
-                let angle = CGFloat(i) * .pi / 3
-                let endPt = CGPoint(
-                    x: center.x + cos(angle) * radius,
-                    y: center.y + sin(angle) * radius
-                )
-                path.move(to: center)
-                path.addLine(to: endPt)
-            }
-            path.stroke()
-        }.cgImage
-    }
-
-    /// Small square bitmap for the dissolve effect (simulates crumbling chunks).
-    private func squareCGImage(size: CGFloat) -> CGImage? {
-        let sz = CGSize(width: size, height: size)
-        let renderer = UIGraphicsImageRenderer(size: sz)
-        return renderer.image { _ in
-            UIColor.white.setFill()
-            UIBezierPath(roundedRect: CGRect(origin: .zero, size: sz), cornerRadius: 1).fill()
-        }.cgImage
-    }
-
-    /// Diamond (rotated square) bitmap for the sheen effect — gives an iridescent sparkle shape.
-    private func diamondCGImage(size: CGFloat) -> CGImage? {
-        let sz = CGSize(width: size, height: size)
-        let renderer = UIGraphicsImageRenderer(size: sz)
-        return renderer.image { ctx in
-            let cx = size / 2, cy = size / 2, r = size / 2 - 0.5
-            let path = UIBezierPath()
-            path.move(to:    CGPoint(x: cx,     y: cy - r))  // top
-            path.addLine(to: CGPoint(x: cx + r, y: cy))       // right
-            path.addLine(to: CGPoint(x: cx,     y: cy + r))  // bottom
-            path.addLine(to: CGPoint(x: cx - r, y: cy))       // left
-            path.close()
-            UIColor.white.setFill()
-            path.fill()
-        }.cgImage
-    }
-
-    /// Teardrop bitmap for the blood effect — simulates a heavy falling drop.
-    private func dropCGImage(size: CGFloat) -> CGImage? {
-        let sz = CGSize(width: size, height: size)
-        let renderer = UIGraphicsImageRenderer(size: sz)
-        return renderer.image { _ in
-            let cx = size / 2
-            let path = UIBezierPath()
-            // Round bottom half — arc from right (angle 0) counterclockwise to left (angle π)
-            path.addArc(
-                withCenter: CGPoint(x: cx, y: size * 0.65),
-                radius: size * 0.32,
-                startAngle: 0,
-                endAngle: .pi,
-                clockwise: false
-            )
-            // Pointed tip: quad curve from the arc's end point (left) up to a peak and back to the right
-            path.addQuadCurve(to: CGPoint(x: cx + size * 0.32, y: size * 0.65),
-                              controlPoint: CGPoint(x: cx, y: 0))
-            path.close()
-            UIColor.white.setFill()
-            path.fill()
-        }.cgImage
+    /// Derives a snow particle colour: white biased toward the user's ink hue.
+    private func snowColor(from color: UIColor) -> UIColor {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: nil)
+        return UIColor(
+            red:   min(1.0, 0.70 + r * 0.30),
+            green: min(1.0, 0.70 + g * 0.30),
+            blue:  min(1.0, 0.70 + b * 0.30),
+            alpha: 0.85
+        )
     }
 }
