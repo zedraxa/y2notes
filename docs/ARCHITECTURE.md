@@ -66,13 +66,95 @@ The monolithic `NoteEditorView.swift` (4451 lines) has been split into focused f
 
 ---
 
+## State Architecture (ARCH-02)
+
+State management uses a **protocol-oriented service container** pattern.
+Core business logic lives in framework-agnostic protocols and implementations
+(`Y2Notes/Core/`), while SwiftUI views consume thin adapter wrappers
+(`Y2Notes/Adapters/`).
+
+### Layer Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     SwiftUI Views                                    │
+│         @EnvironmentObject var noteStore: NoteStore                  │
+│         @EnvironmentObject var themeStore: ThemeStore                 │
+│                          ...                                         │
+└─────────┬───────────────────────────────────────────────────────────┘
+          │  (ObservableObject / @Published)
+          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              Y2Notes/Adapters/  (SwiftUI bridge layer)               │
+│                                                                      │
+│  ObservableNoteStore    ObservableThemeStore   ObservableToolStore    │
+│  ObservableInkEffectStore   ObservableSettingsStore                   │
+│                                                                      │
+│  Each adapter is <50 lines — subscribes to Combine publishers and    │
+│  mirrors state as @Published for SwiftUI consumption.                │
+└─────────┬───────────────────────────────────────────────────────────┘
+          │  (AnyPublisher / CurrentValueSubject)
+          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│          Y2Notes/Core/  (ZERO SwiftUI imports)                       │
+│                                                                      │
+│  Protocols/          Services/           Persistence/                 │
+│  ├─NoteRepository    ├─CoreThemeService  ├─PersistenceDriver         │
+│  ├─ThemeProvider     ├─CoreSettings…     └─JSONFilePersistence…      │
+│  ├─ToolStateProvider └─CoreInkEffect…                                │
+│  ├─InkEffectProvider                                                 │
+│  ├─SettingsProvider  ServiceContainer.swift                          │
+│  └─SyncProvider      (owns all service instances)                    │
+└─────────────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Engine / UIKit code uses protocols directly:                        │
+│    container.noteRepository.notes                                    │
+│    container.toolStateProvider.activeWidth                            │
+│    container.inkEffectProvider.resolvedFX                             │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ServiceContainer
+
+`ServiceContainer` is the single dependency injection container. Created once
+in `Y2NotesApp.init()`, it owns every service instance:
+
+| Protocol | Implementation | Persistence |
+|----------|---------------|-------------|
+| `NoteRepository` | `NoteStore` (existing) | JSON files in `~/Documents/` |
+| `ThemeProvider` | `CoreThemeService` | UserDefaults |
+| `ToolStateProvider` | `DrawingToolStore` (existing) | UserDefaults |
+| `InkEffectProvider` | `CoreInkEffectService` | UserDefaults |
+| `SettingsProvider` | `CoreSettingsService` | UserDefaults |
+| `SyncProvider` | `GoogleDriveSyncEngine` (existing) | JSON + Google Drive API |
+
+### PersistenceDriver
+
+The `PersistenceDriver` protocol abstracts file-level I/O:
+
+```swift
+protocol PersistenceDriver {
+    func write(_ data: Data, forKey key: String) throws
+    func read(forKey key: String) throws -> Data?
+    func delete(forKey key: String) throws
+    func exists(forKey key: String) -> Bool
+}
+```
+
+`JSONFilePersistenceDriver` is the default implementation, mapping each key
+to a `<key>.json` file with single-generation `.bak` backup.
+
+---
+
 ## Module Map
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        Y2NotesApp  (@main)                             │
 │                                                                         │
-│  Creates 7 @StateObject stores → injects as .environmentObject          │
+│  Creates ServiceContainer → injects stores as .environmentObject        │
 │                                                                         │
 │  ┌─────────────┐ ┌─────────────┐ ┌───────────────┐ ┌───────────────┐  │
 │  │  NoteStore   │ │ ThemeStore  │ │DrawingToolStore│ │InkEffectStore │  │

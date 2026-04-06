@@ -160,6 +160,23 @@
 		AA00010000000000000001A5 /* ShapeOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A4 /* ShapeOverlayView.swift */; };
 		AA00010000000000000001A7 /* NoteFlashcardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A6 /* NoteFlashcardSheet.swift */; };
 		AA00010000000000000001A9 /* PageOverviewGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A8 /* PageOverviewGrid.swift */; };
+		AA00010000000000000001B8 /* NoteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001B7 /* NoteRepository.swift */; };
+		AA00010000000000000001BA /* ThemeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001B9 /* ThemeProvider.swift */; };
+		AA00010000000000000001BC /* ToolStateProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BB /* ToolStateProvider.swift */; };
+		AA00010000000000000001BE /* InkEffectProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BD /* InkEffectProvider.swift */; };
+		AA00010000000000000001C0 /* SettingsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BF /* SettingsProvider.swift */; };
+		AA00010000000000000001C2 /* SyncProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C1 /* SyncProvider.swift */; };
+		AA00010000000000000001C4 /* PersistenceDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C3 /* PersistenceDriver.swift */; };
+		AA00010000000000000001C6 /* JSONFilePersistenceDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */; };
+		AA00010000000000000001C8 /* CoreThemeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C7 /* CoreThemeService.swift */; };
+		AA00010000000000000001CA /* CoreSettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C9 /* CoreSettingsService.swift */; };
+		AA00010000000000000001CC /* CoreInkEffectService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CB /* CoreInkEffectService.swift */; };
+		AA00010000000000000001CE /* ServiceContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CD /* ServiceContainer.swift */; };
+		AA00010000000000000001D0 /* ObservableNoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CF /* ObservableNoteStore.swift */; };
+		AA00010000000000000001D2 /* ObservableThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D1 /* ObservableThemeStore.swift */; };
+		AA00010000000000000001D4 /* ObservableToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D3 /* ObservableToolStore.swift */; };
+		AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D5 /* ObservableInkEffectStore.swift */; };
+		AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D7 /* ObservableSettingsStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -324,6 +341,23 @@
 		AA00010000000000000001A4 /* ShapeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeOverlayView.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A6 /* NoteFlashcardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteFlashcardSheet.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A8 /* PageOverviewGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageOverviewGrid.swift; sourceTree = "<group>"; };
+		AA00010000000000000001B7 /* NoteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteRepository.swift; sourceTree = "<group>"; };
+		AA00010000000000000001B9 /* ThemeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001BB /* ToolStateProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolStateProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001BD /* InkEffectProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001BF /* SettingsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C1 /* SyncProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C3 /* PersistenceDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceDriver.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONFilePersistenceDriver.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C7 /* CoreThemeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreThemeService.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C9 /* CoreSettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreSettingsService.swift; sourceTree = "<group>"; };
+		AA00010000000000000001CB /* CoreInkEffectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreInkEffectService.swift; sourceTree = "<group>"; };
+		AA00010000000000000001CD /* ServiceContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceContainer.swift; sourceTree = "<group>"; };
+		AA00010000000000000001CF /* ObservableNoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableNoteStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001D1 /* ObservableThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableThemeStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001D3 /* ObservableToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableToolStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001D5 /* ObservableInkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableInkEffectStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001D7 /* ObservableSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableSettingsStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -367,6 +401,8 @@
 			children = (
 				AA0001000000000000000011 /* Y2NotesApp.swift */,
 				AA0001000000000000000012 /* ContentView.swift */,
+				AA00010000000000000001B2 /* Core */,
+				AA00010000000000000001B6 /* Adapters */,
 				AA000100000000000000000E /* Models */,
 				AA000100000000000000000F /* Views */,
 				AA0001000000000000000010 /* Persistence */,
@@ -644,6 +680,61 @@
 			path = Y2NotesTests;
 			sourceTree = "<group>";
 		};
+		AA00010000000000000001B2 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001B3 /* Protocols */,
+				AA00010000000000000001B4 /* Persistence */,
+				AA00010000000000000001B5 /* Services */,
+				AA00010000000000000001CD /* ServiceContainer.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001B3 /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001B7 /* NoteRepository.swift */,
+				AA00010000000000000001B9 /* ThemeProvider.swift */,
+				AA00010000000000000001BB /* ToolStateProvider.swift */,
+				AA00010000000000000001BD /* InkEffectProvider.swift */,
+				AA00010000000000000001BF /* SettingsProvider.swift */,
+				AA00010000000000000001C1 /* SyncProvider.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001B4 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001C3 /* PersistenceDriver.swift */,
+				AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001B5 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001C7 /* CoreThemeService.swift */,
+				AA00010000000000000001C9 /* CoreSettingsService.swift */,
+				AA00010000000000000001CB /* CoreInkEffectService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001B6 /* Adapters */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001CF /* ObservableNoteStore.swift */,
+				AA00010000000000000001D1 /* ObservableThemeStore.swift */,
+				AA00010000000000000001D3 /* ObservableToolStore.swift */,
+				AA00010000000000000001D5 /* ObservableInkEffectStore.swift */,
+				AA00010000000000000001D7 /* ObservableSettingsStore.swift */,
+			);
+			path = Adapters;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 		AA0001000000000000000002 /* Y2Notes */ = {
 			isa = PBXNativeTarget;
@@ -896,6 +987,23 @@
 				AA0001000000000000000163 /* TextCanvasView.swift in Sources */,
 				AA0001000000000000000165 /* TextObjectHandlesView.swift in Sources */,
 				AA0001000000000000000197 /* StickerRenderer.swift in Sources */,
+				AA00010000000000000001B8 /* NoteRepository.swift in Sources */,
+				AA00010000000000000001BA /* ThemeProvider.swift in Sources */,
+				AA00010000000000000001BC /* ToolStateProvider.swift in Sources */,
+				AA00010000000000000001BE /* InkEffectProvider.swift in Sources */,
+				AA00010000000000000001C0 /* SettingsProvider.swift in Sources */,
+				AA00010000000000000001C2 /* SyncProvider.swift in Sources */,
+				AA00010000000000000001C4 /* PersistenceDriver.swift in Sources */,
+				AA00010000000000000001C6 /* JSONFilePersistenceDriver.swift in Sources */,
+				AA00010000000000000001C8 /* CoreThemeService.swift in Sources */,
+				AA00010000000000000001CA /* CoreSettingsService.swift in Sources */,
+				AA00010000000000000001CC /* CoreInkEffectService.swift in Sources */,
+				AA00010000000000000001CE /* ServiceContainer.swift in Sources */,
+				AA00010000000000000001D0 /* ObservableNoteStore.swift in Sources */,
+				AA00010000000000000001D2 /* ObservableThemeStore.swift in Sources */,
+				AA00010000000000000001D4 /* ObservableToolStore.swift in Sources */,
+				AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */,
+				AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */,
 		};
 		AA0001000000000000000176 /* Sources (Y2NotesTests) */ = {
 			isa = PBXSourcesBuildPhase;
