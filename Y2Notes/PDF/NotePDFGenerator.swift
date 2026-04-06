@@ -1,6 +1,9 @@
 import PencilKit
 import PDFKit
 import UIKit
+import os
+
+private let pdfLogger = Logger(subsystem: "com.y2notes", category: "PDFGenerator")
 
 // MARK: - NotePDFGenerator
 
@@ -154,7 +157,7 @@ enum NotePDFGenerator {
         } catch {
             // Best-effort — the note is still editable from in-memory PKDrawing data.
             #if DEBUG
-            print("NotePDFGenerator: regenerate failed — \(error)")
+            pdfLogger.error("Regenerate failed: \(error.localizedDescription, privacy: .public)")
             #endif
         }
     }

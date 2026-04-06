@@ -1,9 +1,11 @@
 // PerlinNoise.swift
 // Y2Notes
 //
-// Custom 2D Perlin noise generator with fractal Brownian motion (fBm).
-// Implements Ken Perlin's improved noise algorithm from scratch —
-// no external noise libraries, all gradient math hand-coded.
+// 2D Perlin noise generator with fractal Brownian motion (fBm).
+// Hot-path evaluation is delegated to the SIMD-optimized C kernel
+// in Native/y2_perlin.c (Arm NEON on Apple Silicon, scalar fallback
+// elsewhere).  The Swift layer owns the C state and exposes
+// an identical API so callers don't change.
 //
 
 import Foundation
@@ -17,158 +19,51 @@ import CoreGraphics
 /// - Smooth, continuous noise (C¹-continuous via Hermite interpolation)
 /// - Tileable with period 256
 /// - Deterministic for a given seed
-/// - No external dependencies
+/// - SIMD-accelerated via C kernel (Native/y2_perlin.c)
 final class PerlinNoise2D {
 
-    // MARK: - Permutation Table
-
-    /// The permutation table (doubled for wrapping).
-    private let perm: [Int]
-
-    /// Gradient vectors for 2D: 8 unit-length gradients at 45° intervals.
-    /// Using integer directions for speed (normalisation not needed since
-    /// we only compute dot products with fractional coordinates in [0,1)).
-    private static let gradients: [(Double, Double)] = [
-        ( 1,  0), (-1,  0), ( 0,  1), ( 0, -1),
-        ( 1,  1), (-1,  1), ( 1, -1), (-1, -1)
-    ]
+    /// Opaque C state (permutation table + seed).
+    /// `fileprivate` so NoiseTextureGenerator (same file) can use the batch C kernel.
+    fileprivate let cState: OpaquePointer
 
     /// Create a noise generator with a given seed.
-    /// The seed shuffles the permutation table using a Fisher-Yates shuffle
-    /// with a custom linear congruential generator.
     init(seed: UInt64 = 0) {
-        var table = Array(0..<256)
-
-        // Fisher-Yates shuffle using LCG(a=6364136223846793005, c=1442695040888963407).
-        var state = seed
-        for i in stride(from: 255, through: 1, by: -1) {
-            state = state &* 6364136223846793005 &+ 1442695040888963407
-            let j = Int(state >> 33) % (i + 1)
-            table.swapAt(i, j)
+        guard let state = y2_perlin_create(seed) else {
+            fatalError("y2_perlin_create returned nil — out of memory")
         }
+        cState = OpaquePointer(state)
+    }
 
-        // Double the table for easy wrapping (avoids modulo in hot path).
-        perm = table + table
+    deinit {
+        y2_perlin_destroy(UnsafeMutablePointer(cState))
     }
 
     // MARK: - Noise Evaluation
 
-    /// Evaluate Perlin noise at (x, y). Returns a value in approximately [−1, 1].
+    /// Evaluate Perlin noise at (x, y).  Returns a value in approximately [−1, 1].
+    @inline(__always)
     func noise(x: Double, y: Double) -> Double {
-        // Integer cell coordinates (wrapped to 0–255).
-        let xi = Int(floor(x)) & 255
-        let yi = Int(floor(y)) & 255
-
-        // Fractional position within cell.
-        let xf = x - floor(x)
-        let yf = y - floor(y)
-
-        // Fade curves: 6t⁵ − 15t⁴ + 10t³ (Perlin's improved smoothstep).
-        let u = fade(xf)
-        let v = fade(yf)
-
-        // Hash coordinates of the 4 cell corners.
-        let aa = perm[perm[xi    ] + yi    ]
-        let ab = perm[perm[xi    ] + yi + 1]
-        let ba = perm[perm[xi + 1] + yi    ]
-        let bb = perm[perm[xi + 1] + yi + 1]
-
-        // Gradient dot products at each corner.
-        let g00 = grad(hash: aa, x: xf,       y: yf)
-        let g10 = grad(hash: ba, x: xf - 1.0, y: yf)
-        let g01 = grad(hash: ab, x: xf,       y: yf - 1.0)
-        let g11 = grad(hash: bb, x: xf - 1.0, y: yf - 1.0)
-
-        // Bilinear interpolation with fade curves.
-        let x0 = lerp(g00, g10, t: u)
-        let x1 = lerp(g01, g11, t: u)
-        return lerp(x0, x1, t: v)
+        y2_perlin_noise(UnsafePointer(cState), x, y)
     }
 
     // MARK: - Fractal Brownian Motion
 
     /// Multi-octave fractal Brownian motion (fBm).
-    ///
-    /// Layers multiple octaves of noise with increasing frequency and decreasing amplitude.
-    /// - Parameters:
-    ///   - octaves: Number of noise layers (1–8 typical).
-    ///   - persistence: Amplitude decay per octave (0.5 typical = each octave half as loud).
-    ///   - lacunarity: Frequency multiplier per octave (2.0 typical = each octave twice as detailed).
     func fbm(x: Double, y: Double, octaves: Int = 6, persistence: Double = 0.5, lacunarity: Double = 2.0) -> Double {
-        var total = 0.0
-        var amplitude = 1.0
-        var frequency = 1.0
-        var maxAmplitude = 0.0  // For normalisation.
-
-        for _ in 0..<octaves {
-            total += noise(x: x * frequency, y: y * frequency) * amplitude
-            maxAmplitude += amplitude
-            amplitude *= persistence
-            frequency *= lacunarity
-        }
-
-        // Normalise to [−1, 1].
-        return total / maxAmplitude
+        y2_perlin_fbm(UnsafePointer(cState), x, y,
+                      Int32(octaves), persistence, lacunarity)
     }
 
-    /// Turbulence: fBm using absolute value of noise (creates ridge-like patterns).
+    /// Turbulence: fBm using |noise| (ridge-like patterns).
     func turbulence(x: Double, y: Double, octaves: Int = 6, persistence: Double = 0.5, lacunarity: Double = 2.0) -> Double {
-        var total = 0.0
-        var amplitude = 1.0
-        var frequency = 1.0
-        var maxAmplitude = 0.0
-
-        for _ in 0..<octaves {
-            total += abs(noise(x: x * frequency, y: y * frequency)) * amplitude
-            maxAmplitude += amplitude
-            amplitude *= persistence
-            frequency *= lacunarity
-        }
-
-        return total / maxAmplitude
+        y2_perlin_turbulence(UnsafePointer(cState), x, y,
+                             Int32(octaves), persistence, lacunarity)
     }
 
-    /// Ridged multi-fractal noise (creates sharp ridge features like mountain ranges or fibers).
+    /// Ridged multi-fractal noise (sharp ridge features).
     func ridged(x: Double, y: Double, octaves: Int = 6, persistence: Double = 0.5, lacunarity: Double = 2.0, offset: Double = 1.0) -> Double {
-        var total = 0.0
-        var amplitude = 1.0
-        var frequency = 1.0
-        var weight = 1.0
-
-        for _ in 0..<octaves {
-            var signal = noise(x: x * frequency, y: y * frequency)
-            signal = offset - abs(signal)  // Create ridges.
-            signal *= signal               // Sharpen.
-            signal *= weight               // Weight by previous octave.
-
-            total += signal * amplitude
-            weight = min(1.0, max(0.0, signal * 2.0))
-            amplitude *= persistence
-            frequency *= lacunarity
-        }
-
-        return total
-    }
-
-    // MARK: - Internals
-
-    /// Improved Perlin fade: 6t⁵ − 15t⁴ + 10t³
-    /// This is C²-continuous (second derivative is 0 at t=0 and t=1).
-    @inline(__always)
-    private func fade(_ t: Double) -> Double {
-        t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
-    }
-
-    @inline(__always)
-    private func lerp(_ a: Double, _ b: Double, t: Double) -> Double {
-        a + t * (b - a)
-    }
-
-    /// Compute gradient dot product for a hash value and fractional position.
-    @inline(__always)
-    private func grad(hash: Int, x: Double, y: Double) -> Double {
-        let g = Self.gradients[hash & 7]
-        return g.0 * x + g.1 * y
+        y2_perlin_ridged(UnsafePointer(cState), x, y,
+                         Int32(octaves), persistence, lacunarity, offset)
     }
 }
 
@@ -212,46 +107,61 @@ enum NoiseTextureGenerator {
 
         let config = materialConfig(material)
 
-        for y in 0..<height {
-            for x in 0..<width {
-                let nx = Double(x) * scale * config.frequencyScale
-                let ny = Double(y) * scale * config.frequencyScale
+        // Fast path: delegate entirely to C batch kernel for simple fBm
+        // materials without directional bias.
+        if config.noiseType == .fbm && config.directionalBias == 0 {
+            pixels.withUnsafeMutableBufferPointer { buf in
+                y2_perlin_generate_tile(
+                    UnsafePointer(noise.cState),
+                    buf.baseAddress!,
+                    Int32(width), Int32(height),
+                    scale * config.frequencyScale,
+                    Int32(config.octaves),
+                    config.persistence,
+                    config.lacunarity,
+                    config.contrast
+                )
+            }
+        } else {
+            for y in 0..<height {
+                for x in 0..<width {
+                    let nx = Double(x) * scale * config.frequencyScale
+                    let ny = Double(y) * scale * config.frequencyScale
 
-                var value: Double
-                switch config.noiseType {
-                case .fbm:
-                    value = noise.fbm(
-                        x: nx, y: ny,
-                        octaves: config.octaves,
-                        persistence: config.persistence,
-                        lacunarity: config.lacunarity
-                    )
-                case .turbulence:
-                    value = noise.turbulence(
-                        x: nx, y: ny,
-                        octaves: config.octaves,
-                        persistence: config.persistence,
-                        lacunarity: config.lacunarity
-                    )
-                case .ridged:
-                    value = noise.ridged(
-                        x: nx, y: ny,
-                        octaves: config.octaves,
-                        persistence: config.persistence,
-                        lacunarity: config.lacunarity
-                    )
+                    var value: Double
+                    switch config.noiseType {
+                    case .fbm:
+                        value = noise.fbm(
+                            x: nx, y: ny,
+                            octaves: config.octaves,
+                            persistence: config.persistence,
+                            lacunarity: config.lacunarity
+                        )
+                    case .turbulence:
+                        value = noise.turbulence(
+                            x: nx, y: ny,
+                            octaves: config.octaves,
+                            persistence: config.persistence,
+                            lacunarity: config.lacunarity
+                        )
+                    case .ridged:
+                        value = noise.ridged(
+                            x: nx, y: ny,
+                            octaves: config.octaves,
+                            persistence: config.persistence,
+                            lacunarity: config.lacunarity
+                        )
+                    }
+
+                    if config.directionalBias > 0 {
+                        let bias = noise.noise(x: nx * 3.0, y: ny * 0.3) * config.directionalBias
+                        value = value * (1.0 - config.directionalBias) + bias
+                    }
+
+                    let normalised = (value * config.contrast + 1.0) * 0.5
+                    let clamped = max(0.0, min(1.0, normalised))
+                    pixels[y * width + x] = UInt8(clamped * 255.0)
                 }
-
-                // Apply directional bias for materials like linen and laid.
-                if config.directionalBias > 0 {
-                    let bias = noise.noise(x: nx * 3.0, y: ny * 0.3) * config.directionalBias
-                    value = value * (1.0 - config.directionalBias) + bias
-                }
-
-                // Map from [-1, 1] to [0, 255], applying contrast.
-                let normalised = (value * config.contrast + 1.0) * 0.5
-                let clamped = max(0.0, min(1.0, normalised))
-                pixels[y * width + x] = UInt8(clamped * 255.0)
             }
         }
 

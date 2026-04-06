@@ -238,14 +238,6 @@ struct Note: Identifiable, Codable, Hashable {
     /// Nil means no label is applied.
     var colorLabel: NoteColorLabel?
 
-    /// ID of a `PDFNoteRecord` that this note was created to accompany.
-    /// When set, the note editor shows an action to open the linked PDF side by side.
-    var linkedPDFID: UUID?
-
-    /// ID of an `ImportedDocument` that this note was created to accompany.
-    /// When set, the note editor shows an action to open the linked document side by side.
-    var linkedDocumentID: UUID?
-
     /// Total number of pages in this note.
     var pageCount: Int { pages.count }
 
@@ -278,9 +270,7 @@ struct Note: Identifiable, Codable, Hashable {
         typedText: String = "",
         ocrText: String = "",
         tags: [String] = [],
-        colorLabel: NoteColorLabel? = nil,
-        linkedPDFID: UUID? = nil,
-        linkedDocumentID: UUID? = nil
+        colorLabel: NoteColorLabel? = nil
     ) {
         self.id = id
         self.title = title
@@ -310,8 +300,6 @@ struct Note: Identifiable, Codable, Hashable {
         self.ocrText = ocrText
         self.tags = tags
         self.colorLabel = colorLabel
-        self.linkedPDFID = linkedPDFID
-        self.linkedDocumentID = linkedDocumentID
     }
 
     // MARK: Codable — custom decoder for backward compatibility with old saves
@@ -364,8 +352,6 @@ struct Note: Identifiable, Codable, Hashable {
         ocrText       = try c.decodeIfPresent(String.self,   forKey: .ocrText)     ?? ""
         tags          = try c.decodeIfPresent([String].self,          forKey: .tags)       ?? []
         colorLabel    = try c.decodeIfPresent(NoteColorLabel.self,    forKey: .colorLabel)
-        linkedPDFID      = try c.decodeIfPresent(UUID.self,           forKey: .linkedPDFID)
-        linkedDocumentID = try c.decodeIfPresent(UUID.self,           forKey: .linkedDocumentID)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -404,8 +390,6 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encode(ocrText,       forKey: .ocrText)
         try c.encode(tags,          forKey: .tags)
         try c.encodeIfPresent(colorLabel, forKey: .colorLabel)
-        try c.encodeIfPresent(linkedPDFID,      forKey: .linkedPDFID)
-        try c.encodeIfPresent(linkedDocumentID, forKey: .linkedDocumentID)
     }
 
     // MARK: Hashable — identity only, so list selection stays stable while content changes.

@@ -69,55 +69,24 @@ enum ColorConvert {
     // ---- sRGB → OKLAB ----
 
     /// Convert sRGB [0,1] components to OKLAB.
-    /// Implements the matrix chain: sRGB → Linear → LMS → LMS^(1/3) → Lab
+    /// Delegates to SIMD-optimized C kernel (y2_color.c) for the matrix
+    /// chain: sRGB → Linear → LMS (M1) → LMS^(1/3) → Lab (M2).
+    @inline(__always)
     static func sRGBToOKLab(r: Double, g: Double, b: Double) -> OKLab {
-        let lr = sRGBToLinear(r)
-        let lg = sRGBToLinear(g)
-        let lb = sRGBToLinear(b)
-
-        // Linear RGB → LMS (using Ottosson's M1 matrix)
-        let l = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb
-        let m = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb
-        let s = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb
-
-        // Cube root (perceptual non-linearity)
-        let lp = cbrt(l)
-        let mp = cbrt(m)
-        let sp = cbrt(s)
-
-        // LMS' → OKLAB (using Ottosson's M2 matrix)
-        return OKLab(
-            L: 0.2104542553 * lp + 0.7936177850 * mp - 0.0040720468 * sp,
-            a: 1.9779984951 * lp - 2.4285922050 * mp + 0.4505937099 * sp,
-            b: 0.0259040371 * lp + 0.7827717662 * mp - 0.8086757660 * sp
-        )
+        var L: Double = 0, A: Double = 0, B: Double = 0
+        y2_color_srgb_to_oklab(r, g, b, &L, &A, &B)
+        return OKLab(L: L, a: A, b: B)
     }
 
     // ---- OKLAB → sRGB ----
 
     /// Convert OKLAB to sRGB [0,1] components.
-    /// Inverse of sRGBToOKLab.
+    /// Delegates to SIMD-optimized C kernel (y2_color.c).
+    @inline(__always)
     static func oklabToSRGB(_ lab: OKLab) -> (r: Double, g: Double, b: Double) {
-        // OKLAB → LMS' (inverse of M2)
-        let lp = lab.L + 0.3963377774 * lab.a + 0.2158037573 * lab.b
-        let mp = lab.L - 0.1055613458 * lab.a - 0.0638541728 * lab.b
-        let sp = lab.L - 0.0894841775 * lab.a - 1.2914855480 * lab.b
-
-        // Cube (undo perceptual non-linearity)
-        let l = lp * lp * lp
-        let m = mp * mp * mp
-        let s = sp * sp * sp
-
-        // LMS → Linear RGB (inverse of M1)
-        let lr =  4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s
-        let lg = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s
-        let lb = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
-
-        return (
-            r: clamp01(linearToSRGB(lr)),
-            g: clamp01(linearToSRGB(lg)),
-            b: clamp01(linearToSRGB(lb))
-        )
+        var r: Double = 0, g: Double = 0, b: Double = 0
+        y2_color_oklab_to_srgb(lab.L, lab.a, lab.b, &r, &g, &b)
+        return (r: r, g: g, b: b)
     }
 
     // ---- UIColor conversions ----
@@ -181,10 +150,25 @@ enum ColorInterpolation {
     }
 
     /// Generate N perceptually equidistant colors between two endpoints.
+    /// Delegates to C batch gradient kernel for SIMD-optimized conversion pipeline.
     static func gradient(_ a: UIColor, _ b: UIColor, steps: Int) -> [UIColor] {
         guard steps >= 2 else { return [a] }
+        var rA: CGFloat = 0, gA: CGFloat = 0, bA: CGFloat = 0, aA: CGFloat = 0
+        a.getRed(&rA, green: &gA, blue: &bA, alpha: &aA)
+        var rB: CGFloat = 0, gB: CGFloat = 0, bB: CGFloat = 0, aB: CGFloat = 0
+        b.getRed(&rB, green: &gB, blue: &bB, alpha: &aB)
+
+        var outRGB = [Double](repeating: 0, count: steps * 3)
+        y2_color_batch_gradient(Double(rA), Double(gA), Double(bA),
+                                Double(rB), Double(gB), Double(bB),
+                                Int32(steps), &outRGB)
+
         return (0..<steps).map { i in
-            interpolateOKLab(a, b, t: Double(i) / Double(steps - 1))
+            let alphaT = Double(aA) + (Double(aB) - Double(aA)) * Double(i) / Double(steps - 1)
+            return UIColor(red: CGFloat(outRGB[i * 3]),
+                          green: CGFloat(outRGB[i * 3 + 1]),
+                           blue: CGFloat(outRGB[i * 3 + 2]),
+                          alpha: CGFloat(alphaT))
         }
     }
 }
@@ -273,13 +257,11 @@ enum ContrastRatio {
 
     /// Relative luminance per WCAG 2.1 § 1.4.3.
     /// L = 0.2126·R + 0.7152·G + 0.0722·B (in linear sRGB).
+    /// Delegates to C kernel for consistent sRGB→linear transfer function.
     static func relativeLuminance(of color: UIColor) -> Double {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: nil)
-        let lr = ColorConvert.sRGBToLinear(Double(r))
-        let lg = ColorConvert.sRGBToLinear(Double(g))
-        let lb = ColorConvert.sRGBToLinear(Double(b))
-        return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb
+        return y2_color_relative_luminance(Double(r), Double(g), Double(b))
     }
 
     /// Contrast ratio between two colors per WCAG 2.1.
@@ -351,13 +333,14 @@ enum ContrastRatio {
 enum ColorDistance {
     /// ΔE in OKLAB space: Euclidean distance in the perceptual color space.
     /// Values < 0.02 are typically imperceptible; > 0.1 are clearly different.
+    /// Delegates to SIMD-optimized C kernel for the full sRGB→OKLAB→distance chain.
     static func deltaE(_ a: UIColor, _ b: UIColor) -> Double {
-        let labA = ColorConvert.uiColorToOKLab(a)
-        let labB = ColorConvert.uiColorToOKLab(b)
-        let dL = labA.L - labB.L
-        let da = labA.a - labB.a
-        let db = labA.b - labB.b
-        return (dL * dL + da * da + db * db).squareRoot()
+        var rA: CGFloat = 0, gA: CGFloat = 0, bA: CGFloat = 0
+        a.getRed(&rA, green: &gA, blue: &bA, alpha: nil)
+        var rB: CGFloat = 0, gB: CGFloat = 0, bB: CGFloat = 0
+        b.getRed(&rB, green: &gB, blue: &bB, alpha: nil)
+        return y2_color_delta_e(Double(rA), Double(gA), Double(bA),
+                                Double(rB), Double(gB), Double(bB))
     }
 
     /// Whether two colors are perceptually indistinguishable (ΔE < threshold).

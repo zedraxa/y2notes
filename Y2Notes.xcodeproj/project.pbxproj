@@ -122,7 +122,16 @@
 		AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000142 /* ReduceMotionObserver.swift */; };
 		AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000144 /* EffectsCoordinator.swift */; };
 		AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000146 /* WritingEffectsPipeline.swift */; };
-		AA0001000000000000000149 /* EraserCursorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* EraserCursorOverlay.swift */; };
+		AA000100000000000000017D /* EraserCursorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000017C /* EraserCursorOverlay.swift */; };
+		AA0001000000000000000181 /* GoogleDriveFileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* GoogleDriveFileBrowserView.swift */; };
+		AA000100000000000000017F /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */; };
+		AA0001000000000000000183 /* PencilNibTrackerGestureRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */; };
+		AA0001000000000000000185 /* CanvasPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000184 /* CanvasPageView.swift */; };
+		AA0001000000000000000187 /* NotePageCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000186 /* NotePageCarouselView.swift */; };
+		AA000100000000000000018B /* y2_perlin.c in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000018A /* y2_perlin.c */; };
+		AA000100000000000000018E /* y2_sph.c in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000018D /* y2_sph.c */; };
+		AA0001000000000000000192 /* y2_color.c in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000191 /* y2_color.c */; };
+		AA0001000000000000000195 /* y2_levenshtein.c in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000194 /* y2_levenshtein.c */; };
 		AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014A /* InteractionFeedbackEngine.swift */; };
 		AA0001000000000000000155 /* WritingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000154 /* WritingInsights.swift */; };
 		AA0001000000000000000157 /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000156 /* QuickAction.swift */; };
@@ -139,8 +148,9 @@
 		AA000100000000000000016F /* ColorScience.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000016E /* ColorScience.swift */; };
 		AA0001000000000000000167 /* PerlinNoise.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* PerlinNoise.swift */; };
 		AA0001000000000000000169 /* FluidSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000168 /* FluidSimulation.swift */; };
+		AA0001000000000000000174 /* NoteEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000173 /* NoteEncodingTests.swift */; };
 		AA0001000000000000000167 /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */; };
-		AA0001000000000000000173 /* StickerRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000172 /* StickerRenderer.swift */; };
+		AA0001000000000000000197 /* StickerRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000196 /* StickerRenderer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -204,7 +214,20 @@
 		AA0001000000000000000142 /* ReduceMotionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReduceMotionObserver.swift; sourceTree = "<group>"; };
 		AA0001000000000000000144 /* EffectsCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectsCoordinator.swift; sourceTree = "<group>"; };
 		AA0001000000000000000146 /* WritingEffectsPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectsPipeline.swift; sourceTree = "<group>"; };
-		AA0001000000000000000148 /* EraserCursorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraserCursorOverlay.swift; sourceTree = "<group>"; };
+		AA000100000000000000017C /* EraserCursorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraserCursorOverlay.swift; sourceTree = "<group>"; };
+		AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
+		AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilNibTrackerGestureRecognizer.swift; sourceTree = "<group>"; };
+		AA0001000000000000000184 /* CanvasPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000186 /* NotePageCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotePageCarouselView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000189 /* y2_perlin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_perlin.h; sourceTree = "<group>"; };
+		AA000100000000000000018A /* y2_perlin.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_perlin.c; sourceTree = "<group>"; };
+		AA000100000000000000018C /* y2_sph.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_sph.h; sourceTree = "<group>"; };
+		AA000100000000000000018D /* y2_sph.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_sph.c; sourceTree = "<group>"; };
+		AA0001000000000000000190 /* y2_color.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_color.h; sourceTree = "<group>"; };
+		AA0001000000000000000191 /* y2_color.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_color.c; sourceTree = "<group>"; };
+		AA0001000000000000000193 /* y2_levenshtein.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_levenshtein.h; sourceTree = "<group>"; };
+		AA0001000000000000000194 /* y2_levenshtein.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_levenshtein.c; sourceTree = "<group>"; };
+		AA000100000000000000018F /* Y2Notes-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Y2Notes-Bridging-Header.h"; sourceTree = "<group>"; };
 		AA000100000000000000014A /* InteractionFeedbackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionFeedbackEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000154 /* WritingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsights.swift; sourceTree = "<group>"; };
 		AA0001000000000000000156 /* QuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAction.swift; sourceTree = "<group>"; };
@@ -222,7 +245,7 @@
 		AA0001000000000000000166 /* PerlinNoise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerlinNoise.swift; sourceTree = "<group>"; };
 		AA0001000000000000000168 /* FluidSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluidSimulation.swift; sourceTree = "<group>"; };
 		AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
-		AA0001000000000000000172 /* StickerRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerRenderer.swift; sourceTree = "<group>"; };
+		AA0001000000000000000196 /* StickerRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerRenderer.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -281,10 +304,19 @@
 		AA000100000000000000012C /* WidgetPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPickerView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000152 /* WidgetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetEditorView.swift; sourceTree = "<group>"; };
 		AA000100000000000000012E /* PageRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRegion.swift; sourceTree = "<group>"; };
+		AA0001000000000000000173 /* NoteEncodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteEncodingTests.swift; sourceTree = "<group>"; };
+		AA0001000000000000000175 /* Y2NotesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Y2NotesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AA0001000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0001000000000000000177 /* Frameworks (Y2NotesTests) */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -298,6 +330,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000100000000000000000D /* Y2Notes */,
+				AA0001000000000000000172 /* Y2NotesTests */,
 				AA000100000000000000000C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -306,6 +339,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000003 /* Y2Notes.app */,
+				AA0001000000000000000175 /* Y2NotesTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -328,8 +362,10 @@
 				AA00010000000000000000B3 /* Settings */,
 				AA00010000000000000000B4 /* Accessibility */,
 				AA00010000000000000000B5 /* GoogleDrive */,
+				AA0001000000000000000188 /* Native */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
+				AA000100000000000000018F /* Y2Notes-Bridging-Header.h */,
 				AA00010000000000000000B1 /* Localizable.strings */,
 			);
 			path = Y2Notes;
@@ -367,6 +403,7 @@
 			children = (
 				AA0001000000000000000014 /* NoteListView.swift */,
 				AA0001000000000000000015 /* NoteEditorView.swift */,
+				AA0001000000000000000186 /* NotePageCarouselView.swift */,
 				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
 				AA0001000000000000000082 /* DrawingToolbarView.swift */,
@@ -446,8 +483,10 @@
 				AA0001000000000000000053 /* PencilInteractionCoordinator.swift */,
 				AA0001000000000000000054 /* PencilHoverOverlayView.swift */,
 				AA0001000000000000000055 /* ContextualPencilPaletteView.swift */,
-				AA0001000000000000000148 /* EraserCursorOverlay.swift */,
-				AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */,
+				AA000100000000000000017C /* EraserCursorOverlay.swift */,
+				AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */,
+				AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */,
+				AA0001000000000000000184 /* CanvasPageView.swift */,
 			);
 			path = PencilKit;
 			sourceTree = "<group>";
@@ -510,9 +549,22 @@
 				AA000100000000000000014A /* InteractionFeedbackEngine.swift */,
 				AA0001000000000000000166 /* PerlinNoise.swift */,
 				AA0001000000000000000168 /* FluidSimulation.swift */,
-				AA0001000000000000000172 /* StickerRenderer.swift */,
+				AA0001000000000000000196 /* StickerRenderer.swift */,
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000188 /* Native */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000189 /* y2_perlin.h */,
+				AA000100000000000000018A /* y2_perlin.c */,
+				AA000100000000000000018C /* y2_sph.h */,
+				AA000100000000000000018D /* y2_sph.c */,
+				AA0001000000000000000190 /* y2_color.h */,
+				AA0001000000000000000191 /* y2_color.c */,
+				AA0001000000000000000193 /* y2_levenshtein.h */,
+				AA0001000000000000000194 /* y2_levenshtein.c */,
 			);
-			path = Ink;
+			path = Native;
 			sourceTree = "<group>";
 		};
 		AA00010000000000000000D1 /* Documents */ = {
@@ -557,9 +609,15 @@
 			path = GoogleDrive;
 			sourceTree = "<group>";
 		};
+		AA0001000000000000000172 /* Y2NotesTests */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000173 /* NoteEncodingTests.swift */,
+			);
+			path = Y2NotesTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
-
-/* Begin PBXNativeTarget section */
 		AA0001000000000000000002 /* Y2Notes */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA000100000000000000000A /* Build configuration list for PBXNativeTarget "Y2Notes" */;
@@ -577,6 +635,22 @@
 			productReference = AA0001000000000000000003 /* Y2Notes.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AA0001000000000000000178 /* Y2NotesTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA000100000000000000017B /* Build configuration list for PBXNativeTarget "Y2NotesTests" */;
+			buildPhases = (
+				AA0001000000000000000176 /* Sources */,
+				AA0001000000000000000177 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Y2NotesTests;
+			productName = Y2NotesTests;
+			productReference = AA0001000000000000000175 /* Y2NotesTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -591,6 +665,10 @@
 						CreatedOnToolsVersion = 15.0;
 						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
+					};
+					AA0001000000000000000178 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = AA0001000000000000000002;
 					};
 				};
 			};
@@ -608,6 +686,7 @@
 			projectRoot = "";
 			targets = (
 				AA0001000000000000000002 /* Y2Notes */,
+				AA0001000000000000000178 /* Y2NotesTests */,
 			);
 		};
 /* End PBXProject section */
@@ -666,8 +745,15 @@
 				AA0001000000000000000058 /* PencilInteractionCoordinator.swift in Sources */,
 				AA0001000000000000000059 /* PencilHoverOverlayView.swift in Sources */,
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
-				AA0001000000000000000149 /* EraserCursorOverlay.swift in Sources */,
-				AA0001000000000000000167 /* ScribbleDeleteRecognizer.swift in Sources */,
+				AA000100000000000000017D /* EraserCursorOverlay.swift in Sources */,
+				AA000100000000000000017F /* ScribbleDeleteRecognizer.swift in Sources */,
+				AA0001000000000000000183 /* PencilNibTrackerGestureRecognizer.swift in Sources */,
+				AA0001000000000000000185 /* CanvasPageView.swift in Sources */,
+				AA0001000000000000000187 /* NotePageCarouselView.swift in Sources */,
+				AA000100000000000000018B /* y2_perlin.c in Sources */,
+				AA000100000000000000018E /* y2_sph.c in Sources */,
+				AA0001000000000000000192 /* y2_color.c in Sources */,
+				AA0001000000000000000195 /* y2_levenshtein.c in Sources */,
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
 				AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */,
@@ -695,7 +781,7 @@
 				AA00010000000000000000BF /* GoogleDriveSyncEngine.swift in Sources */,
 				AA00010000000000000000C0 /* GoogleDriveOfflineQueue.swift in Sources */,
 				AA00010000000000000000C1 /* GoogleDriveSyncStatusView.swift in Sources */,
-				AA0001000000000000000149 /* GoogleDriveFileBrowserView.swift in Sources */,
+				AA0001000000000000000181 /* GoogleDriveFileBrowserView.swift in Sources */,
 				AA00010000000000000000C8 /* NoteCreationSheet.swift in Sources */,
 				AA00010000000000000000CA /* StudyStatsView.swift in Sources */,
 				AA00010000000000000000CE /* ImportedDocument.swift in Sources */,
@@ -761,7 +847,13 @@
 				AA0001000000000000000161 /* TextObject.swift in Sources */,
 				AA0001000000000000000163 /* TextCanvasView.swift in Sources */,
 				AA0001000000000000000165 /* TextObjectHandlesView.swift in Sources */,
-				AA0001000000000000000173 /* StickerRenderer.swift in Sources */,
+				AA0001000000000000000197 /* StickerRenderer.swift in Sources */,
+		};
+		AA0001000000000000000176 /* Sources (Y2NotesTests) */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0001000000000000000174 /* NoteEncodingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -894,6 +986,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
+				GOOGLE_DRIVE_CLIENT_ID = "";
 				INFOPLIST_FILE = Y2Notes/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -904,6 +997,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Y2Notes/Y2Notes-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 2;
 			};
@@ -920,6 +1014,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
+				GOOGLE_DRIVE_CLIENT_ID = "";
 				INFOPLIST_FILE = Y2Notes/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -930,8 +1025,39 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Y2Notes/Y2Notes-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
+		AA0001000000000000000179 /* Debug (Y2NotesTests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Y2Notes.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Y2Notes";
+			};
+			name = Debug;
+		};
+		AA000100000000000000017A /* Release (Y2NotesTests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Y2Notes.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Y2Notes";
 			};
 			name = Release;
 		};
@@ -952,6 +1078,15 @@
 			buildConfigurations = (
 				AA0001000000000000000020 /* Debug */,
 				AA0001000000000000000021 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA000100000000000000017B /* Build configuration list for PBXNativeTarget "Y2NotesTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0001000000000000000179 /* Debug */,
+				AA000100000000000000017A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

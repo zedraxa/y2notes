@@ -307,7 +307,6 @@ final class WritingEffectsPipeline {
                 layer.shadowOpacity = Tuning.neonShadowOpacity
                 layer.shadowOffset = .zero
                 layer.frame = overlayView.bounds
-                layer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
                 overlayView.layer.addSublayer(layer)
                 neonOverlay = layer
             } else {

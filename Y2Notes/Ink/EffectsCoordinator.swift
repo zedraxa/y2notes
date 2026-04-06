@@ -1,34 +1,125 @@
 import UIKit
 import Combine
 
+// MARK: - Canvas Event
+
+/// Typed description of a single canvas lifecycle moment.
+///
+/// `EffectsCoordinator.dispatch(_:inkEffectEngine:)` accepts a `CanvasEvent`
+/// and fans it out to every interested engine in one call, replacing the
+/// previous pattern of calling three separate engine methods from
+/// `NoteEditorView.Coordinator`.
+///
+/// **Coordinate space**: all `CGPoint` and `CGRect` values are in **viewport**
+/// coordinates (the canvas view's own bounds space), matching what each engine
+/// expects for overlay positioning.
+enum CanvasEvent {
+    /// The user's pencil just touched the canvas.  The nib position is
+    /// approximate (bounds midpoint) because the stroke is not committed yet.
+    case strokeBegan(at: CGPoint, inkColor: UIColor)
+
+    /// A live stroke update — called for every new `PKStrokePoint` appended.
+    /// `pressure` is `PKStrokePoint.force` (0–1 normalised).
+    /// `velocity` is the instantaneous inter-point speed in points/second.
+    case strokeUpdated(at: CGPoint, pressure: CGFloat, velocity: CGFloat)
+
+    /// The pencil lifted.  The last committed stroke's geometry is provided.
+    /// `headingBounds` is the stroke's `renderBounds` converted to viewport
+    /// space; used by `StudyModeEngine` for heading-glow detection.
+    case strokeEnded(at: CGPoint, start: CGPoint, inkColor: UIColor, headingBounds: CGRect)
+}
+
+// MARK: - Sensory Context
+
+/// Lightweight value that tracks the user's current writing dynamics.
+///
+/// Updated automatically by `EffectsCoordinator.dispatch(_:)` on every
+/// `.strokeUpdated` event.  Engines can read `coordinator.sensoryContext`
+/// to modulate their output — for example, emitting more energetic particles
+/// during fast dynamic writing and soft glow during deliberate strokes.
+///
+/// **Thread safety**: mutated exclusively on the main thread inside the
+/// `@MainActor`-isolated `EffectsCoordinator`.
+struct SensoryContext {
+
+    // MARK: Writing Rhythm
+
+    /// Qualitative writing rhythm derived from smoothed velocity.
+    enum WritingRhythm: Equatable {
+        case still        // pen not moving   (< 80 pts/s)
+        case deliberate   // careful, slow    (80 – 300 pts/s)
+        case moderate     // normal handwriting (300 – 700 pts/s)
+        case dynamic      // fast, energetic  (> 700 pts/s)
+
+        fileprivate init(velocity v: CGFloat) {
+            switch v {
+            case ..<80:   self = .still
+            case ..<300:  self = .deliberate
+            case ..<700:  self = .moderate
+            default:      self = .dynamic
+            }
+        }
+    }
+
+    // MARK: State
+
+    /// Exponentially smoothed stroke velocity (points/second).
+    private(set) var smoothedVelocity: CGFloat = 0
+
+    /// Current writing rhythm derived from `smoothedVelocity`.
+    private(set) var rhythm: WritingRhythm = .still
+
+    // MARK: Update
+
+    private static let smoothingAlpha: CGFloat = 0.25
+
+    mutating func update(velocity: CGFloat) {
+        smoothedVelocity = Self.smoothingAlpha * velocity
+                         + (1 - Self.smoothingAlpha) * smoothedVelocity
+        rhythm = WritingRhythm(velocity: smoothedVelocity)
+    }
+
+    /// Call when the pencil lifts — decays velocity toward zero so that the
+    /// rhythm eventually returns to `.still` after a writing pause.
+    mutating func decay() {
+        smoothedVelocity *= 0.5
+        rhythm = WritingRhythm(velocity: smoothedVelocity)
+    }
+}
+
 // MARK: - Effects Coordinator
 
-/// Central coordinator that owns all effect engines and keeps them in sync.
+/// Central mediator that owns all effect engines and dispatches canvas events.
 ///
-/// `EffectsCoordinator` replaces the manual wiring previously spread across
-/// `NoteEditorView.updateUIView`.  It:
+/// `EffectsCoordinator` provides two services:
 ///
-/// 1. **Instantiates** every effect engine once.
-/// 2. **Distributes** `AdaptiveEffectsEngine.intensity` to all sub-engines
-///    automatically via Combine — callers never distribute intensity manually.
-/// 3. **Exposes** each engine through named properties for direct use by
-///    `NoteEditorView.Coordinator` and canvas views.
+/// 1. **Intensity distribution** — `AdaptiveEffectsEngine.intensity` is
+///    propagated to every sub-engine automatically via Combine.
 ///
-/// **Usage in `NoteEditorView.Coordinator`:**
+/// 2. **Event dispatch** — `dispatch(_:inkEffectEngine:)` accepts a typed
+///    `CanvasEvent` and routes it to every engine that cares, replacing the
+///    previous pattern of making three separate engine calls from
+///    `NoteEditorView.Coordinator` for every stroke lifecycle event.
+///
+/// **Usage:**
 /// ```swift
 /// let effects = EffectsCoordinator()
 ///
-/// // Activate/deactivate modes:
+/// // Stroke lifecycle (replaces 3 separate engine calls):
+/// effects.dispatch(.strokeBegan(at: pt, inkColor: color), inkEffectEngine: engine)
+/// effects.dispatch(.strokeUpdated(at: pt, pressure: p, velocity: v), inkEffectEngine: engine)
+/// effects.dispatch(.strokeEnded(at: end, start: start, inkColor: color,
+///                               headingBounds: bounds), inkEffectEngine: engine)
+///
+/// // Mode activation:
 /// effects.setMagicMode(active: true, on: canvasView.layer)
 /// effects.setStudyMode(active: true, on: canvasView.layer)
 ///
-/// // Update notebook complexity for adaptive gating:
+/// // Notebook complexity signals:
 /// effects.adaptiveEngine.pageCount = pageCount
 /// effects.adaptiveEngine.currentPageStrokeCount = strokeCount
-///
-/// // Propagate intensity to canvas sub-views:
-/// effects.applyIntensity(to: shapeCanvas, attachmentCanvas, widgetCanvas)
 /// ```
+@MainActor
 final class EffectsCoordinator {
 
     // MARK: - Engines
@@ -62,6 +153,15 @@ final class EffectsCoordinator {
 
     /// Centralized haptic + visual feedback for UI interactions.
     let interactionFeedbackEngine = InteractionFeedbackEngine()
+
+    // MARK: - Sensory Context
+
+    /// Live snapshot of the user's current writing dynamics.
+    ///
+    /// Updated automatically by `dispatch(_:)` on every `.strokeUpdated` and
+    /// decayed on `.strokeEnded`.  Engines may query this to modulate their
+    /// output for a coherent, context-aware sensory experience.
+    private(set) var sensoryContext: SensoryContext = SensoryContext()
 
     // MARK: - Private
 
@@ -124,6 +224,50 @@ final class EffectsCoordinator {
             studyModeEngine.activate(on: layer)
         } else if !active, studyModeEngine.isActive {
             studyModeEngine.deactivate()
+        }
+    }
+
+    // MARK: - Canvas Event Dispatch
+
+    /// Single intake point for all stroke lifecycle events.
+    ///
+    /// Replaces the previous pattern of calling three separate engine methods
+    /// from `NoteEditorView.Coordinator` on every stroke event.  The coordinator
+    /// fans the event out to every interested engine and updates `sensoryContext`.
+    ///
+    /// - Parameters:
+    ///   - event: The typed canvas event.
+    ///   - inkEffectEngine: The optional per-session `InkEffectEngine` (not owned
+    ///     by this coordinator because it requires a `DeviceCapabilityTier` at
+    ///     init time and is created by the editor coordinator).
+    func dispatch(_ event: CanvasEvent, inkEffectEngine: InkEffectEngine? = nil) {
+        switch event {
+
+        case .strokeBegan(let at, let inkColor):
+            inkEffectEngine?.onStrokeBegan(at: at)
+            writingEffectsPipeline.onStrokeBegan(at: at)
+            if magicModeEngine.isActive {
+                magicModeEngine.strokeBegan(at: at, inkColor: inkColor)
+            }
+
+        case .strokeUpdated(let at, let pressure, let velocity):
+            inkEffectEngine?.onStrokeUpdated(at: at)
+            writingEffectsPipeline.onStrokeUpdated(at: at, pressure: pressure, velocity: velocity)
+            if magicModeEngine.isActive {
+                magicModeEngine.strokeMoved(to: at)
+            }
+            sensoryContext.update(velocity: velocity)
+
+        case .strokeEnded(let at, let start, let inkColor, let headingBounds):
+            inkEffectEngine?.onStrokeEnded(at: at)
+            writingEffectsPipeline.onStrokeEnded()
+            if magicModeEngine.isActive {
+                magicModeEngine.strokeEnded(at: at, startPoint: start, inkColor: inkColor)
+            }
+            if studyModeEngine.isActive {
+                studyModeEngine.headingGlow(at: headingBounds)
+            }
+            sensoryContext.decay()
         }
     }
 

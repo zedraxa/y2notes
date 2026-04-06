@@ -1,6 +1,9 @@
 import Foundation
 import Combine
 import UIKit
+import os
+
+private let storeLogger = Logger(subsystem: "com.y2notes", category: "NoteStore")
 
 // MARK: - Save state
 
@@ -169,9 +172,7 @@ final class NoteStore: ObservableObject {
         guard FileManager.default.fileExists(atPath: flagURL.path) else { return }
         // Previous session did not exit cleanly. Data is safe due to atomic writes
         // and rolling backups. Log for diagnostics.
-        #if DEBUG
-        print("Y2Notes: crash detected — previous session did not exit cleanly. Data recovered from last save.")
-        #endif
+        storeLogger.warning("Crash detected — previous session did not exit cleanly. Data recovered from last save.")
     }
 
     // MARK: - Note CRUD
@@ -257,11 +258,6 @@ final class NoteStore: ObservableObject {
     /// Returns all notes that are linked to the given imported document.
     func notes(forDocument docID: UUID) -> [Note] {
         notes.filter { $0.linkedDocumentID == docID }
-    }
-
-    /// Returns all notes that have any linked import (PDF or Document).
-    var importLinkedNotes: [Note] {
-        notes.filter { $0.linkedPDFID != nil || $0.linkedDocumentID != nil }
     }
 
     /// Returns true if a companion note already exists for the given PDF.
@@ -798,26 +794,6 @@ final class NoteStore: ObservableObject {
         return note
     }
 
-    /// Notes linked to a specific PDF record.
-    func notes(forPDF pdfID: UUID) -> [Note] {
-        notes.filter { $0.linkedPDFID == pdfID }.sorted { $0.modifiedAt > $1.modifiedAt }
-    }
-
-    /// Notes linked to a specific imported document.
-    func notes(forDocument documentID: UUID) -> [Note] {
-        notes.filter { $0.linkedDocumentID == documentID }.sorted { $0.modifiedAt > $1.modifiedAt }
-    }
-
-    /// Whether a companion note already exists for the given PDF record.
-    func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
-        notes.contains { $0.linkedPDFID == pdfID }
-    }
-
-    /// Whether a companion note already exists for the given imported document.
-    func hasCompanionNote(forDocument documentID: UUID) -> Bool {
-        notes.contains { $0.linkedDocumentID == documentID }
-    }
-
     // MARK: - Page ordering
 
     /// Pages belonging to a section, sorted by `sortOrder` (then `modifiedAt` as tiebreaker).
@@ -1126,6 +1102,58 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    func updateNotebookLastOpened(id: UUID) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].lastOpenedAt = Date()
+        save()
+    }
+
+    func toggleNotebookPin(id: UUID) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].isPinned.toggle()
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    func toggleNotebookLock(id: UUID) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].isLocked.toggle()
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    @discardableResult
+    func duplicateNotebook(id: UUID) -> Notebook? {
+        guard let original = notebooks.first(where: { $0.id == id }) else { return nil }
+        let copy = addNotebook(
+            name: "\(original.name) (Copy)",
+            description: original.description,
+            cover: original.cover,
+            pageType: original.pageType,
+            pageSize: original.pageSize,
+            orientation: original.orientation,
+            defaultTheme: original.defaultTheme,
+            paperMaterial: original.paperMaterial,
+            customCoverData: original.customCoverData,
+            coverTexture: original.coverTexture
+        )
+        // Duplicate all sections from the original notebook.
+        let originalSections = sections(inNotebook: original.id)
+        for section in originalSections {
+            addSection(toNotebook: copy.id, name: section.name,
+                       defaultTemplateID: section.defaultTemplateID,
+                       colorTag: section.colorTag)
+        }
+        return copy
+    }
+
+    func updateNotebookColorTag(id: UUID, colorTag: NotebookColorTag) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].colorTag = colorTag
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
     /// Deletes a notebook, its sections, and unfiles all notes that belonged to it.
     func deleteNotebook(id: UUID) {
         for i in notes.indices where notes[i].notebookID == id {
@@ -1210,9 +1238,7 @@ final class NoteStore: ObservableObject {
                 try? fm.moveItem(at: bak1, to: bak2)
             }
             if (try? fm.copyItem(at: url, to: bak1)) == nil {
-                #if DEBUG
-                print("Y2Notes: backup creation failed for \(url.lastPathComponent)")
-                #endif
+                storeLogger.error("Backup creation failed for \(url.lastPathComponent, privacy: .public)")
             }
             // Also maintain the legacy .bak for backward compatibility.
             let legacyBak = url.appendingPathExtension("bak")
@@ -1243,9 +1269,7 @@ final class NoteStore: ObservableObject {
             if let value = attemptLoad(type, from: backupURL) {
                 // Promote the backup to primary so the next save goes to the right place.
                 if (try? FileManager.default.copyItem(at: backupURL, to: url)) == nil {
-                    #if DEBUG
-                    print("Y2Notes: backup promotion failed for \(url.lastPathComponent) from .\(suffix); data will be rewritten on next save")
-                    #endif
+                    storeLogger.warning("Backup promotion failed for \(url.lastPathComponent, privacy: .public) from .\(suffix, privacy: .public); data will be rewritten on next save")
                 }
                 return value
             }

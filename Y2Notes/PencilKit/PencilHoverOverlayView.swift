@@ -173,6 +173,13 @@ final class PencilHoverOverlayView: UIView {
             azimuthLayer.isHidden      = !toolInfo.showsAzimuthLine
             azimuthLayer.strokeColor   = toolInfo.color.withAlphaComponent(0.55).cgColor
             azimuthLayer.lineWidth     = 1.5
+
+        case .text:
+            // Neutral cursor for text tool.
+            nibView.layer.borderColor  = UIColor.systemBlue.withAlphaComponent(0.55).cgColor
+            nibView.layer.borderWidth  = 1.0
+            nibView.backgroundColor    = UIColor.systemBlue.withAlphaComponent(0.06)
+            azimuthLayer.isHidden      = true
         }
     }
 

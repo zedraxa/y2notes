@@ -250,8 +250,6 @@ struct StudySessionView: View {
 
     // MARK: Finished
 
-    @State private var showFinishedContent = false
-
     private var finishedView: some View {
         let duration = Int(Date().timeIntervalSince(sessionStartTime))
         let minutes = duration / 60

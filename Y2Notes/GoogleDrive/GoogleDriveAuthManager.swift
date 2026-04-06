@@ -2,6 +2,9 @@ import Foundation
 import AuthenticationServices
 import CryptoKit
 import UIKit
+import os
+
+private let driveLogger = Logger(subsystem: "com.y2notes", category: "GoogleDriveAuth")
 
 /// Manages Google OAuth 2.0 authorization using PKCE (Proof Key for Code Exchange).
 ///
@@ -22,14 +25,13 @@ final class GoogleDriveAuthManager: NSObject, ObservableObject {
     // MARK: - Configuration
 
     /// Google API OAuth 2.0 client ID for iOS.
-    /// Replace with your project's client ID from the Google Cloud Console.
+    /// Set via the GOOGLE_DRIVE_CLIENT_ID build setting (Codemagic env var).
+    /// The value flows through Info.plist key "GoogleDriveClientID".
     static let clientID: String = {
-        let id = "YOUR_CLIENT_ID.apps.googleusercontent.com"
-        #if DEBUG
-        if id.hasPrefix("YOUR_") {
-            print("⚠️ [GoogleDriveAuthManager] Replace clientID with a real Google Cloud Console client ID before shipping.")
+        let id = Bundle.main.object(forInfoDictionaryKey: "GoogleDriveClientID") as? String ?? ""
+        if id.isEmpty || id.hasPrefix("YOUR_") {
+            driveLogger.warning("[GoogleDriveAuthManager] GoogleDriveClientID is not configured — set GOOGLE_DRIVE_CLIENT_ID in your build environment.")
         }
-        #endif
         return id
     }()
     /// Redirect URI registered in Google Cloud Console (custom scheme).
@@ -87,7 +89,7 @@ final class GoogleDriveAuthManager: NSObject, ObservableObject {
         ) { [weak self] callbackURL, error in
             guard let self else { return }
             if let error {
-                print("Y2Notes: Google auth cancelled or failed — \(error.localizedDescription)")
+                driveLogger.error("Google auth cancelled or failed — \(error.localizedDescription, privacy: .public)")
                 return
             }
             guard let callbackURL,
@@ -150,7 +152,7 @@ final class GoogleDriveAuthManager: NSObject, ObservableObject {
             try handleTokenResponse(data)
             await fetchUserEmail()
         } catch {
-            print("Y2Notes: Token exchange failed — \(error.localizedDescription)")
+            driveLogger.error("Token exchange failed — \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -174,7 +176,7 @@ final class GoogleDriveAuthManager: NSObject, ObservableObject {
             try handleTokenResponse(data, preserveRefresh: refresh)
             return true
         } catch {
-            print("Y2Notes: Token refresh failed — \(error.localizedDescription)")
+            driveLogger.error("Token refresh failed — \(error.localizedDescription, privacy: .public)")
             return false
         }
     }

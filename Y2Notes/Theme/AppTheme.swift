@@ -71,18 +71,12 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         case .sepia:    return "Warm parchment tones for long writing sessions"
         case .midnight: return "Deep navy that reduces eye strain at night"
         case .ocean:    return "Cool pale-blue calm for focused study"
-        }
-    }
-
-    /// One-line description shown in the theme picker beneath the theme name.
-    var description: String {
-        switch self {
-        case .system:   return "Follows your device's Light or Dark setting"
-        case .light:    return "Crisp white canvas for everyday note-taking"
-        case .dark:     return "Easy on the eyes in low-light environments"
-        case .sepia:    return "Warm parchment tones for long writing sessions"
-        case .midnight: return "Deep navy that reduces eye strain at night"
-        case .ocean:    return "Cool pale-blue calm for focused study"
+        case .rose:     return "Soft pink tones for a warm, gentle feel"
+        case .forest:   return "Earthy greens for grounded, focused work"
+        case .lavender: return "Light purple for creative calm"
+        case .slate:    return "Cool neutral gray for a clean look"
+        case .ember:    return "Dark amber glow for night sessions"
+        case .paper:    return "Classic off-white, minimal distraction"
         }
     }
 
@@ -356,12 +350,6 @@ struct ThemeDefinition {
     }
 
     // MARK: Perceptual Color Science (OKLAB)
-
-    /// WCAG 2.1 contrast ratio between the primary text and the surface color.
-    /// Computed using hand-implemented sRGB→linear→luminance — no library.
-    var primaryTextContrastRatio: Double {
-        ContrastRatio.ratio(primaryText, surfaceColor)
-    }
 
     /// Returns true when the primary text meets WCAG AA (≥ 4.5:1) against the surface.
     var meetsContrastAA: Bool {

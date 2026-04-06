@@ -10,12 +10,11 @@ enum LibrarySection: Hashable {
     case allNotes
     case recents
     case favorites
+    case pdfLibrary
+    case documentLibrary
     /// Notes linked to imported PDFs or documents.
     case importNotes
     case notebook(UUID)
-    case pdfLibrary
-    case documentLibrary
-    case importNotes
     /// Filter to notes that carry a specific tag.
     case tag(String)
 }
@@ -105,6 +104,7 @@ struct ShelfView: View {
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var pdfStore:  PDFStore
     @EnvironmentObject var documentStore: DocumentStore
+    @EnvironmentObject var syncEngine: GoogleDriveSyncEngine
     @Environment(TabWorkspaceStore.self) private var tabSession
 
     @State private var selectedSection: LibrarySection? = .allNotes
@@ -247,6 +247,7 @@ private struct ShelfSidebarView: View {
     @EnvironmentObject var documentStore: DocumentStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var themeStore: ThemeStore
+    @EnvironmentObject var syncEngine: GoogleDriveSyncEngine
     @Binding var selectedSection: LibrarySection?
 
     @State private var showNewNotebookSheet = false
@@ -291,10 +292,6 @@ private struct ShelfSidebarView: View {
                 Label("Documents", systemImage: "doc.fill")
                     .tag(LibrarySection.documentLibrary)
                     .badge(documentStore.documents.count)
-
-                Label("Import Notes", systemImage: "paperclip")
-                    .tag(LibrarySection.importNotes)
-                    .badge(noteStore.importLinkedNotes.count)
             }
 
             // ── Tags ─────────────────────────────────────────────────────
@@ -685,8 +682,6 @@ struct NoteGridView: View {
             return []
         case .documentLibrary:
             return []
-        case .importNotes:
-            return noteStore.importLinkedNotes
         }
     }
 
@@ -718,7 +713,6 @@ struct NoteGridView: View {
         case .tag(let tag):       return "#\(tag)"
         case .pdfLibrary:         return "PDF Documents"
         case .documentLibrary:    return "Documents"
-        case .importNotes:        return "Import Notes"
         }
     }
 
@@ -1527,7 +1521,6 @@ struct NoteGridView: View {
         case .tag:       return "tag"
         case .pdfLibrary: return "doc.richtext"
         case .documentLibrary: return "doc.fill"
-        case .importNotes: return "paperclip"
         }
     }
 
@@ -1536,12 +1529,11 @@ struct NoteGridView: View {
         case .allNotes:  return "No Notes Yet"
         case .recents:   return "No Recent Notes"
         case .favorites: return "No Favorites Yet"
-        case .importNotes: return "No Import Notes"
+        case .importNotes: return "No Import Notes Yet"
         case .notebook:  return "Empty Notebook"
-        case .tag(let t): return "No Notes Tagged with "#\(t)""
+        case .tag(let t): return "No Notes Tagged with \"#\(t)\""
         case .pdfLibrary: return "No PDFs Yet"
         case .documentLibrary: return "No Documents Yet"
-        case .importNotes: return "No Import Notes Yet"
         }
     }
 
@@ -1555,7 +1547,6 @@ struct NoteGridView: View {
         case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
         case .documentLibrary: return "Import a document to get started."
-        case .importNotes: return "Create a companion note from a PDF or document viewer."
         }
     }
 }
@@ -1852,32 +1843,6 @@ private struct NotebookCoverBadge: View {
         .frame(width: 22, height: 28)
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
-    }
-}
-
-// MARK: - Shimmer loading placeholder
-
-private struct ShimmerView: View {
-    @State private var phase: CGFloat = 0
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Color(uiColor: .systemFill)
-                LinearGradient(
-                    colors: [.clear, Color(uiColor: .secondarySystemBackground).opacity(0.55), .clear],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: geo.size.width * 0.55)
-                .offset(x: (geo.size.width * 1.55) * phase - geo.size.width * 0.28)
-            }
-        }
-        .onAppear {
-            withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
-                phase = 1
-            }
-        }
     }
 }
 
@@ -2267,6 +2232,7 @@ private struct PDFLibraryView: View {
     @EnvironmentObject var pdfStore: PDFStore
     @EnvironmentObject var noteStore: NoteStore
     @Binding var selectedPDFID: UUID?
+    @Environment(TabWorkspaceStore.self) private var tabSession
 
     /// Callback invoked with a companion note's ID so the parent can open it in a tab.
     var onOpenCompanionNote: ((UUID) -> Void)?
@@ -2588,7 +2554,7 @@ private struct TagPickerSheet: View {
                             } label: {
                                 HStack {
                                     Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(isActive ? .tint : .secondary)
+                                        .foregroundStyle(isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                                         .font(.body)
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text("#\(tag)")

@@ -77,6 +77,7 @@ jobs:
       - name: Check locale scaffolding parity
         run: |
           EN_KEYS=$(awk -F'"' '/^"/ {print $2}' Y2Notes/en.lproj/Localizable.strings | sort)
+          FAILED=0
           for LPROJ in Y2Notes/*.lproj; do
             LANG=$(basename "$LPROJ" .lproj)
             [ "$LANG" = "en" ] && continue
@@ -85,10 +86,12 @@ jobs:
             LANG_KEYS=$(awk -F'"' '/^"/ {print $2}' "$FILE" | sort)
             MISSING=$(comm -23 <(echo "$EN_KEYS") <(echo "$LANG_KEYS"))
             if [ -n "$MISSING" ]; then
-              echo "⚠️  [$LANG] Missing keys:"
+              echo "❌ [$LANG] Missing keys:"
               echo "$MISSING" | head -10
               echo "  ... ($(echo "$MISSING" | wc -l | tr -d ' ') total missing)"
+              FAILED=1
             else
               echo "✅ [$LANG] All keys present"
             fi
           done
+          exit $FAILED
