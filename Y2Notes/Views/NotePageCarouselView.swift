@@ -192,8 +192,8 @@ struct NotePageCarouselView: View {
             activeAmbientScene: activeAmbientScene,
             isAmbientSoundEnabled: isAmbientSoundEnabled,
             isNewPage: isNewPage && idx == currentPageIndex,
-            initialZoomScale: pageZooms[idx],
-            onZoomChanged: { zoom in pageZooms[idx] = zoom }
+            onZoomChanged: { zoom in pageZooms[idx] = zoom },
+            initialZoomScale: pageZooms[idx]
         )
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
