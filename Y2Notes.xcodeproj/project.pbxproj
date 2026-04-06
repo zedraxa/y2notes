@@ -154,6 +154,7 @@
 		AA0001000000000000000199 /* NoteEditorView+Toolbars.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */; };
 		AA000100000000000000019B /* NoteEditorView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019A /* NoteEditorView+Actions.swift */; };
 		AA000100000000000000019D /* NoteEditorView+SubViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019C /* NoteEditorView+SubViews.swift */; };
+		AA00010000000000000001E5 /* NoteEditorView+Export.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E4 /* NoteEditorView+Export.swift */; };
 		AA000100000000000000019F /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019E /* CanvasView.swift */; };
 		AA00010000000000000001A1 /* CanvasViewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A0 /* CanvasViewCoordinator.swift */; };
 		AA00010000000000000001A3 /* ToolSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A2 /* ToolSnapshot.swift */; };
@@ -340,6 +341,7 @@
 		AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Toolbars.swift"; sourceTree = "<group>"; };
 		AA000100000000000000019A /* NoteEditorView+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Actions.swift"; sourceTree = "<group>"; };
 		AA000100000000000000019C /* NoteEditorView+SubViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+SubViews.swift"; sourceTree = "<group>"; };
+		AA00010000000000000001E4 /* NoteEditorView+Export.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Export.swift"; sourceTree = "<group>"; };
 		AA000100000000000000019E /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A0 /* CanvasViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewCoordinator.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A2 /* ToolSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSnapshot.swift; sourceTree = "<group>"; };
@@ -471,6 +473,7 @@
 				AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */,
 				AA000100000000000000019A /* NoteEditorView+Actions.swift */,
 				AA000100000000000000019C /* NoteEditorView+SubViews.swift */,
+				AA00010000000000000001E4 /* NoteEditorView+Export.swift */,
 				AA000100000000000000019E /* CanvasView.swift */,
 				AA00010000000000000001A0 /* CanvasViewCoordinator.swift */,
 				AA00010000000000000001A2 /* ToolSnapshot.swift */,
@@ -869,6 +872,7 @@
 				AA0001000000000000000199 /* NoteEditorView+Toolbars.swift in Sources */,
 				AA000100000000000000019B /* NoteEditorView+Actions.swift in Sources */,
 				AA000100000000000000019D /* NoteEditorView+SubViews.swift in Sources */,
+				AA00010000000000000001E5 /* NoteEditorView+Export.swift in Sources */,
 				AA000100000000000000019F /* CanvasView.swift in Sources */,
 				AA00010000000000000001A1 /* CanvasViewCoordinator.swift in Sources */,
 				AA00010000000000000001A3 /* ToolSnapshot.swift in Sources */,

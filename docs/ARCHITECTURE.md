@@ -55,7 +55,8 @@ The monolithic `NoteEditorView.swift` (4451 lines) has been split into focused f
 |------|-------|----------|
 | `NoteEditorView.swift` | ~500 | Main struct, body chain, canvas section |
 | `NoteEditorView+Toolbars.swift` | ~430 | Floating toolbar, selection bars, menus |
-| `NoteEditorView+Actions.swift` | ~600 | Action handlers, export, find/text logic |
+| `NoteEditorView+Actions.swift` | ~454 | Action handlers: placement, shapes, selection |
+| `NoteEditorView+Export.swift` | ~157 | Export (PDF/image), find bar, text save |
 | `NoteEditorView+SubViews.swift` | ~370 | Banners, overlays, title, find bar, page nav |
 | `CanvasView.swift` | ~830 | UIViewRepresentable PencilKit bridge |
 | `CanvasViewCoordinator.swift` | ~1170 | Coordinator + PencilActionDelegate |
