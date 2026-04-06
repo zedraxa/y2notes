@@ -33,6 +33,7 @@ struct CanvasConfiguration {
     let widgets: [NoteWidget]
     let stickers: [StickerInstance]
     let textObjects: [TextObject]
+    let embeddedObjects: [CanvasObjectWrapper]
 }
 
 // MARK: - Y2CanvasViewController
@@ -87,6 +88,12 @@ final class Y2CanvasViewController: UIViewController {
     /// Ink effect engine that renders fire / sparkle / glitch / ripple overlays.
     private var inkEffectEngine: InkEffectEngine?
 
+    /// Embedded-object overlay (images, audio clips, stickers, links, text blocks).
+    private var objectOverlay: Y2ObjectOverlayController?
+
+    /// Text-block creation flow.
+    private let textBlockInsertion = Y2TextBlockInsertionController()
+
     /// Debounce timer for persisting drawing changes.
     private var drawingDebounceTimer: Timer?
 
@@ -119,6 +126,7 @@ final class Y2CanvasViewController: UIViewController {
 
         setupCanvasView()
         setupEffectOverlay()
+        setupObjectOverlay()
         setupPencilInteractions()
         setupInkEffectEngine()
         loadDrawing()
@@ -176,6 +184,12 @@ final class Y2CanvasViewController: UIViewController {
         canvasView.undoManager?.redo()
     }
 
+    /// Trigger the text-block insertion flow.  Presents a text entry dialog;
+    /// on confirmation the new text block is inserted at `point` (page coords).
+    func insertTextBlock(at point: CGPoint) {
+        textBlockInsertion.present(from: self, insertionPoint: point)
+    }
+
     // MARK: - Private State
 
     /// True while the user is actively drawing (between touchesBegan and touchesEnded).
@@ -207,6 +221,25 @@ final class Y2CanvasViewController: UIViewController {
 
     private func setupEffectOverlay() {
         renderingPipeline.effectOverlay.install(in: view)
+    }
+
+    private func setupObjectOverlay() {
+        let overlay = Y2ObjectOverlayController()
+        overlay.onObjectsChanged = { [weak self] objects in
+            self?.delegate?.canvasDidUpdateEmbeddedObjects(objects)
+        }
+        addChild(overlay)
+        view.addSubview(overlay.view)
+        overlay.view.frame = view.bounds
+        overlay.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        overlay.didMove(toParent: self)
+        self.objectOverlay = overlay
+
+        // Seed initial embedded objects from the configuration.
+        overlay.setObjects(configuration.embeddedObjects)
+
+        // Wire text-block insertion delegate.
+        textBlockInsertion.delegate = self
     }
 
     private func setupInkEffectEngine() {
@@ -351,5 +384,16 @@ extension Y2CanvasViewController: PencilActionDelegate {
 
     func pencilBarrelRollChanged(angle: CGFloat) {
         // Barrel roll modulates fountain-pen width — handled by the rendering pipeline
+    }
+}
+
+// MARK: - Y2TextBlockInsertionDelegate
+
+extension Y2CanvasViewController: Y2TextBlockInsertionDelegate {
+    func textBlockInsertionController(
+        _ controller: Y2TextBlockInsertionController,
+        didPrepare wrapper: CanvasObjectWrapper
+    ) {
+        objectOverlay?.insertObject(wrapper)
     }
 }

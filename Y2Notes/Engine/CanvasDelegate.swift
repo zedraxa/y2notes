@@ -66,6 +66,9 @@ protocol CanvasDelegate: AnyObject {
 
     /// Text objects on the current page were modified.
     func canvasDidUpdateTextObjects(_ textObjects: [TextObject])
+
+    /// Embedded objects (images, audio clips, stickers, links, text blocks) changed.
+    func canvasDidUpdateEmbeddedObjects(_ objects: [CanvasObjectWrapper])
 }
 
 // MARK: - Default Implementations
@@ -80,4 +83,5 @@ extension CanvasDelegate {
     func canvasDidUpdateWidgets(_ widgets: [NoteWidget]) {}
     func canvasDidUpdateStickers(_ stickers: [StickerInstance]) {}
     func canvasDidUpdateTextObjects(_ textObjects: [TextObject]) {}
+    func canvasDidUpdateEmbeddedObjects(_ objects: [CanvasObjectWrapper]) {}
 }

@@ -135,4 +135,18 @@ extension CanvasObjectWrapper {
             objectType: .link(link)
         )
     }
+
+    /// Creates a wrapper for a text block centred at the given point.
+    static func makeTextBlock(
+        _ textBlock: TextBlockObject,
+        centeredAt point: CGPoint,
+        size: CGSize = CGSize(width: 240, height: 60)
+    ) -> CanvasObjectWrapper {
+        let origin = CGPoint(x: point.x - size.width / 2,
+                             y: point.y - size.height / 2)
+        return CanvasObjectWrapper(
+            frame: CGRect(origin: origin, size: size),
+            objectType: .textBlock(textBlock)
+        )
+    }
 }

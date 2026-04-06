@@ -139,15 +139,9 @@ final class Y2ObjectOverlayController: UIViewController {
     }
 
     private func makeTextBlockView(_ tb: TextBlockObject) -> UIView {
-        let label = UILabel()
-        label.text = tb.text
-        label.numberOfLines = 0
-        label.font = UIFont.systemFont(ofSize: tb.fontSize)
-        if let hexColor = tb.textColorHex.nilIfEmpty {
-            label.textColor = UIColor(hexString: hexColor) ?? .label
-        }
-        label.backgroundColor = tb.backgroundColorHex.flatMap { UIColor(hexString: $0) }
-        return label
+        let v = Y2TextBlockView(textBlock: tb)
+        v.textBlockDelegate = self
+        return v
     }
 
     private func attachGestures(to view: UIView, objectID: UUID) {
@@ -290,6 +284,21 @@ final class Y2ObjectOverlayController: UIViewController {
 
     private func objectID(for view: UIView) -> UUID? {
         objectViews.first(where: { $0.value === view })?.key
+    }
+}
+
+// MARK: - Y2TextBlockViewDelegate
+
+extension Y2ObjectOverlayController: Y2TextBlockViewDelegate {
+    func textBlockView(_ view: Y2TextBlockView, didCommitText text: String) {
+        guard let id = objectID(for: view),
+              let idx = objects.firstIndex(where: { $0.id == id }) else { return }
+        // Mutate the text in the backing TextBlockObject.
+        if case .textBlock(var tb) = objects[idx].objectType {
+            tb.text = text
+            objects[idx].objectType = .textBlock(tb)
+            onObjectsChanged?(objects)
+        }
     }
 }
 

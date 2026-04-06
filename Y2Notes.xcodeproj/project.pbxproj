@@ -436,7 +436,13 @@
 		AA0001000000000000000250 /* Y2ParticleSystem.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Y2ParticleSystem.metal; sourceTree = "<group>"; };
 		AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000250 /* Y2ParticleSystem.metal */; };
 		AA0001000000000000000252 /* MetalParticleRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalParticleRenderer.swift; sourceTree = "<group>"; };
+		AA0001000000000000000254 /* Y2TextBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TextBlockView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TextBlockInsertionController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000258 /* RustDataBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RustDataBridge.swift; sourceTree = "<group>"; };
 		AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000252 /* MetalParticleRenderer.swift */; };
+		AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000254 /* Y2TextBlockView.swift */; };
+		AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */; };
+		AA0001000000000000000259 /* RustDataBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000258 /* RustDataBridge.swift */; };
 		AA000100000000000000019E /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A0 /* CanvasViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewCoordinator.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A2 /* ToolSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSnapshot.swift; sourceTree = "<group>"; };
@@ -824,6 +830,7 @@
 				AA00010000000000000001C3 /* PersistenceDriver.swift */,
 				AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */,
 				AA000100000000000000022B /* MediaFileManager.swift */,
+				AA0001000000000000000258 /* RustDataBridge.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -967,6 +974,7 @@
 			children = (
 				AA000100000000000000022D /* Y2ObjectOverlayController.swift */,
 				AA000100000000000000022F /* Y2ObjectSelectionHandler.swift */,
+				AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */,
 				AA000100000000000000021A /* Views */,
 			);
 			path = Objects;
@@ -979,6 +987,7 @@
 				AA0001000000000000000233 /* Y2AudioClipView.swift */,
 				AA0001000000000000000235 /* Y2StickerObjectView.swift */,
 				AA0001000000000000000237 /* Y2LinkObjectView.swift */,
+				AA0001000000000000000254 /* Y2TextBlockView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1180,6 +1189,9 @@
 				AA000100000000000000018B /* y2_perlin.c in Sources */,
 				AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */,
 				AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */,
+				AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */,
+				AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */,
+				AA0001000000000000000259 /* RustDataBridge.swift in Sources */,
 				AA000100000000000000018E /* y2_sph.c in Sources */,
 				AA0001000000000000000192 /* y2_color.c in Sources */,
 				AA0001000000000000000195 /* y2_levenshtein.c in Sources */,

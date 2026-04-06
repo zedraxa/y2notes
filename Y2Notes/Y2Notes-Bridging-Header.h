@@ -16,4 +16,7 @@
 #include "Native/y2_color.h"
 #include "Native/y2_levenshtein.h"
 
+/* Rust data layer FFI (libY2Data) */
+#include "../RustData/include/y2data.h"
+
 #endif /* Y2Notes_Bridging_Header_h */
