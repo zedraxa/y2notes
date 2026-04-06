@@ -148,6 +148,8 @@ final class InkEffectStore: ObservableObject {
             return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
         case .slate, .ember:
             return builtIn.filter { $0.family == .standard || $0.family == .metallic }
+        case .paper:
+            return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
         }
     }
 
