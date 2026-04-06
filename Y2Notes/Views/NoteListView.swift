@@ -37,9 +37,6 @@ struct NoteListView: View {
     private let sortFeedback   = UISelectionFeedbackGenerator()
     private let deleteFeedback = UINotificationFeedbackGenerator()
 
-    private let sortFeedback   = UISelectionFeedbackGenerator()
-    private let deleteFeedback = UINotificationFeedbackGenerator()
-
     // Filtered + sorted projection of the store.
     private var displayedNotes: [Note] {
         let source = searchText.isEmpty

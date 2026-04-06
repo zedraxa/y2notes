@@ -1399,7 +1399,7 @@ struct NoteEditorView: View {
                 HStack(spacing: 8) {
                     Image(systemName: linkedImportIcon)
                         .font(.subheadline)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(.tint)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(String(
                             format: NSLocalizedString("Import.LinkedTo", comment: ""),

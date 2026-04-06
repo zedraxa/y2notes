@@ -794,26 +794,6 @@ final class NoteStore: ObservableObject {
         return note
     }
 
-    /// Notes linked to a specific PDF record.
-    func notes(forPDF pdfID: UUID) -> [Note] {
-        notes.filter { $0.linkedPDFID == pdfID }.sorted { $0.modifiedAt > $1.modifiedAt }
-    }
-
-    /// Notes linked to a specific imported document.
-    func notes(forDocument documentID: UUID) -> [Note] {
-        notes.filter { $0.linkedDocumentID == documentID }.sorted { $0.modifiedAt > $1.modifiedAt }
-    }
-
-    /// Whether a companion note already exists for the given PDF record.
-    func hasCompanionNote(forPDF pdfID: UUID) -> Bool {
-        notes.contains { $0.linkedPDFID == pdfID }
-    }
-
-    /// Whether a companion note already exists for the given imported document.
-    func hasCompanionNote(forDocument documentID: UUID) -> Bool {
-        notes.contains { $0.linkedDocumentID == documentID }
-    }
-
     // MARK: - Page ordering
 
     /// Pages belonging to a section, sorted by `sortOrder` (then `modifiedAt` as tiebreaker).
@@ -1118,6 +1098,26 @@ final class NoteStore: ObservableObject {
     func updateNotebookTexture(id: UUID, texture: CoverTexture) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
         notebooks[idx].coverTexture = texture
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    func updateNotebookLastOpened(id: UUID) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].lastOpenedAt = Date()
+        save()
+    }
+
+    func toggleNotebookPin(id: UUID) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].isPinned.toggle()
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
+    func updateNotebookColorTag(id: UUID, colorTag: NotebookColorTag) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].colorTag = colorTag
         notebooks[idx].modifiedAt = Date()
         save()
     }
