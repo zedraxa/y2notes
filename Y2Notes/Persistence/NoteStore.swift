@@ -1826,6 +1826,44 @@ extension NoteStore: NoteRepository {
     var saveStatePublisher: AnyPublisher<SaveState, Never> {
         $saveState.eraseToAnyPublisher()
     }
+
+    @discardableResult
+    func addNote(
+        title: String,
+        notebookID: UUID?,
+        pageType: PageType?,
+        pageSize: PageSize?,
+        orientation: PageOrientation?,
+        paperMaterial: PaperMaterial?,
+        templateID: String?
+    ) -> Note {
+        addNote(inNotebook: notebookID, pageType: pageType, paperMaterial: paperMaterial)
+    }
+
+    @discardableResult
+    func addNotebook(
+        name: String,
+        cover: NotebookCover,
+        defaultPageType: PageType,
+        defaultPageSize: PageSize,
+        defaultOrientation: PageOrientation,
+        defaultPaperMaterial: PaperMaterial,
+        colorTag: NotebookColorTag
+    ) -> Notebook {
+        addNotebook(
+            name: name,
+            cover: cover,
+            pageType: defaultPageType,
+            pageSize: defaultPageSize,
+            orientation: defaultOrientation,
+            paperMaterial: defaultPaperMaterial
+        )
+    }
+
+    @discardableResult
+    func addSection(toNotebook notebookID: UUID, name: String, sortOrder: Int) -> NotebookSection {
+        addSection(toNotebook: notebookID, name: name)
+    }
 }
 
 // swiftlint:enable file_length

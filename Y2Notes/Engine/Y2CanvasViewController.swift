@@ -378,7 +378,7 @@ extension Y2CanvasViewController: PencilActionDelegate {
 
     func pencilDidRequestContextualPalette(at anchorPoint: CGPoint) {
         // Contextual palette presentation is handled by the hosting layer
-        logger.debug("Contextual palette requested at \(anchorPoint)")
+        logger.debug("Contextual palette requested at \(String(describing: anchorPoint))")
     }
 
     func pencilDidRequestUndo() {

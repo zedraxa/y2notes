@@ -31,11 +31,11 @@ final class PerlinNoise2D {
         guard let state = y2_perlin_create(seed) else {
             fatalError("y2_perlin_create returned nil — out of memory")
         }
-        cState = OpaquePointer(state)
+        cState = state
     }
 
     deinit {
-        y2_perlin_destroy(UnsafeMutablePointer(cState))
+        y2_perlin_destroy(cState)
     }
 
     // MARK: - Noise Evaluation
@@ -43,26 +43,26 @@ final class PerlinNoise2D {
     /// Evaluate Perlin noise at (x, y).  Returns a value in approximately [−1, 1].
     @inline(__always)
     func noise(x: Double, y: Double) -> Double {
-        y2_perlin_noise(UnsafePointer(cState), x, y)
+        y2_perlin_noise(cState, x, y)
     }
 
     // MARK: - Fractal Brownian Motion
 
     /// Multi-octave fractal Brownian motion (fBm).
     func fbm(x: Double, y: Double, octaves: Int = 6, persistence: Double = 0.5, lacunarity: Double = 2.0) -> Double {
-        y2_perlin_fbm(UnsafePointer(cState), x, y,
+        y2_perlin_fbm(cState, x, y,
                       Int32(octaves), persistence, lacunarity)
     }
 
     /// Turbulence: fBm using |noise| (ridge-like patterns).
     func turbulence(x: Double, y: Double, octaves: Int = 6, persistence: Double = 0.5, lacunarity: Double = 2.0) -> Double {
-        y2_perlin_turbulence(UnsafePointer(cState), x, y,
+        y2_perlin_turbulence(cState, x, y,
                              Int32(octaves), persistence, lacunarity)
     }
 
     /// Ridged multi-fractal noise (sharp ridge features).
     func ridged(x: Double, y: Double, octaves: Int = 6, persistence: Double = 0.5, lacunarity: Double = 2.0, offset: Double = 1.0) -> Double {
-        y2_perlin_ridged(UnsafePointer(cState), x, y,
+        y2_perlin_ridged(cState, x, y,
                          Int32(octaves), persistence, lacunarity, offset)
     }
 }
@@ -112,7 +112,7 @@ enum NoiseTextureGenerator {
         if config.noiseType == .fbm && config.directionalBias == 0 {
             pixels.withUnsafeMutableBufferPointer { buf in
                 y2_perlin_generate_tile(
-                    UnsafePointer(noise.cState),
+                    noise.cState,
                     buf.baseAddress!,
                     Int32(width), Int32(height),
                     scale * config.frequencyScale,

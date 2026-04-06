@@ -36,20 +36,20 @@ final class SQLitePersistenceDriver: PersistenceDriver {
         guard let handle = y2_db_open(dbPath) else {
             fatalError("SQLitePersistenceDriver: failed to open database at \(dbPath)")
         }
-        db = OpaquePointer(handle)
+        db = handle
 
         logger.info("SQLite \(String(cString: y2_sqlite_version()), privacy: .public) database opened at \(dbPath, privacy: .public)")
     }
 
     deinit {
-        y2_db_close(UnsafeMutablePointer(db))
+        y2_db_close(db)
     }
 
     // MARK: - PersistenceDriver
 
     func write(_ data: Data, forKey key: String) throws {
         let result = data.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) -> Int32 in
-            y2_db_write(UnsafeMutablePointer(db),
+            y2_db_write(db,
                         key,
                         ptr.baseAddress,
                         UInt32(data.count))
@@ -64,7 +64,7 @@ final class SQLitePersistenceDriver: PersistenceDriver {
         var outData: UnsafeMutableRawPointer?
         var outLength: UInt32 = 0
 
-        let result = y2_db_read(UnsafeMutablePointer(db), key, &outData, &outLength)
+        let result = y2_db_read(db, key, &outData, &outLength)
 
         switch result {
         case 0:
@@ -81,7 +81,7 @@ final class SQLitePersistenceDriver: PersistenceDriver {
     }
 
     func delete(forKey key: String) throws {
-        let result = y2_db_delete(UnsafeMutablePointer(db), key)
+        let result = y2_db_delete(db, key)
         if result != 0 {
             logger.error("SQLite delete failed for key '\(key)'")
             throw SQLiteDriverError.deleteFailed(key: key)
@@ -89,14 +89,14 @@ final class SQLitePersistenceDriver: PersistenceDriver {
     }
 
     func exists(forKey key: String) -> Bool {
-        y2_db_exists(UnsafeMutablePointer(db), key)
+        y2_db_exists(db, key)
     }
 
     // MARK: - Maintenance
 
     /// Explicitly checkpoint the WAL.
     func checkpoint() {
-        y2_db_checkpoint(UnsafeMutablePointer(db))
+        y2_db_checkpoint(db)
     }
 }
 

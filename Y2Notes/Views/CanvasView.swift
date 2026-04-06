@@ -477,9 +477,9 @@ struct CanvasView: UIViewRepresentable {
         // canvasViewDrawingDidChange (which only fires on committed stroke batches
         // and lags 100–300 ms behind the actual pen tip).
         let nibTracker = PencilNibTrackerGestureRecognizer()
-        nibTracker.onNibBegan = { [weak context] location in
-            guard let coordinator = context?.coordinator,
-                  coordinator.isDrawing,
+        nibTracker.onNibBegan = { [context] location in
+            let coordinator = context.coordinator
+            guard coordinator.isDrawing,
                   coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
@@ -487,9 +487,9 @@ struct CanvasView: UIViewRepresentable {
                 inkEffectEngine: coordinator.effectEngine
             )
         }
-        nibTracker.onNibMoved = { [weak context] location, force, velocity in
-            guard let coordinator = context?.coordinator,
-                  coordinator.isDrawing,
+        nibTracker.onNibMoved = { [context] location, force, velocity in
+            let coordinator = context.coordinator
+            guard coordinator.isDrawing,
                   coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),

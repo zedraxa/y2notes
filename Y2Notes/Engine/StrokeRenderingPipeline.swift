@@ -17,6 +17,7 @@ import os
 /// rendering state and dispatching stroke lifecycle events to effect engines.
 ///
 /// **Thread safety**: all methods must be called on the main thread.
+@MainActor
 final class StrokeRenderingPipeline {
 
     // MARK: - Properties

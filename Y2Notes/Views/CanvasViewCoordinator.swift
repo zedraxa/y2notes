@@ -1,6 +1,7 @@
 import UIKit
 import PencilKit
 import OSLog
+import SwiftUI
 
 // MARK: - Performance instrumentation (coordinator)
 

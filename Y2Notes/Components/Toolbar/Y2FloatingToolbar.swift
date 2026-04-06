@@ -45,7 +45,7 @@ final class Y2FloatingToolbar: UIView {
 
     // MARK: - Properties
 
-    private(set) var currentEdge: Edge = .bottom
+    var currentEdge: Edge = .bottom
     private(set) var currentState: State = .expanded
 
     private let configuration: Configuration

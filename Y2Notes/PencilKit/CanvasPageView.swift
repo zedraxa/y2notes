@@ -36,6 +36,9 @@ struct CanvasPageView: UIViewRepresentable {
     let onSaveRequested: () -> Void
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
     let onUndoStateChanged: ((Bool, Bool) -> Void)?
+
+    /// Called when the user performs a strong pinch-out gesture to return to the page overview.
+    var onPinchToOverview: (() -> Void)?
     /// On-disk URL of the note's backing PDF, if available.
     /// When non-nil the canvas renders the PDF page as background instead of the
     /// procedural `PageBackgroundView`, giving the note a book-like appearance.
@@ -421,9 +424,9 @@ struct CanvasPageView: UIViewRepresentable {
         // canvasViewDrawingDidChange (which only fires on committed stroke batches
         // and lags 100–300 ms behind the actual pen tip).
         let nibTracker = PencilNibTrackerGestureRecognizer()
-        nibTracker.onNibBegan = { [weak context] location in
-            guard let coordinator = context?.coordinator,
-                  coordinator.isDrawing,
+        nibTracker.onNibBegan = { [context] location in
+            let coordinator = context.coordinator
+            guard coordinator.isDrawing,
                   coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
@@ -431,9 +434,9 @@ struct CanvasPageView: UIViewRepresentable {
                 inkEffectEngine: coordinator.effectEngine
             )
         }
-        nibTracker.onNibMoved = { [weak context] location, force, velocity in
-            guard let coordinator = context?.coordinator,
-                  coordinator.isDrawing,
+        nibTracker.onNibMoved = { [context] location, force, velocity in
+            let coordinator = context.coordinator
+            guard coordinator.isDrawing,
                   coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),

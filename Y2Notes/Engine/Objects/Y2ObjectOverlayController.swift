@@ -249,7 +249,7 @@ final class Y2ObjectOverlayController: UIViewController {
     // MARK: - Context menu
 
     private func showContextMenu(for id: UUID, sourceView: UIView) {
-        guard let vc = self.parent ?? self else { return }
+        let vc = self.parent ?? self
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             self?.removeObject(id: id)
