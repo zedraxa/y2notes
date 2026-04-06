@@ -583,3 +583,108 @@ Transitions/
 |------------|-----------|-------------|------------------------|
 | `PageFlipTransition` | `.flip(from:to:in:direction:)` | `.transition(.pageFlip)` | Cross-dissolve |
 | `ZoomOpenTransition` | `.open(from:to:in:)` / `.close(from:to:in:)` | `.transition(.zoomOpen)` | Scale + opacity |
+
+---
+
+## Library Shelf & Page Navigation System
+
+The `Y2Notes/Library/` and `Y2Notes/Engine/{Pages,Tabs}/` directories provide the
+GoodNotes-quality home screen, page management panel, and multi-note tab system.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Y2LibraryHostingView (UIViewControllerRepresentable)│
+│  ┌─────────────────────────────────────────────────┐│
+│  │ Y2LibraryViewController (UISplitViewController) ││
+│  │ ┌───────────┐  ┌──────────────────────────────┐ ││
+│  │ │Y2Sidebar  │  │  UICollectionView (grid)     │ ││
+│  │ │  View     │  │  ┌────────────────────────┐  │ ││
+│  │ │           │  │  │ Y2NotebookCardCell     │  │ ││
+│  │ │ Documents │  │  │ (cover + star + fold)  │  │ ││
+│  │ │ Favorites │  │  ├────────────────────────┤  │ ││
+│  │ │ Shared    │  │  │ Y2NewButtonCell        │  │ ││
+│  │ │ Study     │  │  │ (dashed "+" border)    │  │ ││
+│  │ │ Market    │  │  └────────────────────────┘  │ ││
+│  │ └───────────┘  └──────────────────────────────┘ ││
+│  └─────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────┘
+```
+
+### Library Components
+
+| File | Lines | Description |
+|------|-------|-------------|
+| `Library/Y2LibraryViewController.swift` | ~300 | `UISplitViewController` with sidebar + notebook grid |
+| `Library/Y2SidebarView.swift` | ~250 | `UITableView`-based sidebar with selection pill |
+| `Library/Y2NotebookCardCell.swift` | ~265 | `UICollectionViewCell` with cover, star, fold corner |
+| `Library/Y2NewButtonView.swift` | ~100 | Dashed-border "+" cell |
+| `Library/Y2LibraryHostingView.swift` | ~50 | `UIViewControllerRepresentable` bridge |
+
+### Page Panel
+
+```
+┌────────────────────────────────────────────────┐
+│ Y2PagePanelController (slide-in from left)     │
+│ ┌──────────────────────────────────────────┐   │
+│ │ ···    "Pages"    ✕                      │   │
+│ │ [Grid] [List] [Outline]                  │   │
+│ ├──────────────────────────────────────────┤   │
+│ │ ┌──────────┐ ┌──────────┐               │   │
+│ │ │ Page 1   │ │ Page 2   │  ← Y2PageCell │   │
+│ │ │ (thumb)  │ │ (thumb)  │    2-col grid  │   │
+│ │ │  📎 1 ▼  │ │ 🔖 2 ▼  │               │   │
+│ │ ├──────────┤ ├──────────┤               │   │
+│ │ │ Page 3   │ │┄┄┄┄┄┄┄┄┄┄│  ← AddPage  │   │
+│ │ │ [BLUE]   │ │   +      │    dashed     │   │
+│ │ └──────────┘ └──────────┘               │   │
+│ └──────────────────────────────────────────┘   │
+└────────────────────────────────────────────────┘
+```
+
+| File | Lines | Description |
+|------|-------|-------------|
+| `Engine/Pages/Y2PagePanelController.swift` | ~310 | Slide-in panel with 2-column page grid |
+| `Engine/Pages/Y2PageCell.swift` | ~190 | Page thumbnail cell with blue selection border |
+| `Engine/Pages/Y2PageThumbnailRenderer.swift` | ~160 | Async PKDrawing→UIImage + LRU cache (50 entries) |
+| `Engine/Pages/Y2PageIndicator.swift` | ~130 | "3 / 4" bottom-left pill (UIKit + SwiftUI wrapper) |
+
+### Tab Bar
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ 🟢 Untitled (5) ▼  ✕ │ 🔵 Untitled (6) ✕ │  +         │
+│ ═══════════════════   │                    │             │
+│ (active underline)    │ (inactive)         │ (add tab)   │
+└──────────────────────────────────────────────────────────┘
+```
+
+| File | Lines | Description |
+|------|-------|-------------|
+| `Engine/Tabs/Y2NoteTabBar.swift` | ~195 | Horizontal `UICollectionView` tab strip |
+| `Engine/Tabs/Y2NoteTabCell.swift` | ~175 | Tab cell: color dot + title + chevron + close |
+| `Engine/Tabs/Y2TabStateManager.swift` | ~175 | Tab lifecycle + UserDefaults persistence (max 10) |
+
+### Data Flow
+
+```
+NotebookDisplayItem (value type)
+    ↓ setNotebooks(_:)
+Y2LibraryViewController
+    ↓ Y2LibraryDelegate callbacks
+Y2LibraryHostingView (SwiftUI)
+    ↓ closures
+ShelfView / ContentView (existing SwiftUI layer)
+    ↓ @EnvironmentObject
+NoteStore (persistence)
+```
+
+### Design Principles
+
+1. **UIKit internally** — `UICollectionView` for library grid, page panel, and tab bar.
+2. **Thin SwiftUI bridge** — `Y2LibraryHostingView` is 50 lines.
+3. **Model-agnostic** — Components accept `NotebookDisplayItem` / `PageDisplayItem` / `TabDisplayItem`
+   value types, not domain models.
+4. **Accessible** — VoiceOver labels, Dynamic Type, context menus on every interactive element.
+5. **Async thumbnails** — `Y2PageThumbnailRenderer` renders on background queue with LRU cache.

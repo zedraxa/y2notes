@@ -164,6 +164,18 @@
 		AA00010000000000000001F8 /* Y2MasonryGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001F7 /* Y2MasonryGrid.swift */; };
 		AA00010000000000000001FA /* PageFlipTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001F9 /* PageFlipTransition.swift */; };
 		AA00010000000000000001FC /* ZoomOpenTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001FB /* ZoomOpenTransition.swift */; };
+		AA0001000000000000000201 /* Y2SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000200 /* Y2SidebarView.swift */; };
+		AA0001000000000000000203 /* Y2NotebookCardCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000202 /* Y2NotebookCardCell.swift */; };
+		AA0001000000000000000205 /* Y2NewButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000204 /* Y2NewButtonView.swift */; };
+		AA0001000000000000000207 /* Y2LibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000206 /* Y2LibraryViewController.swift */; };
+		AA0001000000000000000209 /* Y2LibraryHostingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000208 /* Y2LibraryHostingView.swift */; };
+		AA000100000000000000020B /* Y2PageThumbnailRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000020A /* Y2PageThumbnailRenderer.swift */; };
+		AA000100000000000000020D /* Y2PageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000020C /* Y2PageCell.swift */; };
+		AA000100000000000000020F /* Y2PagePanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000020E /* Y2PagePanelController.swift */; };
+		AA0001000000000000000211 /* Y2PageIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000210 /* Y2PageIndicator.swift */; };
+		AA0001000000000000000213 /* Y2NoteTabCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000212 /* Y2NoteTabCell.swift */; };
+		AA0001000000000000000215 /* Y2NoteTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000214 /* Y2NoteTabBar.swift */; };
+		AA0001000000000000000217 /* Y2TabStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000216 /* Y2TabStateManager.swift */; };
 		AA000100000000000000019F /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019E /* CanvasView.swift */; };
 		AA00010000000000000001A1 /* CanvasViewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A0 /* CanvasViewCoordinator.swift */; };
 		AA00010000000000000001A3 /* ToolSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A2 /* ToolSnapshot.swift */; };
@@ -360,6 +372,18 @@
 		AA00010000000000000001F7 /* Y2MasonryGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2MasonryGrid.swift; sourceTree = "<group>"; };
 		AA00010000000000000001F9 /* PageFlipTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageFlipTransition.swift; sourceTree = "<group>"; };
 		AA00010000000000000001FB /* ZoomOpenTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomOpenTransition.swift; sourceTree = "<group>"; };
+		AA0001000000000000000200 /* Y2SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2SidebarView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000202 /* Y2NotebookCardCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NotebookCardCell.swift; sourceTree = "<group>"; };
+		AA0001000000000000000204 /* Y2NewButtonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NewButtonView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000206 /* Y2LibraryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LibraryViewController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000208 /* Y2LibraryHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LibraryHostingView.swift; sourceTree = "<group>"; };
+		AA000100000000000000020A /* Y2PageThumbnailRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2PageThumbnailRenderer.swift; sourceTree = "<group>"; };
+		AA000100000000000000020C /* Y2PageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2PageCell.swift; sourceTree = "<group>"; };
+		AA000100000000000000020E /* Y2PagePanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2PagePanelController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000210 /* Y2PageIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2PageIndicator.swift; sourceTree = "<group>"; };
+		AA0001000000000000000212 /* Y2NoteTabCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NoteTabCell.swift; sourceTree = "<group>"; };
+		AA0001000000000000000214 /* Y2NoteTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NoteTabBar.swift; sourceTree = "<group>"; };
+		AA0001000000000000000216 /* Y2TabStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TabStateManager.swift; sourceTree = "<group>"; };
 		AA000100000000000000019E /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A0 /* CanvasViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewCoordinator.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A2 /* ToolSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSnapshot.swift; sourceTree = "<group>"; };
@@ -436,6 +460,7 @@
 				AA00010000000000000001D9 /* Engine */,
 				AA00010000000000000001E6 /* Components */,
 				AA00010000000000000001EA /* Transitions */,
+				AA00010000000000000001FD /* Library */,
 				AA000100000000000000000E /* Models */,
 				AA000100000000000000000F /* Views */,
 				AA0001000000000000000010 /* Persistence */,
@@ -777,6 +802,8 @@
 				AA00010000000000000001DE /* EffectOverlayLayer.swift */,
 				AA00010000000000000001E0 /* Y2CanvasViewController.swift */,
 				AA00010000000000000001E2 /* Y2CanvasHostingView.swift */,
+				AA00010000000000000001FE /* Pages */,
+				AA00010000000000000001FF /* Tabs */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -826,6 +853,39 @@
 				AA00010000000000000001FB /* ZoomOpenTransition.swift */,
 			);
 			path = Transitions;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001FD /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000200 /* Y2SidebarView.swift */,
+				AA0001000000000000000202 /* Y2NotebookCardCell.swift */,
+				AA0001000000000000000204 /* Y2NewButtonView.swift */,
+				AA0001000000000000000206 /* Y2LibraryViewController.swift */,
+				AA0001000000000000000208 /* Y2LibraryHostingView.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001FE /* Pages */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000020A /* Y2PageThumbnailRenderer.swift */,
+				AA000100000000000000020C /* Y2PageCell.swift */,
+				AA000100000000000000020E /* Y2PagePanelController.swift */,
+				AA0001000000000000000210 /* Y2PageIndicator.swift */,
+			);
+			path = Pages;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001FF /* Tabs */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000212 /* Y2NoteTabCell.swift */,
+				AA0001000000000000000214 /* Y2NoteTabBar.swift */,
+				AA0001000000000000000216 /* Y2TabStateManager.swift */,
+			);
+			path = Tabs;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1112,6 +1172,18 @@
 				AA00010000000000000001F8 /* Y2MasonryGrid.swift in Sources */,
 				AA00010000000000000001FA /* PageFlipTransition.swift in Sources */,
 				AA00010000000000000001FC /* ZoomOpenTransition.swift in Sources */,
+				AA0001000000000000000201 /* Y2SidebarView.swift in Sources */,
+				AA0001000000000000000203 /* Y2NotebookCardCell.swift in Sources */,
+				AA0001000000000000000205 /* Y2NewButtonView.swift in Sources */,
+				AA0001000000000000000207 /* Y2LibraryViewController.swift in Sources */,
+				AA0001000000000000000209 /* Y2LibraryHostingView.swift in Sources */,
+				AA000100000000000000020B /* Y2PageThumbnailRenderer.swift in Sources */,
+				AA000100000000000000020D /* Y2PageCell.swift in Sources */,
+				AA000100000000000000020F /* Y2PagePanelController.swift in Sources */,
+				AA0001000000000000000211 /* Y2PageIndicator.swift in Sources */,
+				AA0001000000000000000213 /* Y2NoteTabCell.swift in Sources */,
+				AA0001000000000000000215 /* Y2NoteTabBar.swift in Sources */,
+				AA0001000000000000000217 /* Y2TabStateManager.swift in Sources */,
 		};
 		AA0001000000000000000176 /* Sources (Y2NotesTests) */ = {
 			isa = PBXSourcesBuildPhase;
