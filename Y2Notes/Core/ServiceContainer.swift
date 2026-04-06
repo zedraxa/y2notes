@@ -55,6 +55,16 @@ final class ServiceContainer {
     let stickerStore: StickerStore
     let navigationStore: NavigationStore
 
+    // MARK: - Concrete accessors (for SwiftUI @StateObject injection)
+    //
+    // These expose the underlying concrete types so that Y2NotesApp can
+    // inject them via @StateObject without force-casting from protocols.
+    // Remove these once views are migrated to use the adapter types.
+
+    let concreteNoteStore: NoteStore
+    let concreteToolStore: DrawingToolStore
+    let concreteSyncEngine: GoogleDriveSyncEngine
+
     // MARK: - Init
 
     /// Creates all services and wires cross-dependencies.
@@ -74,13 +84,16 @@ final class ServiceContainer {
 
         let notes = NoteStore()
         noteRepository = notes
+        concreteNoteStore = notes
 
         let tools = DrawingToolStore()
         toolStateProvider = tools
+        concreteToolStore = tools
 
         let sync = GoogleDriveSyncEngine()
         sync.noteStore = notes
         syncProvider = sync
+        concreteSyncEngine = sync
 
         // --- Legacy stores (no protocol yet) ---
 

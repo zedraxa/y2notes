@@ -19,15 +19,10 @@ struct Y2NotesApp: App {
     @State private var tabSession = TabWorkspaceStore()
 
     init() {
-        // Pull concrete types from the container for @StateObject injection.
-        let notes = container.noteRepository as! NoteStore // swiftlint:disable:this force_cast
-        _noteStore = StateObject(wrappedValue: notes)
-
-        let tools = container.toolStateProvider as! DrawingToolStore // swiftlint:disable:this force_cast
-        _toolStore = StateObject(wrappedValue: tools)
-
-        let sync = container.syncProvider as! GoogleDriveSyncEngine // swiftlint:disable:this force_cast
-        _syncEngine = StateObject(wrappedValue: sync)
+        // Use concrete accessors — avoids force-casting from protocol types.
+        _noteStore = StateObject(wrappedValue: container.concreteNoteStore)
+        _toolStore = StateObject(wrappedValue: container.concreteToolStore)
+        _syncEngine = StateObject(wrappedValue: container.concreteSyncEngine)
     }
 
     var body: some Scene {

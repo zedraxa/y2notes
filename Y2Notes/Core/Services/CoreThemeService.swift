@@ -111,6 +111,10 @@ final class CoreThemeService: ThemeProvider {
             AppTheme(rawValue: ud.string(forKey: Keys.nightTheme) ?? "") ?? .dark
         )
 
+        // Restore day/night start hours from UserDefaults.
+        // A stored value of 0 when auto-schedule has never been enabled is
+        // ambiguous (could mean midnight OR never-set). We default to 7/20
+        // in that case for backward compatibility with the legacy ThemeStore.
         let dayH: Int = {
             let stored = ud.integer(forKey: Keys.dayStartHour)
             return stored == 0 && !ud.bool(forKey: Keys.autoSchedule) ? 7 : stored

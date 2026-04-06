@@ -77,11 +77,13 @@ final class CoreSettingsService: SettingsProvider {
         }
     }
 
-    var autosaveInterval: Double {
+    /// Autosave interval in seconds (clamped to 10–300).
+    var autosaveInterval: Double = 30 {
         didSet {
-            let clamped = min(max(autosaveInterval, 10), 300)
-            if clamped != autosaveInterval { autosaveInterval = clamped; return }
-            UserDefaults.standard.set(clamped, forKey: Keys.autosaveInterval)
+            // Note: didSet does NOT re-fire when assigning to self in Swift.
+            // This is safe and avoids recursion.
+            autosaveInterval = min(max(autosaveInterval, 10), 300)
+            UserDefaults.standard.set(autosaveInterval, forKey: Keys.autosaveInterval)
             _settingsDidChange.send()
         }
     }
