@@ -98,6 +98,11 @@ struct NoteEditorView: View {
 
     private let searchService = SearchService()
 
+    /// Delay (seconds) before resetting `isNewPageJustAdded` after a page is created.
+    /// Intentionally exceeds the navigation animation duration (0.25 s) to ensure
+    /// the new canvas is fully displayed before the flag resets.
+    private static let newPageFlagResetDelay: TimeInterval = 0.55
+
     init(note: Note, tab: TabSession? = nil) {
         self.note = note
         self.tabID = tab?.id
@@ -245,8 +250,19 @@ struct NoteEditorView: View {
             .onDisappear {
                 toolStore.currentPaperMaterial = .standard
             }
-            // Sync tab navigation state back to the workspace store on every change.
+            // Sync tab navigation state and handle carousel swiping to the "add page" slot.
             .onChange(of: currentPageIndex) { _, newIndex in
+                if newIndex >= note.pageCount {
+                    if let newIdx = noteStore.addPage(to: note.id) {
+                        currentPageIndex = newIdx
+                        isNewPageJustAdded = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + Self.newPageFlagResetDelay) {
+                            isNewPageJustAdded = false
+                        }
+                    } else {
+                        currentPageIndex = max(0, note.pageCount - 1)
+                    }
+                }
                 if let id = tabID {
                     workspace.updateTabState(id, pageIndex: newIndex)
                 }
@@ -366,19 +382,13 @@ struct NoteEditorView: View {
         }
     }
 
-    /// PencilKit canvas view with all callbacks and modifiers.
+    /// SwiftUI-native page carousel — each page is a persistent CanvasPageView.
     @ViewBuilder
     private var canvasSection: some View {
-        let safePageIndex: Int = {
-            guard !note.pages.isEmpty else { return 0 }
-            return min(currentPageIndex, note.pages.count - 1)
-        }()
-        let currentPageData = note.pages.indices.contains(safePageIndex)
-            ? note.pages[safePageIndex] : Data()
-
-        CanvasView(
+        NotePageCarouselView(
+            note: note,
+            currentPageIndex: $currentPageIndex,
             noteID: note.id,
-            drawingData: currentPageData,
             backgroundColor: canvasBackgroundColor,
             defaultInkColor: effectiveDefinition.contrastingInkColor,
             currentTool: toolStore.pkTool,
@@ -388,56 +398,30 @@ struct NoteEditorView: View {
             shapeWidth: toolStore.activeWidth,
             drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
             zoomResetTrigger: zoomResetTrigger,
-            pageType: effectivePageType(forPage: safePageIndex),
+            pageTypeForIndex: { idx in effectivePageType(forPage: idx) },
             paperMaterial: effectivePaperMaterial,
             activeFX: inkStore.resolvedFX,
             fxColor: toolStore.activeColor,
-            pageIndex: safePageIndex,
-            onDrawingChanged: { data in
-                noteStore.updateDrawing(for: note.id, pageIndex: safePageIndex, data: data)
+            onDrawingChanged: { data, idx in
+                noteStore.updateDrawing(for: note.id, pageIndex: idx, data: data)
             },
-            onSaveRequested: {
-                noteStore.save()
-            },
+            onSaveRequested: { noteStore.save() },
             onUndoStateChanged: { canUndoVal, canRedoVal in
                 canUndo = canUndoVal
                 canRedo = canRedoVal
             },
-            onPageSwipe: { direction in
-                // No SwiftUI animation here: the CA snap in PageTransitionEngine
-                // already handled the visual.  State changes instantly so the
-                // new page content is ready when the snap animation reveals it.
-                if direction > 0 {
-                    if currentPageIndex >= note.pageCount - 1 {
-                        // Swipe past last page → auto-create new page
-                        if let newIndex = noteStore.addPage(to: note.id) {
-                            currentPageIndex = newIndex
-                        }
-                    } else {
-                        currentPageIndex = min(note.pageCount - 1, currentPageIndex + 1)
-                    }
-                } else {
-                    currentPageIndex = max(0, currentPageIndex - 1)
-                }
-            },
-            onPinchToOverview: {
-                showPageOverview = true
-            },
+            onPinchToOverview: { showPageOverview = true },
             pdfURL: noteStore.notePDFURL(for: note),
             toolStoreForFade: toolStore,
-            currentPageShapes: note.shapes(forPage: safePageIndex),
-            onShapesChanged: { shapes in
-                noteStore.updateShapes(for: note.id, pageIndex: safePageIndex, shapes: shapes)
+            onShapesChanged: { shapes, idx in
+                noteStore.updateShapes(for: note.id, pageIndex: idx, shapes: shapes)
             },
-            currentPageAttachments: note.attachments(forPage: safePageIndex),
-            attachmentNoteID: note.id,
-            onAttachmentsChanged: { attachments in
-                noteStore.updateAttachments(for: note.id, pageIndex: safePageIndex, attachments: attachments)
+            onAttachmentsChanged: { atts, idx in
+                noteStore.updateAttachments(for: note.id, pageIndex: idx, attachments: atts)
             },
             onAttachmentSelectionChanged: { attachmentID in
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                     toolStore.activeAttachmentSelection = attachmentID
-                    // Clear other selections when attachment is selected
                     if attachmentID != nil {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
@@ -447,14 +431,12 @@ struct NoteEditorView: View {
                     }
                 }
             },
-            currentPageWidgets: note.widgets(forPage: safePageIndex),
-            onWidgetsChanged: { widgets in
-                noteStore.updateWidgets(for: note.id, pageIndex: safePageIndex, widgets: widgets)
+            onWidgetsChanged: { widgets, idx in
+                noteStore.updateWidgets(for: note.id, pageIndex: idx, widgets: widgets)
             },
             onWidgetSelectionChanged: { widgetID in
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                     toolStore.activeWidgetSelection = widgetID
-                    // Clear other selections when widget is selected
                     if widgetID != nil {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
@@ -465,14 +447,12 @@ struct NoteEditorView: View {
                 }
             },
             isTextToolActive: toolStore.activeTool == .text,
-            currentPageTextObjects: note.textObjects(forPage: safePageIndex),
-            onTextObjectsChanged: { textObjects in
-                noteStore.updateTextObjects(for: note.id, pageIndex: safePageIndex, textObjects: textObjects)
+            onTextObjectsChanged: { objs, idx in
+                noteStore.updateTextObjects(for: note.id, pageIndex: idx, textObjects: objs)
             },
             onTextObjectSelectionChanged: { textObjectID in
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                     toolStore.activeTextObjectSelection = textObjectID
-                    // Clear other selections when a text object is selected
                     if textObjectID != nil {
                         toolStore.activeShapeSelection = nil
                         toolStore.activeStickerSelection = nil
@@ -482,26 +462,13 @@ struct NoteEditorView: View {
                     }
                 }
             },
-            onPlaceTextObject: { point in
-                placeTextObject(at: point)
-            },
-            pageCount: note.pageCount,
+            onPlaceTextObject: { point in placeTextObject(at: point) },
             isMagicModeActive: toolStore.isMagicModeActive,
             isStudyModeActive: toolStore.isStudyModeActive,
             activeAmbientScene: toolStore.activeAmbientScene,
             isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled,
             isNewPage: isNewPageJustAdded
         )
-        // Force recreation on page change so makeUIView loads the new drawing.
-        .id("\(note.id)-\(safePageIndex)")
-        // Cross-fade transition between pages: only animates when SwiftUI drives
-        // the change (e.g. navigation-bar buttons) because those wrap the state
-        // update in `withAnimation`.  Gesture-triggered changes skip this — the
-        // CA spring in PageTransitionEngine already handled the visual.
-        .transition(.opacity)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
-        .padding(.horizontal, 1)
     }
 
     /// Floating toolbar capsule — bottom-center, above page navigation bar.
