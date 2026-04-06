@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import PencilKit
 import UIKit
@@ -610,5 +611,26 @@ final class DrawingToolStore: ObservableObject {
             }
             recentColors = loaded
         }
+    }
+}
+
+// MARK: - ToolStateProvider conformance
+
+extension DrawingToolStore: ToolStateProvider {
+
+    var activeToolPublisher: AnyPublisher<DrawingTool, Never> {
+        $activeTool.eraseToAnyPublisher()
+    }
+
+    var activeColorPublisher: AnyPublisher<UIColor, Never> {
+        $activeColor.eraseToAnyPublisher()
+    }
+
+    var activeWidthPublisher: AnyPublisher<Double, Never> {
+        $activeWidth.eraseToAnyPublisher()
+    }
+
+    var activeOpacityPublisher: AnyPublisher<Double, Never> {
+        $activeOpacity.eraseToAnyPublisher()
     }
 }

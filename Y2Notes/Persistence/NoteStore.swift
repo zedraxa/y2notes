@@ -3,6 +3,8 @@ import Combine
 import UIKit
 import os
 
+// swiftlint:disable file_length
+
 private let storeLogger = Logger(subsystem: "com.y2notes", category: "NoteStore")
 
 // MARK: - Save state
@@ -1740,3 +1742,29 @@ extension NoteStore {
     }
 }
 
+// MARK: - NoteRepository conformance
+
+extension NoteStore: NoteRepository {
+
+    var notesPublisher: AnyPublisher<[Note], Never> {
+        $notes.eraseToAnyPublisher()
+    }
+
+    var notebooksPublisher: AnyPublisher<[Notebook], Never> {
+        $notebooks.eraseToAnyPublisher()
+    }
+
+    var sectionsPublisher: AnyPublisher<[NotebookSection], Never> {
+        $sections.eraseToAnyPublisher()
+    }
+
+    var studySetsPublisher: AnyPublisher<[StudySet], Never> {
+        $studySets.eraseToAnyPublisher()
+    }
+
+    var saveStatePublisher: AnyPublisher<SaveState, Never> {
+        $saveState.eraseToAnyPublisher()
+    }
+}
+
+// swiftlint:enable file_length
