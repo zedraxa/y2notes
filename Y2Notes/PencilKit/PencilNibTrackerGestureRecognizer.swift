@@ -92,7 +92,10 @@ final class PencilNibTrackerGestureRecognizer: UIGestureRecognizer {
             let dy = location.y - prevLocation.y
             velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
         } else {
-            velocity = 500 // moderate fallback (~half of VelocityThicknessParams.velocityCeiling)
+            // Fallback when two consecutive events share the same timestamp.
+            // 500 pt/s is a moderate writing speed — roughly mid-range for
+            // deliberate handwriting, independent of VelocityThicknessParams.
+            velocity = 500
         }
         prevLocation  = location
         prevTimestamp = pencil.timestamp

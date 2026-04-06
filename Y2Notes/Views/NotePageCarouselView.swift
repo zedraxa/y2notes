@@ -45,7 +45,10 @@ struct NotePageCarouselView: View {
     var isNewPage: Bool = false
 
     /// Minimum zoom scale above which the horizontal page-carousel scroll is disabled,
-    /// preventing conflict between per-page canvas zoom and carousel swiping.
+    /// preventing conflict between per-page canvas zoom-pan and carousel swiping.
+    /// 1.02 (2% above 1×) provides a small hysteresis gap so that minor bounce
+    /// at the end of a zoom-back-to-1× gesture doesn't momentarily re-enable carousel
+    /// scrolling before the user lifts their fingers.
     private static let minZoomForScrollDisable: CGFloat = 1.02
 
     @State private var pageZooms: [Int: CGFloat] = [:]

@@ -99,8 +99,10 @@ struct NoteEditorView: View {
     private let searchService = SearchService()
 
     /// Delay (seconds) before resetting `isNewPageJustAdded` after a page is created.
-    /// Intentionally exceeds the navigation animation duration (0.25 s) to ensure
-    /// the new canvas is fully displayed before the flag resets.
+    /// Set to 0.55 s — 2.2× the carousel navigation animation duration (0.25 s) —
+    /// to guarantee the new canvas is fully visible and its PKCanvasView has completed
+    /// its initial layout before the flag clears. A smaller margin (e.g. 1.1×) risks
+    /// the flag resetting mid-animation, which could suppress the new-page reveal effect.
     private static let newPageFlagResetDelay: TimeInterval = 0.55
 
     init(note: Note, tab: TabSession? = nil) {
