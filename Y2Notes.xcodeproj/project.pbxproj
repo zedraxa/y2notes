@@ -149,7 +149,6 @@
 		AA0001000000000000000167 /* PerlinNoise.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* PerlinNoise.swift */; };
 		AA0001000000000000000169 /* FluidSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000168 /* FluidSimulation.swift */; };
 		AA0001000000000000000174 /* NoteEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000173 /* NoteEncodingTests.swift */; };
-		AA0001000000000000000167 /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */; };
 		AA0001000000000000000197 /* StickerRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000196 /* StickerRenderer.swift */; };
 		AA0001000000000000000199 /* NoteEditorView+Toolbars.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */; };
 		AA000100000000000000019B /* NoteEditorView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019A /* NoteEditorView+Actions.swift */; };
@@ -321,7 +320,6 @@
 		AA000100000000000000016E /* ColorScience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorScience.swift; sourceTree = "<group>"; };
 		AA0001000000000000000166 /* PerlinNoise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerlinNoise.swift; sourceTree = "<group>"; };
 		AA0001000000000000000168 /* FluidSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluidSimulation.swift; sourceTree = "<group>"; };
-		AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
 		AA0001000000000000000196 /* StickerRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerRenderer.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
