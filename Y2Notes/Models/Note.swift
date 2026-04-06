@@ -148,6 +148,12 @@ struct Note: Identifiable, Codable, Hashable {
     /// An empty outer array means no pages have text objects yet.
     var textLayers: [[TextObject]?]
 
+    /// Per-page rich embedded objects — parallel array to `pages`.
+    /// Each element is an array of canvas objects (images, audio, stickers, links) placed on that
+    /// page, or `nil` (no embedded objects).  An empty outer array means no pages have embedded
+    /// objects yet.  Missing key decodes to an empty array for backward compatibility.
+    var embeddedObjectLayers: [[CanvasObjectWrapper]?]
+
     /// Expandable canvas regions attached to page edges.
     /// Sparse — only pages that have been expanded carry entries.
     /// An empty array means no pages have expansion regions (default).
@@ -181,6 +187,12 @@ struct Note: Identifiable, Codable, Hashable {
     func textObjects(forPage index: Int) -> [TextObject] {
         guard index >= 0 && index < textLayers.count else { return [] }
         return textLayers[index] ?? []
+    }
+
+    /// Returns the embedded canvas objects for the given page index, or an empty array.
+    func embeddedObjects(forPage index: Int) -> [CanvasObjectWrapper] {
+        guard index >= 0 && index < embeddedObjectLayers.count else { return [] }
+        return embeddedObjectLayers[index] ?? []
     }
 
     /// Returns the visible (non-collapsed) expansion regions for the given page index.
@@ -263,6 +275,7 @@ struct Note: Identifiable, Codable, Hashable {
         attachmentLayers: [[AttachmentObject]?] = [],
         widgetLayers: [[NoteWidget]?] = [],
         textLayers: [[TextObject]?] = [],
+        embeddedObjectLayers: [[CanvasObjectWrapper]?] = [],
         expansionRegions: [PageRegion] = [],
         pdfFilename: String? = nil,
         linkedPDFID: UUID? = nil,
@@ -292,6 +305,7 @@ struct Note: Identifiable, Codable, Hashable {
         self.attachmentLayers = attachmentLayers
         self.widgetLayers = widgetLayers
         self.textLayers = textLayers
+        self.embeddedObjectLayers = embeddedObjectLayers
         self.expansionRegions = expansionRegions
         self.pdfFilename = pdfFilename
         self.linkedPDFID = linkedPDFID
@@ -308,7 +322,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, textLayers, expansionRegions, pdfFilename
+        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, textLayers, embeddedObjectLayers, expansionRegions, pdfFilename
         case linkedPDFID, linkedDocumentID
         case typedText, ocrText, tags, colorLabel
     }
@@ -344,6 +358,7 @@ struct Note: Identifiable, Codable, Hashable {
         attachmentLayers = try c.decodeIfPresent([[AttachmentObject]?].self, forKey: .attachmentLayers) ?? []
         widgetLayers  = try c.decodeIfPresent([[NoteWidget]?].self, forKey: .widgetLayers) ?? []
         textLayers    = try c.decodeIfPresent([[TextObject]?].self,  forKey: .textLayers)   ?? []
+        embeddedObjectLayers = try c.decodeIfPresent([[CanvasObjectWrapper]?].self, forKey: .embeddedObjectLayers) ?? []
         expansionRegions = try c.decodeIfPresent([PageRegion].self, forKey: .expansionRegions) ?? []
         pdfFilename   = try c.decodeIfPresent(String.self,         forKey: .pdfFilename)
         linkedPDFID      = try c.decodeIfPresent(UUID.self,   forKey: .linkedPDFID)
@@ -382,6 +397,7 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encode(attachmentLayers,         forKey: .attachmentLayers)
         try c.encode(widgetLayers,             forKey: .widgetLayers)
         try c.encode(textLayers,               forKey: .textLayers)
+        try c.encode(embeddedObjectLayers,       forKey: .embeddedObjectLayers)
         try c.encode(expansionRegions,          forKey: .expansionRegions)
         try c.encodeIfPresent(pdfFilename,   forKey: .pdfFilename)
         try c.encodeIfPresent(linkedPDFID,      forKey: .linkedPDFID)

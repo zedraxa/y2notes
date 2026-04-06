@@ -176,6 +176,30 @@
 		AA0001000000000000000213 /* Y2NoteTabCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000212 /* Y2NoteTabCell.swift */; };
 		AA0001000000000000000215 /* Y2NoteTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000214 /* Y2NoteTabBar.swift */; };
 		AA0001000000000000000217 /* Y2TabStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000216 /* Y2TabStateManager.swift */; };
+		AA0001000000000000000220 /* CanvasObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000021F /* CanvasObject.swift */; };
+		AA0001000000000000000222 /* ImageObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000221 /* ImageObject.swift */; };
+		AA0001000000000000000224 /* AudioClipObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000223 /* AudioClipObject.swift */; };
+		AA0001000000000000000226 /* StickerObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000225 /* StickerObject.swift */; };
+		AA0001000000000000000228 /* LinkObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000227 /* LinkObject.swift */; };
+		AA000100000000000000022A /* CanvasObjectWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000229 /* CanvasObjectWrapper.swift */; };
+		AA000100000000000000022C /* MediaFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000022B /* MediaFileManager.swift */; };
+		AA000100000000000000022E /* Y2ObjectOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000022D /* Y2ObjectOverlayController.swift */; };
+		AA0001000000000000000230 /* Y2ObjectSelectionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000022F /* Y2ObjectSelectionHandler.swift */; };
+		AA0001000000000000000232 /* Y2ImageObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000231 /* Y2ImageObjectView.swift */; };
+		AA0001000000000000000234 /* Y2AudioClipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000233 /* Y2AudioClipView.swift */; };
+		AA0001000000000000000236 /* Y2StickerObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000235 /* Y2StickerObjectView.swift */; };
+		AA0001000000000000000238 /* Y2LinkObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000237 /* Y2LinkObjectView.swift */; };
+		AA000100000000000000023A /* Y2ImageInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000239 /* Y2ImageInsertionController.swift */; };
+		AA000100000000000000023C /* Y2ImageCropController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000023B /* Y2ImageCropController.swift */; };
+		AA000100000000000000023E /* Y2DocumentScannerBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000023D /* Y2DocumentScannerBridge.swift */; };
+		AA0001000000000000000240 /* Y2AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000023F /* Y2AudioRecorder.swift */; };
+		AA0001000000000000000242 /* Y2AudioPlayerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000241 /* Y2AudioPlayerWidget.swift */; };
+		AA0001000000000000000244 /* Y2WaveformGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000243 /* Y2WaveformGenerator.swift */; };
+		AA0001000000000000000246 /* Y2StickerPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000245 /* Y2StickerPanelController.swift */; };
+		AA0001000000000000000248 /* BuiltInStickerPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000247 /* BuiltInStickerPack.swift */; };
+		AA000100000000000000024A /* StickerPackProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000249 /* StickerPackProviding.swift */; };
+		AA000100000000000000024C /* Y2LinkInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000024B /* Y2LinkInsertionController.swift */; };
+		AA000100000000000000024E /* Y2LinkMetadataFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */; };
 		AA000100000000000000019F /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019E /* CanvasView.swift */; };
 		AA00010000000000000001A1 /* CanvasViewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A0 /* CanvasViewCoordinator.swift */; };
 		AA00010000000000000001A3 /* ToolSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A2 /* ToolSnapshot.swift */; };
@@ -384,6 +408,30 @@
 		AA0001000000000000000212 /* Y2NoteTabCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NoteTabCell.swift; sourceTree = "<group>"; };
 		AA0001000000000000000214 /* Y2NoteTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NoteTabBar.swift; sourceTree = "<group>"; };
 		AA0001000000000000000216 /* Y2TabStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TabStateManager.swift; sourceTree = "<group>"; };
+		AA000100000000000000021F /* CanvasObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000221 /* ImageObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000223 /* AudioClipObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioClipObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000225 /* StickerObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000227 /* LinkObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000229 /* CanvasObjectWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasObjectWrapper.swift; sourceTree = "<group>"; };
+		AA000100000000000000022B /* MediaFileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaFileManager.swift; sourceTree = "<group>"; };
+		AA000100000000000000022D /* Y2ObjectOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ObjectOverlayController.swift; sourceTree = "<group>"; };
+		AA000100000000000000022F /* Y2ObjectSelectionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ObjectSelectionHandler.swift; sourceTree = "<group>"; };
+		AA0001000000000000000231 /* Y2ImageObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ImageObjectView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000233 /* Y2AudioClipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2AudioClipView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000235 /* Y2StickerObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2StickerObjectView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000237 /* Y2LinkObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkObjectView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000239 /* Y2ImageInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ImageInsertionController.swift; sourceTree = "<group>"; };
+		AA000100000000000000023B /* Y2ImageCropController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ImageCropController.swift; sourceTree = "<group>"; };
+		AA000100000000000000023D /* Y2DocumentScannerBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2DocumentScannerBridge.swift; sourceTree = "<group>"; };
+		AA000100000000000000023F /* Y2AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2AudioRecorder.swift; sourceTree = "<group>"; };
+		AA0001000000000000000241 /* Y2AudioPlayerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2AudioPlayerWidget.swift; sourceTree = "<group>"; };
+		AA0001000000000000000243 /* Y2WaveformGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2WaveformGenerator.swift; sourceTree = "<group>"; };
+		AA0001000000000000000245 /* Y2StickerPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2StickerPanelController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000247 /* BuiltInStickerPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInStickerPack.swift; sourceTree = "<group>"; };
+		AA0001000000000000000249 /* StickerPackProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerPackProviding.swift; sourceTree = "<group>"; };
+		AA000100000000000000024B /* Y2LinkInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkInsertionController.swift; sourceTree = "<group>"; };
+		AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkMetadataFetcher.swift; sourceTree = "<group>"; };
 		AA000100000000000000019E /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A0 /* CanvasViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewCoordinator.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A2 /* ToolSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSnapshot.swift; sourceTree = "<group>"; };
@@ -746,6 +794,7 @@
 				AA00010000000000000001B4 /* Persistence */,
 				AA00010000000000000001B5 /* Services */,
 				AA00010000000000000001CD /* ServiceContainer.swift */,
+				AA0001000000000000000218 /* EmbeddedObjects */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -768,6 +817,7 @@
 			children = (
 				AA00010000000000000001C3 /* PersistenceDriver.swift */,
 				AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */,
+				AA000100000000000000022B /* MediaFileManager.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -804,6 +854,11 @@
 				AA00010000000000000001E2 /* Y2CanvasHostingView.swift */,
 				AA00010000000000000001FE /* Pages */,
 				AA00010000000000000001FF /* Tabs */,
+				AA0001000000000000000219 /* Objects */,
+				AA000100000000000000021B /* Media */,
+				AA000100000000000000021C /* Audio */,
+				AA000100000000000000021D /* Stickers */,
+				AA000100000000000000021E /* Links */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -886,6 +941,79 @@
 				AA0001000000000000000216 /* Y2TabStateManager.swift */,
 			);
 			path = Tabs;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000218 /* EmbeddedObjects */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000021F /* CanvasObject.swift */,
+				AA0001000000000000000221 /* ImageObject.swift */,
+				AA0001000000000000000223 /* AudioClipObject.swift */,
+				AA0001000000000000000225 /* StickerObject.swift */,
+				AA0001000000000000000227 /* LinkObject.swift */,
+				AA0001000000000000000229 /* CanvasObjectWrapper.swift */,
+			);
+			path = EmbeddedObjects;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000219 /* Objects */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000022D /* Y2ObjectOverlayController.swift */,
+				AA000100000000000000022F /* Y2ObjectSelectionHandler.swift */,
+				AA000100000000000000021A /* Views */,
+			);
+			path = Objects;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000231 /* Y2ImageObjectView.swift */,
+				AA0001000000000000000233 /* Y2AudioClipView.swift */,
+				AA0001000000000000000235 /* Y2StickerObjectView.swift */,
+				AA0001000000000000000237 /* Y2LinkObjectView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021B /* Media */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000239 /* Y2ImageInsertionController.swift */,
+				AA000100000000000000023B /* Y2ImageCropController.swift */,
+				AA000100000000000000023D /* Y2DocumentScannerBridge.swift */,
+			);
+			path = Media;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021C /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000023F /* Y2AudioRecorder.swift */,
+				AA0001000000000000000241 /* Y2AudioPlayerWidget.swift */,
+				AA0001000000000000000243 /* Y2WaveformGenerator.swift */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021D /* Stickers */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000245 /* Y2StickerPanelController.swift */,
+				AA0001000000000000000247 /* BuiltInStickerPack.swift */,
+				AA0001000000000000000249 /* StickerPackProviding.swift */,
+			);
+			path = Stickers;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021E /* Links */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000024B /* Y2LinkInsertionController.swift */,
+				AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */,
+			);
+			path = Links;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1184,6 +1312,30 @@
 				AA0001000000000000000213 /* Y2NoteTabCell.swift in Sources */,
 				AA0001000000000000000215 /* Y2NoteTabBar.swift in Sources */,
 				AA0001000000000000000217 /* Y2TabStateManager.swift in Sources */,
+				AA0001000000000000000220 /* CanvasObject.swift in Sources */,
+				AA0001000000000000000222 /* ImageObject.swift in Sources */,
+				AA0001000000000000000224 /* AudioClipObject.swift in Sources */,
+				AA0001000000000000000226 /* StickerObject.swift in Sources */,
+				AA0001000000000000000228 /* LinkObject.swift in Sources */,
+				AA000100000000000000022A /* CanvasObjectWrapper.swift in Sources */,
+				AA000100000000000000022C /* MediaFileManager.swift in Sources */,
+				AA000100000000000000022E /* Y2ObjectOverlayController.swift in Sources */,
+				AA0001000000000000000230 /* Y2ObjectSelectionHandler.swift in Sources */,
+				AA0001000000000000000232 /* Y2ImageObjectView.swift in Sources */,
+				AA0001000000000000000234 /* Y2AudioClipView.swift in Sources */,
+				AA0001000000000000000236 /* Y2StickerObjectView.swift in Sources */,
+				AA0001000000000000000238 /* Y2LinkObjectView.swift in Sources */,
+				AA000100000000000000023A /* Y2ImageInsertionController.swift in Sources */,
+				AA000100000000000000023C /* Y2ImageCropController.swift in Sources */,
+				AA000100000000000000023E /* Y2DocumentScannerBridge.swift in Sources */,
+				AA0001000000000000000240 /* Y2AudioRecorder.swift in Sources */,
+				AA0001000000000000000242 /* Y2AudioPlayerWidget.swift in Sources */,
+				AA0001000000000000000244 /* Y2WaveformGenerator.swift in Sources */,
+				AA0001000000000000000246 /* Y2StickerPanelController.swift in Sources */,
+				AA0001000000000000000248 /* BuiltInStickerPack.swift in Sources */,
+				AA000100000000000000024A /* StickerPackProviding.swift in Sources */,
+				AA000100000000000000024C /* Y2LinkInsertionController.swift in Sources */,
+				AA000100000000000000024E /* Y2LinkMetadataFetcher.swift in Sources */,
 		};
 		AA0001000000000000000176 /* Sources (Y2NotesTests) */ = {
 			isa = PBXSourcesBuildPhase;

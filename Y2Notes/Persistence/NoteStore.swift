@@ -307,6 +307,7 @@ final class NoteStore: ObservableObject {
             if let filename = notes[i].pdfFilename {
                 NotePDFGenerator.deletePDF(filename: filename)
             }
+            MediaFileManager.shared.deleteMediaForNote(noteID: notes[i].id)
         }
         notes.remove(atOffsets: offsets)
         save()
@@ -319,6 +320,7 @@ final class NoteStore: ObservableObject {
             if let filename = note.pdfFilename {
                 NotePDFGenerator.deletePDF(filename: filename)
             }
+            MediaFileManager.shared.deleteMediaForNote(noteID: note.id)
         }
         notes.removeAll { ids.contains($0.id) }
         save()
