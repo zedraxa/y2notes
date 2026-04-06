@@ -2288,6 +2288,35 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.pencilCoordinator = pencilCoordinator
         context.coordinator.canvasRef = canvas
 
+        // ── Real-time nib tracker for effects ────────────────────────────────
+        // PencilNibTrackerGestureRecognizer fires on every pencil touchesMoved
+        // event at the hardware's native frame rate (up to 240 Hz).  This drives
+        // ink-effect emitter positions in real time instead of waiting for
+        // canvasViewDrawingDidChange (which only fires on committed stroke batches
+        // and lags 100–300 ms behind the actual pen tip).
+        let nibTracker = PencilNibTrackerGestureRecognizer()
+        nibTracker.onNibBegan = { [weak context] location in
+            guard let coordinator = context?.coordinator,
+                  coordinator.isDrawing,
+                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
+            coordinator.effects.dispatch(
+                .strokeBegan(at: location, inkColor: inkColor),
+                inkEffectEngine: coordinator.effectEngine
+            )
+        }
+        nibTracker.onNibMoved = { [weak context] location, force, velocity in
+            guard let coordinator = context?.coordinator,
+                  coordinator.isDrawing,
+                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            coordinator.effects.dispatch(
+                .strokeUpdated(at: location, pressure: force, velocity: velocity),
+                inkEffectEngine: coordinator.effectEngine
+            )
+        }
+        canvas.addGestureRecognizer(nibTracker)
+        context.coordinator.nibTracker = nibTracker
+
         // ── Scratch-to-delete gesture recognizer ─────────────────────────────
         // ScribbleDeleteRecognizer is a fully passive observer: it never cancels
         // or prevents PKCanvasView's own drawing recognizer.  When a rapid
@@ -2631,6 +2660,9 @@ struct CanvasView: UIViewRepresentable {
 
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
+        /// Passive gesture recognizer that feeds real-time pencil positions
+        /// to the effects engines at the hardware's native touch rate.
+        var nibTracker: PencilNibTrackerGestureRecognizer?
         var hoverOverlay: PencilHoverOverlayView?
         var eraserCursorOverlay: EraserCursorOverlay?
         /// Passive gesture recognizer that detects scratch-to-delete gestures.
@@ -3010,16 +3042,8 @@ struct CanvasView: UIViewRepresentable {
             if let inkTool = canvasView.tool as? PKInkingTool {
                 barrelRollBaseWidth = inkTool.width
             }
-            // Dispatch stroke-began through the effects coordinator.
-            // At stroke-begin the new stroke isn't committed yet, so the nib
-            // position is approximated as the canvas bounds midpoint; the next
-            // strokeUpdated call will snap every engine to the real position.
-            let strokeStartPt = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-            let strokeStartColor = (canvasView.tool as? PKInkingTool)?.color ?? .label
-            effects.dispatch(
-                .strokeBegan(at: strokeStartPt, inkColor: strokeStartColor),
-                inkEffectEngine: effectEngine
-            )
+            // NOTE: .strokeBegan is dispatched by PencilNibTrackerGestureRecognizer
+            // with the actual first-contact position.  No dispatch needed here.
             // Auto-fade toolbar using config constants
             fadeTask?.cancel()
             fadeTask = Task { @MainActor [weak self] in
@@ -3368,36 +3392,8 @@ struct CanvasView: UIViewRepresentable {
             let data = canvasView.drawing.dataRepresentation()
             onDrawingChanged(data)
 
-            // Dispatch stroke-updated through the effects coordinator (single path read).
-            // Reads `canvasView.drawing.strokes.last` once, converts to viewport space
-            // once, computes velocity once, and fans out to every engine via dispatch.
-            if let lastPath = canvasView.drawing.strokes.last?.path, let lastPoint = lastPath.last {
-                let vp = viewportPoint(
-                    from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
-                    in: canvasView
-                )
-                let pressure = lastPoint.force
-                let fallbackVelocity: CGFloat = VelocityThicknessParams.velocityCeiling / 4
-                let velocity: CGFloat
-                if lastPath.count >= 2 {
-                    let prev = lastPath[lastPath.count - 2]
-                    let curr = lastPath[lastPath.count - 1]
-                    let dt = curr.timeOffset - prev.timeOffset
-                    if dt > 0 {
-                        let dx = curr.location.x - prev.location.x
-                        let dy = curr.location.y - prev.location.y
-                        velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
-                    } else {
-                        velocity = fallbackVelocity
-                    }
-                } else {
-                    velocity = fallbackVelocity
-                }
-                effects.dispatch(
-                    .strokeUpdated(at: vp, pressure: pressure, velocity: velocity),
-                    inkEffectEngine: effectEngine
-                )
-            }
+            // NOTE: effect position updates are driven by PencilNibTrackerGestureRecognizer
+            // at the hardware's native touch rate.  No position dispatch is needed here.
 
             // Report undo/redo availability directly from the canvas's undo manager.
             // PKCanvasView inherits UIResponder.undoManager which traverses the responder

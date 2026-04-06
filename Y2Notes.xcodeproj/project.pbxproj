@@ -125,6 +125,7 @@
 		AA000100000000000000017D /* EraserCursorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000017C /* EraserCursorOverlay.swift */; };
 		AA0001000000000000000181 /* GoogleDriveFileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* GoogleDriveFileBrowserView.swift */; };
 		AA000100000000000000017F /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */; };
+		AA0001000000000000000183 /* PencilNibTrackerGestureRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */; };
 		AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014A /* InteractionFeedbackEngine.swift */; };
 		AA0001000000000000000155 /* WritingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000154 /* WritingInsights.swift */; };
 		AA0001000000000000000157 /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000156 /* QuickAction.swift */; };
@@ -207,6 +208,7 @@
 		AA0001000000000000000146 /* WritingEffectsPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectsPipeline.swift; sourceTree = "<group>"; };
 		AA000100000000000000017C /* EraserCursorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraserCursorOverlay.swift; sourceTree = "<group>"; };
 		AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
+		AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilNibTrackerGestureRecognizer.swift; sourceTree = "<group>"; };
 		AA000100000000000000014A /* InteractionFeedbackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionFeedbackEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000154 /* WritingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsights.swift; sourceTree = "<group>"; };
 		AA0001000000000000000156 /* QuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAction.swift; sourceTree = "<group>"; };
@@ -459,6 +461,7 @@
 				AA0001000000000000000055 /* ContextualPencilPaletteView.swift */,
 				AA000100000000000000017C /* EraserCursorOverlay.swift */,
 				AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */,
+				AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */,
 			);
 			path = PencilKit;
 			sourceTree = "<group>";
@@ -705,6 +708,7 @@
 				AA000100000000000000005A /* ContextualPencilPaletteView.swift in Sources */,
 				AA000100000000000000017D /* EraserCursorOverlay.swift in Sources */,
 				AA000100000000000000017F /* ScribbleDeleteRecognizer.swift in Sources */,
+				AA0001000000000000000183 /* PencilNibTrackerGestureRecognizer.swift in Sources */,
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
 				AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */,
