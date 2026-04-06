@@ -202,7 +202,7 @@ public struct WritingEffectConfig: Codable, Equatable {
 
     /// Returns the set of active core effects for iteration.
     public var activeCoreEffects: [CoreWritingEffect] {
-        public var result: [CoreWritingEffect] = []
+        var result: [CoreWritingEffect] = []
         if pressureSpreadEnabled    { result.append(.pressureSpread) }
         if velocityThicknessEnabled { result.append(.velocityThickness) }
         if edgeFadeEnabled          { result.append(.edgeFade) }
@@ -213,7 +213,7 @@ public struct WritingEffectConfig: Codable, Equatable {
 
     /// Returns the set of active advanced effects for iteration.
     public var activeAdvancedEffects: [AdvancedWritingEffect] {
-        public var result: [AdvancedWritingEffect] = []
+        var result: [AdvancedWritingEffect] = []
         if glowPenEnabled      { result.append(.glowPen) }
         if neonInkEnabled      { result.append(.neonInk) }
         if gradientInkEnabled  { result.append(.gradientInk) }
@@ -223,7 +223,7 @@ public struct WritingEffectConfig: Codable, Equatable {
 
     /// Filters out advanced effects the device cannot support.
     public func resolved(for tier: DeviceCapabilityTier) -> WritingEffectConfig {
-        public var copy = self
+        var copy = self
         if !AdvancedWritingEffect.glowPen.isSupported(on: tier)      { copy.glowPenEnabled = false }
         if !AdvancedWritingEffect.neonInk.isSupported(on: tier)      { copy.neonInkEnabled = false }
         if !AdvancedWritingEffect.gradientInk.isSupported(on: tier)  { copy.gradientInkEnabled = false }
@@ -243,7 +243,7 @@ public struct WritingEffectConfig: Codable, Equatable {
     /// all optional core effects (micro-texture, opacity fluctuation) are
     /// also disabled.
     public func adapted(for intensity: EffectIntensity) -> WritingEffectConfig {
-        public var copy = self
+        var copy = self
         if !intensity.allowsAdvancedWritingEffects {
             copy.glowPenEnabled      = false
             copy.neonInkEnabled      = false
@@ -566,15 +566,15 @@ public enum PressureResponseCurve {
     /// - Parameter force: Normalised Apple Pencil force (0…1).
     /// - Returns: Width multiplier.
     public static func evaluate(force: CGFloat) -> CGFloat {
-        public let f = min(max(force, 0), 1)
+        let f = min(max(force, 0), 1)
         if f <= lightNormalBreak {
-            public let t = f / lightNormalBreak
+            let t = f / lightNormalBreak
             return outputAtZero + t * (outputAtLightNormal - outputAtZero)
         } else if f <= normalHeavyBreak {
-            public let t = (f - lightNormalBreak) / (normalHeavyBreak - lightNormalBreak)
+            let t = (f - lightNormalBreak) / (normalHeavyBreak - lightNormalBreak)
             return outputAtLightNormal + t * (outputAtNormalHeavy - outputAtLightNormal)
         } else {
-            public let t = (f - normalHeavyBreak) / (1.0 - normalHeavyBreak)
+            let t = (f - normalHeavyBreak) / (1.0 - normalHeavyBreak)
             return outputAtNormalHeavy + t * (outputAtMax - outputAtNormalHeavy)
         }
     }

@@ -96,7 +96,7 @@ public final class WritingEffectsPipeline {
 
     /// Non-interactive overlay view added above the canvas.
     public private(set) var overlayView: UIView = {
-        public let v = UIView()
+        let v = UIView()
         v.isUserInteractionEnabled = false
         v.backgroundColor = .clear
         return v
@@ -201,7 +201,7 @@ public final class WritingEffectsPipeline {
     public func onStrokeUpdated(at point: CGPoint, pressure: CGFloat = 1.0, velocity: CGFloat = 500) {
         defer { lastNibPoint = point }
 
-        public let cfg = effectiveConfig
+        let cfg = effectiveConfig
 
         // ── Glow Pen: follow nib position ──────────────────────────────
         if cfg.glowPenEnabled {
@@ -221,7 +221,7 @@ public final class WritingEffectsPipeline {
 
     /// Call when the Apple Pencil lifts from the canvas.
     public func onStrokeEnded() {
-        public let cfg = effectiveConfig
+        let cfg = effectiveConfig
         if cfg.strokeTaperEnabled, let last = lastNibPoint {
             renderTaperDot(at: last, isTail: true)
         }
@@ -236,15 +236,15 @@ public final class WritingEffectsPipeline {
     private func updateGlowLayer(at point: CGPoint, pressure: CGFloat) {
         guard !shouldSuppressAnimations else { return }
 
-        public let size = Tuning.glowLayerSize
-        public let half = size / 2
+        let size = Tuning.glowLayerSize
+        let half = size / 2
 
         // Create the layer on first use; reuse afterwards.
-        public let layer: CAGradientLayer
+        let layer: CAGradientLayer
         if let existing = glowLayer {
             layer = existing
         } else {
-            public let newLayer = makeGlowLayer()
+            let newLayer = makeGlowLayer()
             overlayView.layer.addSublayer(newLayer)
             glowLayer = newLayer
             layer = newLayer
@@ -254,8 +254,8 @@ public final class WritingEffectsPipeline {
         CATransaction.setDisableActions(true)
         layer.frame = CGRect(x: point.x - half, y: point.y - half, width: size, height: size)
         // Scale opacity with pressure (clamped to max).
-        public let normalised = min(pressure, 1.0)
-        public let opacity = Tuning.glowBaseOpacity + Float(normalised) * (Tuning.glowMaxOpacity - Tuning.glowBaseOpacity)
+        let normalised = min(pressure, 1.0)
+        let opacity = Tuning.glowBaseOpacity + Float(normalised) * (Tuning.glowMaxOpacity - Tuning.glowBaseOpacity)
         layer.opacity = opacity
         CATransaction.commit()
     }
@@ -267,7 +267,7 @@ public final class WritingEffectsPipeline {
             glowLayer = nil
             return
         }
-        public let fade = CABasicAnimation(keyPath: "opacity")
+        let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = layer.opacity
         fade.toValue = 0.0
         fade.duration = Tuning.glowFadeOutDuration
@@ -283,11 +283,11 @@ public final class WritingEffectsPipeline {
     }
 
     private func makeGlowLayer() -> CAGradientLayer {
-        public let layer = CAGradientLayer()
+        let layer = CAGradientLayer()
         layer.type = .radial
-        public let rgb = inkColor.cgColor.components ?? [0, 0, 0, 1]
-        public let glow = UIColor(red: rgb[0], green: rgb[1], blue: rgb[2], alpha: 1.0).cgColor
-        public let clear = UIColor(red: rgb[0], green: rgb[1], blue: rgb[2], alpha: 0.0).cgColor
+        let rgb = inkColor.cgColor.components ?? [0, 0, 0, 1]
+        let glow = UIColor(red: rgb[0], green: rgb[1], blue: rgb[2], alpha: 1.0).cgColor
+        let clear = UIColor(red: rgb[0], green: rgb[1], blue: rgb[2], alpha: 0.0).cgColor
         layer.colors = [glow, clear]
         layer.startPoint = CGPoint(x: 0.5, y: 0.5)
         layer.endPoint = CGPoint(x: 1.0, y: 1.0)
@@ -298,10 +298,10 @@ public final class WritingEffectsPipeline {
     // MARK: - Neon Ink Overlay
 
     private func syncNeonOverlay() {
-        public let cfg = effectiveConfig
+        let cfg = effectiveConfig
         if cfg.neonInkEnabled, !shouldSuppressAnimations {
             if neonOverlay == nil {
-                public let layer = CALayer()
+                let layer = CALayer()
                 layer.compositingFilter = Tuning.neonFilter
                 layer.shadowColor = inkColor.cgColor
                 layer.shadowRadius = Tuning.neonShadowRadius
@@ -324,11 +324,11 @@ public final class WritingEffectsPipeline {
     private func addTrailSegment(from start: CGPoint, to end: CGPoint) {
         guard !shouldSuppressAnimations else { return }
 
-        public let path = CGMutablePath()
+        let path = CGMutablePath()
         path.move(to: start)
         path.addLine(to: end)
 
-        public let segLayer = CAShapeLayer()
+        let segLayer = CAShapeLayer()
         segLayer.path = path
         segLayer.strokeColor = inkColor.withAlphaComponent(Tuning.trailStartOpacity).cgColor
         segLayer.fillColor = UIColor.clear.cgColor
@@ -336,7 +336,7 @@ public final class WritingEffectsPipeline {
         segLayer.lineCap = .round
         overlayView.layer.addSublayer(segLayer)
 
-        public let fade = CABasicAnimation(keyPath: "opacity")
+        let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = 1.0
         fade.toValue = 0.0
         fade.duration = Tuning.trailMaxAge
@@ -349,7 +349,7 @@ public final class WritingEffectsPipeline {
     }
 
     private func pruneExpiredTrailSegments() {
-        public let now = CACurrentMediaTime()
+        let now = CACurrentMediaTime()
         trailSegments.removeAll { entry in
             if now - entry.born > Tuning.trailMaxAge {
                 entry.layer.removeFromSuperlayer()
@@ -377,8 +377,8 @@ public final class WritingEffectsPipeline {
     private func renderTaperDot(at point: CGPoint, isTail: Bool = false) {
         guard !shouldSuppressAnimations else { return }
 
-        public let dot = CAShapeLayer()
-        public let r = Tuning.taperDotDiameter / 2
+        let dot = CAShapeLayer()
+        let r = Tuning.taperDotDiameter / 2
         dot.path = CGPath(
             ellipseIn: CGRect(x: point.x - r, y: point.y - r, width: Tuning.taperDotDiameter, height: Tuning.taperDotDiameter),
             transform: nil
@@ -391,7 +391,7 @@ public final class WritingEffectsPipeline {
         if isTail {
             // Fade out a dot at the stroke end (taper tail)
             dot.opacity = Tuning.taperDotPeakOpacity
-            public let fade = CABasicAnimation(keyPath: "opacity")
+            let fade = CABasicAnimation(keyPath: "opacity")
             fade.fromValue = Tuning.taperDotPeakOpacity
             fade.toValue = 0.0
             fade.duration = Tuning.taperFadeDuration
@@ -406,7 +406,7 @@ public final class WritingEffectsPipeline {
             // Pulse in a dot at the stroke head (taper start)
             taperStartLayer?.removeFromSuperlayer()
             taperStartLayer = dot
-            public let appear = CABasicAnimation(keyPath: "opacity")
+            let appear = CABasicAnimation(keyPath: "opacity")
             appear.fromValue = Tuning.taperDotPeakOpacity
             appear.toValue = 0.0
             appear.duration = Tuning.taperFadeDuration
@@ -427,29 +427,29 @@ public final class WritingEffectsPipeline {
     private func updatePooling(at point: CGPoint, velocity: CGFloat) {
         guard !shouldSuppressAnimations else { return }
 
-        public let isSlowEnough = velocity < Tuning.poolingVelocityThreshold
+        let isSlowEnough = velocity < Tuning.poolingVelocityThreshold
         guard isSlowEnough != isPoolingExpanded else { return }
         isPoolingExpanded = isSlowEnough
 
         // Ensure glow layer exists (create it even if glowPenEnabled is false so
         // pooling can appear independently).
         if glowLayer == nil {
-            public let newLayer = makeGlowLayer()
+            let newLayer = makeGlowLayer()
             newLayer.opacity = 0   // start invisible
             overlayView.layer.addSublayer(newLayer)
             glowLayer = newLayer
         }
         guard let layer = glowLayer else { return }
 
-        public let pooling = effectiveConfig.inkFlow.poolingStrength
-        public let targetScale = isSlowEnough
+        let pooling = effectiveConfig.inkFlow.poolingStrength
+        let targetScale = isSlowEnough
             ? 1.0 + Float(pooling) * Float(Tuning.poolingMaxRadiusScale - 1.0)
             : 1.0
-        public let targetOpacity = isSlowEnough
+        let targetOpacity = isSlowEnough
             ? Tuning.glowBaseOpacity + Float(pooling) * (Tuning.glowMaxOpacity - Tuning.glowBaseOpacity)
             : Tuning.glowBaseOpacity
 
-        public let scaleAnim = CABasicAnimation(keyPath: "transform.scale")
+        let scaleAnim = CABasicAnimation(keyPath: "transform.scale")
         scaleAnim.fromValue = layer.presentation()?.value(forKeyPath: "transform.scale") ?? 1.0
         scaleAnim.toValue = targetScale
         scaleAnim.duration = Tuning.poolingAnimDuration
@@ -457,14 +457,14 @@ public final class WritingEffectsPipeline {
         scaleAnim.fillMode = .forwards
         scaleAnim.isRemovedOnCompletion = false
 
-        public let opacityAnim = CABasicAnimation(keyPath: "opacity")
+        let opacityAnim = CABasicAnimation(keyPath: "opacity")
         opacityAnim.fromValue = layer.presentation()?.opacity ?? layer.opacity
         opacityAnim.toValue = targetOpacity
         opacityAnim.duration = Tuning.poolingAnimDuration
         opacityAnim.fillMode = .forwards
         opacityAnim.isRemovedOnCompletion = false
 
-        public let group = CAAnimationGroup()
+        let group = CAAnimationGroup()
         group.animations = [scaleAnim, opacityAnim]
         group.duration = Tuning.poolingAnimDuration
         group.fillMode = .forwards
@@ -473,8 +473,8 @@ public final class WritingEffectsPipeline {
         layer.add(group, forKey: "pooling")
 
         // Reposition to current nib location.
-        public let size = Tuning.glowLayerSize
-        public let half = size / 2
+        let size = Tuning.glowLayerSize
+        let half = size / 2
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer.frame = CGRect(x: point.x - half, y: point.y - half, width: size, height: size)
@@ -484,7 +484,7 @@ public final class WritingEffectsPipeline {
     private func contractPoolingGlow() {
         guard isPoolingExpanded, let layer = glowLayer else { return }
         isPoolingExpanded = false
-        public let anim = CABasicAnimation(keyPath: "transform.scale")
+        let anim = CABasicAnimation(keyPath: "transform.scale")
         anim.fromValue = layer.presentation()?.value(forKeyPath: "transform.scale") ?? 1.0
         anim.toValue = 1.0
         anim.duration = Tuning.poolingAnimDuration
@@ -508,28 +508,28 @@ public final class WritingEffectsPipeline {
     ///   - pressure: Current Apple Pencil pressure (0–1).
     /// - Returns: The colour to apply to the active `PKInkingTool`.
     public func resolvedInkColor(velocity: CGFloat = 500, pressure: CGFloat = 1.0) -> UIColor {
-        public let cfg = effectiveConfig
+        let cfg = effectiveConfig
         guard cfg.gradientInkEnabled else { return inkColor }
 
-        public let start = cfg.gradientStartColor
-        public let end   = cfg.gradientEndColor
+        let start = cfg.gradientStartColor
+        let end   = cfg.gradientEndColor
         guard start.count == 4, end.count == 4 else { return inkColor }
 
-        public let t: CGFloat
+        let t: CGFloat
         switch cfg.gradientSource {
         case .velocity:
             // Fast stroke → startColor, slow stroke → endColor.
             // Use the ink-flow velocity ceiling so sub-type tunes gradient response.
-            public let ceiling = cfg.inkFlow.velocityCeiling > 0 ? cfg.inkFlow.velocityCeiling : Tuning.gradientVelocityCeiling
+            let ceiling = cfg.inkFlow.velocityCeiling > 0 ? cfg.inkFlow.velocityCeiling : Tuning.gradientVelocityCeiling
             t = 1.0 - min(velocity / ceiling, 1.0)
         case .pressure:
             t = min(pressure, 1.0)
         }
 
-        public let r = CGFloat(start[0]) + t * (CGFloat(end[0]) - CGFloat(start[0]))
-        public let g = CGFloat(start[1]) + t * (CGFloat(end[1]) - CGFloat(start[1]))
-        public let b = CGFloat(start[2]) + t * (CGFloat(end[2]) - CGFloat(start[2]))
-        public let a = CGFloat(start[3]) + t * (CGFloat(end[3]) - CGFloat(start[3]))
+        let r = CGFloat(start[0]) + t * (CGFloat(end[0]) - CGFloat(start[0]))
+        let g = CGFloat(start[1]) + t * (CGFloat(end[1]) - CGFloat(start[1]))
+        let b = CGFloat(start[2]) + t * (CGFloat(end[2]) - CGFloat(start[2]))
+        let a = CGFloat(start[3]) + t * (CGFloat(end[3]) - CGFloat(start[3]))
         return UIColor(red: r, green: g, blue: b, alpha: a)
     }
 }

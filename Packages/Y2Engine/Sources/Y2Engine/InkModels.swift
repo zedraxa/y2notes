@@ -32,8 +32,8 @@ public enum DeviceCapabilityTier: Int, Codable, Comparable {
     /// available on all iPads from ~2018 onward (A12+).  Devices with less than
     /// 2 GB RAM (iPad 6th gen / A10) are the only ones held to `.basic`.
     public static var current: DeviceCapabilityTier {
-        public let memory = ProcessInfo.processInfo.physicalMemory
-        public let cores  = ProcessInfo.processInfo.processorCount
+        let memory = ProcessInfo.processInfo.physicalMemory
+        let cores  = ProcessInfo.processInfo.processorCount
         if memory >= 8_589_934_592 && cores >= 8 { return .ultra    }  // 8 GB+ / 8+ cores  (M2+ iPad Pro)
         if memory >= 3_221_225_472              { return .pro       }  // 3 GB+              (A12+, iPad Air 3+, mini 5+)
         if memory >= 2_147_483_648              { return .standard  }  // 2 GB+              (A10, iPad 7th gen)
@@ -578,7 +578,7 @@ public struct InkPreset: Identifiable, Codable, Equatable {
         self.isFavorite = isFavorite
         self.isBuiltIn  = isBuiltIn
 
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
         colorComponents = [Double(r), Double(g), Double(b), Double(a)]
     }
@@ -599,7 +599,7 @@ public struct InkPreset: Identifiable, Codable, Equatable {
     /// otherwise → `.pen`.  The overlay FX are separate from this tool; they are
     /// rendered by `InkEffectEngine` and never modify the PKCanvasView stroke data.
     public var pkTool: PKTool {
-        public let inkType: PKInkingTool.InkType
+        let inkType: PKInkingTool.InkType
         if traits.isDry {
             inkType = .pencil
         } else if traits.wetness > 0.5 {

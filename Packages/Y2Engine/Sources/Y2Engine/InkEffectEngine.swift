@@ -98,7 +98,7 @@ public final class InkEffectEngine {
 
     /// Non-interactive overlay that hosts all effect layers.
     public let overlayView: UIView = {
-        public let v = UIView()
+        let v = UIView()
         v.backgroundColor          = .clear
         v.isOpaque                 = false
         v.isUserInteractionEnabled = false
@@ -112,7 +112,7 @@ public final class InkEffectEngine {
     // additive blending.  Additive mode makes dark particles invisible on white paper;
     // normal mode lets semi-transparent grey puffs composite correctly.
     private let shadowEmitterLayer: CAEmitterLayer = {
-        public let l = CAEmitterLayer()
+        let l = CAEmitterLayer()
         l.renderMode = .unordered   // standard compositing — correct grey-on-white appearance
         l.isHidden   = true
         return l
@@ -123,7 +123,7 @@ public final class InkEffectEngine {
 
     // Glow — soft radial gradient layer that follows the nib
     private let glowLayer: CAGradientLayer = {
-        public let g = CAGradientLayer()
+        let g = CAGradientLayer()
         g.type = .radial
         g.startPoint = CGPoint(x: 0.5, y: 0.5)
         g.endPoint   = CGPoint(x: 1.0, y: 1.0)
@@ -133,7 +133,7 @@ public final class InkEffectEngine {
 
     // Sheen iridescent glow — multi-stop radial gradient that cycles hue with the nib
     private let sheenGlowLayer: CAGradientLayer = {
-        public let g = CAGradientLayer()
+        let g = CAGradientLayer()
         g.type       = .radial
         g.startPoint = CGPoint(x: 0.5, y: 0.5)
         g.endPoint   = CGPoint(x: 1.0, y: 1.0)
@@ -143,7 +143,7 @@ public final class InkEffectEngine {
 
     // Fire glow — warm amber radial aura that follows the nib while writing with fire
     private let fireGlowLayer: CAGradientLayer = {
-        public let g = CAGradientLayer()
+        let g = CAGradientLayer()
         g.type = .radial
         g.startPoint = CGPoint(x: 0.5, y: 0.5)
         g.endPoint   = CGPoint(x: 1.0, y: 1.0)
@@ -199,7 +199,7 @@ public final class InkEffectEngine {
         overlayView.layer.addSublayer(fireGlowLayer)
 
         // Sheen glow layer — iridescent radial gradient, initially hidden
-        public let sd = SheenTuning.glowDiameter
+        let sd = SheenTuning.glowDiameter
         sheenGlowLayer.bounds       = CGRect(x: 0, y: 0, width: sd, height: sd)
         sheenGlowLayer.cornerRadius = sd / 2
         sheenGlowLayer.isHidden     = true
@@ -247,7 +247,7 @@ public final class InkEffectEngine {
         strokeColor = color
 
         // Gracefully downgrade FX that the device cannot support.
-        public let resolved = fx.isSupported(on: tier) ? fx : .none
+        let resolved = fx.isSupported(on: tier) ? fx : .none
         guard resolved != activeFX else {
             // Same FX, but colour might have changed — recolour emitter cells.
             switch resolved {
@@ -348,10 +348,10 @@ public final class InkEffectEngine {
             configureSheenGlow(hue: sheenHueOffset)
             // Velocity-responsive birth rate — faster strokes emit more particles.
             if let prev = lastSheenPoint {
-                public let dx = point.x - prev.x
-                public let dy = point.y - prev.y
-                public let speed = sqrt(dx * dx + dy * dy)
-                public let boost: Float = speed > SheenTuning.velocityBoostThreshold
+                let dx = point.x - prev.x
+                let dy = point.y - prev.y
+                let speed = sqrt(dx * dx + dy * dy)
+                let boost: Float = speed > SheenTuning.velocityBoostThreshold
                     ? SheenTuning.velocityBoostMultiplier : 1.0
                 emitterLayer.birthRate = boost
             }
@@ -373,13 +373,13 @@ public final class InkEffectEngine {
         case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood:
             emitterLayer.birthRate = 0
             if activeFX == .fire {
-                public let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
+                let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
                 fadeAnim.fromValue             = Float(1)
                 fadeAnim.toValue               = Float(0)
                 fadeAnim.duration              = 0.35
                 fadeAnim.fillMode              = .forwards
                 fadeAnim.isRemovedOnCompletion = false
-                public let glow = fireGlowLayer
+                let glow = fireGlowLayer
                 CATransaction.begin()
                 CATransaction.setCompletionBlock {
                     glow.isHidden = true
@@ -391,13 +391,13 @@ public final class InkEffectEngine {
             }
             if activeFX == .sheen {
                 // Smooth fade-out of the iridescent glow when the stroke ends.
-                public let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
+                let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
                 fadeAnim.fromValue             = Float(1)
                 fadeAnim.toValue               = Float(0)
                 fadeAnim.duration              = SheenTuning.glowFadeDuration
                 fadeAnim.fillMode              = .forwards
                 fadeAnim.isRemovedOnCompletion = false
-                public let glow = sheenGlowLayer
+                let glow = sheenGlowLayer
                 CATransaction.begin()
                 CATransaction.setCompletionBlock {
                     glow.isHidden = true
@@ -455,7 +455,7 @@ public final class InkEffectEngine {
 
     private func setupFireEmitter(color: UIColor) {
         // Calculate the per-layer budget once so cell fractions correctly sum to ≤ 1×budget.
-        public let budget = Float(min(tier.maxParticles, FireTuning.maxParticles))
+        let budget = Float(min(tier.maxParticles, FireTuning.maxParticles))
         emitterLayer.emitterShape = .point
         emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
         emitterLayer.isHidden     = false
@@ -470,8 +470,8 @@ public final class InkEffectEngine {
 
     /// Bright yellow-white inner core: the hottest, fastest-rising column.
     private func makeCoreFlameCell(budget: Float) -> CAEmitterCell {
-        public let physics = ParticlePhysics.fireCorePhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.fireCorePhysics
+        let cell               = CAEmitterCell()
         cell.birthRate         = budget * FireTuning.coreBudgetFraction
         cell.lifetime          = 0.28
         cell.lifetimeRange     = 0.12
@@ -497,8 +497,8 @@ public final class InkEffectEngine {
 
     /// Orange mid-flame: main visible body; hue is biased from the user's ink colour.
     private func makeMidFlameCell(color: UIColor, budget: Float) -> CAEmitterCell {
-        public let physics = ParticlePhysics.firePhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.firePhysics
+        let cell               = CAEmitterCell()
         cell.birthRate         = budget * FireTuning.midBudgetFraction
         cell.lifetime          = 0.65
         cell.lifetimeRange     = 0.35
@@ -523,8 +523,8 @@ public final class InkEffectEngine {
 
     /// Ember sparks: occasional bright orange flecks that scatter and fall.
     private func makeFireEmberCell(budget: Float) -> CAEmitterCell {
-        public let physics = ParticlePhysics.fireEmberPhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.fireEmberPhysics
+        let cell               = CAEmitterCell()
         cell.birthRate         = budget * FireTuning.emberBudgetFraction  // rare
         cell.lifetime          = 0.75
         cell.lifetimeRange     = 0.30
@@ -559,8 +559,8 @@ public final class InkEffectEngine {
     }
 
     private func makeSparkleCell(color: UIColor) -> CAEmitterCell {
-        public let physics = ParticlePhysics.sparklePhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.sparklePhysics
+        let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, 30)) * 0.6
         cell.lifetime          = 0.60
         cell.lifetimeRange     = 0.30
@@ -594,8 +594,8 @@ public final class InkEffectEngine {
     }
 
     private func makeRainbowCell() -> CAEmitterCell {
-        public let physics = ParticlePhysics.rainbowPhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.rainbowPhysics
+        let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, 45)) * 0.7
         cell.lifetime          = 0.90
         cell.lifetimeRange     = 0.40
@@ -630,8 +630,8 @@ public final class InkEffectEngine {
     }
 
     private func makeSnowCell(color: UIColor) -> CAEmitterCell {
-        public let physics = ParticlePhysics.snowPhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.snowPhysics
+        let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, 35)) * 0.5
         cell.lifetime          = 1.8
         cell.lifetimeRange     = 0.7
@@ -647,11 +647,11 @@ public final class InkEffectEngine {
         cell.spin              = 0.3
         cell.spinRange         = physics.spinRange
         // White-ish with a tint from the user's colour
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: nil)
-        public let sr = min(1.0, 0.7 + r * 0.3)
-        public let sg = min(1.0, 0.7 + g * 0.3)
-        public let sb = min(1.0, 0.7 + b * 0.3)
+        let sr = min(1.0, 0.7 + r * 0.3)
+        let sg = min(1.0, 0.7 + g * 0.3)
+        let sb = min(1.0, 0.7 + b * 0.3)
         cell.color             = UIColor(red: sr, green: sg, blue: sb, alpha: 0.85).cgColor
         cell.redRange          = 0.08
         cell.blueRange         = 0.08
@@ -670,8 +670,8 @@ public final class InkEffectEngine {
     }
 
     private func makeDissolveCell(color: UIColor) -> CAEmitterCell {
-        public let physics = ParticlePhysics.dissolvePhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.dissolvePhysics
+        let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, 55)) * 0.7
         cell.lifetime          = 0.80
         cell.lifetimeRange     = 0.40
@@ -702,8 +702,8 @@ public final class InkEffectEngine {
     }
 
     private func configureGlowColor(_ color: UIColor) {
-        public let glowColor = color.withAlphaComponent(0.75)
-        public let clearColor = color.withAlphaComponent(0.0)
+        let glowColor = color.withAlphaComponent(0.75)
+        let clearColor = color.withAlphaComponent(0.0)
         glowLayer.colors = [glowColor.cgColor, clearColor.cgColor]
         glowLayer.locations = [0.0, 1.0]
     }
@@ -724,7 +724,7 @@ public final class InkEffectEngine {
             lightningLayers.removeFirst()
         }
 
-        public let bolt = CAShapeLayer()
+        let bolt = CAShapeLayer()
         bolt.fillColor   = UIColor.clear.cgColor
         bolt.strokeColor = strokeColor.withAlphaComponent(0.85).cgColor
         bolt.lineWidth   = 1.5
@@ -735,21 +735,21 @@ public final class InkEffectEngine {
         lightningLayers.append(bolt)
 
         // Bright flash then fade
-        public let flashAnim          = CABasicAnimation(keyPath: "opacity")
+        let flashAnim          = CABasicAnimation(keyPath: "opacity")
         flashAnim.fromValue    = 1.0
         flashAnim.toValue      = 0.0
 
-        public let widthAnim          = CABasicAnimation(keyPath: "lineWidth")
+        let widthAnim          = CABasicAnimation(keyPath: "lineWidth")
         widthAnim.fromValue    = 2.5
         widthAnim.toValue      = 0.5
 
-        public let group                   = CAAnimationGroup()
+        let group                   = CAAnimationGroup()
         group.animations            = [flashAnim, widthAnim]
         group.duration              = 0.35
         group.fillMode              = .forwards
         group.isRemovedOnCompletion = false
 
-        public let captured = bolt
+        let captured = bolt
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
             captured.removeFromSuperlayer()
@@ -761,18 +761,18 @@ public final class InkEffectEngine {
 
     /// Generates a random branching bolt path originating from `point`.
     private func lightningPath(from origin: CGPoint) -> CGPath {
-        public let path = UIBezierPath()
+        let path = UIBezierPath()
         path.move(to: origin)
 
-        public var current = origin
-        public let segments = Int.random(in: 4...7)
-        public let mainAngle = CGFloat.random(in: -.pi * 0.8 ... -.pi * 0.2) // generally upward
+        var current = origin
+        let segments = Int.random(in: 4...7)
+        let mainAngle = CGFloat.random(in: -.pi * 0.8 ... -.pi * 0.2) // generally upward
 
         for i in 0..<segments {
-            public let length = CGFloat.random(in: 12...28)
-            public let jitter = CGFloat.random(in: -0.4...0.4)
-            public let angle  = mainAngle + jitter
-            public let next   = CGPoint(
+            let length = CGFloat.random(in: 12...28)
+            let jitter = CGFloat.random(in: -0.4...0.4)
+            let angle  = mainAngle + jitter
+            let next   = CGPoint(
                 x: current.x + cos(angle) * length,
                 y: current.y + sin(angle) * length
             )
@@ -780,9 +780,9 @@ public final class InkEffectEngine {
 
             // Branch with 30% probability (not on last segment)
             if i < segments - 1 && Int.random(in: 0..<10) < 3 {
-                public let branchAngle  = angle + CGFloat.random(in: 0.4...1.0) * (Bool.random() ? 1 : -1)
-                public let branchLength = CGFloat.random(in: 8...18)
-                public let branchEnd    = CGPoint(
+                let branchAngle  = angle + CGFloat.random(in: 0.4...1.0) * (Bool.random() ? 1 : -1)
+                let branchLength = CGFloat.random(in: 8...18)
+                let branchEnd    = CGPoint(
                     x: next.x + cos(branchAngle) * branchLength,
                     y: next.y + sin(branchAngle) * branchLength
                 )
@@ -812,7 +812,7 @@ public final class InkEffectEngine {
 
     /// Derives the mid-flame particle colour: user hue strongly biased toward fire orange-red.
     private func fireMidFlameColor(from color: UIColor) -> UIColor {
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: nil)
         return UIColor(
             red:   min(1.0, r * 0.35 + 0.72),
@@ -824,7 +824,7 @@ public final class InkEffectEngine {
 
     /// Derives the fire glow ambient colour: user hue biased toward warm amber.
     private func fireGlowAmbientColor(from color: UIColor) -> UIColor {
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: nil)
         return UIColor(
             red:   min(1.0, r * 0.25 + 0.88),
@@ -836,7 +836,7 @@ public final class InkEffectEngine {
 
     /// Configures the fire glow gradient colours from the user's ink colour.
     private func configureFireGlow(color: UIColor) {
-        public let glowColor = fireGlowAmbientColor(from: color)
+        let glowColor = fireGlowAmbientColor(from: color)
         fireGlowLayer.colors = [glowColor.cgColor, UIColor.clear.cgColor]
         fireGlowLayer.locations = [0.0, 1.0]
     }
@@ -866,7 +866,7 @@ public final class InkEffectEngine {
         glitchLayer.isHidden = false
 
         // Horizontal jitter
-        public let shiftAnim            = CABasicAnimation(keyPath: "transform.translation.x")
+        let shiftAnim            = CABasicAnimation(keyPath: "transform.translation.x")
         shiftAnim.fromValue      = 0
         shiftAnim.toValue        = CGFloat.random(in: -18...18)
         shiftAnim.duration       = 0.04
@@ -874,14 +874,14 @@ public final class InkEffectEngine {
         shiftAnim.isRemovedOnCompletion = true
 
         // Brief cyan-tint bleed (scan-line artefact)
-        public let tintAnim             = CABasicAnimation(keyPath: "backgroundColor")
+        let tintAnim             = CABasicAnimation(keyPath: "backgroundColor")
         tintAnim.fromValue       = UIColor.clear.cgColor
         tintAnim.toValue         = UIColor(red: 0, green: 1, blue: 0.9, alpha: 0.20).cgColor
         tintAnim.duration        = 0.04
         tintAnim.autoreverses    = true
         tintAnim.isRemovedOnCompletion = true
 
-        public let group                = CAAnimationGroup()
+        let group                = CAAnimationGroup()
         group.animations         = [shiftAnim, tintAnim]
         group.duration           = 0.08
         group.isRemovedOnCompletion = true
@@ -898,7 +898,7 @@ public final class InkEffectEngine {
             rippleLayers.removeFirst()
         }
 
-        public let ring           = CAShapeLayer()
+        let ring           = CAShapeLayer()
         ring.fillColor     = UIColor.clear.cgColor
         ring.strokeColor   = strokeColor.withAlphaComponent(0.55).cgColor
         ring.lineWidth     = 3.5
@@ -906,21 +906,21 @@ public final class InkEffectEngine {
         overlayView.layer.addSublayer(ring)
         rippleLayers.append(ring)
 
-        public let expandPath     = circlePath(center: point, radius: 60)
+        let expandPath     = circlePath(center: point, radius: 60)
 
-        public let pathAnim       = CABasicAnimation(keyPath: "path")
+        let pathAnim       = CABasicAnimation(keyPath: "path")
         pathAnim.toValue   = expandPath
 
-        public let opacityAnim    = CABasicAnimation(keyPath: "opacity")
+        let opacityAnim    = CABasicAnimation(keyPath: "opacity")
         opacityAnim.toValue = 0
 
-        public let group                    = CAAnimationGroup()
+        let group                    = CAAnimationGroup()
         group.animations             = [pathAnim, opacityAnim]
         group.duration               = 0.70
         group.fillMode               = .forwards
         group.isRemovedOnCompletion  = false
 
-        public let captured = ring
+        let captured = ring
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
             captured.removeFromSuperlayer()
@@ -993,8 +993,8 @@ public final class InkEffectEngine {
     /// Core cell: fast-spinning diamonds that cluster tightly around the nib
     /// for a dense glittering nucleus.
     private func makeSheenCoreCell(color: UIColor) -> CAEmitterCell {
-        public let physics = ParticlePhysics.sheenCorePhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.sheenCorePhysics
+        let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxCoreParticles)) * SheenTuning.coreBirthFraction
         cell.lifetime          = 0.90
         cell.lifetimeRange     = 0.35
@@ -1020,10 +1020,10 @@ public final class InkEffectEngine {
     /// Flare cell: medium elongated streaks that add directional prismatic shimmer
     /// between the tight core and the broad dust halo.
     private func makeSheenFlareCell(color: UIColor) -> CAEmitterCell {
-        public let physics = ParticlePhysics.sheenFlarePhysics
-        public let flareColor = UIColor(hue: SheenTuning.flareHuePhaseOffset,
+        let physics = ParticlePhysics.sheenFlarePhysics
+        let flareColor = UIColor(hue: SheenTuning.flareHuePhaseOffset,
                                  saturation: 0.90, brightness: 1.0, alpha: 0.80)
-        public let cell               = CAEmitterCell()
+        let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxFlareParticles)) * SheenTuning.flareBirthFraction
         cell.lifetime          = 0.65
         cell.lifetimeRange     = 0.20
@@ -1048,11 +1048,11 @@ public final class InkEffectEngine {
 
     /// Dust cell: large, slow soft circles that fan out into a broad iridescent halo.
     private func makeSheenDustCell() -> CAEmitterCell {
-        public let physics = ParticlePhysics.sheenDustPhysics
+        let physics = ParticlePhysics.sheenDustPhysics
         // Initialise at the dust-phase-offset hue so it immediately contrasts with core.
-        public let dustColor = UIColor(hue: SheenTuning.dustHuePhaseOffset,
+        let dustColor = UIColor(hue: SheenTuning.dustHuePhaseOffset,
                                 saturation: 0.75, brightness: 1.0, alpha: 0.55)
-        public let cell               = CAEmitterCell()
+        let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, SheenTuning.maxDustParticles)) * SheenTuning.dustBirthFraction
         cell.lifetime          = 0.95
         cell.lifetimeRange     = 0.30
@@ -1081,10 +1081,10 @@ public final class InkEffectEngine {
         guard var cells = emitterLayer.emitterCells, cells.count >= 3 else { return }
         cells[0].color = UIColor(hue: hue,
                                  saturation: 1.0, brightness: 1.0, alpha: 0.90).cgColor
-        public let flareHue   = fmod(hue + SheenTuning.flareHuePhaseOffset, 1.0)
+        let flareHue   = fmod(hue + SheenTuning.flareHuePhaseOffset, 1.0)
         cells[1].color = UIColor(hue: flareHue,
                                  saturation: 0.90, brightness: 1.0, alpha: 0.80).cgColor
-        public let dustHue    = fmod(hue + SheenTuning.dustHuePhaseOffset, 1.0)
+        let dustHue    = fmod(hue + SheenTuning.dustHuePhaseOffset, 1.0)
         cells[2].color = UIColor(hue: dustHue,
                                  saturation: 0.75, brightness: 1.0, alpha: 0.60).cgColor
         emitterLayer.emitterCells = cells
@@ -1094,13 +1094,13 @@ public final class InkEffectEngine {
     /// from `hue`.  The stops cycle through distinct hues to simulate the
     /// wavelength-dependent colour shift of real holographic material.
     private func configureSheenGlow(hue: CGFloat) {
-        public let c0 = UIColor(hue: hue,
+        let c0 = UIColor(hue: hue,
                          saturation: 0.90, brightness: 1.0, alpha: 0.40).cgColor
-        public let c1 = UIColor(hue: fmod(hue + SheenTuning.flareHuePhaseOffset, 1.0),
+        let c1 = UIColor(hue: fmod(hue + SheenTuning.flareHuePhaseOffset, 1.0),
                          saturation: 0.85, brightness: 1.0, alpha: 0.25).cgColor
-        public let c2 = UIColor(hue: fmod(hue + SheenTuning.dustHuePhaseOffset, 1.0),
+        let c2 = UIColor(hue: fmod(hue + SheenTuning.dustHuePhaseOffset, 1.0),
                          saturation: 0.80, brightness: 1.0, alpha: 0.10).cgColor
-        public let c3 = UIColor(hue: fmod(hue + 0.50, 1.0),
+        let c3 = UIColor(hue: fmod(hue + 0.50, 1.0),
                          saturation: 0.70, brightness: 1.0, alpha: 0.00).cgColor
         sheenGlowLayer.colors    = [c0, c1, c2, c3]
         sheenGlowLayer.locations = [0.0, 0.30, 0.65, 1.0]
@@ -1138,12 +1138,12 @@ public final class InkEffectEngine {
 
     /// Large, slow, billowing primary smoke puffs.
     private func makeShadowPuffCell(color: UIColor) -> CAEmitterCell {
-        public let physics = ParticlePhysics.shadowPhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.shadowPhysics
+        let cell               = CAEmitterCell()
         // Budget: simultaneous particles ≈ birthRate × lifetime.  Reserve 60% of the
         // tier's budget for puffs so the combined total (puffs + wisps) stays ≤ maxParticles.
         //   birthRate = maxParticles × 0.60 / lifetime  →  simultaneous ≈ maxParticles × 0.60
-        public let puffLifetime: Float = 1.40
+        let puffLifetime: Float = 1.40
         cell.birthRate         = Float(tier.maxParticles) * 0.60 / puffLifetime
         cell.lifetime          = puffLifetime
         cell.lifetimeRange     = 0.45
@@ -1164,11 +1164,11 @@ public final class InkEffectEngine {
 
         // Colour: mid-grey with a subtle cool tint and a hint of the user's ink colour.
         // Normal blend mode means these are truly grey on white paper (not invisible).
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        public let pr = 0.30 + r * 0.12
-        public let pg = 0.30 + g * 0.12
-        public let pb = 0.34 + b * 0.10   // slight cool/blue tint — classic smoke hue
+        let pr = 0.30 + r * 0.12
+        let pg = 0.30 + g * 0.12
+        let pb = 0.34 + b * 0.10   // slight cool/blue tint — classic smoke hue
         cell.color    = UIColor(red: pr, green: pg, blue: pb, alpha: 0.40).cgColor
         cell.contents = smokeCloudCGImage(diameter: 36)
         return cell
@@ -1176,12 +1176,12 @@ public final class InkEffectEngine {
 
     /// Small, fast, erratic secondary wisps that give smoke its tendrilly character.
     private func makeShadowWispCell(color: UIColor) -> CAEmitterCell {
-        public let physics = ParticlePhysics.shadowWispPhysics
-        public let cell               = CAEmitterCell()
+        let physics = ParticlePhysics.shadowWispPhysics
+        let cell               = CAEmitterCell()
         // Reserve the remaining 40% of the tier budget for wisps.
         //   birthRate = maxParticles × 0.40 / lifetime  →  simultaneous ≈ maxParticles × 0.40
         // Combined with puffs (60%) the total simultaneous count ≈ maxParticles × 1.0.
-        public let wispLifetime: Float = 0.75
+        let wispLifetime: Float = 0.75
         cell.birthRate         = Float(tier.maxParticles) * 0.40 / wispLifetime
         cell.lifetime          = wispLifetime
         cell.lifetimeRange     = 0.30
@@ -1199,11 +1199,11 @@ public final class InkEffectEngine {
         cell.spinRange         = physics.spinRange
 
         // Slightly lighter than the main puffs so they feel like wispy tendrils.
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        public let wr = 0.42 + r * 0.10
-        public let wg = 0.42 + g * 0.10
-        public let wb = 0.46 + b * 0.08
+        let wr = 0.42 + r * 0.10
+        let wg = 0.42 + g * 0.10
+        let wb = 0.46 + b * 0.08
         cell.color    = UIColor(red: wr, green: wg, blue: wb, alpha: 0.25).cgColor
         cell.contents = smokeCloudCGImage(diameter: 16)
         return cell
@@ -1227,7 +1227,7 @@ public final class InkEffectEngine {
     // MARK: - Private: Blood (viscous crimson drips)
 
     private func setupBloodEmitter(color: UIColor) {
-        public let physics = ParticlePhysics.bloodPhysics
+        let physics = ParticlePhysics.bloodPhysics
         emitterLayer.emitterShape = .point
         emitterLayer.emitterSize  = CGSize(width: 8, height: 8)
         emitterLayer.isHidden     = false
@@ -1236,7 +1236,7 @@ public final class InkEffectEngine {
     }
 
     private func makeBloodCell(physics: ParticlePhysics) -> CAEmitterCell {
-        public let cell               = CAEmitterCell()
+        let cell               = CAEmitterCell()
         cell.birthRate         = Float(min(tier.maxParticles, 45)) * 0.5
         cell.lifetime          = 1.0
         cell.lifetimeRange     = 0.35
@@ -1262,8 +1262,8 @@ public final class InkEffectEngine {
     // MARK: - Private: Helpers
 
     private func circleCGImage(diameter: CGFloat) -> CGImage? {
-        public let size = CGSize(width: diameter, height: diameter)
-        public let renderer = UIGraphicsImageRenderer(size: size)
+        let size = CGSize(width: diameter, height: diameter)
+        let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { _ in
             UIColor.white.setFill()
             UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
@@ -1274,22 +1274,22 @@ public final class InkEffectEngine {
     /// perimeter.  This feathered gradient makes overlapping puffs blend smoothly,
     /// giving the emitter system a volumetric, cloud-like appearance.
     private func smokeCloudCGImage(diameter: CGFloat) -> CGImage? {
-        public let size   = CGSize(width: diameter, height: diameter)
-        public let center = CGPoint(x: diameter / 2, y: diameter / 2)
-        public let radius = diameter / 2
-        public let renderer = UIGraphicsImageRenderer(size: size)
+        let size   = CGSize(width: diameter, height: diameter)
+        let center = CGPoint(x: diameter / 2, y: diameter / 2)
+        let radius = diameter / 2
+        let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { ctx in
-            public let cgCtx       = ctx.cgContext
-            public let colorSpace  = CGColorSpaceCreateDeviceRGB()
+            let cgCtx       = ctx.cgContext
+            let colorSpace  = CGColorSpaceCreateDeviceRGB()
             // Radial gradient: opaque white at the centre → fully transparent at the edge.
             // When CAEmitterCell tints this white image with cell.color, the soft edge
             // blends naturally with neighbouring particles and the page background.
-            public let colors: [CGFloat] = [
+            let colors: [CGFloat] = [
                 1.0, 1.0, 1.0, 0.90,   // centre: near-opaque white
                 1.0, 1.0, 1.0, 0.40,   // mid-point: partial opacity for soft shoulder
                 1.0, 1.0, 1.0, 0.00    // edge: fully transparent
             ]
-            public let locations: [CGFloat] = [0.0, 0.5, 1.0]
+            let locations: [CGFloat] = [0.0, 0.5, 1.0]
             if let gradient = CGGradient(
                 colorSpace: colorSpace,
                 colorComponents: colors,
@@ -1308,18 +1308,18 @@ public final class InkEffectEngine {
 
     /// Six-pointed snowflake bitmap for the snow effect.
     private func snowflakeCGImage(diameter: CGFloat) -> CGImage? {
-        public let size = CGSize(width: diameter, height: diameter)
-        public let renderer = UIGraphicsImageRenderer(size: size)
+        let size = CGSize(width: diameter, height: diameter)
+        let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { ctx in
-            public let center = CGPoint(x: diameter / 2, y: diameter / 2)
-            public let radius = diameter / 2 - 1
+            let center = CGPoint(x: diameter / 2, y: diameter / 2)
+            let radius = diameter / 2 - 1
             UIColor.white.setStroke()
-            public let path = UIBezierPath()
+            let path = UIBezierPath()
             path.lineWidth = 1.0
             // Draw 6 radial arms
             for i in 0..<6 {
-                public let angle = CGFloat(i) * .pi / 3
-                public let endPt = CGPoint(
+                let angle = CGFloat(i) * .pi / 3
+                let endPt = CGPoint(
                     x: center.x + cos(angle) * radius,
                     y: center.y + sin(angle) * radius
                 )
@@ -1332,8 +1332,8 @@ public final class InkEffectEngine {
 
     /// Small square bitmap for the dissolve effect (simulates crumbling chunks).
     private func squareCGImage(size: CGFloat) -> CGImage? {
-        public let sz = CGSize(width: size, height: size)
-        public let renderer = UIGraphicsImageRenderer(size: sz)
+        let sz = CGSize(width: size, height: size)
+        let renderer = UIGraphicsImageRenderer(size: sz)
         return renderer.image { _ in
             UIColor.white.setFill()
             UIBezierPath(roundedRect: CGRect(origin: .zero, size: sz), cornerRadius: 1).fill()
@@ -1342,11 +1342,11 @@ public final class InkEffectEngine {
 
     /// Diamond (rotated square) bitmap for the sheen effect — gives an iridescent sparkle shape.
     private func diamondCGImage(size: CGFloat) -> CGImage? {
-        public let sz = CGSize(width: size, height: size)
-        public let renderer = UIGraphicsImageRenderer(size: sz)
+        let sz = CGSize(width: size, height: size)
+        let renderer = UIGraphicsImageRenderer(size: sz)
         return renderer.image { ctx in
-            public let cx = size / 2, cy = size / 2, r = size / 2 - 0.5
-            public let path = UIBezierPath()
+            let cx = size / 2, cy = size / 2, r = size / 2 - 0.5
+            let path = UIBezierPath()
             path.move(to:    CGPoint(x: cx,     y: cy - r))  // top
             path.addLine(to: CGPoint(x: cx + r, y: cy))       // right
             path.addLine(to: CGPoint(x: cx,     y: cy + r))  // bottom
@@ -1359,11 +1359,11 @@ public final class InkEffectEngine {
 
     /// Teardrop bitmap for the blood effect — simulates a heavy falling drop.
     private func dropCGImage(size: CGFloat) -> CGImage? {
-        public let sz = CGSize(width: size, height: size)
-        public let renderer = UIGraphicsImageRenderer(size: sz)
+        let sz = CGSize(width: size, height: size)
+        let renderer = UIGraphicsImageRenderer(size: sz)
         return renderer.image { _ in
-            public let cx = size / 2
-            public let path = UIBezierPath()
+            let cx = size / 2
+            let path = UIBezierPath()
             // Round bottom half — arc from right (angle 0) counterclockwise to left (angle π)
             path.addArc(
                 withCenter: CGPoint(x: cx, y: size * 0.65),

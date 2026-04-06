@@ -434,7 +434,7 @@ public struct ToolPreset: Identifiable, Codable, Equatable {
         self.opacity = opacity
         self.isFavorite = isFavorite
         self.penSubType = penSubType
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
         self.colorComponents = [Double(r), Double(g), Double(b), Double(a)]
     }
@@ -456,7 +456,7 @@ public struct ToolPreset: Identifiable, Codable, Equatable {
     }
 
     public init(from decoder: Decoder) throws {
-        public let c = try decoder.container(keyedBy: CodingKeys.self)
+        let c = try decoder.container(keyedBy: CodingKeys.self)
         id              = try c.decode(UUID.self,        forKey: .id)
         name            = try c.decode(String.self,      forKey: .name)
         tool            = try c.decode(DrawingTool.self, forKey: .tool)
@@ -468,7 +468,7 @@ public struct ToolPreset: Identifiable, Codable, Equatable {
     }
 
     public func encode(to encoder: Encoder) throws {
-        public var c = encoder.container(keyedBy: CodingKeys.self)
+        var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id,              forKey: .id)
         try c.encode(name,            forKey: .name)
         try c.encode(tool,            forKey: .tool)
@@ -494,7 +494,7 @@ extension PenSubType {
     /// - Parameter base: The existing config to preserve advanced-effect toggles from.
     ///                   Defaults to `.default` (all advanced effects off).
     public func makeWritingEffectConfig(preservingUserToggles base: WritingEffectConfig = .default) -> WritingEffectConfig {
-        public var c = base
+        var c = base
         c.pressureCurve    = pressureCurvePreset
         c.strokeTaperEnabled = strokeTaperEnabled
         c.inkPoolingEnabled  = inkPoolingEnabled

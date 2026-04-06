@@ -35,7 +35,7 @@ public struct OKLab: Equatable {
 
     /// Hue angle in radians [0, 2π).
     public var hue: Double {
-        public var h = atan2(b, a)
+        var h = atan2(b, a)
         if h < 0 { h += 2.0 * .pi }
         return h
     }
@@ -73,7 +73,7 @@ public enum ColorConvert {
     /// chain: sRGB → Linear → LMS (M1) → LMS^(1/3) → Lab (M2).
     @inline(__always)
     public static func sRGBToOKLab(r: Double, g: Double, b: Double) -> OKLab {
-        public var L: Double = 0, A: Double = 0, B: Double = 0
+        var L: Double = 0, A: Double = 0, B: Double = 0
         y2_color_srgb_to_oklab(r, g, b, &L, &A, &B)
         return OKLab(L: L, a: A, b: B)
     }
@@ -84,7 +84,7 @@ public enum ColorConvert {
     /// Delegates to SIMD-optimized C kernel (y2_color.c).
     @inline(__always)
     public static func oklabToSRGB(_ lab: OKLab) -> (r: Double, g: Double, b: Double) {
-        public var r: Double = 0, g: Double = 0, b: Double = 0
+        var r: Double = 0, g: Double = 0, b: Double = 0
         y2_color_oklab_to_srgb(lab.L, lab.a, lab.b, &r, &g, &b)
         return (r: r, g: g, b: b)
     }
@@ -93,14 +93,14 @@ public enum ColorConvert {
 
     /// Convert UIColor to OKLAB.
     public static func uiColorToOKLab(_ color: UIColor) -> OKLab {
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
         return sRGBToOKLab(r: Double(r), g: Double(g), b: Double(b))
     }
 
     /// Convert OKLAB to UIColor.
     public static func oklabToUIColor(_ lab: OKLab, alpha: CGFloat = 1.0) -> UIColor {
-        public let rgb = oklabToSRGB(lab)
+        let rgb = oklabToSRGB(lab)
         return UIColor(red: CGFloat(rgb.r), green: CGFloat(rgb.g), blue: CGFloat(rgb.b), alpha: alpha)
     }
 
@@ -116,10 +116,10 @@ public enum ColorInterpolation {
     /// Interpolate between two colors in OKLAB space for perceptually uniform blending.
     /// Factor t ∈ [0, 1]: 0 = color A, 1 = color B.
     public static func interpolateOKLab(_ a: UIColor, _ b: UIColor, t: Double) -> UIColor {
-        public let labA = ColorConvert.uiColorToOKLab(a)
-        public let labB = ColorConvert.uiColorToOKLab(b)
+        let labA = ColorConvert.uiColorToOKLab(a)
+        let labB = ColorConvert.uiColorToOKLab(b)
 
-        public let mixed = OKLab(
+        let mixed = OKLab(
             L: labA.L + (labB.L - labA.L) * t,
             a: labA.a + (labB.a - labA.a) * t,
             b: labA.b + (labB.b - labA.b) * t
@@ -131,21 +131,21 @@ public enum ColorInterpolation {
     /// Interpolate along the hue arc in OKLCH space (shortest path).
     /// Preserves chroma and lightness gradients while rotating hue.
     public static func interpolateOKLCH(_ a: UIColor, _ b: UIColor, t: Double) -> UIColor {
-        public let labA = ColorConvert.uiColorToOKLab(a)
-        public let labB = ColorConvert.uiColorToOKLab(b)
+        let labA = ColorConvert.uiColorToOKLab(a)
+        let labB = ColorConvert.uiColorToOKLab(b)
 
-        public let L = labA.L + (labB.L - labA.L) * t
-        public let C = labA.chroma + (labB.chroma - labA.chroma) * t
+        let L = labA.L + (labB.L - labA.L) * t
+        let C = labA.chroma + (labB.chroma - labA.chroma) * t
 
         // Shortest hue interpolation.
-        public var hA = labA.hue
-        public var hB = labB.hue
-        public var diff = hB - hA
+        var hA = labA.hue
+        var hB = labB.hue
+        var diff = hB - hA
         if diff > .pi { hA += 2 * .pi }
         if diff < -.pi { hB += 2 * .pi }
-        public let h = hA + (hB - hA) * t
+        let h = hA + (hB - hA) * t
 
-        public let result = OKLab.fromLCH(L: L, C: C, h: h)
+        let result = OKLab.fromLCH(L: L, C: C, h: h)
         return ColorConvert.oklabToUIColor(result)
     }
 
@@ -153,18 +153,18 @@ public enum ColorInterpolation {
     /// Delegates to C batch gradient kernel for SIMD-optimized conversion pipeline.
     public static func gradient(_ a: UIColor, _ b: UIColor, steps: Int) -> [UIColor] {
         guard steps >= 2 else { return [a] }
-        public var rA: CGFloat = 0, gA: CGFloat = 0, bA: CGFloat = 0, aA: CGFloat = 0
+        var rA: CGFloat = 0, gA: CGFloat = 0, bA: CGFloat = 0, aA: CGFloat = 0
         a.getRed(&rA, green: &gA, blue: &bA, alpha: &aA)
-        public var rB: CGFloat = 0, gB: CGFloat = 0, bB: CGFloat = 0, aB: CGFloat = 0
+        var rB: CGFloat = 0, gB: CGFloat = 0, bB: CGFloat = 0, aB: CGFloat = 0
         b.getRed(&rB, green: &gB, blue: &bB, alpha: &aB)
 
-        public var outRGB = [Double](repeating: 0, count: steps * 3)
+        var outRGB = [Double](repeating: 0, count: steps * 3)
         y2_color_batch_gradient(Double(rA), Double(gA), Double(bA),
                                 Double(rB), Double(gB), Double(bB),
                                 Int32(steps), &outRGB)
 
         return (0..<steps).map { i in
-            public let alphaT = Double(aA) + (Double(aB) - Double(aA)) * Double(i) / Double(steps - 1)
+            let alphaT = Double(aA) + (Double(aB) - Double(aA)) * Double(i) / Double(steps - 1)
             return UIColor(red: CGFloat(outRGB[i * 3]),
                           green: CGFloat(outRGB[i * 3 + 1]),
                            blue: CGFloat(outRGB[i * 3 + 2]),
@@ -218,34 +218,34 @@ public enum ColorHarmony {
 
     /// Generate a monochromatic palette by varying lightness in OKLAB space.
     public static func monochromatic(of color: UIColor, count: Int = 5) -> [UIColor] {
-        public let lab = ColorConvert.uiColorToOKLab(color)
+        let lab = ColorConvert.uiColorToOKLab(color)
         guard count >= 2 else { return [color] }
 
         // Distribute lightness from 0.25 to 0.90 while keeping hue and chroma.
-        public let minL = 0.25
-        public let maxL = 0.90
+        let minL = 0.25
+        let maxL = 0.90
         return (0..<count).map { i in
-            public let t = Double(i) / Double(count - 1)
-            public let L = minL + (maxL - minL) * t
-            public let adjusted = OKLab.fromLCH(L: L, C: lab.chroma, h: lab.hue)
+            let t = Double(i) / Double(count - 1)
+            let L = minL + (maxL - minL) * t
+            let adjusted = OKLab.fromLCH(L: L, C: lab.chroma, h: lab.hue)
             return ColorConvert.oklabToUIColor(adjusted)
         }
     }
 
     /// Rotate hue in OKLCH space by `angle` radians.
     public static func rotateHue(_ color: UIColor, by angle: Double) -> UIColor {
-        public let lab = ColorConvert.uiColorToOKLab(color)
-        public let newHue = lab.hue + angle
-        public let rotated = OKLab.fromLCH(L: lab.L, C: lab.chroma, h: newHue)
+        let lab = ColorConvert.uiColorToOKLab(color)
+        let newHue = lab.hue + angle
+        let rotated = OKLab.fromLCH(L: lab.L, C: lab.chroma, h: newHue)
         return ColorConvert.oklabToUIColor(rotated)
     }
 
     /// Desaturate by reducing chroma toward zero (grayscale).
     /// Factor 0 = fully saturated, 1 = fully desaturated.
     public static func desaturate(_ color: UIColor, factor: Double) -> UIColor {
-        public let lab = ColorConvert.uiColorToOKLab(color)
-        public let newC = lab.chroma * max(0, 1.0 - factor)
-        public let result = OKLab.fromLCH(L: lab.L, C: newC, h: lab.hue)
+        let lab = ColorConvert.uiColorToOKLab(color)
+        let newC = lab.chroma * max(0, 1.0 - factor)
+        let result = OKLab.fromLCH(L: lab.L, C: newC, h: lab.hue)
         return ColorConvert.oklabToUIColor(result)
     }
 }
@@ -259,7 +259,7 @@ public enum ContrastRatio {
     /// L = 0.2126·R + 0.7152·G + 0.0722·B (in linear sRGB).
     /// Delegates to C kernel for consistent sRGB→linear transfer function.
     public static func relativeLuminance(of color: UIColor) -> Double {
-        public var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: nil)
         return y2_color_relative_luminance(Double(r), Double(g), Double(b))
     }
@@ -267,10 +267,10 @@ public enum ContrastRatio {
     /// Contrast ratio between two colors per WCAG 2.1.
     /// Returns value in [1, 21].
     public static func ratio(_ a: UIColor, _ b: UIColor) -> Double {
-        public let lA = relativeLuminance(of: a)
-        public let lB = relativeLuminance(of: b)
-        public let lighter = max(lA, lB)
-        public let darker = min(lA, lB)
+        let lA = relativeLuminance(of: a)
+        let lB = relativeLuminance(of: b)
+        let lighter = max(lA, lB)
+        let darker = min(lA, lB)
         return (lighter + 0.05) / (darker + 0.05)
     }
 
@@ -291,21 +291,21 @@ public enum ContrastRatio {
         against background: UIColor,
         targetRatio: Double = 4.5
     ) -> UIColor {
-        public let lab = ColorConvert.uiColorToOKLab(color)
-        public let bgLum = relativeLuminance(of: background)
+        let lab = ColorConvert.uiColorToOKLab(color)
+        let bgLum = relativeLuminance(of: background)
 
         // Binary search over lightness.
-        public var lo = 0.0
-        public var hi = 1.0
+        var lo = 0.0
+        var hi = 1.0
 
         // Determine search direction: need lighter or darker?
-        public let needLighter = bgLum < 0.5
+        let needLighter = bgLum < 0.5
 
         for _ in 0..<32 {
-            public let mid = (lo + hi) / 2.0
-            public let candidate = OKLab.fromLCH(L: mid, C: lab.chroma, h: lab.hue)
-            public let candidateColor = ColorConvert.oklabToUIColor(candidate)
-            public let r = ratio(candidateColor, background)
+            let mid = (lo + hi) / 2.0
+            let candidate = OKLab.fromLCH(L: mid, C: lab.chroma, h: lab.hue)
+            let candidateColor = ColorConvert.oklabToUIColor(candidate)
+            let r = ratio(candidateColor, background)
 
             if needLighter {
                 if r >= targetRatio {
@@ -322,8 +322,8 @@ public enum ContrastRatio {
             }
         }
 
-        public let finalL = needLighter ? hi : lo
-        public let result = OKLab.fromLCH(L: finalL, C: lab.chroma, h: lab.hue)
+        let finalL = needLighter ? hi : lo
+        let result = OKLab.fromLCH(L: finalL, C: lab.chroma, h: lab.hue)
         return ColorConvert.oklabToUIColor(result)
     }
 }
@@ -335,9 +335,9 @@ public enum ColorDistance {
     /// Values < 0.02 are typically imperceptible; > 0.1 are clearly different.
     /// Delegates to SIMD-optimized C kernel for the full sRGB→OKLAB→distance chain.
     public static func deltaE(_ a: UIColor, _ b: UIColor) -> Double {
-        public var rA: CGFloat = 0, gA: CGFloat = 0, bA: CGFloat = 0
+        var rA: CGFloat = 0, gA: CGFloat = 0, bA: CGFloat = 0
         a.getRed(&rA, green: &gA, blue: &bA, alpha: nil)
-        public var rB: CGFloat = 0, gB: CGFloat = 0, bB: CGFloat = 0
+        var rB: CGFloat = 0, gB: CGFloat = 0, bB: CGFloat = 0
         b.getRed(&rB, green: &gB, blue: &bB, alpha: nil)
         return y2_color_delta_e(Double(rA), Double(gA), Double(bA),
                                 Double(rB), Double(gB), Double(bB))
