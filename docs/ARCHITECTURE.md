@@ -796,3 +796,21 @@ Apple Pencil always routes to `PKCanvasView` (drawing). Embedded object gestures
 ### Undo Integration
 
 Every object operation (insert, move, resize, delete) registers with `UndoManager` via `Y2ObjectSelectionHandler`. Undo of a delete restores the captured `CanvasObjectWrapper`; undo of a move restores the previous `frame`.
+
+### Document Scanner Integration (ARCH-11)
+
+`Y2CanvasViewController.insertScannedDocument(mode:)` presents the VisionKit document camera via `Y2DocumentScannerBridge`. Scanned pages are processed on a background queue, saved via `MediaFileManager`, and inserted as `.scannedDocument()` embedded objects. The bridge is retained on the controller during the scan session and released on completion/cancellation.
+
+### SQLite Persistence (ARCH-13)
+
+`NoteStore.persistenceDriver` accepts a `PersistenceDriver` (default: `SQLitePersistenceDriver`). When set, `flushToDisk()` and `load()` route through the driver instead of per-file JSON. On first launch with SQLite, existing JSON data is automatically migrated. The C implementation (`y2_sqlite.c`) uses WAL mode and prepared statements for O(1) reads/writes. `ServiceContainer` creates and injects the driver.
+
+### Accessibility (ARCH-14)
+
+All six embedded object views (`Y2ImageObjectView`, `Y2AudioClipView`, `Y2StickerObjectView`, `Y2LinkObjectView`, `Y2ScannedDocObjectView`, `Y2TextBlockView`) declare `isAccessibilityElement`, `accessibilityLabel`, `accessibilityTraits`, and `accessibilityHint`. `Y2LinkObjectView` overrides `accessibilityActivate()` to open the URL. `Y2TextBlockView` posts `UIAccessibility.Notification.announcement` on edit-mode transitions.
+
+`Y2ObjectOverlayController` sets `accessibilityContainerType = .semanticGroup` so VoiceOver discovers objects individually. Each object view receives four `UIAccessibilityCustomAction` entries: Delete, Toggle Lock, Bring to Front, Send to Back — making all object operations reachable without gesture interaction.
+
+### Multi-Window / Stage Manager (ARCH-15)
+
+`UIApplicationSupportsMultipleScenes = true` in `Info.plist`. `WindowGroup` uses `.handlesExternalEvents(matching:)` for multi-window routing. Each window advertises the current note via `.userActivity()` with `NSUserActivity.editNoteActivityType`. On continuation (`.onContinueUserActivity`), the pending note ID is routed through `NavigationStore.navigateToNote(id:)`. `NavigationStore.pendingNoteID` is an observable property that the UI can consume to open the requested note in the active window.

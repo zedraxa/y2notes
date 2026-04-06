@@ -54,6 +54,11 @@ final class Y2ObjectOverlayController: UIViewController {
         selectionHandler.onObjectDeleted = { [weak self] id in
             self?.removeObject(id: id)
         }
+
+        // Mark the overlay as an accessibility container so VoiceOver
+        // discovers embedded objects as individual elements.
+        view.isAccessibilityElement = false
+        view.accessibilityContainerType = .semanticGroup
     }
 
     // MARK: - Public API
@@ -155,6 +160,44 @@ final class Y2ObjectOverlayController: UIViewController {
         view.addGestureRecognizer(longPress)
 
         [pan, pinch, rotate].forEach { $0.simultaneousRecognitionAllowed(with: tap) }
+
+        // Expose non-gesture actions to VoiceOver so that all object
+        // operations are reachable without touch gestures.
+        attachAccessibilityActions(to: view, objectID: objectID)
+    }
+
+    private func attachAccessibilityActions(to objectView: UIView, objectID: UUID) {
+        let deleteAction = UIAccessibilityCustomAction(
+            name: "Delete",
+            image: UIImage(systemName: "trash")
+        ) { [weak self] _ in
+            self?.removeObject(id: objectID)
+            return true
+        }
+        let lockAction = UIAccessibilityCustomAction(
+            name: "Toggle Lock",
+            image: UIImage(systemName: "lock")
+        ) { [weak self] _ in
+            self?.toggleLock(id: objectID)
+            return true
+        }
+        let bringFrontAction = UIAccessibilityCustomAction(
+            name: "Bring to Front",
+            image: UIImage(systemName: "square.3.layers.3d.top.filled")
+        ) { [weak self] _ in
+            self?.bringToFront(id: objectID)
+            return true
+        }
+        let sendBackAction = UIAccessibilityCustomAction(
+            name: "Send to Back",
+            image: UIImage(systemName: "square.3.layers.3d.bottom.filled")
+        ) { [weak self] _ in
+            self?.sendToBack(id: objectID)
+            return true
+        }
+        objectView.accessibilityCustomActions = [
+            deleteAction, lockAction, bringFrontAction, sendBackAction
+        ]
     }
 
     // MARK: - Gesture handlers

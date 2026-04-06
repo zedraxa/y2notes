@@ -27,6 +27,11 @@ final class NavigationStore: ObservableObject {
     /// The notebook currently being tracked for history.
     private(set) var activeNotebookID: UUID?
 
+    /// A note ID requested by external navigation (e.g. multi-window state
+    /// restoration via `NSUserActivity`).  Observe this to navigate to the
+    /// note when the value changes.  Set to `nil` once the navigation is handled.
+    @Published var pendingNoteID: UUID?
+
     /// Timestamp of the last history push — used for debounce.
     private var lastHistoryPush: Date = .distantPast
 
@@ -127,6 +132,12 @@ final class NavigationStore: ObservableObject {
         backStack = []
         forwardStack = []
         lastHistoryPush = .distantPast
+    }
+
+    /// Request navigation to a specific note.  Used by multi-window state
+    /// restoration and `NSUserActivity` continuations.
+    func navigateToNote(id noteID: UUID) {
+        pendingNoteID = noteID
     }
 
     /// Records a page visit. Debounces rapid sequential calls (e.g. fast page flips).

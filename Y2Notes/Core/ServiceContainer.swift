@@ -92,6 +92,10 @@ final class ServiceContainer {
         // --- Existing stores bridged to protocols ---
 
         let notes = NoteStore()
+        // Wire SQLite persistence driver — on first launch data is migrated
+        // from the legacy JSON files automatically.
+        let sqliteDriver = SQLitePersistenceDriver()
+        notes.persistenceDriver = sqliteDriver
         noteRepository = notes
         concreteNoteStore = notes
 

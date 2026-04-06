@@ -190,6 +190,24 @@ final class Y2CanvasViewController: UIViewController {
         textBlockInsertion.present(from: self, insertionPoint: point)
     }
 
+    /// Present the document scanner and insert resulting scanned pages as
+    /// embedded objects on the current page.
+    func insertScannedDocument(mode: ScanInsertionMode = .objectsOnCurrentPage) {
+        let visibleRect = canvasView.convert(canvasView.bounds, to: view)
+        let bridge = Y2DocumentScannerBridge(
+            noteID: configuration.noteID,
+            visibleCanvasRect: visibleRect
+        )
+        bridge.insertionMode = mode
+        bridge.delegate = self
+        // Retain the bridge until the scan session completes.
+        activeScannerBridge = bridge
+        bridge.present(from: self)
+    }
+
+    /// Active document scanner bridge, retained during a scan session.
+    private var activeScannerBridge: Y2DocumentScannerBridge?
+
     // MARK: - Private State
 
     /// True while the user is actively drawing (between touchesBegan and touchesEnded).
@@ -395,5 +413,23 @@ extension Y2CanvasViewController: Y2TextBlockInsertionDelegate {
         didPrepare wrapper: CanvasObjectWrapper
     ) {
         objectOverlay?.insertObject(wrapper)
+    }
+}
+
+// MARK: - Y2DocumentScannerDelegate
+
+extension Y2CanvasViewController: Y2DocumentScannerDelegate {
+    func documentScanner(
+        _ scanner: Y2DocumentScannerBridge,
+        didProduce wrappers: [CanvasObjectWrapper]
+    ) {
+        for wrapper in wrappers {
+            objectOverlay?.insertObject(wrapper)
+        }
+        activeScannerBridge = nil
+    }
+
+    func documentScannerDidCancel(_ scanner: Y2DocumentScannerBridge) {
+        activeScannerBridge = nil
     }
 }

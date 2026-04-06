@@ -75,6 +75,16 @@ final class NoteStore: ObservableObject {
     private var pdfRegenTimers: [UUID: Timer] = [:]
     private static let pdfRegenerationDebounceInterval: TimeInterval = 2.0
 
+    /// Optional persistence driver. When set, the store reads/writes through this
+    /// driver instead of per-file JSON.  See ``SQLitePersistenceDriver``.
+    var persistenceDriver: PersistenceDriver?
+
+    // Logical keys used by PersistenceDriver.
+    private static let notesKey = "y2notes_notes"
+    private static let notebooksKey = "y2notes_notebooks"
+    private static let sectionsKey = "y2notes_sections"
+    private static let studyKey = "y2notes_study"
+
     // MARK: - Last page position (notebook illusion — object permanence)
 
     /// Remembers the last viewed flat-page index per notebook so reopening
@@ -1184,24 +1194,37 @@ final class NoteStore: ObservableObject {
     private func flushToDisk(trigger: SnapshotTrigger = .autosave) {
         saveState = .saving
         var firstError: Error?
-        do {
-            let data = try JSONEncoder().encode(notes)
-            try writeAtomically(data, to: notesURL)
-        } catch {
-            firstError = error
+
+        if let driver = persistenceDriver {
+            // SQLite / abstract driver path.
+            do { try driver.encode(notes, forKey: Self.notesKey) }
+            catch { firstError = error }
+            do { try driver.encode(notebooks, forKey: Self.notebooksKey) }
+            catch { if firstError == nil { firstError = error } }
+            do { try driver.encode(sections, forKey: Self.sectionsKey) }
+            catch { if firstError == nil { firstError = error } }
+        } else {
+            // Legacy per-file JSON path.
+            do {
+                let data = try JSONEncoder().encode(notes)
+                try writeAtomically(data, to: notesURL)
+            } catch {
+                firstError = error
+            }
+            do {
+                let data = try JSONEncoder().encode(notebooks)
+                try writeAtomically(data, to: notebooksURL)
+            } catch {
+                if firstError == nil { firstError = error }
+            }
+            do {
+                let data = try JSONEncoder().encode(sections)
+                try writeAtomically(data, to: sectionsURL)
+            } catch {
+                if firstError == nil { firstError = error }
+            }
         }
-        do {
-            let data = try JSONEncoder().encode(notebooks)
-            try writeAtomically(data, to: notebooksURL)
-        } catch {
-            if firstError == nil { firstError = error }
-        }
-        do {
-            let data = try JSONEncoder().encode(sections)
-            try writeAtomically(data, to: sectionsURL)
-        } catch {
-            if firstError == nil { firstError = error }
-        }
+
         if let error = firstError {
             saveState = .error(error.localizedDescription)
             assertionFailure("Y2Notes: save failed — \(error)")
@@ -1255,9 +1278,41 @@ final class NoteStore: ObservableObject {
     }
 
     private func load() {
-        notes     = loadJSON([Note].self,            from: notesURL)     ?? []
-        notebooks = loadJSON([Notebook].self,        from: notebooksURL) ?? []
-        sections  = loadJSON([NotebookSection].self, from: sectionsURL)  ?? []
+        if let driver = persistenceDriver {
+            // Try PersistenceDriver first.  If the DB is empty, fall back
+            // to legacy JSON files and migrate data into the driver.
+            let dbNotes = (try? driver.decode([Note].self, forKey: Self.notesKey)) ?? nil
+            if let dbNotes {
+                notes     = dbNotes
+                notebooks = (try? driver.decode([Notebook].self,        forKey: Self.notebooksKey)) ?? []
+                sections  = (try? driver.decode([NotebookSection].self, forKey: Self.sectionsKey))  ?? []
+            } else {
+                // First launch with driver — migrate from JSON files.
+                notes     = loadJSON([Note].self,            from: notesURL)     ?? []
+                notebooks = loadJSON([Notebook].self,        from: notebooksURL) ?? []
+                sections  = loadJSON([NotebookSection].self, from: sectionsURL)  ?? []
+                // Seed the driver so subsequent launches use it directly.
+                migrateJSONToDriver(driver)
+            }
+        } else {
+            notes     = loadJSON([Note].self,            from: notesURL)     ?? []
+            notebooks = loadJSON([Notebook].self,        from: notebooksURL) ?? []
+            sections  = loadJSON([NotebookSection].self, from: sectionsURL)  ?? []
+        }
+    }
+
+    /// One-time migration: writes current in-memory state into the persistence
+    /// driver and logs the result.
+    private func migrateJSONToDriver(_ driver: PersistenceDriver) {
+        storeLogger.info("Migrating JSON data to persistence driver…")
+        do {
+            try driver.encode(notes,     forKey: Self.notesKey)
+            try driver.encode(notebooks, forKey: Self.notebooksKey)
+            try driver.encode(sections,  forKey: Self.sectionsKey)
+            storeLogger.info("Migration complete — \(self.notes.count) notes, \(self.notebooks.count) notebooks, \(self.sections.count) sections")
+        } catch {
+            storeLogger.error("Migration failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Decodes `type` from `url`. On missing or corrupt primary file, falls back to

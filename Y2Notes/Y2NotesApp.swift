@@ -48,6 +48,23 @@ struct Y2NotesApp: App {
 
                 .environment(tabSession)
                 .handlesExternalEvents(preferring: Set<String>(), allowing: Set<String>(["*"]))
+
+                // Multi-window state restoration: advertise the current note
+                // being edited so that each window can be restored independently.
+                .userActivity(NSUserActivity.editNoteActivityType) { activity in
+                    if let noteID = noteStore.activeNoteID {
+                        activity.userInfo = ["noteID": noteID.uuidString]
+                        activity.isEligibleForHandoff = true
+                        activity.targetContentIdentifier = noteID.uuidString
+                        activity.needsSave = true
+                    }
+                }
+                .onContinueUserActivity(NSUserActivity.editNoteActivityType) { activity in
+                    guard let noteIDString = activity.userInfo?["noteID"] as? String,
+                          let noteID = UUID(uuidString: noteIDString) else { return }
+                    // Navigate to the note in this window's tab session.
+                    container.navigationStore.navigateToNote(id: noteID)
+                }
         }
         .handlesExternalEvents(matching: Set<String>(["*"]))
     }
