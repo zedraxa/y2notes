@@ -127,15 +127,7 @@ final class Y2ObjectOverlayController: UIViewController {
     }
 
     private func makeScannedDocView(_ doc: ScannedDocObject) -> UIView {
-        let v = UIImageView()
-        v.contentMode = .scaleAspectFit
-        v.backgroundColor = .secondarySystemBackground
-        v.layer.cornerRadius = 4
-        v.clipsToBounds = true
-        if let data = doc.thumbnailData {
-            v.image = UIImage(data: data)
-        }
-        return v
+        return Y2ScannedDocObjectView(scannedDoc: doc)
     }
 
     private func makeTextBlockView(_ tb: TextBlockObject) -> UIView {

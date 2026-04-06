@@ -91,8 +91,9 @@ final class Y2DocumentScannerBridge: NSObject {
                 let scanFilename = "\(objectID.uuidString)_scan.jpg"
                 try? thumbnailData?.write(to: scansDir.appendingPathComponent(scanFilename))
 
-                let imageObj = ImageObject(
-                    relativePath: relativePath,
+                let scannedDoc = ScannedDocObject(
+                    filename: scanFilename,
+                    pageIndex: index,
                     thumbnailData: thumbnailData
                 )
 
@@ -105,7 +106,7 @@ final class Y2DocumentScannerBridge: NSObject {
                     id: objectID,
                     frame: CGRect(origin: offset, size: size),
                     zIndex: index,
-                    objectType: .image(imageObj)
+                    objectType: .scannedDocument(scannedDoc)
                 )
                 wrappers.append(wrapper)
             }

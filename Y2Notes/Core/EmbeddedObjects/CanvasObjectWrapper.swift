@@ -136,6 +136,22 @@ extension CanvasObjectWrapper {
         )
     }
 
+    /// Creates a wrapper for a scanned document page centred in the visible area.
+    static func makeScannedDocument(
+        _ doc: ScannedDocObject,
+        centeredIn visibleRect: CGRect,
+        size: CGSize = CGSize(width: 300, height: 400)
+    ) -> CanvasObjectWrapper {
+        let origin = CGPoint(
+            x: visibleRect.midX - size.width / 2,
+            y: visibleRect.midY - size.height / 2
+        )
+        return CanvasObjectWrapper(
+            frame: CGRect(origin: origin, size: size),
+            objectType: .scannedDocument(doc)
+        )
+    }
+
     /// Creates a wrapper for a text block centred at the given point.
     static func makeTextBlock(
         _ textBlock: TextBlockObject,

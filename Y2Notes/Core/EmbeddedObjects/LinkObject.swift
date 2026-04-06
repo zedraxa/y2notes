@@ -26,6 +26,8 @@ struct LinkObject: Codable, Equatable {
     var url: URL? { URL(string: urlString) }
     /// Open Graph or HTML page title.
     var title: String?
+    /// Open Graph description (og:description or meta description).
+    var linkDescription: String?
     /// Small favicon PNG data (≤ 32×32 px, JPEG or PNG).
     var faviconData: Data?
     /// Link preview hero image (og:image), JPEG-compressed ≤ 480px wide.
@@ -38,6 +40,7 @@ struct LinkObject: Codable, Equatable {
     init(
         urlString: String,
         title: String? = nil,
+        linkDescription: String? = nil,
         faviconData: Data? = nil,
         previewImageData: Data? = nil,
         displayDomain: String? = nil,
@@ -45,6 +48,7 @@ struct LinkObject: Codable, Equatable {
     ) {
         self.urlString = urlString
         self.title = title
+        self.linkDescription = linkDescription
         self.faviconData = faviconData
         self.previewImageData = previewImageData
         self.displayDomain = displayDomain
@@ -54,13 +58,14 @@ struct LinkObject: Codable, Equatable {
     // MARK: Codable
 
     enum CodingKeys: String, CodingKey {
-        case urlString, title, faviconData, previewImageData, displayDomain, displayStyle
+        case urlString, title, linkDescription, faviconData, previewImageData, displayDomain, displayStyle
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         urlString = try c.decode(String.self, forKey: .urlString)
         title = try c.decodeIfPresent(String.self, forKey: .title)
+        linkDescription = try c.decodeIfPresent(String.self, forKey: .linkDescription)
         faviconData = try c.decodeIfPresent(Data.self, forKey: .faviconData)
         previewImageData = try c.decodeIfPresent(Data.self, forKey: .previewImageData)
         displayDomain = try c.decodeIfPresent(String.self, forKey: .displayDomain)
