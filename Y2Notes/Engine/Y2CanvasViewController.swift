@@ -305,10 +305,10 @@ extension Y2CanvasViewController: PencilActionDelegate {
     }
 
     func pencilDidRequestDeleteLastStroke() {
-        var drawing = canvasView.drawing
+        let drawing = canvasView.drawing
         guard !drawing.strokes.isEmpty else { return }
-        drawing.strokes.removeLast()
-        canvasView.drawing = drawing
+        let remaining = Array(drawing.strokes.dropLast())
+        canvasView.drawing = PKDrawing(strokes: remaining)
     }
 
     func pencilHoverChanged(position: CGPoint?, altitude: CGFloat, azimuth: CGFloat) {
