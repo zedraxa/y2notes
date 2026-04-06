@@ -80,6 +80,13 @@ final class Y2CanvasViewController: UIViewController {
     /// Apple Pencil feature coordinator (double-tap, squeeze, hover, barrel-roll).
     private var pencilCoordinator: PencilInteractionCoordinator?
 
+    /// Passive gesture recognizer that feeds real-time pencil positions to the
+    /// ink-effect engine at the hardware's native touch rate (up to 240 Hz).
+    private var nibTracker: PencilNibTrackerGestureRecognizer?
+
+    /// Ink effect engine that renders fire / sparkle / glitch / ripple overlays.
+    private var inkEffectEngine: InkEffectEngine?
+
     /// Debounce timer for persisting drawing changes.
     private var drawingDebounceTimer: Timer?
 
@@ -113,6 +120,7 @@ final class Y2CanvasViewController: UIViewController {
         setupCanvasView()
         setupEffectOverlay()
         setupPencilInteractions()
+        setupInkEffectEngine()
         loadDrawing()
 
         renderingPipeline.configure(fx: configuration.activeFX, fxColor: configuration.fxColor)
@@ -147,7 +155,9 @@ final class Y2CanvasViewController: UIViewController {
         // Effect pipeline
         if old.activeFX != newConfig.activeFX || old.fxColor != newConfig.fxColor {
             renderingPipeline.configure(fx: newConfig.activeFX, fxColor: newConfig.fxColor)
+            inkEffectEngine?.configure(fx: newConfig.activeFX, color: newConfig.fxColor)
         }
+        inkEffectEngine?.syncLayerFrames()
     }
 
     /// Trigger an animated reset to 1× zoom scale.
@@ -199,6 +209,36 @@ final class Y2CanvasViewController: UIViewController {
         renderingPipeline.effectOverlay.install(in: view)
     }
 
+    private func setupInkEffectEngine() {
+        let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
+        engine.configure(fx: configuration.activeFX, color: configuration.fxColor)
+        engine.attach(to: view)
+        self.inkEffectEngine = engine
+
+        // Passive gesture recognizer — drives effect emitter positions at
+        // the hardware's native touch rate without interfering with PencilKit.
+        let tracker = PencilNibTrackerGestureRecognizer()
+        tracker.onNibBegan = { [weak self] location in
+            guard let self, self.isDrawing,
+                  self.canvasView.tool is PKInkingTool else { return }
+            let inkColor = (self.canvasView.tool as? PKInkingTool)?.color ?? .label
+            self.renderingPipeline.effectsCoordinator.dispatch(
+                .strokeBegan(at: location, inkColor: inkColor),
+                inkEffectEngine: self.inkEffectEngine
+            )
+        }
+        tracker.onNibMoved = { [weak self] location, force, velocity in
+            guard let self, self.isDrawing,
+                  self.canvasView.tool is PKInkingTool else { return }
+            self.renderingPipeline.effectsCoordinator.dispatch(
+                .strokeUpdated(at: location, pressure: force, velocity: velocity),
+                inkEffectEngine: self.inkEffectEngine
+            )
+        }
+        canvasView.addGestureRecognizer(tracker)
+        self.nibTracker = tracker
+    }
+
     private func setupPencilInteractions() {
         let coordinator = PencilInteractionCoordinator()
         coordinator.delegate = self
@@ -245,14 +285,8 @@ extension Y2CanvasViewController: PKCanvasViewDelegate {
 
     func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
         isDrawing = true
-
-        let midpoint = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-        let inkColor = configuration.defaultInkColor
-        renderingPipeline.strokeBegan(
-            at: midpoint,
-            inkColor: inkColor,
-            inkEffectEngine: nil // Engine wired during full integration
-        )
+        // NOTE: .strokeBegan is dispatched by PencilNibTrackerGestureRecognizer
+        // with the actual first-contact position.  No dispatch needed here.
     }
 
     func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
@@ -273,7 +307,7 @@ extension Y2CanvasViewController: PKCanvasViewDelegate {
                 startPoint: viewportStart,
                 inkColor: configuration.defaultInkColor,
                 headingBounds: viewportBounds,
-                inkEffectEngine: nil
+                inkEffectEngine: inkEffectEngine
             )
         }
     }

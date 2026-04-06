@@ -251,7 +251,7 @@ final class EffectsCoordinator {
             }
 
         case .strokeUpdated(let at, let pressure, let velocity):
-            inkEffectEngine?.onStrokeUpdated(at: at)
+            inkEffectEngine?.onStrokeUpdated(at: at, pressure: pressure, velocity: velocity)
             writingEffectsPipeline.onStrokeUpdated(at: at, pressure: pressure, velocity: velocity)
             if magicModeEngine.isActive {
                 magicModeEngine.strokeMoved(to: at)

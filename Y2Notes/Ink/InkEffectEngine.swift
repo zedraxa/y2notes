@@ -168,6 +168,10 @@ final class InkEffectEngine {
     // Current stroke colour — updated via configure(fx:color:)
     private var strokeColor: UIColor = .black
 
+    // Generation counter used to cancel pending end-of-stroke burst timers
+    // if a new stroke begins before the timer fires.
+    private var strokeEndGeneration: Int = 0
+
     // MARK: - Init
 
     init(tier: DeviceCapabilityTier) {
@@ -293,6 +297,8 @@ final class InkEffectEngine {
     /// Call when the pencil begins a new stroke (first touch down).
     func onStrokeBegan(at point: CGPoint) {
         guard activeFX != .none else { return }
+        // Cancel any pending end-of-stroke burst/deactivation from the previous stroke.
+        strokeEndGeneration += 1
         switch activeFX {
         case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood:
             emitterLayer.isHidden   = false
@@ -325,35 +331,41 @@ final class InkEffectEngine {
     }
 
     /// Call for every drawing-changed callback to track the latest nib position.
-    func onStrokeUpdated(at point: CGPoint) {
+    ///
+    /// - Parameters:
+    ///   - point: Current nib position in viewport coordinates.
+    ///   - pressure: Normalised Apple Pencil force (0–1+). Modulates particle birth rate.
+    ///   - velocity: Instantaneous tip speed in points/second. Modulates emitter shape.
+    func onStrokeUpdated(at point: CGPoint, pressure: CGFloat = 1.0, velocity: CGFloat = 500) {
         guard activeFX != .none else { return }
         switch activeFX {
         case .fire, .sparkle, .snow, .dissolve, .blood:
+            // Pressure → birth rate: light touch emits fewer particles.
+            emitterLayer.birthRate = Float(max(0.3, min(1.5, pressure)))
+            // Velocity → emitter shape: fast strokes spread in a line.
+            emitterLayer.emitterShape = velocity > 400 ? .line : .point
             updateEmitterPosition(point)
             if activeFX == .fire {
                 updateFireGlowPosition(point)
             }
         case .shadow:
+            shadowEmitterLayer.birthRate = Float(max(0.3, min(1.5, pressure)))
             updateShadowEmitterPosition(point)
         case .rainbow:
             rainbowHueOffset += 0.02
             if rainbowHueOffset > 1.0 { rainbowHueOffset -= 1.0 }
             recolourEmitter(color: UIColor(hue: rainbowHueOffset, saturation: 0.9, brightness: 1.0, alpha: 0.9))
+            emitterLayer.birthRate = Float(max(0.3, min(1.5, pressure)))
+            emitterLayer.emitterShape = velocity > 400 ? .line : .point
             updateEmitterPosition(point)
         case .sheen:
             sheenHueOffset += SheenTuning.hueStepPerUpdate
             if sheenHueOffset > 1.0 { sheenHueOffset -= 1.0 }
             recolourSheenEmitter(hue: sheenHueOffset)
             configureSheenGlow(hue: sheenHueOffset)
-            // Velocity-responsive birth rate — faster strokes emit more particles.
-            if let prev = lastSheenPoint {
-                let dx = point.x - prev.x
-                let dy = point.y - prev.y
-                let speed = sqrt(dx * dx + dy * dy)
-                let boost: Float = speed > SheenTuning.velocityBoostThreshold
-                    ? SheenTuning.velocityBoostMultiplier : 1.0
-                emitterLayer.birthRate = boost
-            }
+            // Pressure × velocity-responsive birth rate.
+            let boost: Float = velocity > 60 ? SheenTuning.velocityBoostMultiplier : 1.0
+            emitterLayer.birthRate = Float(max(0.3, min(2.0, pressure))) * boost
             lastSheenPoint = point
             updateEmitterPosition(point)
             updateSheenGlowPosition(point)
@@ -370,7 +382,16 @@ final class InkEffectEngine {
     func onStrokeEnded(at point: CGPoint) {
         switch activeFX {
         case .fire, .sparkle, .snow, .dissolve, .rainbow, .sheen, .blood:
-            emitterLayer.birthRate = 0
+            // End-of-stroke burst: briefly triple the birth rate so particles
+            // scatter from the final nib position before fading out naturally.
+            let burstRate = max(emitterLayer.birthRate * 3, 3.0)
+            emitterLayer.birthRate = burstRate
+            strokeEndGeneration += 1
+            let gen = strokeEndGeneration
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+                guard let self, self.strokeEndGeneration == gen else { return }
+                self.emitterLayer.birthRate = 0
+            }
             if activeFX == .fire {
                 let fadeAnim                   = CABasicAnimation(keyPath: "opacity")
                 fadeAnim.fromValue             = Float(1)
