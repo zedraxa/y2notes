@@ -739,6 +739,7 @@
 				AA0001000000000000000166 /* PerlinNoise.swift */,
 				AA0001000000000000000168 /* FluidSimulation.swift */,
 				AA0001000000000000000196 /* StickerRenderer.swift */,
+			);
 			sourceTree = "<group>";
 		};
 		AA0001000000000000000188 /* Native */ = {
@@ -1370,6 +1371,7 @@
 				AA000100000000000000024A /* StickerPackProviding.swift in Sources */,
 				AA000100000000000000024C /* Y2LinkInsertionController.swift in Sources */,
 				AA000100000000000000024E /* Y2LinkMetadataFetcher.swift in Sources */,
+		);
 		};
 		AA0001000000000000000176 /* Sources (Y2NotesTests) */ = {
 			isa = PBXSourcesBuildPhase;
