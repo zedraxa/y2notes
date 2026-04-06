@@ -51,8 +51,15 @@ build-clean: clean build ## Clean then build
 
 # ── Test ──────────────────────────────────────────────────────────
 
+PACKAGES := Y2Core Y2Engine Y2Components Y2GoogleDrive
+SIM_SDK  := $(shell xcrun --sdk iphonesimulator --show-sdk-path 2>/dev/null)
+SIM_TARGET := arm64-apple-ios17.0-simulator
+
 .PHONY: test
-test: ## Run all tests
+test: test-packages test-app ## Run all tests (packages + app)
+
+.PHONY: test-app
+test-app: ## Run app-level unit tests
 	xcodebuild test \
 		-project "$(PROJECT)" \
 		-scheme "$(SCHEME)" \
@@ -62,8 +69,19 @@ test: ## Run all tests
 		CODE_SIGNING_REQUIRED=NO \
 		| xcpretty || true
 
+.PHONY: test-packages
+test-packages: ## Run all SPM package tests
+	@for pkg in $(PACKAGES); do \
+		echo "──── Testing $$pkg ────"; \
+		cd Packages/$$pkg && \
+		swift test --sdk "$(SIM_SDK)" \
+			-Xswiftc -target -Xswiftc $(SIM_TARGET) && \
+		cd ../.. || exit 1; \
+	done
+	@echo "✅ All package tests passed"
+
 .PHONY: test-verbose
-test-verbose: ## Run all tests with verbose output
+test-verbose: ## Run app tests with verbose output
 	xcodebuild test \
 		-project "$(PROJECT)" \
 		-scheme "$(SCHEME)" \
