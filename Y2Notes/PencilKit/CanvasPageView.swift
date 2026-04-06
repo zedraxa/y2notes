@@ -1027,7 +1027,7 @@ struct CanvasPageView: UIViewRepresentable {
                 ) { [weak self, weak canvasView] _ in
                     guard let self, !self.isDrawing, let canvas = canvasView else { return }
                     // Clamp zoom back to pre-stroke level if it drifted.
-                    if let savedZoom, abs(canvas.zoomScale - savedZoom) > 0.01 {
+                    if let savedZoom, abs(canvas.zoomScale - savedZoom) > WritingConfig.zoomDriftTolerance {
                         canvas.setZoomScale(savedZoom, animated: true)
                     }
                     canvas.pinchGestureRecognizer?.isEnabled = true

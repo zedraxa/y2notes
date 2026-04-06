@@ -69,9 +69,6 @@ struct NotePageCarouselView: View {
     /// a previously visited page restores the user's zoom position.
     @State private var pageZooms: [Int: CGFloat] = [:]
 
-    /// Tracks the previous page index so we can fire haptic on page change.
-    @State private var previousPageIndex: Int = 0
-
     /// Pre-prepared impact generator for page-turn haptics.
     @State private var pageTurnHaptic = UIImpactFeedbackGenerator(style: .light)
 
@@ -88,7 +85,6 @@ struct NotePageCarouselView: View {
             carouselLogger.debug("Page turned: \(oldVal) → \(newVal)")
         }
         .onAppear {
-            previousPageIndex = currentPageIndex
             pageTurnHaptic.prepare()
         }
     }

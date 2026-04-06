@@ -168,6 +168,13 @@ enum WritingConfig {
     /// when lifting the hand between quick successive strokes.
     static let postStrokeZoomLockDelay: TimeInterval = 0.15
 
+    /// Tolerance for detecting zoom drift during a locked stroke. If the zoom
+    /// scale changes by more than this amount while pinch gestures are disabled,
+    /// the zoom is clamped back to the pre-stroke level.  0.01 (1%) is small
+    /// enough to catch any multi-touch interference but avoids unnecessary
+    /// corrections from floating-point rounding.
+    static let zoomDriftTolerance: CGFloat = 0.01
+
     // MARK: - Finger Rejection
 
     /// Minimum number of points a finger touch must produce before it's considered
