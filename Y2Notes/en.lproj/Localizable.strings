@@ -138,6 +138,7 @@
 "Pages.Overview"                  = "Pages";
 "Pages.OverviewHint"              = "Tap to open page overview";
 "Pages.SwipeHint"                 = "Swipe left or right with two fingers to change pages";
+"Pages.SwipeToAdd"                = "Swipe to add a page";
 
 /* ── Notebooks ─────────────────────────────────────────────────── */
 

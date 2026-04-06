@@ -94,6 +94,11 @@ struct CanvasPageView: UIViewRepresentable {
     /// Called when the scroll view's zoom scale changes.
     var onZoomChanged: ((CGFloat) -> Void)?
 
+    /// Initial zoom scale to restore when the page becomes visible. If `nil`,
+    /// the page uses fit-to-width zoom. This allows the carousel to persist
+    /// zoom state per-page across page switches.
+    var initialZoomScale: CGFloat?
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
@@ -477,14 +482,19 @@ struct CanvasPageView: UIViewRepresentable {
         // Become first responder so Apple Pencil is ready immediately.
         DispatchQueue.main.async {
             canvas.becomeFirstResponder()
-            // Set initial zoom so the page width fits the visible canvas exactly.
-            // This ensures the user sees a complete, correctly-proportioned page on
-            // first open regardless of device orientation or screen size.
+            // Restore zoom state if the carousel provided a previously recorded
+            // zoom level for this page. Otherwise fit-to-width so the user sees
+            // a complete, correctly-proportioned page on first open.
             let canvasW = canvas.bounds.width
             if canvasW > 0 {
-                let fitZoom = canvasW / CanvasPageView.pageSize.width
+                let targetZoom: CGFloat
+                if let saved = self.initialZoomScale {
+                    targetZoom = saved
+                } else {
+                    targetZoom = canvasW / CanvasPageView.pageSize.width
+                }
                 let clamped = max(canvas.minimumZoomScale,
-                                  min(canvas.maximumZoomScale, fitZoom))
+                                  min(canvas.maximumZoomScale, targetZoom))
                 canvas.setZoomScale(clamped, animated: false)
             }
             canvasPageSignposter.endInterval("CanvasSetup", setupState)
@@ -1006,15 +1016,22 @@ struct CanvasPageView: UIViewRepresentable {
             // accidental zoom when lifting the hand between rapid successive
             // strokes.  Guard `isDrawing` in the callback to handle the rare
             // case where a new stroke begins before the timer fires.
+            // Also clamp the zoom back to what it was at stroke-start if any
+            // multi-touch interference caused a drift while gestures were locked.
             if WritingConfig.lockZoomDuringWriting {
+                let savedZoom = strokeStartZoomScale
                 postStrokeZoomUnlockTimer?.invalidate()
                 postStrokeZoomUnlockTimer = Timer.scheduledTimer(
                     withTimeInterval: WritingConfig.postStrokeZoomLockDelay,
                     repeats: false
                 ) { [weak self, weak canvasView] _ in
-                    guard let self, !self.isDrawing else { return }
-                    canvasView?.pinchGestureRecognizer?.isEnabled = true
-                    canvasView?.isScrollEnabled = true
+                    guard let self, !self.isDrawing, let canvas = canvasView else { return }
+                    // Clamp zoom back to pre-stroke level if it drifted.
+                    if let savedZoom, abs(canvas.zoomScale - savedZoom) > 0.01 {
+                        canvas.setZoomScale(savedZoom, animated: true)
+                    }
+                    canvas.pinchGestureRecognizer?.isEnabled = true
+                    canvas.isScrollEnabled = true
                 }
                 strokeStartZoomScale = nil
             }

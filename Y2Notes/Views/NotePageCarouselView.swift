@@ -1,11 +1,21 @@
 import SwiftUI
 import PencilKit
+import OSLog
+
+private let carouselLogger = Logger(subsystem: "com.y2notes", category: "NotePageCarousel")
 
 /// SwiftUI horizontal page carousel for a multi-page note.
 ///
 /// Uses `ScrollView(.horizontal)` with `.scrollTargetBehavior(.paging)` for
 /// natural single-finger page navigation. Each page is a persistent
 /// `CanvasPageView` instance — no teardown/recreation on page change.
+///
+/// **Zoom isolation**: per-page zoom state is tracked via `pageZooms`.
+/// When the current page zoom exceeds 1.02× (the hysteresis threshold),
+/// the horizontal carousel scroll is disabled so pinch-pan gestures don't
+/// accidentally trigger a page turn. The stored zoom value is passed back
+/// to `CanvasPageView.initialZoomScale` so pages resume at their last zoom
+/// level after being swiped away and back.
 struct NotePageCarouselView: View {
     let note: Note
     @Binding var currentPageIndex: Int
@@ -44,6 +54,8 @@ struct NotePageCarouselView: View {
     var isAmbientSoundEnabled: Bool = true
     var isNewPage: Bool = false
 
+    // MARK: - Tuning
+
     /// Minimum zoom scale above which the horizontal page-carousel scroll is disabled,
     /// preventing conflict between per-page canvas zoom-pan and carousel swiping.
     /// 1.02 (2% above 1×) provides a small hysteresis gap so that minor bounce
@@ -51,9 +63,39 @@ struct NotePageCarouselView: View {
     /// scrolling before the user lifts their fingers.
     private static let minZoomForScrollDisable: CGFloat = 1.02
 
+    // MARK: - State
+
+    /// Per-page zoom levels, persisted across page switches so that returning to
+    /// a previously visited page restores the user's zoom position.
     @State private var pageZooms: [Int: CGFloat] = [:]
 
+    /// Tracks the previous page index so we can fire haptic on page change.
+    @State private var previousPageIndex: Int = 0
+
+    /// Pre-prepared impact generator for page-turn haptics.
+    @State private var pageTurnHaptic = UIImpactFeedbackGenerator(style: .light)
+
+    // MARK: - Body
+
     var body: some View {
+        ZStack(alignment: .bottom) {
+            carouselScrollView
+            pageIndicator
+        }
+        .onChange(of: currentPageIndex) { oldVal, newVal in
+            guard oldVal != newVal else { return }
+            pageTurnHaptic.impactOccurred(intensity: 0.5)
+            carouselLogger.debug("Page turned: \(oldVal) → \(newVal)")
+        }
+        .onAppear {
+            previousPageIndex = currentPageIndex
+            pageTurnHaptic.prepare()
+        }
+    }
+
+    // MARK: - Carousel
+
+    private var carouselScrollView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(note.pages.indices, id: \.self) { idx in
@@ -71,6 +113,36 @@ struct NotePageCarouselView: View {
         .scrollPosition(id: $currentPageIndex)
         .scrollDisabled(pageZooms[currentPageIndex, default: 1.0] > Self.minZoomForScrollDisable)
     }
+
+    // MARK: - Page Indicator
+
+    /// Minimal page dot indicator at the bottom of the carousel. Only shown when
+    /// the note has more than one page and the current page is at base zoom
+    /// (so it doesn't overlap zoomed-in content).
+    private var pageIndicator: some View {
+        Group {
+            if note.pageCount > 1 {
+                HStack(spacing: 6) {
+                    ForEach(0..<note.pageCount, id: \.self) { idx in
+                        Circle()
+                            .fill(idx == currentPageIndex ? Color.primary : Color.secondary.opacity(0.35))
+                            .frame(width: idx == currentPageIndex ? 7 : 5,
+                                   height: idx == currentPageIndex ? 7 : 5)
+                            .animation(.easeInOut(duration: 0.2), value: currentPageIndex)
+                    }
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                .background(.ultraThinMaterial, in: Capsule())
+                .padding(.bottom, 8)
+                .opacity(pageZooms[currentPageIndex, default: 1.0] > Self.minZoomForScrollDisable ? 0 : 1)
+                .animation(.easeInOut(duration: 0.15), value: pageZooms[currentPageIndex, default: 1.0])
+                .allowsHitTesting(false)
+            }
+        }
+    }
+
+    // MARK: - Per-Page Canvas
 
     @ViewBuilder
     private func pageView(for idx: Int) -> some View {
@@ -117,11 +189,14 @@ struct NotePageCarouselView: View {
             activeAmbientScene: activeAmbientScene,
             isAmbientSoundEnabled: isAmbientSoundEnabled,
             isNewPage: isNewPage && idx == currentPageIndex,
+            initialZoomScale: pageZooms[idx],
             onZoomChanged: { zoom in pageZooms[idx] = zoom }
         )
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
     }
+
+    // MARK: - Add Page Slot
 
     private var addPageSlot: some View {
         ZStack {
@@ -132,7 +207,7 @@ struct NotePageCarouselView: View {
                 Image(systemName: "doc.badge.plus")
                     .font(.system(size: 52, weight: .ultraLight))
                     .foregroundStyle(.tertiary)
-                Text("Swipe to add a page")
+                Text(NSLocalizedString("Pages.SwipeToAdd", comment: ""))
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
             }
