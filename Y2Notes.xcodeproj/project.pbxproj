@@ -177,6 +177,11 @@
 		AA00010000000000000001D4 /* ObservableToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D3 /* ObservableToolStore.swift */; };
 		AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D5 /* ObservableInkEffectStore.swift */; };
 		AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D7 /* ObservableSettingsStore.swift */; };
+		AA00010000000000000001DB /* CanvasDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DA /* CanvasDelegate.swift */; };
+		AA00010000000000000001DD /* StrokeRenderingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DC /* StrokeRenderingPipeline.swift */; };
+		AA00010000000000000001DF /* EffectOverlayLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DE /* EffectOverlayLayer.swift */; };
+		AA00010000000000000001E1 /* Y2CanvasViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E0 /* Y2CanvasViewController.swift */; };
+		AA00010000000000000001E3 /* Y2CanvasHostingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E2 /* Y2CanvasHostingView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -358,6 +363,11 @@
 		AA00010000000000000001D3 /* ObservableToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableToolStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000001D5 /* ObservableInkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableInkEffectStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000001D7 /* ObservableSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableSettingsStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001DA /* CanvasDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasDelegate.swift; sourceTree = "<group>"; };
+		AA00010000000000000001DC /* StrokeRenderingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrokeRenderingPipeline.swift; sourceTree = "<group>"; };
+		AA00010000000000000001DE /* EffectOverlayLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectOverlayLayer.swift; sourceTree = "<group>"; };
+		AA00010000000000000001E0 /* Y2CanvasViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2CanvasViewController.swift; sourceTree = "<group>"; };
+		AA00010000000000000001E2 /* Y2CanvasHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2CanvasHostingView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -403,6 +413,7 @@
 				AA0001000000000000000012 /* ContentView.swift */,
 				AA00010000000000000001B2 /* Core */,
 				AA00010000000000000001B6 /* Adapters */,
+				AA00010000000000000001D9 /* Engine */,
 				AA000100000000000000000E /* Models */,
 				AA000100000000000000000F /* Views */,
 				AA0001000000000000000010 /* Persistence */,
@@ -735,6 +746,18 @@
 			path = Adapters;
 			sourceTree = "<group>";
 		};
+		AA00010000000000000001D9 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001DA /* CanvasDelegate.swift */,
+				AA00010000000000000001DC /* StrokeRenderingPipeline.swift */,
+				AA00010000000000000001DE /* EffectOverlayLayer.swift */,
+				AA00010000000000000001E0 /* Y2CanvasViewController.swift */,
+				AA00010000000000000001E2 /* Y2CanvasHostingView.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 		AA0001000000000000000002 /* Y2Notes */ = {
 			isa = PBXNativeTarget;
@@ -1004,6 +1027,11 @@
 				AA00010000000000000001D4 /* ObservableToolStore.swift in Sources */,
 				AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */,
 				AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */,
+				AA00010000000000000001DB /* CanvasDelegate.swift in Sources */,
+				AA00010000000000000001DD /* StrokeRenderingPipeline.swift in Sources */,
+				AA00010000000000000001DF /* EffectOverlayLayer.swift in Sources */,
+				AA00010000000000000001E1 /* Y2CanvasViewController.swift in Sources */,
+				AA00010000000000000001E3 /* Y2CanvasHostingView.swift in Sources */,
 		};
 		AA0001000000000000000176 /* Sources (Y2NotesTests) */ = {
 			isa = PBXSourcesBuildPhase;

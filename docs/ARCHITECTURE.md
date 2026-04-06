@@ -418,6 +418,73 @@ This ensures tools only update between strokes, never during.
 
 ---
 
+## Canvas Rendering Engine (ARCH-01)
+
+The `Y2Notes/Engine/` module provides a UIKit-native canvas controller that
+decouples rendering from SwiftUI's view lifecycle.  The engine can be embedded
+in SwiftUI via the thin `Y2CanvasHostingView` wrapper or used directly in UIKit.
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                  SwiftUI Host                                        │
+│  NoteEditorView → Y2CanvasHostingView (UIViewControllerRepresentable)│
+│                   (<50 lines — pure bridge)                          │
+└──────────┬──────────────────────────────────────────────────────────┘
+           │  embeds
+           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│           Y2CanvasViewController  (pure UIKit, NO SwiftUI)           │
+│                                                                      │
+│  ┌──────────────────┐  ┌───────────────────────────┐                │
+│  │  PKCanvasView    │  │  StrokeRenderingPipeline   │                │
+│  │  (input capture) │  │  ├─EffectsCoordinator      │                │
+│  │                  │  │  ├─Coordinate mapping       │                │
+│  │                  │  │  └─Effect activation        │                │
+│  └──────────────────┘  └───────────────────────────┘                │
+│                                                                      │
+│  ┌──────────────────┐  ┌───────────────────────────┐                │
+│  │  EffectOverlay   │  │  PencilInteraction         │                │
+│  │  Layer           │  │  Coordinator               │                │
+│  │  (CAEmitter/     │  │  (hover, barrel-roll,      │                │
+│  │   CAShapeLayer)  │  │   double-tap, squeeze)     │                │
+│  └──────────────────┘  └───────────────────────────┘                │
+│                                                                      │
+│  Output → CanvasDelegate protocol                                    │
+│    ├─ canvasDidUpdateDrawing(data:)                                  │
+│    ├─ canvasDidChangeUndoState(canUndo:canRedo:)                     │
+│    ├─ canvasRequestsPageChange(direction:)                           │
+│    └─ canvasDidUpdateShapes/Attachments/Widgets/Stickers/TextObjects │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Engine Files
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `CanvasDelegate.swift` | ~80 | Protocol for canvas → host communication |
+| `StrokeRenderingPipeline.swift` | ~160 | Stroke lifecycle dispatch + coordinate mapping |
+| `EffectOverlayLayer.swift` | ~120 | Non-interactive overlay view for effect sublayers |
+| `Y2CanvasViewController.swift` | ~290 | UIKit canvas controller (owns PKCanvasView) |
+| `Y2CanvasHostingView.swift` | ~39 | UIViewControllerRepresentable bridge |
+
+### Key Design Decisions
+
+1. **PKCanvasView as input layer only**: PencilKit captures Apple Pencil input with
+   full pressure/tilt fidelity. Custom rendering happens in the effect overlay layer.
+
+2. **CanvasConfiguration value type**: All canvas state is expressed as a `CanvasConfiguration`
+   struct. `apply(_:)` diffs old vs new to minimise UIKit mutations.
+
+3. **Delegate-based output**: `CanvasDelegate` replaces closure-based callbacks.
+   The host (SwiftUI or UIKit) implements the delegate to receive drawing changes.
+
+4. **Tool-safe updates**: Tools are never set mid-stroke to preserve PencilKit's
+   pressure/tilt pipeline.
+
+---
+
 ## Module Dependency Graph
 
 ```
