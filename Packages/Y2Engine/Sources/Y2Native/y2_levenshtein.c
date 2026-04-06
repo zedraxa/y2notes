@@ -8,6 +8,7 @@
  */
 
 #include "y2_levenshtein.h"
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -41,17 +42,18 @@ int y2_levenshtein_distance(const uint32_t *src, int srcLen,
 
     /* Allocate two rows. Using stack for small strings, heap for large. */
     int stackBuf[512];
-    int *prevRow, *currRow;
-    int heap = 0;
+    int *prevRow, *currRow, *allocPtr = NULL;
+    bool usedHeap = false;
 
     if ((n + 1) * 2 <= 512) {
         prevRow = stackBuf;
         currRow = stackBuf + (n + 1);
     } else {
-        prevRow = (int *)malloc((size_t)(n + 1) * 2 * sizeof(int));
-        if (!prevRow) return -1;
-        currRow = prevRow + (n + 1);
-        heap = 1;
+        allocPtr = (int *)malloc((size_t)(n + 1) * 2 * sizeof(int));
+        if (!allocPtr) return -1;
+        prevRow = allocPtr;
+        currRow = allocPtr + (n + 1);
+        usedHeap = true;
     }
 
     /* Initialise prevRow = [0, 1, 2, …, n] */
@@ -143,7 +145,7 @@ int y2_levenshtein_distance(const uint32_t *src, int srcLen,
     }
 
     int result = prevRow[n];
-    if (heap) free(prevRow < currRow ? prevRow : currRow - (n + 1));
+    if (usedHeap) free(allocPtr);
     return result;
 }
 

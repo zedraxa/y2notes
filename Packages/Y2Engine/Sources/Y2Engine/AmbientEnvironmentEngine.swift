@@ -1,7 +1,6 @@
 import AVFoundation
 import UIKit
 import QuartzCore
-import AVFoundation
 
 // MARK: - Ambient Scene
 
