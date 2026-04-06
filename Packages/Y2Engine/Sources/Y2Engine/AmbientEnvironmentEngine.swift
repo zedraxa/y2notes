@@ -208,7 +208,7 @@ public final class AmbientEnvironmentEngine {
     public func activate(
         _ scene: AmbientScene,
         on container: CALayer,
-        toolStore: DrawingToolStore
+        toolStore: any ToolbarOpacityProvider
     ) {
         // If a scene is already active, deactivate first.
         if activeScene != nil {
@@ -249,7 +249,7 @@ public final class AmbientEnvironmentEngine {
     // MARK: - Deactivate
 
     /// Deactivates the current ambient scene with a fade-out.
-    public func deactivate(toolStore: DrawingToolStore) {
+    public func deactivate(toolStore: any ToolbarOpacityProvider) {
         guard let container = ambientContainer else {
             activeScene = nil
             return

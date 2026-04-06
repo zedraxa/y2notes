@@ -296,5 +296,5 @@ public final class EffectsCoordinator {
 /// `WidgetCanvasView`, `StickerCanvasView`) satisfy this protocol through
 /// their existing `effectIntensity` property.
 public protocol EffectIntensityReceiver: AnyObject {
-    public var effectIntensity: EffectIntensity { get set }
+    var effectIntensity: EffectIntensity { get set }
 }

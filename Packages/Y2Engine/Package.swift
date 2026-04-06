@@ -14,8 +14,13 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "Y2Native",
+            path: "Sources/Y2Native",
+            publicHeadersPath: "include"
+        ),
+        .target(
             name: "Y2Engine",
-            dependencies: ["Y2Core"],
+            dependencies: ["Y2Core", "Y2Native"],
             path: "Sources/Y2Engine"
         ),
         .testTarget(

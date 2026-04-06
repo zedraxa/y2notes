@@ -100,7 +100,7 @@ public final class FocusModeEngine {
     public func activate(
         on container: CALayer,
         canvasLayer: CALayer,
-        toolStore: DrawingToolStore
+        toolStore: any ToolbarOpacityProvider
     ) {
         guard !isActive else { return }
         isActive = true
@@ -139,7 +139,7 @@ public final class FocusModeEngine {
     /// Deactivates focus mode, removing all ambient layers.
     public func deactivate(
         canvasLayer: CALayer,
-        toolStore: DrawingToolStore
+        toolStore: any ToolbarOpacityProvider
     ) {
         guard isActive else { return }
         isActive = false
