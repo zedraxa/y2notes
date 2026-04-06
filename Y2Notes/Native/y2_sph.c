@@ -235,7 +235,9 @@ void y2_sph_apply_forces_integrate(Y2SPHParticle *particles,
         forceX += gravityX;
         forceY += gravityY;
 
-        // Acceleration.
+        // Acceleration: F × (ρ₀ / ρᵢ) — the restDensity scaling matches the
+        // original Swift formulation, normalising force relative to equilibrium
+        // density so that particles at rest density experience unit acceleration.
         double invDensity = restDensity / fmax(particles[i].density, 1e-6);
         double ax = forceX * invDensity;
         double ay = forceY * invDensity;

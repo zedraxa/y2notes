@@ -154,6 +154,8 @@ final class FluidSimulation {
     }
 
     /// Get the current ink density at a point (for rendering opacity).
+    /// Note: Uses O(n) scan since max particles is 500; the C kernel's
+    /// internal spatial hash is only live during `step()`.
     func densityAt(_ point: CGPoint) -> Double {
         let hSq = config.smoothingRadius * config.smoothingRadius
         var density = 0.0
@@ -162,6 +164,7 @@ final class FluidSimulation {
             let dx = Double(point.x - p.position.x)
             let dy = Double(point.y - p.position.y)
             let rSq = dx * dx + dy * dy
+            guard rSq <= hSq else { continue }
             density += y2_sph_poly6(rSq, hSq)
         }
 
@@ -169,6 +172,8 @@ final class FluidSimulation {
     }
 
     /// Blend ink color at a point (weighted average of nearby particles).
+    /// Note: Uses O(n) scan since max particles is 500; the C kernel's
+    /// internal spatial hash is only live during `step()`.
     func blendedColorAt(_ point: CGPoint) -> (r: Double, g: Double, b: Double, a: Double)? {
         let h = config.smoothingRadius
         let hSq = h * h
