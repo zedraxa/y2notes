@@ -1837,6 +1837,9 @@ extension NoteStore: NoteRepository {
         paperMaterial: PaperMaterial?,
         templateID: String?
     ) -> Note {
+        // NoteStore.addNote(inNotebook:) sets the title automatically ("Note N+1"),
+        // and does not yet support pageSize/orientation/templateID — those are
+        // silently ignored here to satisfy the protocol interface.
         addNote(inNotebook: notebookID, pageType: pageType, paperMaterial: paperMaterial)
     }
 
@@ -1850,7 +1853,9 @@ extension NoteStore: NoteRepository {
         defaultPaperMaterial: PaperMaterial,
         colorTag: NotebookColorTag
     ) -> Notebook {
-        addNotebook(
+        // colorTag is not yet exposed by NoteStore.addNotebook; call updateNotebookColorTag
+        // on the returned notebook to apply the tag after creation if needed.
+        var nb = addNotebook(
             name: name,
             cover: cover,
             pageType: defaultPageType,
@@ -1858,10 +1863,18 @@ extension NoteStore: NoteRepository {
             orientation: defaultOrientation,
             paperMaterial: defaultPaperMaterial
         )
+        if colorTag != .none {
+            updateNotebookColorTag(id: nb.id, colorTag: colorTag)
+            nb = notebooks.first(where: { $0.id == nb.id }) ?? nb
+        }
+        return nb
     }
 
     @discardableResult
     func addSection(toNotebook notebookID: UUID, name: String, sortOrder: Int) -> NotebookSection {
+        // sortOrder is computed automatically by NoteStore.addSection; the protocol
+        // parameter is accepted for interface compatibility but the concrete implementation
+        // always appends at the next available sort position.
         addSection(toNotebook: notebookID, name: name)
     }
 }
