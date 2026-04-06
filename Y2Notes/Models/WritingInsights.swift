@@ -103,7 +103,6 @@ enum WritingInsightsBuilder {
         }
 
         // Per-notebook
-        let notebookMap = Dictionary(uniqueKeysWithValues: notebooks.map { ($0.id, $0) })
         var perNotebook: [UUID: NotebookStat] = [:]
         for notebook in notebooks {
             let notebookNotes = notes.filter { $0.notebookID == notebook.id }

@@ -147,7 +147,7 @@ final class Y2AudioClipView: UIView {
             : audioClip.waveformData
 
         let count = min(samples.count, 60)
-        for i in 0..<count {
+        for _ in 0..<count {
             let bar = CALayer()
             bar.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.7).cgColor
             bar.cornerRadius = 1
