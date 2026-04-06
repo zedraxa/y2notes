@@ -35,6 +35,9 @@ workflows:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             | xcpretty || true
+      - name: Download Metal Toolchain
+        script: |
+          xcodebuild -downloadComponent MetalToolchain
       - name: Build ipa for App Store distribution
         script: |
           xcode-project build-ipa \
