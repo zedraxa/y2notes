@@ -682,8 +682,6 @@ struct NoteGridView: View {
             return []
         case .documentLibrary:
             return []
-        case .importNotes:
-            return noteStore.importLinkedNotes
         }
     }
 
@@ -715,7 +713,6 @@ struct NoteGridView: View {
         case .tag(let tag):       return "#\(tag)"
         case .pdfLibrary:         return "PDF Documents"
         case .documentLibrary:    return "Documents"
-        case .importNotes:        return "Import Notes"
         }
     }
 
@@ -1524,7 +1521,6 @@ struct NoteGridView: View {
         case .tag:       return "tag"
         case .pdfLibrary: return "doc.richtext"
         case .documentLibrary: return "doc.fill"
-        case .importNotes: return "paperclip"
         }
     }
 
@@ -1551,7 +1547,6 @@ struct NoteGridView: View {
         case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
         case .documentLibrary: return "Import a document to get started."
-        case .importNotes: return "Create a companion note from a PDF or document viewer."
         }
     }
 }

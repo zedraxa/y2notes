@@ -3010,26 +3010,16 @@ struct CanvasView: UIViewRepresentable {
             if let inkTool = canvasView.tool as? PKInkingTool {
                 barrelRollBaseWidth = inkTool.width
             }
-            // Notify effect engine of stroke start for fire/sparkle/glitch overlays.
-            // At stroke-begin the new stroke hasn't been committed to the drawing
-            // yet, so we use the viewport center as a reasonable start point.
-            // The next onStrokeUpdated call will snap the emitter to the real nib.
-            if let engine = effectEngine {
-                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-                engine.onStrokeBegan(at: center)
-            }
-            // Notify writing effects pipeline of stroke start (taper, pooling, glow).
-            do {
-                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-                writingPipeline.onStrokeBegan(at: center)
-            }
-            // Notify magic mode engine of stroke start for writing particles.
-            if magicModeEngine.isActive,
-               let inkTool = canvasView.tool as? PKInkingTool {
-                let center = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-                let vp = viewportPoint(from: center, in: canvasView)
-                magicModeEngine.strokeBegan(at: vp, inkColor: inkTool.color)
-            }
+            // Dispatch stroke-began through the effects coordinator.
+            // At stroke-begin the new stroke isn't committed yet, so the nib
+            // position is approximated as the canvas bounds midpoint; the next
+            // strokeUpdated call will snap every engine to the real position.
+            let strokeStartPt = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+            let strokeStartColor = (canvasView.tool as? PKInkingTool)?.color ?? .label
+            effects.dispatch(
+                .strokeBegan(at: strokeStartPt, inkColor: strokeStartColor),
+                inkEffectEngine: effectEngine
+            )
             // Auto-fade toolbar using config constants
             fadeTask?.cancel()
             fadeTask = Task { @MainActor [weak self] in
@@ -3085,51 +3075,35 @@ struct CanvasView: UIViewRepresentable {
                 self?.adaptiveEffectsEngine.reportStrokePause()
             }
 
-            // Notify effect engine of stroke end for ripple / fire cooldown.
-            if let engine = effectEngine {
-                let lastStroke = canvasView.drawing.strokes.last
-                let point = lastStroke?.path.last.map {
-                    viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
-                } ?? CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-                engine.onStrokeEnded(at: point)
-            }
-            // Notify writing effects pipeline of stroke end (taper tail, glow fade).
-            writingPipeline.onStrokeEnded()
-            // Notify magic mode engine of stroke end — fires keyword glow and
-            // optional underline highlight.
-            if magicModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
+            // Dispatch stroke-ended through the effects coordinator (single stroke read).
+            let fallbackPt = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
+            if let lastStroke = canvasView.drawing.strokes.last {
                 let path = lastStroke.path
-                if let first = path.first, let last = path.last {
-                    let startVP = viewportPoint(
-                        from: CGPoint(x: first.location.x, y: first.location.y),
-                        in: canvasView
-                    )
-                    let endVP = viewportPoint(
-                        from: CGPoint(x: last.location.x, y: last.location.y),
-                        in: canvasView
-                    )
-                    let inkColor = (canvasView.tool as? PKInkingTool)?.color ?? .label
-                    magicModeEngine.strokeEnded(at: endVP, startPoint: startVP, inkColor: inkColor)
-                }
-            }
-            // Notify study mode engine — check if the last stroke looks like a heading
-            // (wide horizontal span, small vertical span) and fire a subtle glow.
-            if studyModeEngine.isActive, let lastStroke = canvasView.drawing.strokes.last {
+                let endPt = path.last.map {
+                    viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
+                } ?? fallbackPt
+                let startPt = path.first.map {
+                    viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
+                } ?? endPt
                 let bbox = lastStroke.renderBounds
-                let vpOrigin = viewportPoint(
-                    from: CGPoint(x: bbox.origin.x, y: bbox.origin.y),
-                    in: canvasView
-                )
-                let vpEnd = viewportPoint(
-                    from: CGPoint(x: bbox.maxX, y: bbox.maxY),
-                    in: canvasView
-                )
-                let vpRect = CGRect(
+                let vpOrigin = viewportPoint(from: bbox.origin, in: canvasView)
+                let vpMax    = viewportPoint(from: CGPoint(x: bbox.maxX, y: bbox.maxY), in: canvasView)
+                let headingBounds = CGRect(
                     x: vpOrigin.x, y: vpOrigin.y,
-                    width: vpEnd.x - vpOrigin.x,
-                    height: vpEnd.y - vpOrigin.y
+                    width: vpMax.x - vpOrigin.x, height: vpMax.y - vpOrigin.y
                 )
-                studyModeEngine.headingGlow(at: vpRect)
+                let strokeEndColor = (canvasView.tool as? PKInkingTool)?.color ?? .label
+                effects.dispatch(
+                    .strokeEnded(at: endPt, start: startPt,
+                                 inkColor: strokeEndColor, headingBounds: headingBounds),
+                    inkEffectEngine: effectEngine
+                )
+            } else {
+                effects.dispatch(
+                    .strokeEnded(at: fallbackPt, start: fallbackPt,
+                                 inkColor: .label, headingBounds: .zero),
+                    inkEffectEngine: effectEngine
+                )
             }
             // Restore toolbar opacity after drawing ends using config constants
             fadeTask?.cancel()
@@ -3394,62 +3368,35 @@ struct CanvasView: UIViewRepresentable {
             let data = canvasView.drawing.dataRepresentation()
             onDrawingChanged(data)
 
-            // Feed latest stroke point to the effect engine for fire/sparkle tracking.
-            // Convert from PKDrawing content coordinates to the overlay's viewport
-            // coordinates so particles appear at the correct on-screen position.
-            if let engine = effectEngine {
-                let lastStroke = canvasView.drawing.strokes.last
-                if let lastPoint = lastStroke?.path.last {
-                    let vp = viewportPoint(
-                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
-                        in: canvasView
-                    )
-                    engine.onStrokeUpdated(at: vp)
-                }
-            }
-
-            // Feed latest stroke point to the writing effects pipeline (glow, trail, pooling).
-            do {
-                let lastStroke = canvasView.drawing.strokes.last
-                if let lastPoint = lastStroke?.path.last {
-                    let vp = viewportPoint(
-                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
-                        in: canvasView
-                    )
-                    // Derive inter-point velocity from the stroke path spacing.
-                    // PKStrokePoint.timeOffset is in seconds from the stroke start.
-                    // The fallback represents a moderate hand speed when timing data is unavailable.
-                    let pipelineFallbackVelocity: CGFloat = VelocityThicknessParams.velocityCeiling / 4
-                    let velocity: CGFloat
-                    if let path = lastStroke?.path, path.count >= 2 {
-                        let prev = path[path.count - 2]
-                        let curr = path[path.count - 1]
-                        let dt = curr.timeOffset - prev.timeOffset
-                        if dt > 0 {
-                            let dx = curr.location.x - prev.location.x
-                            let dy = curr.location.y - prev.location.y
-                            velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
-                        } else {
-                            velocity = pipelineFallbackVelocity
-                        }
+            // Dispatch stroke-updated through the effects coordinator (single path read).
+            // Reads `canvasView.drawing.strokes.last` once, converts to viewport space
+            // once, computes velocity once, and fans out to every engine via dispatch.
+            if let lastPath = canvasView.drawing.strokes.last?.path, let lastPoint = lastPath.last {
+                let vp = viewportPoint(
+                    from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
+                    in: canvasView
+                )
+                let pressure = lastPoint.force
+                let fallbackVelocity: CGFloat = VelocityThicknessParams.velocityCeiling / 4
+                let velocity: CGFloat
+                if lastPath.count >= 2 {
+                    let prev = lastPath[lastPath.count - 2]
+                    let curr = lastPath[lastPath.count - 1]
+                    let dt = curr.timeOffset - prev.timeOffset
+                    if dt > 0 {
+                        let dx = curr.location.x - prev.location.x
+                        let dy = curr.location.y - prev.location.y
+                        velocity = sqrt(dx * dx + dy * dy) / CGFloat(dt)
                     } else {
-                        velocity = pipelineFallbackVelocity
+                        velocity = fallbackVelocity
                     }
-                    let pressure = lastStroke?.path.last?.force ?? 1.0
-                    writingPipeline.onStrokeUpdated(at: vp, pressure: pressure, velocity: velocity)
+                } else {
+                    velocity = fallbackVelocity
                 }
-            }
-
-            // Update magic mode particle position while writing.
-            if magicModeEngine.isActive {
-                let lastStroke = canvasView.drawing.strokes.last
-                if let lastPoint = lastStroke?.path.last {
-                    let vp = viewportPoint(
-                        from: CGPoint(x: lastPoint.location.x, y: lastPoint.location.y),
-                        in: canvasView
-                    )
-                    magicModeEngine.strokeMoved(to: vp)
-                }
+                effects.dispatch(
+                    .strokeUpdated(at: vp, pressure: pressure, velocity: velocity),
+                    inkEffectEngine: effectEngine
+                )
             }
 
             // Report undo/redo availability directly from the canvas's undo manager.
