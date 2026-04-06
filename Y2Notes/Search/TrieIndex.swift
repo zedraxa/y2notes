@@ -289,41 +289,19 @@ final class TrieIndex {
 // MARK: - Levenshtein Distance (Standalone)
 
 /// Computes the Levenshtein edit distance between two strings.
-/// Uses the Wagner-Fischer dynamic programming algorithm in O(m·n) time, O(min(m,n)) space.
+/// Delegates to SIMD-optimized C kernel (y2_levenshtein.c) operating on
+/// Unicode scalar arrays for O(m·n) time, O(min(m,n)) space.
 enum LevenshteinDistance {
     static func compute(_ source: String, _ target: String) -> Int {
-        let s = Array(source)
-        let t = Array(target)
-        let m = s.count
-        let n = t.count
-
-        // Optimise by making the shorter string the column dimension.
-        if m < n { return compute(target, source) }
-        if n == 0 { return m }
-
-        var previousRow = Array(0...n)
-        var currentRow = Array(repeating: 0, count: n + 1)
-
-        for i in 1...m {
-            currentRow[0] = i
-            for j in 1...n {
-                let cost = s[i - 1] == t[j - 1] ? 0 : 1
-                currentRow[j] = min(
-                    currentRow[j - 1] + 1,      // insertion
-                    previousRow[j] + 1,          // deletion
-                    previousRow[j - 1] + cost    // substitution
-                )
-            }
-            swap(&previousRow, &currentRow)
-        }
-
-        return previousRow[n]
+        let s = Array(source.unicodeScalars.map { $0.value })
+        let t = Array(target.unicodeScalars.map { $0.value })
+        return Int(y2_levenshtein_distance(s, Int32(s.count), t, Int32(t.count)))
     }
 
     /// Normalised similarity in [0, 1] where 1 = identical.
     static func similarity(_ source: String, _ target: String) -> Double {
-        let maxLen = max(source.count, target.count)
-        guard maxLen > 0 else { return 1.0 }
-        return 1.0 - Double(compute(source, target)) / Double(maxLen)
+        let s = Array(source.unicodeScalars.map { $0.value })
+        let t = Array(target.unicodeScalars.map { $0.value })
+        return y2_levenshtein_similarity(s, Int32(s.count), t, Int32(t.count))
     }
 }

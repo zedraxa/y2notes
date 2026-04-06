@@ -4,7 +4,8 @@
  *
  *  Objective-C / C bridging header for Swift interop.
  *  Exposes SIMD-optimized C implementations of performance-critical
- *  algorithms (Perlin noise, SPH fluid simulation) to Swift.
+ *  algorithms to Swift: Perlin noise, SPH fluid, OKLAB color science,
+ *  and Levenshtein edit distance.
  */
 
 #ifndef Y2Notes_Bridging_Header_h
@@ -12,5 +13,7 @@
 
 #include "Native/y2_perlin.h"
 #include "Native/y2_sph.h"
+#include "Native/y2_color.h"
+#include "Native/y2_levenshtein.h"
 
 #endif /* Y2Notes_Bridging_Header_h */
