@@ -738,6 +738,7 @@
 				AA0001000000000000000168 /* FluidSimulation.swift */,
 				AA0001000000000000000196 /* StickerRenderer.swift */,
 			);
+			path = Ink;
 			sourceTree = "<group>";
 		};
 		AA0001000000000000000188 /* Native */ = {
