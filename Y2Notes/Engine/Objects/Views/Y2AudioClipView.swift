@@ -105,6 +105,8 @@ final class Y2AudioClipView: UIView {
         speedButton.addTarget(self, action: #selector(cycleSpeed), for: .touchUpInside)
         speedButton.translatesAutoresizingMaskIntoConstraints = false
         speedButton.isHidden = true
+        speedButton.accessibilityLabel = "Playback speed: 1×"
+        speedButton.accessibilityHint = "Double-tap to change playback speed"
         addSubview(speedButton)
 
         NSLayoutConstraint.activate([
@@ -133,6 +135,7 @@ final class Y2AudioClipView: UIView {
         isAccessibilityElement = true
         accessibilityLabel = "Voice recording: \(audioClip.title.isEmpty ? "" : audioClip.title), \(formatDuration(audioClip.duration))"
         accessibilityTraits = [.button]
+        accessibilityHint = "Double-tap to play or pause"
     }
 
     private func buildWaveform() {
@@ -227,6 +230,7 @@ final class Y2AudioClipView: UIView {
         player?.rate = playbackSpeed
         let label = playbackSpeed == 1.0 ? "1×" : String(format: "%.1f×", playbackSpeed)
         speedButton.setTitle(label, for: .normal)
+        speedButton.accessibilityLabel = "Playback speed: \(label)"
     }
 
     // MARK: - Helpers

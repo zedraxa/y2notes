@@ -18,6 +18,7 @@ final class Y2LinkObjectView: UIView {
     private let backgroundView = UIView()
     private let faviconView = UIImageView()
     private let titleLabel = UILabel()
+    private let descriptionLabel = UILabel()
     private let domainLabel = UILabel()
     private let previewImageView = UIImageView()
 
@@ -53,7 +54,7 @@ final class Y2LinkObjectView: UIView {
         isAccessibilityElement = true
         accessibilityLabel = "\(linkObject.title ?? linkObject.urlString) — Link"
         accessibilityTraits = [.link]
-        accessibilityActivate()
+        accessibilityHint = "Double-tap to open in Safari"
     }
 
     // MARK: Chip
@@ -118,11 +119,23 @@ final class Y2LinkObjectView: UIView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.addSubview(titleLabel)
 
+        if let desc = linkObject.linkDescription, !desc.isEmpty {
+            descriptionLabel.text = desc
+            descriptionLabel.font = .systemFont(ofSize: 11)
+            descriptionLabel.textColor = .secondaryLabel
+            descriptionLabel.numberOfLines = 2
+            descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
+            backgroundView.addSubview(descriptionLabel)
+        }
+
         domainLabel.text = linkObject.displayDomain
         domainLabel.font = .systemFont(ofSize: 11)
-        domainLabel.textColor = .secondaryLabel
+        domainLabel.textColor = .tertiaryLabel
         domainLabel.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.addSubview(domainLabel)
+
+        let hasDescription = linkObject.linkDescription?.isEmpty == false
+        let descAnchor = hasDescription ? descriptionLabel : titleLabel
 
         NSLayoutConstraint.activate([
             backgroundView.topAnchor.constraint(equalTo: topAnchor),
@@ -139,10 +152,18 @@ final class Y2LinkObjectView: UIView {
             titleLabel.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor, constant: 10),
             titleLabel.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor, constant: -10),
 
-            domainLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            domainLabel.topAnchor.constraint(equalTo: descAnchor.bottomAnchor, constant: 4),
             domainLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             domainLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
         ])
+
+        if hasDescription {
+            NSLayoutConstraint.activate([
+                descriptionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+                descriptionLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+                descriptionLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            ])
+        }
 
         loadFavicon()
         loadPreviewImage()
@@ -195,6 +216,11 @@ final class Y2LinkObjectView: UIView {
         let safari = SFSafariViewController(url: url)
         let topVC = topViewController()
         topVC?.present(safari, animated: true)
+    }
+
+    override func accessibilityActivate() -> Bool {
+        openLink()
+        return true
     }
 
     private func topViewController() -> UIViewController? {

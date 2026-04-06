@@ -443,6 +443,13 @@
 		AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000254 /* Y2TextBlockView.swift */; };
 		AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */; };
 		AA0001000000000000000259 /* RustDataBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000258 /* RustDataBridge.swift */; };
+		AA000100000000000000025A /* Y2ScannedDocObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ScannedDocObjectView.swift; sourceTree = "<group>"; };
+		AA000100000000000000025B /* Y2ScannedDocObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000025A /* Y2ScannedDocObjectView.swift */; };
+		AA000100000000000000025C /* y2_sqlite.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_sqlite.h; sourceTree = "<group>"; };
+		AA000100000000000000025D /* y2_sqlite.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_sqlite.c; sourceTree = "<group>"; };
+		AA000100000000000000025E /* y2_sqlite.c in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000025D /* y2_sqlite.c */; };
+		AA000100000000000000025F /* SQLitePersistenceDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLitePersistenceDriver.swift; sourceTree = "<group>"; };
+		AA0001000000000000000260 /* SQLitePersistenceDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000025F /* SQLitePersistenceDriver.swift */; };
 		AA000100000000000000019E /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A0 /* CanvasViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewCoordinator.swift; sourceTree = "<group>"; };
 		AA00010000000000000001A2 /* ToolSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSnapshot.swift; sourceTree = "<group>"; };
@@ -745,6 +752,8 @@
 				AA0001000000000000000191 /* y2_color.c */,
 				AA0001000000000000000193 /* y2_levenshtein.h */,
 				AA0001000000000000000194 /* y2_levenshtein.c */,
+				AA000100000000000000025C /* y2_sqlite.h */,
+				AA000100000000000000025D /* y2_sqlite.c */,
 			);
 			path = Native;
 			sourceTree = "<group>";
@@ -831,6 +840,7 @@
 				AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */,
 				AA000100000000000000022B /* MediaFileManager.swift */,
 				AA0001000000000000000258 /* RustDataBridge.swift */,
+				AA000100000000000000025F /* SQLitePersistenceDriver.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -986,6 +996,7 @@
 				AA0001000000000000000231 /* Y2ImageObjectView.swift */,
 				AA0001000000000000000233 /* Y2AudioClipView.swift */,
 				AA0001000000000000000235 /* Y2StickerObjectView.swift */,
+				AA000100000000000000025A /* Y2ScannedDocObjectView.swift */,
 				AA0001000000000000000237 /* Y2LinkObjectView.swift */,
 				AA0001000000000000000254 /* Y2TextBlockView.swift */,
 			);
@@ -1195,6 +1206,7 @@
 				AA000100000000000000018E /* y2_sph.c in Sources */,
 				AA0001000000000000000192 /* y2_color.c in Sources */,
 				AA0001000000000000000195 /* y2_levenshtein.c in Sources */,
+				AA000100000000000000025E /* y2_sqlite.c in Sources */,
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
 				AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */,
@@ -1344,6 +1356,8 @@
 				AA0001000000000000000232 /* Y2ImageObjectView.swift in Sources */,
 				AA0001000000000000000234 /* Y2AudioClipView.swift in Sources */,
 				AA0001000000000000000236 /* Y2StickerObjectView.swift in Sources */,
+				AA000100000000000000025B /* Y2ScannedDocObjectView.swift in Sources */,
+				AA0001000000000000000260 /* SQLitePersistenceDriver.swift in Sources */,
 				AA0001000000000000000238 /* Y2LinkObjectView.swift in Sources */,
 				AA000100000000000000023A /* Y2ImageInsertionController.swift in Sources */,
 				AA000100000000000000023C /* Y2ImageCropController.swift in Sources */,
@@ -1501,6 +1515,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-lsqlite3";
 				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -1529,6 +1544,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-lsqlite3";
 				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;

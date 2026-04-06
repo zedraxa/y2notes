@@ -47,7 +47,27 @@ struct Y2NotesApp: App {
                 .environmentObject(container.legacySettingsStore)
 
                 .environment(tabSession)
+                .handlesExternalEvents(preferring: Set<String>(), allowing: Set<String>(["*"]))
         }
+        .handlesExternalEvents(matching: Set<String>(["*"]))
+    }
+}
+
+// MARK: - NSUserActivity constants
+
+extension NSUserActivity {
+    /// Activity type for editing a specific note in a window.
+    static let editNoteActivityType = "com.y2notes.edit-note"
+
+    /// Create a user activity representing the currently edited note.
+    /// Attach this to a window scene for Handoff and multi-window state restoration.
+    static func editNote(noteID: UUID) -> NSUserActivity {
+        let activity = NSUserActivity(activityType: editNoteActivityType)
+        activity.title = "Edit Note"
+        activity.userInfo = ["noteID": noteID.uuidString]
+        activity.isEligibleForHandoff = true
+        activity.targetContentIdentifier = noteID.uuidString
+        return activity
     }
 }
 

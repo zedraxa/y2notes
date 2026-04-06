@@ -85,6 +85,7 @@ final class Y2TextBlockView: UIView {
 
         isAccessibilityElement = true
         accessibilityTraits = [.staticText]
+        accessibilityHint = "Double-tap to edit text"
     }
 
     // MARK: - Style application
@@ -154,6 +155,9 @@ final class Y2TextBlockView: UIView {
         textView.isHidden = false
         textView.text = textBlockObject.text
         textView.becomeFirstResponder()
+        UIAccessibility.post(notification: .announcement,
+                             argument: "Editing text block")
+        accessibilityTraits = [.staticText, .updatesFrequently]
     }
 
     /// Commit and exit edit mode.
@@ -164,6 +168,7 @@ final class Y2TextBlockView: UIView {
         textView.resignFirstResponder()
         textView.isHidden = true
         label.isHidden = false
+        accessibilityTraits = [.staticText]
 
         if newText != textBlockObject.text {
             textBlockObject.text = newText
@@ -171,6 +176,8 @@ final class Y2TextBlockView: UIView {
             accessibilityLabel = newText.isEmpty ? "Empty text block" : newText
             textBlockDelegate?.textBlockView(self, didCommitText: newText)
         }
+        UIAccessibility.post(notification: .announcement,
+                             argument: "Finished editing text block")
     }
 }
 

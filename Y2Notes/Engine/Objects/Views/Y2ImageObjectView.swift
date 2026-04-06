@@ -53,6 +53,7 @@ final class Y2ImageObjectView: UIView {
         isAccessibilityElement = true
         accessibilityLabel = imageObject.originalFilename ?? "Image"
         accessibilityTraits = [.image]
+        accessibilityHint = "Double-tap and hold to move or resize"
     }
 
     private func applyBorderStyle() {

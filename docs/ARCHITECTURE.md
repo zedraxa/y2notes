@@ -767,13 +767,23 @@ All embedded objects use the **same page content coordinate space** as `PKDrawin
 | File | Purpose |
 |------|---------|
 | `Y2LinkInsertionController.swift` | URL entry form; fetches metadata preview; chip/card/inline style picker |
-| `Y2LinkMetadataFetcher.swift` | `URLSession` + minimal HTML parser (og:title, og:image, favicon) |
+| `Y2LinkMetadataFetcher.swift` | Headless `WKWebView` + JS extraction for og:title, og:image, og:description, favicon; URLSession fallback |
 
-### Persistence (`Y2Notes/Core/Persistence/MediaFileManager.swift`)
+### Persistence (`Y2Notes/Core/Persistence/`)
 
+| File | Purpose |
+|------|---------|
+| `PersistenceDriver.swift` | Protocol abstracting key-value storage |
+| `JSONFilePersistenceDriver.swift` | Legacy per-file JSON persistence with .bak backups |
+| `SQLitePersistenceDriver.swift` | C SQLite persistence via `y2_sqlite.c`; WAL mode, prepared statements |
+| `MediaFileManager.swift` | Binary media file manager (images, audio, scans) |
+| `RustDataBridge.swift` | Swift bridge to Rust data layer (libY2Data) |
+
+**Storage paths**:
 - **Images**: `Documents/NoteMedia/{noteID}/{objectID}.jpg`
 - **Audio**: `Documents/AudioClips/{objectID}.m4a`
 - **Scans**: `Documents/Scans/{objectID}_scan.jpg`
+- **SQLite DB**: `Documents/y2notes.db` (WAL mode)
 - JSON stores only metadata (relative paths, frames, settings) — **never binary blobs**
 - `deleteMediaForNote(noteID:)` called automatically from `NoteStore.deleteNotes` (cascade delete)
 - `cleanup(referencedPaths:)` removes orphaned files not referenced by any live note

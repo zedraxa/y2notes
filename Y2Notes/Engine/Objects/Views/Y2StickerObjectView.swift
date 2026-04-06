@@ -45,8 +45,11 @@ final class Y2StickerObjectView: UIView {
         ])
 
         isAccessibilityElement = true
-        accessibilityLabel = "Sticker: \(stickerObject.stickerID)"
+        accessibilityLabel = stickerObject.isBuiltIn
+            ? "Built-in sticker: \(stickerObject.stickerID)"
+            : "Custom sticker: \(stickerObject.stickerID)"
         accessibilityTraits = [.image]
+        accessibilityHint = "Double-tap and hold to move or resize"
     }
 
     private func loadSticker() {
