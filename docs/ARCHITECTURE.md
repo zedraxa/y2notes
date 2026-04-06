@@ -514,3 +514,72 @@ ContentView ──► ShelfView ──► NoteGridView
 ```
 
 No circular dependencies. All data flows down from `Y2NotesApp` via environment objects.
+
+---
+
+## Custom UI Component System
+
+The `Y2Notes/Components/` directory contains a reusable UIKit-native component library
+that provides premium, app-specific UI elements with thin SwiftUI hosting wrappers.
+
+### Design Principles
+
+1. **UIKit internally** — all components are `UIView`/`UIViewController` subclasses for
+   maximum layout and animation control at 60 fps.
+2. **SwiftUI wrapper externally** — every component has a `UIViewRepresentable` or
+   `UIViewControllerRepresentable` wrapper for seamless SwiftUI integration.
+3. **Theme-aware** — components accept `ThemeColors` / `ThemeDefinition` for styling.
+4. **Fully accessible** — VoiceOver labels, Dynamic Type support, and
+   `UIAccessibility.isReduceMotionEnabled` checks on all animations.
+5. **Self-contained** — no dependency on specific Y2Notes models; components are
+   parameterised via configuration structs and callbacks.
+6. **Each file < 400 lines** — keeping type-checker happy and code reviewable.
+
+### Component Map
+
+```
+Components/
+├── Toolbar/
+│   ├── Y2FloatingToolbar.swift     — Draggable edge-snapping toolbar (UIKit + pan gesture)
+│   ├── Y2ToolPalette.swift         — Radial/grid tool picker (Procreate-style)
+│   └── Y2ColorWheel.swift          — HSB colour wheel with brightness slider
+├── Navigation/
+│   ├── Y2SplitController.swift     — UISplitViewController wrapper (pixel-level column control)
+│   └── Y2ShelfPanel.swift          — Drag-to-resize sidebar panel
+└── Cards/
+    ├── Y2NoteCard.swift            — UIKit note card with thumbnail + haptic long-press
+    └── Y2MasonryGrid.swift         — UICollectionView Pinterest-style masonry layout
+
+Transitions/
+├── PageFlipTransition.swift        — 3D page-flip with CATransform3D (+ SwiftUI .pageFlip)
+└── ZoomOpenTransition.swift        — Zoom-in/out for opening notes (+ SwiftUI .zoomOpen)
+```
+
+### Toolbar System
+
+| Component | Internal | Wrapper | Key Feature |
+|-----------|----------|---------|-------------|
+| `Y2FloatingToolbar` | `UIView` + `UIPanGestureRecognizer` | `Y2FloatingToolbarView` | Drag to any edge, spring snap, collapse/expand |
+| `Y2ToolPalette` | `UIView` + radial layout | `Y2ToolPaletteView` | Radial arc (reduce-motion: grid fallback) |
+| `Y2ColorWheel` | `UIView` + Core Graphics | `Y2ColorWheelView` | HSB wheel + brightness slider |
+
+### Navigation System
+
+| Component | Internal | Wrapper | Key Feature |
+|-----------|----------|---------|-------------|
+| `Y2SplitController` | `UISplitViewController` (triple-column) | `Y2SplitControllerView` | Pixel-level column widths, custom collapse |
+| `Y2ShelfPanel` | `UIView` + drag handle | `Y2ShelfPanelView` | Fluid drag-to-resize with snap presets |
+
+### Card & Grid System
+
+| Component | Internal | Wrapper | Key Feature |
+|-----------|----------|---------|-------------|
+| `Y2NoteCard` | `UIView` + gestures | `Y2NoteCardView` | Thumbnail + title + haptic long-press + scale animation |
+| `Y2MasonryGrid` | `UICollectionView` + custom layout | `Y2MasonryGridView` | Pinterest masonry, variable heights, cell reuse |
+
+### Transition System
+
+| Transition | UIKit API | SwiftUI API | Reduce-Motion Fallback |
+|------------|-----------|-------------|------------------------|
+| `PageFlipTransition` | `.flip(from:to:in:direction:)` | `.transition(.pageFlip)` | Cross-dissolve |
+| `ZoomOpenTransition` | `.open(from:to:in:)` / `.close(from:to:in:)` | `.transition(.zoomOpen)` | Scale + opacity |
