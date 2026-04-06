@@ -128,6 +128,8 @@
 		AA0001000000000000000183 /* PencilNibTrackerGestureRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */; };
 		AA0001000000000000000185 /* CanvasPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000184 /* CanvasPageView.swift */; };
 		AA0001000000000000000187 /* NotePageCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000186 /* NotePageCarouselView.swift */; };
+		AA000100000000000000018B /* y2_perlin.c in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000018A /* y2_perlin.c */; };
+		AA000100000000000000018E /* y2_sph.c in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000018D /* y2_sph.c */; };
 		AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014A /* InteractionFeedbackEngine.swift */; };
 		AA0001000000000000000155 /* WritingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000154 /* WritingInsights.swift */; };
 		AA0001000000000000000157 /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000156 /* QuickAction.swift */; };
@@ -213,6 +215,11 @@
 		AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilNibTrackerGestureRecognizer.swift; sourceTree = "<group>"; };
 		AA0001000000000000000184 /* CanvasPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000186 /* NotePageCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotePageCarouselView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000189 /* y2_perlin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_perlin.h; sourceTree = "<group>"; };
+		AA000100000000000000018A /* y2_perlin.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_perlin.c; sourceTree = "<group>"; };
+		AA000100000000000000018C /* y2_sph.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_sph.h; sourceTree = "<group>"; };
+		AA000100000000000000018D /* y2_sph.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_sph.c; sourceTree = "<group>"; };
+		AA000100000000000000018F /* Y2Notes-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Y2Notes-Bridging-Header.h"; sourceTree = "<group>"; };
 		AA000100000000000000014A /* InteractionFeedbackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionFeedbackEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000154 /* WritingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsights.swift; sourceTree = "<group>"; };
 		AA0001000000000000000156 /* QuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAction.swift; sourceTree = "<group>"; };
@@ -345,8 +352,10 @@
 				AA00010000000000000000B3 /* Settings */,
 				AA00010000000000000000B4 /* Accessibility */,
 				AA00010000000000000000B5 /* GoogleDrive */,
+				AA0001000000000000000188 /* Native */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
+				AA000100000000000000018F /* Y2Notes-Bridging-Header.h */,
 				AA00010000000000000000B1 /* Localizable.strings */,
 			);
 			path = Y2Notes;
@@ -534,6 +543,17 @@
 			path = Ink;
 			sourceTree = "<group>";
 		};
+		AA0001000000000000000188 /* Native */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000189 /* y2_perlin.h */,
+				AA000100000000000000018A /* y2_perlin.c */,
+				AA000100000000000000018C /* y2_sph.h */,
+				AA000100000000000000018D /* y2_sph.c */,
+			);
+			path = Native;
+			sourceTree = "<group>";
+		};
 		AA00010000000000000000D1 /* Documents */ = {
 			isa = PBXGroup;
 			children = (
@@ -717,6 +737,8 @@
 				AA0001000000000000000183 /* PencilNibTrackerGestureRecognizer.swift in Sources */,
 				AA0001000000000000000185 /* CanvasPageView.swift in Sources */,
 				AA0001000000000000000187 /* NotePageCarouselView.swift in Sources */,
+				AA000100000000000000018B /* y2_perlin.c in Sources */,
+				AA000100000000000000018E /* y2_sph.c in Sources */,
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
 				AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */,
@@ -961,6 +983,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Y2Notes/Y2Notes-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 2;
 			};
@@ -988,6 +1011,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Y2Notes/Y2Notes-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 2;
 			};
