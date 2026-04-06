@@ -23,6 +23,9 @@ final class StickerCanvasView: UIView, EffectIntensityReceiver {
     /// Callback when a sticker is selected by tap.
     var onStickerSelected: ((UUID?) -> Void)?
 
+    /// Generic selection-changed callback (mirrors `onStickerSelected` for API consistency with other canvas views).
+    var onSelectionChanged: ((UUID?) -> Void)?
+
     /// Callback when a sticker's transform changes (position / scale / rotation).
     var onStickerTransformed: ((StickerInstance) -> Void)?
 
@@ -272,6 +275,7 @@ final class StickerCanvasView: UIView, EffectIntensityReceiver {
             }
             selectedStickerID = tapped.id
             onStickerSelected?(tapped.id)
+            onSelectionChanged?(tapped.id)
 
             // Physics: scale up + glow on select
             let rect = stickerBoundingRect(tapped)
@@ -288,6 +292,7 @@ final class StickerCanvasView: UIView, EffectIntensityReceiver {
             }
             selectedStickerID = nil
             onStickerSelected?(nil)
+            onSelectionChanged?(nil)
         }
     }
 

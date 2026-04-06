@@ -44,6 +44,10 @@ struct NotePageCarouselView: View {
     var onAttachmentSelectionChanged: ((UUID?) -> Void)?
     var onWidgetsChanged: (([NoteWidget], Int) -> Void)?
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
+    var currentPageStickers: [StickerInstance] = []
+    var onStickersChanged: (([StickerInstance]) -> Void)?
+    var onStickerSelectionChanged: ((UUID?) -> Void)?
+    var stickerImageProvider: ((String) -> UIImage?)?
     var isTextToolActive: Bool = false
     var onTextObjectsChanged: (([TextObject], Int) -> Void)?
     var onTextObjectSelectionChanged: ((UUID?) -> Void)?
@@ -106,7 +110,10 @@ struct NotePageCarouselView: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $currentPageIndex)
+        .scrollPosition(id: Binding<Int?>(
+            get: { currentPageIndex },
+            set: { if let v = $0 { currentPageIndex = v } }
+        ))
         .scrollDisabled(pageZooms[currentPageIndex, default: 1.0] > Self.minZoomForScrollDisable)
     }
 
@@ -185,8 +192,8 @@ struct NotePageCarouselView: View {
             activeAmbientScene: activeAmbientScene,
             isAmbientSoundEnabled: isAmbientSoundEnabled,
             isNewPage: isNewPage && idx == currentPageIndex,
-            initialZoomScale: pageZooms[idx],
-            onZoomChanged: { zoom in pageZooms[idx] = zoom }
+            onZoomChanged: { zoom in pageZooms[idx] = zoom },
+            initialZoomScale: pageZooms[idx]
         )
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)

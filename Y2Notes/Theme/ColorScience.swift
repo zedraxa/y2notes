@@ -140,7 +140,7 @@ enum ColorInterpolation {
         // Shortest hue interpolation.
         var hA = labA.hue
         var hB = labB.hue
-        var diff = hB - hA
+        let diff = hB - hA
         if diff > .pi { hA += 2 * .pi }
         if diff < -.pi { hB += 2 * .pi }
         let h = hA + (hB - hA) * t

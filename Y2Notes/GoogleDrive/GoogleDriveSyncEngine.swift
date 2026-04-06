@@ -521,3 +521,16 @@ final class GoogleDriveSyncEngine: ObservableObject {
         }
     }
 }
+
+// MARK: - SyncProvider conformance
+
+extension GoogleDriveSyncEngine: SyncProvider {
+
+    var syncStatePublisher: AnyPublisher<GoogleDriveSyncState, Never> {
+        $syncState.eraseToAnyPublisher()
+    }
+
+    var backupSnapshotsPublisher: AnyPublisher<[BackupSnapshot], Never> {
+        $backupSnapshots.eraseToAnyPublisher()
+    }
+}

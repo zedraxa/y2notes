@@ -149,8 +149,84 @@
 		AA0001000000000000000167 /* PerlinNoise.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* PerlinNoise.swift */; };
 		AA0001000000000000000169 /* FluidSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000168 /* FluidSimulation.swift */; };
 		AA0001000000000000000174 /* NoteEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000173 /* NoteEncodingTests.swift */; };
-		AA0001000000000000000167 /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */; };
 		AA0001000000000000000197 /* StickerRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000196 /* StickerRenderer.swift */; };
+		AA0001000000000000000199 /* NoteEditorView+Toolbars.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */; };
+		AA000100000000000000019B /* NoteEditorView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019A /* NoteEditorView+Actions.swift */; };
+		AA000100000000000000019D /* NoteEditorView+SubViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019C /* NoteEditorView+SubViews.swift */; };
+		AA00010000000000000001E5 /* NoteEditorView+Export.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E4 /* NoteEditorView+Export.swift */; };
+		AA00010000000000000001EC /* Y2FloatingToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001EB /* Y2FloatingToolbar.swift */; };
+		AA00010000000000000001EE /* Y2ToolPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001ED /* Y2ToolPalette.swift */; };
+		AA00010000000000000001F0 /* Y2ColorWheel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001EF /* Y2ColorWheel.swift */; };
+		AA00010000000000000001F2 /* Y2SplitController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001F1 /* Y2SplitController.swift */; };
+		AA00010000000000000001F4 /* Y2ShelfPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001F3 /* Y2ShelfPanel.swift */; };
+		AA00010000000000000001F6 /* Y2NoteCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001F5 /* Y2NoteCard.swift */; };
+		AA00010000000000000001F8 /* Y2MasonryGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001F7 /* Y2MasonryGrid.swift */; };
+		AA00010000000000000001FA /* PageFlipTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001F9 /* PageFlipTransition.swift */; };
+		AA00010000000000000001FC /* ZoomOpenTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001FB /* ZoomOpenTransition.swift */; };
+		AA0001000000000000000201 /* Y2SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000200 /* Y2SidebarView.swift */; };
+		AA0001000000000000000203 /* Y2NotebookCardCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000202 /* Y2NotebookCardCell.swift */; };
+		AA0001000000000000000205 /* Y2NewButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000204 /* Y2NewButtonView.swift */; };
+		AA0001000000000000000207 /* Y2LibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000206 /* Y2LibraryViewController.swift */; };
+		AA0001000000000000000209 /* Y2LibraryHostingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000208 /* Y2LibraryHostingView.swift */; };
+		AA000100000000000000020B /* Y2PageThumbnailRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000020A /* Y2PageThumbnailRenderer.swift */; };
+		AA000100000000000000020D /* Y2PageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000020C /* Y2PageCell.swift */; };
+		AA000100000000000000020F /* Y2PagePanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000020E /* Y2PagePanelController.swift */; };
+		AA0001000000000000000211 /* Y2PageIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000210 /* Y2PageIndicator.swift */; };
+		AA0001000000000000000213 /* Y2NoteTabCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000212 /* Y2NoteTabCell.swift */; };
+		AA0001000000000000000215 /* Y2NoteTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000214 /* Y2NoteTabBar.swift */; };
+		AA0001000000000000000217 /* Y2TabStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000216 /* Y2TabStateManager.swift */; };
+		AA0001000000000000000220 /* CanvasObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000021F /* CanvasObject.swift */; };
+		AA0001000000000000000222 /* ImageObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000221 /* ImageObject.swift */; };
+		AA0001000000000000000224 /* AudioClipObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000223 /* AudioClipObject.swift */; };
+		AA0001000000000000000226 /* StickerObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000225 /* StickerObject.swift */; };
+		AA0001000000000000000228 /* LinkObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000227 /* LinkObject.swift */; };
+		AA000100000000000000022A /* CanvasObjectWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000229 /* CanvasObjectWrapper.swift */; };
+		AA000100000000000000022C /* MediaFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000022B /* MediaFileManager.swift */; };
+		AA000100000000000000022E /* Y2ObjectOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000022D /* Y2ObjectOverlayController.swift */; };
+		AA0001000000000000000230 /* Y2ObjectSelectionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000022F /* Y2ObjectSelectionHandler.swift */; };
+		AA0001000000000000000232 /* Y2ImageObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000231 /* Y2ImageObjectView.swift */; };
+		AA0001000000000000000234 /* Y2AudioClipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000233 /* Y2AudioClipView.swift */; };
+		AA0001000000000000000236 /* Y2StickerObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000235 /* Y2StickerObjectView.swift */; };
+		AA0001000000000000000238 /* Y2LinkObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000237 /* Y2LinkObjectView.swift */; };
+		AA000100000000000000023A /* Y2ImageInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000239 /* Y2ImageInsertionController.swift */; };
+		AA000100000000000000023C /* Y2ImageCropController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000023B /* Y2ImageCropController.swift */; };
+		AA000100000000000000023E /* Y2DocumentScannerBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000023D /* Y2DocumentScannerBridge.swift */; };
+		AA0001000000000000000240 /* Y2AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000023F /* Y2AudioRecorder.swift */; };
+		AA0001000000000000000242 /* Y2AudioPlayerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000241 /* Y2AudioPlayerWidget.swift */; };
+		AA0001000000000000000244 /* Y2WaveformGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000243 /* Y2WaveformGenerator.swift */; };
+		AA0001000000000000000246 /* Y2StickerPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000245 /* Y2StickerPanelController.swift */; };
+		AA0001000000000000000248 /* BuiltInStickerPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000247 /* BuiltInStickerPack.swift */; };
+		AA000100000000000000024A /* StickerPackProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000249 /* StickerPackProviding.swift */; };
+		AA000100000000000000024C /* Y2LinkInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000024B /* Y2LinkInsertionController.swift */; };
+		AA000100000000000000024E /* Y2LinkMetadataFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */; };
+		AA000100000000000000019F /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000019E /* CanvasView.swift */; };
+		AA00010000000000000001A1 /* CanvasViewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A0 /* CanvasViewCoordinator.swift */; };
+		AA00010000000000000001A3 /* ToolSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A2 /* ToolSnapshot.swift */; };
+		AA00010000000000000001A5 /* ShapeOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A4 /* ShapeOverlayView.swift */; };
+		AA00010000000000000001A7 /* NoteFlashcardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A6 /* NoteFlashcardSheet.swift */; };
+		AA00010000000000000001A9 /* PageOverviewGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001A8 /* PageOverviewGrid.swift */; };
+		AA00010000000000000001B8 /* NoteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001B7 /* NoteRepository.swift */; };
+		AA00010000000000000001BA /* ThemeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001B9 /* ThemeProvider.swift */; };
+		AA00010000000000000001BC /* ToolStateProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BB /* ToolStateProvider.swift */; };
+		AA00010000000000000001BE /* InkEffectProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BD /* InkEffectProvider.swift */; };
+		AA00010000000000000001C0 /* SettingsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BF /* SettingsProvider.swift */; };
+		AA00010000000000000001C2 /* SyncProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C1 /* SyncProvider.swift */; };
+		AA00010000000000000001C4 /* PersistenceDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C3 /* PersistenceDriver.swift */; };
+		AA00010000000000000001C6 /* JSONFilePersistenceDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */; };
+		AA00010000000000000001C8 /* CoreThemeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C7 /* CoreThemeService.swift */; };
+		AA00010000000000000001CA /* CoreSettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C9 /* CoreSettingsService.swift */; };
+		AA00010000000000000001CC /* CoreInkEffectService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CB /* CoreInkEffectService.swift */; };
+		AA00010000000000000001CE /* ServiceContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CD /* ServiceContainer.swift */; };
+		AA00010000000000000001D0 /* ObservableNoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CF /* ObservableNoteStore.swift */; };
+		AA00010000000000000001D2 /* ObservableThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D1 /* ObservableThemeStore.swift */; };
+		AA00010000000000000001D4 /* ObservableToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D3 /* ObservableToolStore.swift */; };
+		AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D5 /* ObservableInkEffectStore.swift */; };
+		AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D7 /* ObservableSettingsStore.swift */; };
+		AA00010000000000000001DB /* CanvasDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DA /* CanvasDelegate.swift */; };
+		AA00010000000000000001DD /* StrokeRenderingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DC /* StrokeRenderingPipeline.swift */; };
+		AA00010000000000000001DF /* EffectOverlayLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DE /* EffectOverlayLayer.swift */; };
+		AA00010000000000000001E1 /* Y2CanvasViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E0 /* Y2CanvasViewController.swift */; };
+		AA00010000000000000001E3 /* Y2CanvasHostingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E2 /* Y2CanvasHostingView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -244,7 +320,6 @@
 		AA000100000000000000016E /* ColorScience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorScience.swift; sourceTree = "<group>"; };
 		AA0001000000000000000166 /* PerlinNoise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerlinNoise.swift; sourceTree = "<group>"; };
 		AA0001000000000000000168 /* FluidSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluidSimulation.swift; sourceTree = "<group>"; };
-		AA0001000000000000000166 /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
 		AA0001000000000000000196 /* StickerRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerRenderer.swift; sourceTree = "<group>"; };
 		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
@@ -306,6 +381,101 @@
 		AA000100000000000000012E /* PageRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRegion.swift; sourceTree = "<group>"; };
 		AA0001000000000000000173 /* NoteEncodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteEncodingTests.swift; sourceTree = "<group>"; };
 		AA0001000000000000000175 /* Y2NotesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Y2NotesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Toolbars.swift"; sourceTree = "<group>"; };
+		AA000100000000000000019A /* NoteEditorView+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Actions.swift"; sourceTree = "<group>"; };
+		AA000100000000000000019C /* NoteEditorView+SubViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+SubViews.swift"; sourceTree = "<group>"; };
+		AA00010000000000000001E4 /* NoteEditorView+Export.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Export.swift"; sourceTree = "<group>"; };
+		AA00010000000000000001EB /* Y2FloatingToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2FloatingToolbar.swift; sourceTree = "<group>"; };
+		AA00010000000000000001ED /* Y2ToolPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ToolPalette.swift; sourceTree = "<group>"; };
+		AA00010000000000000001EF /* Y2ColorWheel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ColorWheel.swift; sourceTree = "<group>"; };
+		AA00010000000000000001F1 /* Y2SplitController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2SplitController.swift; sourceTree = "<group>"; };
+		AA00010000000000000001F3 /* Y2ShelfPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ShelfPanel.swift; sourceTree = "<group>"; };
+		AA00010000000000000001F5 /* Y2NoteCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NoteCard.swift; sourceTree = "<group>"; };
+		AA00010000000000000001F7 /* Y2MasonryGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2MasonryGrid.swift; sourceTree = "<group>"; };
+		AA00010000000000000001F9 /* PageFlipTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageFlipTransition.swift; sourceTree = "<group>"; };
+		AA00010000000000000001FB /* ZoomOpenTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomOpenTransition.swift; sourceTree = "<group>"; };
+		AA0001000000000000000200 /* Y2SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2SidebarView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000202 /* Y2NotebookCardCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NotebookCardCell.swift; sourceTree = "<group>"; };
+		AA0001000000000000000204 /* Y2NewButtonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NewButtonView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000206 /* Y2LibraryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LibraryViewController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000208 /* Y2LibraryHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LibraryHostingView.swift; sourceTree = "<group>"; };
+		AA000100000000000000020A /* Y2PageThumbnailRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2PageThumbnailRenderer.swift; sourceTree = "<group>"; };
+		AA000100000000000000020C /* Y2PageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2PageCell.swift; sourceTree = "<group>"; };
+		AA000100000000000000020E /* Y2PagePanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2PagePanelController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000210 /* Y2PageIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2PageIndicator.swift; sourceTree = "<group>"; };
+		AA0001000000000000000212 /* Y2NoteTabCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NoteTabCell.swift; sourceTree = "<group>"; };
+		AA0001000000000000000214 /* Y2NoteTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2NoteTabBar.swift; sourceTree = "<group>"; };
+		AA0001000000000000000216 /* Y2TabStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TabStateManager.swift; sourceTree = "<group>"; };
+		AA000100000000000000021F /* CanvasObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000221 /* ImageObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000223 /* AudioClipObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioClipObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000225 /* StickerObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000227 /* LinkObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkObject.swift; sourceTree = "<group>"; };
+		AA0001000000000000000229 /* CanvasObjectWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasObjectWrapper.swift; sourceTree = "<group>"; };
+		AA000100000000000000022B /* MediaFileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaFileManager.swift; sourceTree = "<group>"; };
+		AA000100000000000000022D /* Y2ObjectOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ObjectOverlayController.swift; sourceTree = "<group>"; };
+		AA000100000000000000022F /* Y2ObjectSelectionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ObjectSelectionHandler.swift; sourceTree = "<group>"; };
+		AA0001000000000000000231 /* Y2ImageObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ImageObjectView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000233 /* Y2AudioClipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2AudioClipView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000235 /* Y2StickerObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2StickerObjectView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000237 /* Y2LinkObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkObjectView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000239 /* Y2ImageInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ImageInsertionController.swift; sourceTree = "<group>"; };
+		AA000100000000000000023B /* Y2ImageCropController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ImageCropController.swift; sourceTree = "<group>"; };
+		AA000100000000000000023D /* Y2DocumentScannerBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2DocumentScannerBridge.swift; sourceTree = "<group>"; };
+		AA000100000000000000023F /* Y2AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2AudioRecorder.swift; sourceTree = "<group>"; };
+		AA0001000000000000000241 /* Y2AudioPlayerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2AudioPlayerWidget.swift; sourceTree = "<group>"; };
+		AA0001000000000000000243 /* Y2WaveformGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2WaveformGenerator.swift; sourceTree = "<group>"; };
+		AA0001000000000000000245 /* Y2StickerPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2StickerPanelController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000247 /* BuiltInStickerPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInStickerPack.swift; sourceTree = "<group>"; };
+		AA0001000000000000000249 /* StickerPackProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerPackProviding.swift; sourceTree = "<group>"; };
+		AA000100000000000000024B /* Y2LinkInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkInsertionController.swift; sourceTree = "<group>"; };
+		AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkMetadataFetcher.swift; sourceTree = "<group>"; };
+		AA000100000000000000024F /* Metal */ = {isa = PBXGroup; children = (AA0001000000000000000250 /* Y2ParticleSystem.metal */, AA0001000000000000000252 /* MetalParticleRenderer.swift */,); name = Metal; path = Metal; sourceTree = "<group>"; };
+		AA0001000000000000000250 /* Y2ParticleSystem.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Y2ParticleSystem.metal; sourceTree = "<group>"; };
+		AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000250 /* Y2ParticleSystem.metal */; };
+		AA0001000000000000000252 /* MetalParticleRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalParticleRenderer.swift; sourceTree = "<group>"; };
+		AA0001000000000000000254 /* Y2TextBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TextBlockView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TextBlockInsertionController.swift; sourceTree = "<group>"; };
+		AA0001000000000000000258 /* RustDataBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RustDataBridge.swift; sourceTree = "<group>"; };
+		AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000252 /* MetalParticleRenderer.swift */; };
+		AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000254 /* Y2TextBlockView.swift */; };
+		AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */; };
+		AA0001000000000000000259 /* RustDataBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000258 /* RustDataBridge.swift */; };
+		AA000100000000000000025A /* Y2ScannedDocObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2ScannedDocObjectView.swift; sourceTree = "<group>"; };
+		AA000100000000000000025B /* Y2ScannedDocObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000025A /* Y2ScannedDocObjectView.swift */; };
+		AA000100000000000000025C /* y2_sqlite.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_sqlite.h; sourceTree = "<group>"; };
+		AA000100000000000000025D /* y2_sqlite.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_sqlite.c; sourceTree = "<group>"; };
+		AA000100000000000000025E /* y2_sqlite.c in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000025D /* y2_sqlite.c */; };
+		AA000100000000000000025F /* SQLitePersistenceDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLitePersistenceDriver.swift; sourceTree = "<group>"; };
+		AA0001000000000000000260 /* SQLitePersistenceDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000025F /* SQLitePersistenceDriver.swift */; };
+		AA000100000000000000019E /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A0 /* CanvasViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasViewCoordinator.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A2 /* ToolSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSnapshot.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A4 /* ShapeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeOverlayView.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A6 /* NoteFlashcardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteFlashcardSheet.swift; sourceTree = "<group>"; };
+		AA00010000000000000001A8 /* PageOverviewGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageOverviewGrid.swift; sourceTree = "<group>"; };
+		AA00010000000000000001B7 /* NoteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteRepository.swift; sourceTree = "<group>"; };
+		AA00010000000000000001B9 /* ThemeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001BB /* ToolStateProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolStateProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001BD /* InkEffectProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001BF /* SettingsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C1 /* SyncProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncProvider.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C3 /* PersistenceDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceDriver.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONFilePersistenceDriver.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C7 /* CoreThemeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreThemeService.swift; sourceTree = "<group>"; };
+		AA00010000000000000001C9 /* CoreSettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreSettingsService.swift; sourceTree = "<group>"; };
+		AA00010000000000000001CB /* CoreInkEffectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreInkEffectService.swift; sourceTree = "<group>"; };
+		AA00010000000000000001CD /* ServiceContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceContainer.swift; sourceTree = "<group>"; };
+		AA00010000000000000001CF /* ObservableNoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableNoteStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001D1 /* ObservableThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableThemeStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001D3 /* ObservableToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableToolStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001D5 /* ObservableInkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableInkEffectStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001D7 /* ObservableSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableSettingsStore.swift; sourceTree = "<group>"; };
+		AA00010000000000000001DA /* CanvasDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasDelegate.swift; sourceTree = "<group>"; };
+		AA00010000000000000001DC /* StrokeRenderingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrokeRenderingPipeline.swift; sourceTree = "<group>"; };
+		AA00010000000000000001DE /* EffectOverlayLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectOverlayLayer.swift; sourceTree = "<group>"; };
+		AA00010000000000000001E0 /* Y2CanvasViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2CanvasViewController.swift; sourceTree = "<group>"; };
+		AA00010000000000000001E2 /* Y2CanvasHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2CanvasHostingView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -349,6 +519,12 @@
 			children = (
 				AA0001000000000000000011 /* Y2NotesApp.swift */,
 				AA0001000000000000000012 /* ContentView.swift */,
+				AA00010000000000000001B2 /* Core */,
+				AA00010000000000000001B6 /* Adapters */,
+				AA00010000000000000001D9 /* Engine */,
+				AA00010000000000000001E6 /* Components */,
+				AA00010000000000000001EA /* Transitions */,
+				AA00010000000000000001FD /* Library */,
 				AA000100000000000000000E /* Models */,
 				AA000100000000000000000F /* Views */,
 				AA0001000000000000000010 /* Persistence */,
@@ -363,6 +539,7 @@
 				AA00010000000000000000B4 /* Accessibility */,
 				AA00010000000000000000B5 /* GoogleDrive */,
 				AA0001000000000000000188 /* Native */,
+				AA000100000000000000024F /* Metal */,
 				AA0001000000000000000017 /* Assets.xcassets */,
 				AA0001000000000000000018 /* Info.plist */,
 				AA000100000000000000018F /* Y2Notes-Bridging-Header.h */,
@@ -403,6 +580,16 @@
 			children = (
 				AA0001000000000000000014 /* NoteListView.swift */,
 				AA0001000000000000000015 /* NoteEditorView.swift */,
+				AA0001000000000000000198 /* NoteEditorView+Toolbars.swift */,
+				AA000100000000000000019A /* NoteEditorView+Actions.swift */,
+				AA000100000000000000019C /* NoteEditorView+SubViews.swift */,
+				AA00010000000000000001E4 /* NoteEditorView+Export.swift */,
+				AA000100000000000000019E /* CanvasView.swift */,
+				AA00010000000000000001A0 /* CanvasViewCoordinator.swift */,
+				AA00010000000000000001A2 /* ToolSnapshot.swift */,
+				AA00010000000000000001A4 /* ShapeOverlayView.swift */,
+				AA00010000000000000001A6 /* NoteFlashcardSheet.swift */,
+				AA00010000000000000001A8 /* PageOverviewGrid.swift */,
 				AA0001000000000000000186 /* NotePageCarouselView.swift */,
 				AA0001000000000000000024 /* ShelfView.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
@@ -550,6 +737,8 @@
 				AA0001000000000000000166 /* PerlinNoise.swift */,
 				AA0001000000000000000168 /* FluidSimulation.swift */,
 				AA0001000000000000000196 /* StickerRenderer.swift */,
+			);
+			path = Ink;
 			sourceTree = "<group>";
 		};
 		AA0001000000000000000188 /* Native */ = {
@@ -563,6 +752,8 @@
 				AA0001000000000000000191 /* y2_color.c */,
 				AA0001000000000000000193 /* y2_levenshtein.h */,
 				AA0001000000000000000194 /* y2_levenshtein.c */,
+				AA000100000000000000025C /* y2_sqlite.h */,
+				AA000100000000000000025D /* y2_sqlite.c */,
 			);
 			path = Native;
 			sourceTree = "<group>";
@@ -617,6 +808,240 @@
 			path = Y2NotesTests;
 			sourceTree = "<group>";
 		};
+		AA00010000000000000001B2 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001B3 /* Protocols */,
+				AA00010000000000000001B4 /* Persistence */,
+				AA00010000000000000001B5 /* Services */,
+				AA00010000000000000001CD /* ServiceContainer.swift */,
+				AA0001000000000000000218 /* EmbeddedObjects */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001B3 /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001B7 /* NoteRepository.swift */,
+				AA00010000000000000001B9 /* ThemeProvider.swift */,
+				AA00010000000000000001BB /* ToolStateProvider.swift */,
+				AA00010000000000000001BD /* InkEffectProvider.swift */,
+				AA00010000000000000001BF /* SettingsProvider.swift */,
+				AA00010000000000000001C1 /* SyncProvider.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001B4 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001C3 /* PersistenceDriver.swift */,
+				AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */,
+				AA000100000000000000022B /* MediaFileManager.swift */,
+				AA0001000000000000000258 /* RustDataBridge.swift */,
+				AA000100000000000000025F /* SQLitePersistenceDriver.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001B5 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001C7 /* CoreThemeService.swift */,
+				AA00010000000000000001C9 /* CoreSettingsService.swift */,
+				AA00010000000000000001CB /* CoreInkEffectService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001B6 /* Adapters */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001CF /* ObservableNoteStore.swift */,
+				AA00010000000000000001D1 /* ObservableThemeStore.swift */,
+				AA00010000000000000001D3 /* ObservableToolStore.swift */,
+				AA00010000000000000001D5 /* ObservableInkEffectStore.swift */,
+				AA00010000000000000001D7 /* ObservableSettingsStore.swift */,
+			);
+			path = Adapters;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001D9 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001DA /* CanvasDelegate.swift */,
+				AA00010000000000000001DC /* StrokeRenderingPipeline.swift */,
+				AA00010000000000000001DE /* EffectOverlayLayer.swift */,
+				AA00010000000000000001E0 /* Y2CanvasViewController.swift */,
+				AA00010000000000000001E2 /* Y2CanvasHostingView.swift */,
+				AA00010000000000000001FE /* Pages */,
+				AA00010000000000000001FF /* Tabs */,
+				AA0001000000000000000219 /* Objects */,
+				AA000100000000000000021B /* Media */,
+				AA000100000000000000021C /* Audio */,
+				AA000100000000000000021D /* Stickers */,
+				AA000100000000000000021E /* Links */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001E6 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001E7 /* Toolbar */,
+				AA00010000000000000001E8 /* Navigation */,
+				AA00010000000000000001E9 /* Cards */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001E7 /* Toolbar */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001EB /* Y2FloatingToolbar.swift */,
+				AA00010000000000000001ED /* Y2ToolPalette.swift */,
+				AA00010000000000000001EF /* Y2ColorWheel.swift */,
+			);
+			path = Toolbar;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001E8 /* Navigation */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001F1 /* Y2SplitController.swift */,
+				AA00010000000000000001F3 /* Y2ShelfPanel.swift */,
+			);
+			path = Navigation;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001E9 /* Cards */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001F5 /* Y2NoteCard.swift */,
+				AA00010000000000000001F7 /* Y2MasonryGrid.swift */,
+			);
+			path = Cards;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001EA /* Transitions */ = {
+			isa = PBXGroup;
+			children = (
+				AA00010000000000000001F9 /* PageFlipTransition.swift */,
+				AA00010000000000000001FB /* ZoomOpenTransition.swift */,
+			);
+			path = Transitions;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001FD /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000200 /* Y2SidebarView.swift */,
+				AA0001000000000000000202 /* Y2NotebookCardCell.swift */,
+				AA0001000000000000000204 /* Y2NewButtonView.swift */,
+				AA0001000000000000000206 /* Y2LibraryViewController.swift */,
+				AA0001000000000000000208 /* Y2LibraryHostingView.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001FE /* Pages */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000020A /* Y2PageThumbnailRenderer.swift */,
+				AA000100000000000000020C /* Y2PageCell.swift */,
+				AA000100000000000000020E /* Y2PagePanelController.swift */,
+				AA0001000000000000000210 /* Y2PageIndicator.swift */,
+			);
+			path = Pages;
+			sourceTree = "<group>";
+		};
+		AA00010000000000000001FF /* Tabs */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000212 /* Y2NoteTabCell.swift */,
+				AA0001000000000000000214 /* Y2NoteTabBar.swift */,
+				AA0001000000000000000216 /* Y2TabStateManager.swift */,
+			);
+			path = Tabs;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000218 /* EmbeddedObjects */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000021F /* CanvasObject.swift */,
+				AA0001000000000000000221 /* ImageObject.swift */,
+				AA0001000000000000000223 /* AudioClipObject.swift */,
+				AA0001000000000000000225 /* StickerObject.swift */,
+				AA0001000000000000000227 /* LinkObject.swift */,
+				AA0001000000000000000229 /* CanvasObjectWrapper.swift */,
+			);
+			path = EmbeddedObjects;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000219 /* Objects */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000022D /* Y2ObjectOverlayController.swift */,
+				AA000100000000000000022F /* Y2ObjectSelectionHandler.swift */,
+				AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */,
+				AA000100000000000000021A /* Views */,
+			);
+			path = Objects;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000231 /* Y2ImageObjectView.swift */,
+				AA0001000000000000000233 /* Y2AudioClipView.swift */,
+				AA0001000000000000000235 /* Y2StickerObjectView.swift */,
+				AA000100000000000000025A /* Y2ScannedDocObjectView.swift */,
+				AA0001000000000000000237 /* Y2LinkObjectView.swift */,
+				AA0001000000000000000254 /* Y2TextBlockView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021B /* Media */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000239 /* Y2ImageInsertionController.swift */,
+				AA000100000000000000023B /* Y2ImageCropController.swift */,
+				AA000100000000000000023D /* Y2DocumentScannerBridge.swift */,
+			);
+			path = Media;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021C /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000023F /* Y2AudioRecorder.swift */,
+				AA0001000000000000000241 /* Y2AudioPlayerWidget.swift */,
+				AA0001000000000000000243 /* Y2WaveformGenerator.swift */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021D /* Stickers */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000245 /* Y2StickerPanelController.swift */,
+				AA0001000000000000000247 /* BuiltInStickerPack.swift */,
+				AA0001000000000000000249 /* StickerPackProviding.swift */,
+			);
+			path = Stickers;
+			sourceTree = "<group>";
+		};
+		AA000100000000000000021E /* Links */ = {
+			isa = PBXGroup;
+			children = (
+				AA000100000000000000024B /* Y2LinkInsertionController.swift */,
+				AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */,
+			);
+			path = Links;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 		AA0001000000000000000002 /* Y2Notes */ = {
 			isa = PBXNativeTarget;
@@ -631,6 +1056,12 @@
 			dependencies = (
 			);
 			name = Y2Notes;
+			packageProductDependencies = (
+				AA00010000000000000001AE /* Y2Core */,
+				AA00010000000000000001AF /* Y2Engine */,
+				AA00010000000000000001B0 /* Y2Components */,
+				AA00010000000000000001B1 /* Y2GoogleDrive */,
+			);
 			productName = Y2Notes;
 			productReference = AA0001000000000000000003 /* Y2Notes.app */;
 			productType = "com.apple.product-type.application";
@@ -664,7 +1095,7 @@
 					AA0001000000000000000002 = {
 						CreatedOnToolsVersion = 15.0;
 						DevelopmentTeam = "";
-						ProvisioningStyle = Manual;
+						ProvisioningStyle = Automatic;
 					};
 					AA0001000000000000000178 = {
 						CreatedOnToolsVersion = 15.0;
@@ -681,6 +1112,12 @@
 				Base,
 			);
 			mainGroup = AA000100000000000000000B;
+			packageReferences = (
+				AA00010000000000000001AA /* XCLocalSwiftPackageReference "Packages/Y2Core" */,
+				AA00010000000000000001AB /* XCLocalSwiftPackageReference "Packages/Y2Engine" */,
+				AA00010000000000000001AC /* XCLocalSwiftPackageReference "Packages/Y2Components" */,
+				AA00010000000000000001AD /* XCLocalSwiftPackageReference "Packages/Y2GoogleDrive" */,
+			);
 			productRefGroup = AA000100000000000000000C /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -713,6 +1150,16 @@
 				AA000100000000000000001B /* Note.swift in Sources */,
 				AA000100000000000000001C /* NoteListView.swift in Sources */,
 				AA000100000000000000001D /* NoteEditorView.swift in Sources */,
+				AA0001000000000000000199 /* NoteEditorView+Toolbars.swift in Sources */,
+				AA000100000000000000019B /* NoteEditorView+Actions.swift in Sources */,
+				AA000100000000000000019D /* NoteEditorView+SubViews.swift in Sources */,
+				AA00010000000000000001E5 /* NoteEditorView+Export.swift in Sources */,
+				AA000100000000000000019F /* CanvasView.swift in Sources */,
+				AA00010000000000000001A1 /* CanvasViewCoordinator.swift in Sources */,
+				AA00010000000000000001A3 /* ToolSnapshot.swift in Sources */,
+				AA00010000000000000001A5 /* ShapeOverlayView.swift in Sources */,
+				AA00010000000000000001A7 /* NoteFlashcardSheet.swift in Sources */,
+				AA00010000000000000001A9 /* PageOverviewGrid.swift in Sources */,
 				AA000100000000000000001E /* NoteStore.swift in Sources */,
 				AA0001000000000000000023 /* Notebook.swift in Sources */,
 				AA0001000000000000000025 /* ShelfView.swift in Sources */,
@@ -751,9 +1198,15 @@
 				AA0001000000000000000185 /* CanvasPageView.swift in Sources */,
 				AA0001000000000000000187 /* NotePageCarouselView.swift in Sources */,
 				AA000100000000000000018B /* y2_perlin.c in Sources */,
+				AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */,
+				AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */,
+				AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */,
+				AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */,
+				AA0001000000000000000259 /* RustDataBridge.swift in Sources */,
 				AA000100000000000000018E /* y2_sph.c in Sources */,
 				AA0001000000000000000192 /* y2_color.c in Sources */,
 				AA0001000000000000000195 /* y2_levenshtein.c in Sources */,
+				AA000100000000000000025E /* y2_sqlite.c in Sources */,
 				AA000100000000000000008D /* SearchService.swift in Sources */,
 				AA000100000000000000008E /* StudySet.swift in Sources */,
 				AA00010000000000000000C3 /* LibrarySearchView.swift in Sources */,
@@ -848,6 +1301,76 @@
 				AA0001000000000000000163 /* TextCanvasView.swift in Sources */,
 				AA0001000000000000000165 /* TextObjectHandlesView.swift in Sources */,
 				AA0001000000000000000197 /* StickerRenderer.swift in Sources */,
+				AA00010000000000000001B8 /* NoteRepository.swift in Sources */,
+				AA00010000000000000001BA /* ThemeProvider.swift in Sources */,
+				AA00010000000000000001BC /* ToolStateProvider.swift in Sources */,
+				AA00010000000000000001BE /* InkEffectProvider.swift in Sources */,
+				AA00010000000000000001C0 /* SettingsProvider.swift in Sources */,
+				AA00010000000000000001C2 /* SyncProvider.swift in Sources */,
+				AA00010000000000000001C4 /* PersistenceDriver.swift in Sources */,
+				AA00010000000000000001C6 /* JSONFilePersistenceDriver.swift in Sources */,
+				AA00010000000000000001C8 /* CoreThemeService.swift in Sources */,
+				AA00010000000000000001CA /* CoreSettingsService.swift in Sources */,
+				AA00010000000000000001CC /* CoreInkEffectService.swift in Sources */,
+				AA00010000000000000001CE /* ServiceContainer.swift in Sources */,
+				AA00010000000000000001D0 /* ObservableNoteStore.swift in Sources */,
+				AA00010000000000000001D2 /* ObservableThemeStore.swift in Sources */,
+				AA00010000000000000001D4 /* ObservableToolStore.swift in Sources */,
+				AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */,
+				AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */,
+				AA00010000000000000001DB /* CanvasDelegate.swift in Sources */,
+				AA00010000000000000001DD /* StrokeRenderingPipeline.swift in Sources */,
+				AA00010000000000000001DF /* EffectOverlayLayer.swift in Sources */,
+				AA00010000000000000001E1 /* Y2CanvasViewController.swift in Sources */,
+				AA00010000000000000001E3 /* Y2CanvasHostingView.swift in Sources */,
+				AA00010000000000000001EC /* Y2FloatingToolbar.swift in Sources */,
+				AA00010000000000000001EE /* Y2ToolPalette.swift in Sources */,
+				AA00010000000000000001F0 /* Y2ColorWheel.swift in Sources */,
+				AA00010000000000000001F2 /* Y2SplitController.swift in Sources */,
+				AA00010000000000000001F4 /* Y2ShelfPanel.swift in Sources */,
+				AA00010000000000000001F6 /* Y2NoteCard.swift in Sources */,
+				AA00010000000000000001F8 /* Y2MasonryGrid.swift in Sources */,
+				AA00010000000000000001FA /* PageFlipTransition.swift in Sources */,
+				AA00010000000000000001FC /* ZoomOpenTransition.swift in Sources */,
+				AA0001000000000000000201 /* Y2SidebarView.swift in Sources */,
+				AA0001000000000000000203 /* Y2NotebookCardCell.swift in Sources */,
+				AA0001000000000000000205 /* Y2NewButtonView.swift in Sources */,
+				AA0001000000000000000207 /* Y2LibraryViewController.swift in Sources */,
+				AA0001000000000000000209 /* Y2LibraryHostingView.swift in Sources */,
+				AA000100000000000000020B /* Y2PageThumbnailRenderer.swift in Sources */,
+				AA000100000000000000020D /* Y2PageCell.swift in Sources */,
+				AA000100000000000000020F /* Y2PagePanelController.swift in Sources */,
+				AA0001000000000000000211 /* Y2PageIndicator.swift in Sources */,
+				AA0001000000000000000213 /* Y2NoteTabCell.swift in Sources */,
+				AA0001000000000000000215 /* Y2NoteTabBar.swift in Sources */,
+				AA0001000000000000000217 /* Y2TabStateManager.swift in Sources */,
+				AA0001000000000000000220 /* CanvasObject.swift in Sources */,
+				AA0001000000000000000222 /* ImageObject.swift in Sources */,
+				AA0001000000000000000224 /* AudioClipObject.swift in Sources */,
+				AA0001000000000000000226 /* StickerObject.swift in Sources */,
+				AA0001000000000000000228 /* LinkObject.swift in Sources */,
+				AA000100000000000000022A /* CanvasObjectWrapper.swift in Sources */,
+				AA000100000000000000022C /* MediaFileManager.swift in Sources */,
+				AA000100000000000000022E /* Y2ObjectOverlayController.swift in Sources */,
+				AA0001000000000000000230 /* Y2ObjectSelectionHandler.swift in Sources */,
+				AA0001000000000000000232 /* Y2ImageObjectView.swift in Sources */,
+				AA0001000000000000000234 /* Y2AudioClipView.swift in Sources */,
+				AA0001000000000000000236 /* Y2StickerObjectView.swift in Sources */,
+				AA000100000000000000025B /* Y2ScannedDocObjectView.swift in Sources */,
+				AA0001000000000000000260 /* SQLitePersistenceDriver.swift in Sources */,
+				AA0001000000000000000238 /* Y2LinkObjectView.swift in Sources */,
+				AA000100000000000000023A /* Y2ImageInsertionController.swift in Sources */,
+				AA000100000000000000023C /* Y2ImageCropController.swift in Sources */,
+				AA000100000000000000023E /* Y2DocumentScannerBridge.swift in Sources */,
+				AA0001000000000000000240 /* Y2AudioRecorder.swift in Sources */,
+				AA0001000000000000000242 /* Y2AudioPlayerWidget.swift in Sources */,
+				AA0001000000000000000244 /* Y2WaveformGenerator.swift in Sources */,
+				AA0001000000000000000246 /* Y2StickerPanelController.swift in Sources */,
+				AA0001000000000000000248 /* BuiltInStickerPack.swift in Sources */,
+				AA000100000000000000024A /* StickerPackProviding.swift in Sources */,
+				AA000100000000000000024C /* Y2LinkInsertionController.swift in Sources */,
+				AA000100000000000000024E /* Y2LinkMetadataFetcher.swift in Sources */,
+		);
 		};
 		AA0001000000000000000176 /* Sources (Y2NotesTests) */ = {
 			isa = PBXSourcesBuildPhase;
@@ -980,7 +1503,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = "";
@@ -993,6 +1516,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-lsqlite3";
 				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -1008,7 +1532,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = "";
@@ -1021,6 +1545,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-lsqlite3";
 				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -1035,7 +1560,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app.tests;
@@ -1050,7 +1575,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.y2notes.app.tests;
@@ -1092,6 +1617,44 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA00010000000000000001AA /* XCLocalSwiftPackageReference "Packages/Y2Core" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Y2Core;
+		};
+		AA00010000000000000001AB /* XCLocalSwiftPackageReference "Packages/Y2Engine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Y2Engine;
+		};
+		AA00010000000000000001AC /* XCLocalSwiftPackageReference "Packages/Y2Components" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Y2Components;
+		};
+		AA00010000000000000001AD /* XCLocalSwiftPackageReference "Packages/Y2GoogleDrive" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Y2GoogleDrive;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA00010000000000000001AE /* Y2Core */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Y2Core;
+		};
+		AA00010000000000000001AF /* Y2Engine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Y2Engine;
+		};
+		AA00010000000000000001B0 /* Y2Components */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Y2Components;
+		};
+		AA00010000000000000001B1 /* Y2GoogleDrive */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Y2GoogleDrive;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 	};
 	rootObject = AA0001000000000000000001 /* Project object */;

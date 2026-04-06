@@ -1,0 +1,22 @@
+[package]
+name = "y2data"
+version = "0.1.0"
+edition = "2021"
+description = "Y2Notes data layer — Note model + JSON persistence, compiled as libY2Data.a for iOS"
+publish = false
+
+[lib]
+name = "y2data"
+crate-type = ["staticlib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "z"          # optimise for size — critical for iOS bundles
+strip = "symbols"

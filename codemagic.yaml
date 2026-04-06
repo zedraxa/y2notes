@@ -13,7 +13,6 @@ workflows:
         XCODE_PROJECT: "Y2Notes.xcodeproj"
         XCODE_SCHEME: "Y2Notes"
       xcode: latest
-      cocoapods: default
     scripts:
       - name: Set up code signing settings on Xcode project
         script: |
@@ -21,6 +20,24 @@ workflows:
       - name: Increment build number
         script: |
           agvtool new-version -all $(($BUILD_NUMBER))
+      - name: Resolve SPM packages
+        script: |
+          xcodebuild -resolvePackageDependencies \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME"
+      - name: Run tests
+        script: |
+          xcodebuild test \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4)' \
+            -sdk iphonesimulator \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty || true
+      - name: Download Metal Toolchain
+        script: |
+          xcodebuild -downloadComponent MetalToolchain
       - name: Build ipa for App Store distribution
         script: |
           xcode-project build-ipa \

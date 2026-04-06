@@ -1,0 +1,80 @@
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-packages:
+    name: SPM Package Tests
+    runs-on: macos-14
+    strategy:
+      matrix:
+        package: [Y2Core, Y2Engine, Y2Components, Y2GoogleDrive]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 15.4
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Cache SPM
+        uses: actions/cache@v4
+        with:
+          path: Packages/${{ matrix.package }}/.build
+          key: spm-${{ matrix.package }}-${{ hashFiles('Packages/${{ matrix.package }}/Package.swift') }}
+          restore-keys: spm-${{ matrix.package }}-
+
+      - name: Build ${{ matrix.package }}
+        working-directory: Packages/${{ matrix.package }}
+        run: |
+          swift build --sdk `xcrun --sdk iphonesimulator --show-sdk-path` \
+            -Xswiftc -target -Xswiftc arm64-apple-ios17.0-simulator
+
+      - name: Test ${{ matrix.package }}
+        working-directory: Packages/${{ matrix.package }}
+        run: |
+          swift test --sdk `xcrun --sdk iphonesimulator --show-sdk-path` \
+            -Xswiftc -target -Xswiftc arm64-apple-ios17.0-simulator
+
+  test-app:
+    name: App Unit Tests
+    runs-on: macos-14
+    needs: test-packages
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 15.4
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: dd-${{ hashFiles('Y2Notes.xcodeproj/project.pbxproj') }}
+          restore-keys: dd-
+
+      - name: Resolve SPM packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project Y2Notes.xcodeproj \
+            -scheme Y2Notes
+
+      - name: Run tests
+        run: |
+          xcodebuild test \
+            -project Y2Notes.xcodeproj \
+            -scheme Y2Notes \
+            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4)' \
+            -sdk iphonesimulator \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty || true

@@ -3,6 +3,8 @@ import Combine
 import UIKit
 import os
 
+// swiftlint:disable file_length
+
 private let storeLogger = Logger(subsystem: "com.y2notes", category: "NoteStore")
 
 // MARK: - Save state
@@ -73,6 +75,16 @@ final class NoteStore: ObservableObject {
     private var pdfRegenTimers: [UUID: Timer] = [:]
     private static let pdfRegenerationDebounceInterval: TimeInterval = 2.0
 
+    /// Optional persistence driver. When set, the store reads/writes through this
+    /// driver instead of per-file JSON.  See ``SQLitePersistenceDriver``.
+    var persistenceDriver: PersistenceDriver?
+
+    // Logical keys used by PersistenceDriver.
+    private static let notesKey = "y2notes_notes"
+    private static let notebooksKey = "y2notes_notebooks"
+    private static let sectionsKey = "y2notes_sections"
+    private static let studyKey = "y2notes_study"
+
     // MARK: - Last page position (notebook illusion — object permanence)
 
     /// Remembers the last viewed flat-page index per notebook so reopening
@@ -92,7 +104,11 @@ final class NoteStore: ObservableObject {
         UserDefaults.standard.set(lastPageCache, forKey: Self.lastPageKey)
     }
 
-    init() {
+    /// - Parameter persistenceDriver: Optional storage backend.
+    ///   When provided, `load()` reads from the driver first and
+    ///   migrates legacy JSON files on the initial launch.
+    init(persistenceDriver: PersistenceDriver? = nil) {
+        self.persistenceDriver = persistenceDriver
         load()
         loadStudy()
         ensurePDFsForLegacyNotes()
@@ -305,6 +321,7 @@ final class NoteStore: ObservableObject {
             if let filename = notes[i].pdfFilename {
                 NotePDFGenerator.deletePDF(filename: filename)
             }
+            MediaFileManager.shared.deleteMediaForNote(noteID: notes[i].id)
         }
         notes.remove(atOffsets: offsets)
         save()
@@ -317,6 +334,7 @@ final class NoteStore: ObservableObject {
             if let filename = note.pdfFilename {
                 NotePDFGenerator.deletePDF(filename: filename)
             }
+            MediaFileManager.shared.deleteMediaForNote(noteID: note.id)
         }
         notes.removeAll { ids.contains($0.id) }
         save()
@@ -1180,24 +1198,37 @@ final class NoteStore: ObservableObject {
     private func flushToDisk(trigger: SnapshotTrigger = .autosave) {
         saveState = .saving
         var firstError: Error?
-        do {
-            let data = try JSONEncoder().encode(notes)
-            try writeAtomically(data, to: notesURL)
-        } catch {
-            firstError = error
+
+        if let driver = persistenceDriver {
+            // SQLite / abstract driver path.
+            do { try driver.encode(notes, forKey: Self.notesKey) }
+            catch { firstError = error }
+            do { try driver.encode(notebooks, forKey: Self.notebooksKey) }
+            catch { if firstError == nil { firstError = error } }
+            do { try driver.encode(sections, forKey: Self.sectionsKey) }
+            catch { if firstError == nil { firstError = error } }
+        } else {
+            // Legacy per-file JSON path.
+            do {
+                let data = try JSONEncoder().encode(notes)
+                try writeAtomically(data, to: notesURL)
+            } catch {
+                firstError = error
+            }
+            do {
+                let data = try JSONEncoder().encode(notebooks)
+                try writeAtomically(data, to: notebooksURL)
+            } catch {
+                if firstError == nil { firstError = error }
+            }
+            do {
+                let data = try JSONEncoder().encode(sections)
+                try writeAtomically(data, to: sectionsURL)
+            } catch {
+                if firstError == nil { firstError = error }
+            }
         }
-        do {
-            let data = try JSONEncoder().encode(notebooks)
-            try writeAtomically(data, to: notebooksURL)
-        } catch {
-            if firstError == nil { firstError = error }
-        }
-        do {
-            let data = try JSONEncoder().encode(sections)
-            try writeAtomically(data, to: sectionsURL)
-        } catch {
-            if firstError == nil { firstError = error }
-        }
+
         if let error = firstError {
             saveState = .error(error.localizedDescription)
             assertionFailure("Y2Notes: save failed — \(error)")
@@ -1251,9 +1282,41 @@ final class NoteStore: ObservableObject {
     }
 
     private func load() {
-        notes     = loadJSON([Note].self,            from: notesURL)     ?? []
-        notebooks = loadJSON([Notebook].self,        from: notebooksURL) ?? []
-        sections  = loadJSON([NotebookSection].self, from: sectionsURL)  ?? []
+        if let driver = persistenceDriver {
+            // Try PersistenceDriver first.  If the DB is empty, fall back
+            // to legacy JSON files and migrate data into the driver.
+            let dbNotes = (try? driver.decode([Note].self, forKey: Self.notesKey)) ?? nil
+            if let dbNotes {
+                notes     = dbNotes
+                notebooks = (try? driver.decode([Notebook].self,        forKey: Self.notebooksKey)) ?? []
+                sections  = (try? driver.decode([NotebookSection].self, forKey: Self.sectionsKey))  ?? []
+            } else {
+                // First launch with driver — migrate from JSON files.
+                notes     = loadJSON([Note].self,            from: notesURL)     ?? []
+                notebooks = loadJSON([Notebook].self,        from: notebooksURL) ?? []
+                sections  = loadJSON([NotebookSection].self, from: sectionsURL)  ?? []
+                // Seed the driver so subsequent launches use it directly.
+                migrateJSONToDriver(driver)
+            }
+        } else {
+            notes     = loadJSON([Note].self,            from: notesURL)     ?? []
+            notebooks = loadJSON([Notebook].self,        from: notebooksURL) ?? []
+            sections  = loadJSON([NotebookSection].self, from: sectionsURL)  ?? []
+        }
+    }
+
+    /// One-time migration: writes current in-memory state into the persistence
+    /// driver and logs the result.
+    private func migrateJSONToDriver(_ driver: PersistenceDriver) {
+        storeLogger.info("Migrating JSON data to persistence driver…")
+        do {
+            try driver.encode(notes,     forKey: Self.notesKey)
+            try driver.encode(notebooks, forKey: Self.notebooksKey)
+            try driver.encode(sections,  forKey: Self.sectionsKey)
+            storeLogger.info("Migration complete — \(self.notes.count) notes, \(self.notebooks.count) notebooks, \(self.sections.count) sections")
+        } catch {
+            storeLogger.error("Migration failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Decodes `type` from `url`. On missing or corrupt primary file, falls back to
@@ -1740,3 +1803,80 @@ extension NoteStore {
     }
 }
 
+// MARK: - NoteRepository conformance
+
+extension NoteStore: NoteRepository {
+
+    var notesPublisher: AnyPublisher<[Note], Never> {
+        $notes.eraseToAnyPublisher()
+    }
+
+    var notebooksPublisher: AnyPublisher<[Notebook], Never> {
+        $notebooks.eraseToAnyPublisher()
+    }
+
+    var sectionsPublisher: AnyPublisher<[NotebookSection], Never> {
+        $sections.eraseToAnyPublisher()
+    }
+
+    var studySetsPublisher: AnyPublisher<[StudySet], Never> {
+        $studySets.eraseToAnyPublisher()
+    }
+
+    var saveStatePublisher: AnyPublisher<SaveState, Never> {
+        $saveState.eraseToAnyPublisher()
+    }
+
+    @discardableResult
+    func addNote(
+        title: String,
+        notebookID: UUID?,
+        pageType: PageType?,
+        pageSize: PageSize?,
+        orientation: PageOrientation?,
+        paperMaterial: PaperMaterial?,
+        templateID: String?
+    ) -> Note {
+        // NoteStore.addNote(inNotebook:) sets the title automatically ("Note N+1"),
+        // and does not yet support pageSize/orientation/templateID — those are
+        // silently ignored here to satisfy the protocol interface.
+        addNote(inNotebook: notebookID, pageType: pageType, paperMaterial: paperMaterial)
+    }
+
+    @discardableResult
+    func addNotebook(
+        name: String,
+        cover: NotebookCover,
+        defaultPageType: PageType,
+        defaultPageSize: PageSize,
+        defaultOrientation: PageOrientation,
+        defaultPaperMaterial: PaperMaterial,
+        colorTag: NotebookColorTag
+    ) -> Notebook {
+        // colorTag is not yet exposed by NoteStore.addNotebook; call updateNotebookColorTag
+        // on the returned notebook to apply the tag after creation if needed.
+        var nb = addNotebook(
+            name: name,
+            cover: cover,
+            pageType: defaultPageType,
+            pageSize: defaultPageSize,
+            orientation: defaultOrientation,
+            paperMaterial: defaultPaperMaterial
+        )
+        if colorTag != .none {
+            updateNotebookColorTag(id: nb.id, colorTag: colorTag)
+            nb = notebooks.first(where: { $0.id == nb.id }) ?? nb
+        }
+        return nb
+    }
+
+    @discardableResult
+    func addSection(toNotebook notebookID: UUID, name: String, sortOrder: Int) -> NotebookSection {
+        // sortOrder is computed automatically by NoteStore.addSection; the protocol
+        // parameter is accepted for interface compatibility but the concrete implementation
+        // always appends at the next available sort position.
+        addSection(toNotebook: notebookID, name: name)
+    }
+}
+
+// swiftlint:enable file_length
