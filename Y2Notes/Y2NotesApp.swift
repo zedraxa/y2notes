@@ -7,7 +7,7 @@ struct Y2NotesApp: App {
     /// the lifetime of the app.  Engine / UIKit code accesses services via
     /// protocol-typed properties; SwiftUI views receive concrete stores
     /// through `.environmentObject()` until the full adapter migration.
-    private let container = ServiceContainer()
+    private let container: ServiceContainer
 
     // Concrete stores pulled from the container for SwiftUI injection.
     // These will eventually be replaced by ObservableXxxStore adapters.
@@ -19,7 +19,10 @@ struct Y2NotesApp: App {
     @State private var tabSession = TabWorkspaceStore()
 
     init() {
-        // Use concrete accessors — avoids force-casting from protocol types.
+        // Capture as a local so the StateObject @escaping autoclosures do not
+        // capture mutating `self` (Swift 6 strict-concurrency requirement).
+        let container = ServiceContainer()
+        self.container = container
         _noteStore = StateObject(wrappedValue: container.concreteNoteStore)
         _toolStore = StateObject(wrappedValue: container.concreteToolStore)
         _syncEngine = StateObject(wrappedValue: container.concreteSyncEngine)
