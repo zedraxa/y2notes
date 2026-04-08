@@ -707,7 +707,7 @@ struct CanvasPageView: UIViewRepresentable {
     /// Returns a ruling line color that is visible against the given background.
     /// On dark backgrounds the lines are white at low opacity; on light backgrounds
     /// they are black at low opacity.
-    private static func rulingLineColor(for background: UIColor) -> UIColor {
+    static func rulingLineColor(for background: UIColor) -> UIColor {
         let isDarkBackground: Bool = {
             var white: CGFloat = 0
             if background.getWhite(&white, alpha: nil) {

@@ -26,13 +26,13 @@ struct NotebookReaderView: View {
     /// the tab workspace (e.g. launched directly from a shortcut or widget).
     let tabID: UUID?
 
-    @State private var flatPageIndex = 0
+    @State var flatPageIndex = 0
     @State private var didRestorePosition = false
-    @State private var showPageOverview = false
+    @State var showPageOverview = false
     /// Horizontal drag offset for the page-turn gesture.
     @State private var dragOffset: CGFloat = 0
     /// Direction of the last completed page turn for the slide transition.
-    @State private var slideDirection: Edge = .trailing
+    @State var slideDirection: Edge = .trailing
     /// Whether the jump-to-page popover is shown.
     @State private var showJumpToPage = false
     /// Text field content for jump-to-page.
@@ -148,16 +148,16 @@ struct NotebookReaderView: View {
         currentNote?.themeOverride ?? notebook.defaultTheme ?? themeStore.effectiveTheme
     }
 
-    private var effectiveDefinition: ThemeDefinition {
+    var effectiveDefinition: ThemeDefinition {
         effectiveTheme.definition
     }
 
-    private var effectivePaperMaterial: PaperMaterial {
+    var effectivePaperMaterial: PaperMaterial {
         currentNote?.paperMaterial ?? notebook.paperMaterial
     }
 
     /// Per-page ruling: pageTypes[pageIndex] → note.pageType → section.defaultPageType → notebook.pageType → .blank
-    private func effectivePageType(for ref: PageRef) -> PageType {
+    func effectivePageType(for ref: PageRef) -> PageType {
         guard let note = noteStore.notes.first(where: { $0.id == ref.noteID }) else {
             return notebook.pageType
         }
@@ -174,7 +174,7 @@ struct NotebookReaderView: View {
     }
 
     /// Canvas background: per-page colour → theme + material blend.
-    private func canvasBackground(for ref: PageRef) -> UIColor {
+    func canvasBackground(for ref: PageRef) -> UIColor {
         if let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
            let explicit = note.pageColor(forPage: ref.pageIndex) {
             return explicit
@@ -232,7 +232,7 @@ struct NotebookReaderView: View {
                         pageStackShadows(pageCount: pages.count, currentIndex: safeIndex)
 
                         // Current page canvas
-                        canvasForPage(ref, in: pages)
+                        readerCanvasForPage(ref, in: pages)
                             .offset(x: dragOffset)
                             // Subtle 3D page-flip hint: ~7.5° max at full 500pt drag
                             .rotation3DEffect(
@@ -525,6 +525,11 @@ struct NotebookReaderView: View {
 
     // MARK: - Canvas for a page
 
+    /// Legacy canvas page construction — replaced by `readerCanvasForPage(_:in:)`
+    /// in `NotebookReaderView+Canvas.swift`.
+    ///
+    /// Retained for reference during migration. Will be removed in a future release.
+    @available(*, deprecated, message: "Use readerCanvasForPage(_:in:) instead")
     @ViewBuilder
     private func canvasForPage(_ ref: PageRef, in pages: [PageRef]) -> some View {
         if let note = noteStore.notes.first(where: { $0.id == ref.noteID }) {
@@ -653,7 +658,7 @@ struct NotebookReaderView: View {
     // MARK: - Page number watermark
 
     /// Subtle page number in the bottom-right corner of the page, like printed notebooks.
-    private func pageNumberWatermark(flatIndex: Int, totalPages: Int) -> some View {
+    func pageNumberWatermark(flatIndex: Int, totalPages: Int) -> some View {
         Text("\(flatIndex + 1)")
             .font(.system(size: 10, weight: .light, design: .serif))
             .foregroundStyle(.secondary.opacity(0.35))
@@ -718,7 +723,7 @@ struct NotebookReaderView: View {
     /// Turns to the next or previous page. When swiping past the last page,
     /// auto-creates a new blank page so writing never stops.
     /// When the notebook is locked, auto-creation is suppressed.
-    private func turnPage(direction: Int, totalPages: Int) {
+    func turnPage(direction: Int, totalPages: Int) {
         if direction > 0 {
             slideDirection = .trailing
             if flatPageIndex >= totalPages - 1 {
