@@ -234,7 +234,8 @@ struct PaceFingerprint: Codable, Equatable {
         let histogram = total > 0 ? counts.map { $0 / total } : counts
 
         // Events per minute.
-        let totalDuration = sorted.last!.timeIntervalSince(sorted.first!)
+        guard let first = sorted.first, let last = sorted.last else { return nil }
+        let totalDuration = last.timeIntervalSince(first)
         let epm = totalDuration > 0 ? Double(sorted.count) / (totalDuration / 60.0) : 0
 
         // Burst ratio = fraction in first bin (< 0.5s).

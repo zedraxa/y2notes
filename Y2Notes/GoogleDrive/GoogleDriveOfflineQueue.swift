@@ -13,6 +13,7 @@ import Foundation
 /// increments this on each failed attempt. Operations that exceed
 /// `maxRetries` are discarded to prevent infinite loops on permanently
 /// invalid payloads.
+@MainActor
 final class GoogleDriveOfflineQueue: ObservableObject {
 
     // MARK: - Published state

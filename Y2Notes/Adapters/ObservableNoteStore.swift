@@ -7,6 +7,7 @@ import SwiftUI
 ///
 /// Subscribe to the repository's Combine publishers and mirror state via
 /// `@Published` so SwiftUI views can keep using `@EnvironmentObject`.
+@MainActor
 final class ObservableNoteStore: ObservableObject {
 
     @Published private(set) var notes: [Note] = []

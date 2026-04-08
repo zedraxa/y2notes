@@ -153,11 +153,11 @@ The app uses 7 `@StateObject` stores injected as `.environmentObject`:
 
 See [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) for the full testing plan.
 
-Currently the project has **no test target** — adding one is the highest-priority item
-on the roadmap. When contributing tests:
+Currently the project has a **unit test target** (`Y2NotesTests/`) as well as
+tests inside each SPM package under `Packages/`. When contributing tests:
 
 - Unit tests go in `Y2NotesTests/`
-- UI tests go in `Y2NotesUITests/`
+- Package-level tests go in `Packages/<PackageName>/Tests/`
 - Test file naming: `<SourceFile>Tests.swift` (e.g., `NoteTests.swift`)
 - Use `XCTAssert*` for assertions, `XCTSkip` for conditional skips
 

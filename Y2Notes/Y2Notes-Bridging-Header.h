@@ -17,7 +17,4 @@
 #include "Native/y2_levenshtein.h"
 #include "Native/y2_sqlite.h"
 
-/* Rust data layer FFI (libY2Data) */
-#include "../RustData/include/y2data.h"
-
 #endif /* Y2Notes_Bridging_Header_h */

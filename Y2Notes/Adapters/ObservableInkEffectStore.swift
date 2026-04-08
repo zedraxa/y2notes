@@ -7,6 +7,7 @@ import SwiftUI
 ///
 /// Mirrors the provider's Combine publishers as `@Published` properties so
 /// SwiftUI views can observe ink preset changes through `@EnvironmentObject`.
+@MainActor
 final class ObservableInkEffectStore: ObservableObject {
 
     @Published private(set) var activePreset: InkPreset?

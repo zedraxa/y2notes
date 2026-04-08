@@ -18,6 +18,7 @@ private let recordingLogger = Logger(subsystem: "com.y2notes", category: "AudioR
 ///
 /// **Thread safety**: All published state is updated on the main actor.
 /// Audio callbacks dispatch back to main before mutating state.
+@MainActor
 final class AudioRecordingStore: ObservableObject {
 
     // MARK: - Published State
@@ -251,8 +252,9 @@ final class AudioRecordingStore: ObservableObject {
         // End autosave and collect any remaining events
         _ = storageManager.endAutosave()
 
-        session.endedAt = Date()
-        session.duration = session.endedAt!.timeIntervalSince(session.startedAt)
+        let endDate = Date()
+        session.endedAt = endDate
+        session.duration = endDate.timeIntervalSince(session.startedAt)
 
         // Save session
         sessions.insert(session, at: 0)

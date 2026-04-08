@@ -7,6 +7,7 @@ import UIKit
 
 /// Manages the collection of imported PDF documents, their on-disk copies,
 /// per-page annotation data, and annotated-PDF export.
+@MainActor
 final class PDFStore: ObservableObject {
 
     @Published private(set) var records: [PDFNoteRecord] = []

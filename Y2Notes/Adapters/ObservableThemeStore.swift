@@ -8,6 +8,7 @@ import SwiftUI
 /// Mirrors the provider's `CurrentValueSubject` state as `@Published`
 /// properties so SwiftUI views can observe theme changes through
 /// `@EnvironmentObject`.
+@MainActor
 final class ObservableThemeStore: ObservableObject {
 
     @Published private(set) var selectedTheme: AppTheme = .system

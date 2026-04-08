@@ -25,6 +25,15 @@ workflows:
           xcodebuild -resolvePackageDependencies \
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME"
+      - name: Lint with SwiftLint
+        script: |
+          if command -v swiftlint &> /dev/null; then
+            swiftlint lint --strict --reporter xcode
+          else
+            echo "SwiftLint not found, installing..."
+            brew install swiftlint
+            swiftlint lint --strict --reporter xcode
+          fi
       - name: Run tests
         script: |
           xcodebuild test \

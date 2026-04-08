@@ -7,6 +7,7 @@ import SwiftUI
 ///
 /// Every published property is persisted to UserDefaults and has a real effect
 /// on the app's behaviour. Injected at the app root as an @EnvironmentObject.
+@MainActor
 final class AppSettingsStore: ObservableObject {
 
     // MARK: Onboarding

@@ -8,6 +8,7 @@ import SwiftUI
 /// The drawing tool store has many properties; this adapter exposes the full
 /// `ToolStateProvider` and triggers `objectWillChange` when any reactive
 /// property changes. SwiftUI views access tool state through this adapter.
+@MainActor
 final class ObservableToolStore: ObservableObject {
 
     @Published var activeTool: DrawingTool = .pen

@@ -27,6 +27,7 @@ private let storeSchemaVersion = 1
 
 /// Persistent store for notes, notebooks, and sections. Saves to the app's Documents directory
 /// as JSON.  All mutations are performed on the main thread (via @Published / @MainActor).
+@MainActor
 final class NoteStore: ObservableObject {
     @Published private(set) var notes: [Note] = []
     @Published private(set) var notebooks: [Notebook] = []
