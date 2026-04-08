@@ -381,13 +381,17 @@ struct NoteEditorView: View {
             if isTextMode {
                 textLayer
             } else {
-                canvasSection
+                notebookCanvasSection
                 pageNavigationBar
             }
         }
     }
 
-    /// SwiftUI-native page carousel — each page is a persistent CanvasPageView.
+    /// Legacy page carousel — replaced by `notebookCanvasSection` which uses
+    /// the configuration-driven `NotebookCarouselView`.
+    ///
+    /// Retained for reference during migration. Will be removed in a future release.
+    @available(*, deprecated, message: "Use notebookCanvasSection instead")
     @ViewBuilder
     var canvasSection: some View {
         NotePageCarouselView(

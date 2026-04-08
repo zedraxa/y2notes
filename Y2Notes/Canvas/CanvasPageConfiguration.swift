@@ -1,0 +1,228 @@
+import UIKit
+import PencilKit
+
+// MARK: - CanvasPageConfiguration
+
+/// Immutable value type that consolidates every parameter needed to render a
+/// single canvas page.
+///
+/// Before this type, canvas properties were drilled through 3–4 view layers as
+/// 60+ individual parameters, making the API fragile and hard to reason about.
+/// `CanvasPageConfiguration` centralises them into a single, equatable struct
+/// that can be created once per page in `NoteEditorView` and forwarded through
+/// the carousel without any intermediate destructuring.
+///
+/// ## Usage
+/// ```swift
+/// let config = CanvasPageConfiguration(
+///     noteID: note.id,
+///     pageIndex: idx,
+///     drawingData: note.pages[idx],
+///     ...
+/// )
+/// NotebookCanvasView(configuration: config, callbacks: callbacks)
+/// ```
+struct CanvasPageConfiguration {
+
+    // MARK: - Identity
+
+    /// Unique identifier of the note this page belongs to.
+    let noteID: UUID
+    /// Zero-based index of this page within the note.
+    let pageIndex: Int
+
+    // MARK: - Drawing State
+
+    /// Serialised `PKDrawing` data for this page.
+    let drawingData: Data
+    /// The current PencilKit tool (pen, eraser, lasso, …).
+    let currentTool: PKTool
+    /// Whether finger touches draw or only pan/zoom.
+    let drawingPolicy: PKCanvasViewDrawingPolicy
+
+    // MARK: - Appearance
+
+    /// Canvas background colour (blended theme + paper material).
+    let backgroundColor: UIColor
+    /// Contrasting ink colour derived from the theme for dark-mode awareness.
+    let defaultInkColor: UIColor
+    /// Page ruling style (blank, lined, grid, dotted, cornell, music).
+    let pageType: PageType
+    /// Paper material (standard, premium, craft, …) for grain and tint.
+    let paperMaterial: PaperMaterial
+
+    // MARK: - Shape Tool
+
+    /// Whether the shape tool is active (disables PKCanvasView interaction).
+    let isShapeToolActive: Bool
+    /// Active shape type when the shape tool is selected.
+    let activeShapeType: ShapeType
+    /// Stroke colour for newly drawn shapes.
+    let shapeColor: UIColor
+    /// Stroke width for newly drawn shapes.
+    let shapeWidth: Double
+
+    // MARK: - Effects
+
+    /// Active writing FX type (`.none` = no FX).
+    let activeFX: WritingFXType
+    /// Ink colour resolved for the active FX preset.
+    let fxColor: UIColor
+    /// Whether Magic Mode is active (keyword glow, highlight).
+    let isMagicModeActive: Bool
+    /// Whether Study Mode is active (heading glow, timer pulse).
+    let isStudyModeActive: Bool
+    /// Currently active ambient environment scene, or `nil`.
+    let activeAmbientScene: AmbientScene?
+    /// Whether ambient soundscapes are enabled.
+    let isAmbientSoundEnabled: Bool
+
+    // MARK: - Object Layers
+
+    /// Shape objects for this page.
+    let shapes: [ShapeInstance]
+    /// Attachment objects for this page.
+    let attachments: [AttachmentObject]
+    /// Note ID used for attachment file lookups.
+    let attachmentNoteID: UUID
+    /// Interactive widget instances for this page.
+    let widgets: [NoteWidget]
+    /// Text objects anchored on this page.
+    let textObjects: [TextObject]
+    /// Whether the text tool is active (text canvas intercepts taps).
+    let isTextToolActive: Bool
+
+    // MARK: - PDF Background
+
+    /// On-disk URL of the note's backing PDF for book-like rendering.
+    let pdfURL: URL?
+
+    // MARK: - Page Context
+
+    /// Total number of pages in the note.
+    let pageCount: Int
+    /// Whether this page was just added (triggers reveal animation).
+    let isNewPage: Bool
+    /// Flipped to trigger animated zoom reset.
+    let zoomResetTrigger: Bool
+    /// Initial zoom scale to restore (nil = fit-to-width).
+    let initialZoomScale: CGFloat?
+}
+
+// MARK: - Derived Configurations
+
+extension CanvasPageConfiguration {
+
+    /// Returns a copy with the `initialZoomScale` replaced.
+    ///
+    /// Used by the carousel to inject per-page zoom state without
+    /// rebuilding the entire configuration.
+    func withInitialZoomScale(_ scale: CGFloat?) -> CanvasPageConfiguration {
+        CanvasPageConfiguration(
+            noteID: noteID,
+            pageIndex: pageIndex,
+            drawingData: drawingData,
+            currentTool: currentTool,
+            drawingPolicy: drawingPolicy,
+            backgroundColor: backgroundColor,
+            defaultInkColor: defaultInkColor,
+            pageType: pageType,
+            paperMaterial: paperMaterial,
+            isShapeToolActive: isShapeToolActive,
+            activeShapeType: activeShapeType,
+            shapeColor: shapeColor,
+            shapeWidth: shapeWidth,
+            activeFX: activeFX,
+            fxColor: fxColor,
+            isMagicModeActive: isMagicModeActive,
+            isStudyModeActive: isStudyModeActive,
+            activeAmbientScene: activeAmbientScene,
+            isAmbientSoundEnabled: isAmbientSoundEnabled,
+            shapes: shapes,
+            attachments: attachments,
+            attachmentNoteID: attachmentNoteID,
+            widgets: widgets,
+            textObjects: textObjects,
+            isTextToolActive: isTextToolActive,
+            pdfURL: pdfURL,
+            pageCount: pageCount,
+            isNewPage: isNewPage,
+            zoomResetTrigger: zoomResetTrigger,
+            initialZoomScale: scale
+        )
+    }
+}
+
+// MARK: - Factory from Note
+
+extension CanvasPageConfiguration {
+
+    /// Creates a configuration for the given page of a note.
+    ///
+    /// This factory centralises the scattered parameter assembly that was
+    /// previously duplicated across `NoteEditorView.canvasSection` and
+    /// `NotePageCarouselView.pageView(for:)`.
+    ///
+    /// - Parameters:
+    ///   - note: The note model.
+    ///   - pageIndex: Zero-based page index.
+    ///   - toolStore: Current drawing tool state.
+    ///   - inkStore: Current ink effect state.
+    ///   - backgroundColor: Pre-computed canvas background colour.
+    ///   - defaultInkColor: Contrasting ink colour from the theme.
+    ///   - drawingPolicy: Finger vs. pencil drawing mode.
+    ///   - paperMaterial: Resolved paper material for this note.
+    ///   - pageTypeForIndex: Closure that resolves the page ruling per page.
+    ///   - pdfURL: Optional backing PDF URL.
+    ///   - zoomResetTrigger: Current zoom-reset trigger value.
+    ///   - isNewPage: Whether this page was just created.
+    ///   - initialZoomScale: Previously recorded zoom scale for this page.
+    static func page(
+        for note: Note,
+        at pageIndex: Int,
+        toolStore: DrawingToolStore,
+        inkStore: InkEffectStore,
+        backgroundColor: UIColor,
+        defaultInkColor: UIColor,
+        drawingPolicy: PKCanvasViewDrawingPolicy,
+        paperMaterial: PaperMaterial,
+        pageTypeForIndex: (Int) -> PageType,
+        pdfURL: URL?,
+        zoomResetTrigger: Bool,
+        isNewPage: Bool,
+        initialZoomScale: CGFloat?
+    ) -> CanvasPageConfiguration {
+        CanvasPageConfiguration(
+            noteID: note.id,
+            pageIndex: pageIndex,
+            drawingData: pageIndex < note.pages.count ? note.pages[pageIndex] : Data(),
+            currentTool: toolStore.pkTool,
+            drawingPolicy: drawingPolicy,
+            backgroundColor: backgroundColor,
+            defaultInkColor: defaultInkColor,
+            pageType: pageTypeForIndex(pageIndex),
+            paperMaterial: paperMaterial,
+            isShapeToolActive: toolStore.activeTool == .shape,
+            activeShapeType: toolStore.activeShapeType,
+            shapeColor: toolStore.activeColor,
+            shapeWidth: toolStore.activeWidth,
+            activeFX: inkStore.resolvedFX,
+            fxColor: toolStore.activeColor,
+            isMagicModeActive: toolStore.isMagicModeActive,
+            isStudyModeActive: toolStore.isStudyModeActive,
+            activeAmbientScene: toolStore.activeAmbientScene,
+            isAmbientSoundEnabled: toolStore.isAmbientSoundEnabled,
+            shapes: note.shapes(forPage: pageIndex),
+            attachments: note.attachments(forPage: pageIndex),
+            attachmentNoteID: note.id,
+            widgets: note.widgets(forPage: pageIndex),
+            textObjects: note.textObjects(forPage: pageIndex),
+            isTextToolActive: toolStore.activeTool == .text,
+            pdfURL: pdfURL,
+            pageCount: note.pageCount,
+            isNewPage: isNewPage,
+            zoomResetTrigger: zoomResetTrigger,
+            initialZoomScale: initialZoomScale
+        )
+    }
+}
