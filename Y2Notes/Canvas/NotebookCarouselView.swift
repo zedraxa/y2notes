@@ -151,7 +151,7 @@ struct NotebookCarouselView: View {
                 Image(systemName: "doc.badge.plus")
                     .font(.system(size: 52, weight: .ultraLight))
                     .foregroundStyle(.tertiary)
-                Text(NSLocalizedString("Pages.SwipeToAdd", comment: ""))
+                Text(NSLocalizedString("Pages.SwipeToAdd", comment: "Instruction text shown on empty page slot in carousel"))
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
             }
