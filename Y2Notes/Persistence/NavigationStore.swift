@@ -11,6 +11,7 @@ private let navLogger = Logger(subsystem: "com.y2notes", category: "NavigationSt
 /// Navigation history is kept in-memory only — ephemeral by design; it resets each session.
 ///
 /// **Architecture**: One store shared across all notebooks. Keyed internally by `notebookID`.
+@MainActor
 final class NavigationStore: ObservableObject {
 
     // MARK: - Published state

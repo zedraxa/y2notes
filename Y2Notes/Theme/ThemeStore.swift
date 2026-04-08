@@ -6,6 +6,7 @@ import SwiftUI
 ///
 /// Inject into the SwiftUI environment via `.environmentObject(themeStore)` at the app root,
 /// then read with `@EnvironmentObject var themeStore: ThemeStore` in any view.
+@MainActor
 final class ThemeStore: ObservableObject {
 
     @Published private(set) var selectedTheme: AppTheme

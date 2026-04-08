@@ -10,6 +10,7 @@ private let storeLogger = Logger(subsystem: "com.y2notes", category: "Attachment
 /// Documents/Attachments/{noteID}/{attachmentID}_thumb.jpg   — thumbnail (~15-30 KB)
 /// Documents/Attachments/{noteID}/{attachmentID}.{ext}       — full content
 /// ```
+@MainActor
 final class AttachmentStore: ObservableObject {
 
     // MARK: - Singleton

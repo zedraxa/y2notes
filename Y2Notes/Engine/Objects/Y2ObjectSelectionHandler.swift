@@ -59,26 +59,23 @@ final class Y2ObjectSelectionHandler: NSObject {
     /// Returns a decoded `CanvasObjectWrapper` from the pasteboard if available.
     func pasteObject() -> CanvasObjectWrapper? {
         guard let data = UIPasteboard.general.data(forPasteboardType: "com.y2notes.canvasobject") else { return nil }
-        var wrapper = try? JSONDecoder().decode(CanvasObjectWrapper.self, from: data)
+        guard let wrapper = try? JSONDecoder().decode(CanvasObjectWrapper.self, from: data) else { return nil }
         // Assign new UUID so paste creates a distinct object.
-        if wrapper != nil {
-            let offset: CGFloat = 20
-            let shifted = CGRect(
-                x: wrapper!.frame.origin.x + offset,
-                y: wrapper!.frame.origin.y + offset,
-                width: wrapper!.frame.size.width,
-                height: wrapper!.frame.size.height
-            )
-            wrapper = CanvasObjectWrapper(
-                id: UUID(),
-                frame: shifted,
-                rotation: wrapper!.rotation,
-                zIndex: wrapper!.zIndex + 1,
-                isLocked: wrapper!.isLocked,
-                objectType: wrapper!.objectType
-            )
-        }
-        return wrapper
+        let offset: CGFloat = 20
+        let shifted = CGRect(
+            x: wrapper.frame.origin.x + offset,
+            y: wrapper.frame.origin.y + offset,
+            width: wrapper.frame.size.width,
+            height: wrapper.frame.size.height
+        )
+        return CanvasObjectWrapper(
+            id: UUID(),
+            frame: shifted,
+            rotation: wrapper.rotation,
+            zIndex: wrapper.zIndex + 1,
+            isLocked: wrapper.isLocked,
+            objectType: wrapper.objectType
+        )
     }
 
     // MARK: - Undo helpers

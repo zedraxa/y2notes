@@ -57,6 +57,7 @@ final class Y2MasonryLayout: UICollectionViewLayout {
         let insets = configuration.sectionInsets
         let columnWidth = (contentWidth - spacing * CGFloat(columns - 1)) / CGFloat(columns)
 
+        guard columns > 0 else { return }
         var columnHeights = Array(repeating: insets.top, count: columns)
 
         let itemCount = collectionView.numberOfItems(inSection: 0)
@@ -64,7 +65,8 @@ final class Y2MasonryLayout: UICollectionViewLayout {
             let indexPath = IndexPath(item: item, section: 0)
 
             // Pick the shortest column
-            let column = columnHeights.enumerated().min(by: { $0.element < $1.element })!.offset
+            guard let shortest = columnHeights.enumerated().min(by: { $0.element < $1.element }) else { continue }
+            let column = shortest.offset
 
             let x = insets.left + CGFloat(column) * (columnWidth + spacing)
             let y = columnHeights[column]

@@ -7,6 +7,7 @@ import SwiftUI
 ///
 /// Subscribes to the provider's change notification and triggers
 /// `objectWillChange` so SwiftUI views refresh when any setting changes.
+@MainActor
 final class ObservableSettingsStore: ObservableObject {
 
     let provider: SettingsProvider

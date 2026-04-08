@@ -9,6 +9,7 @@ import UIKit
 ///
 /// Inject this as an @EnvironmentObject in the app shell and read it in
 /// NoteEditorView / DrawingToolbarView.
+@MainActor
 final class DrawingToolStore: ObservableObject {
 
     // MARK: - Published State

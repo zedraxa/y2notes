@@ -13,6 +13,7 @@ import Combine
 ///
 /// Files are copied into the sandbox at import time so they remain accessible
 /// after the source URL's security scope expires or the source is deleted.
+@MainActor
 final class DocumentStore: ObservableObject {
 
     // MARK: - Published state

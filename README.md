@@ -88,7 +88,7 @@ Y2Notes/
 ├── Tools/            DrawingToolStore + ToolModels
 ├── Settings/         AppSettingsStore, SettingsView, DiagnosticsView
 ├── Accessibility/    AccessibilityHelpers
-└── en.lproj/         Localizable.strings (141+ keys)
+└── en.lproj/         Localizable.strings (335 keys)
 ```
 
 ## Documentation

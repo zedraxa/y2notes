@@ -16,6 +16,7 @@ import UIKit
 /// **Base writing path** — when `activePreset` is `nil` (the default) the ink
 /// system is entirely transparent: `DrawingToolStore` drives the PKCanvasView tool
 /// exactly as before, and no `InkEffectEngine` overlay is rendered.
+@MainActor
 final class InkEffectStore: ObservableObject {
 
     // MARK: - Device capability (immutable after init)

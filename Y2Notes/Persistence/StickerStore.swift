@@ -9,6 +9,7 @@ private let stickerLogger = Logger(subsystem: "com.y2notes", category: "StickerS
 ///
 /// This store does NOT manage placed stickers — those live inside
 /// `Note.stickerLayers` and are saved/loaded by `NoteStore`.
+@MainActor
 final class StickerStore: ObservableObject {
 
     // MARK: - Published State

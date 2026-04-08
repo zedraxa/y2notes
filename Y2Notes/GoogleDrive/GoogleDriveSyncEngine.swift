@@ -14,6 +14,7 @@ import UIKit
 /// - **Atomic**: Each file (notes, notebooks, sections, study) is synced as a complete JSON snapshot.
 ///   Partial object-level sync is intentionally avoided to keep the implementation simple and
 ///   corruption-resistant.
+@MainActor
 final class GoogleDriveSyncEngine: ObservableObject {
 
     // MARK: - Published state
