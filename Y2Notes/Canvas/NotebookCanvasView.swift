@@ -15,6 +15,9 @@ import PencilKit
 /// - **Callback-bundled**: all outputs go through a single callbacks struct.
 /// - **Adapter pattern**: internally creates a `CanvasPageView` so all
 ///   existing rendering, effects, and PencilKit integration is preserved.
+/// - **Diff-aware**: because `CanvasPageConfiguration` conforms to `Equatable`,
+///   the `CanvasPageView` inside is guarded by `.equatable()` so SwiftUI skips
+///   the UIViewRepresentable update cycle entirely when nothing changed.
 ///
 /// ## Usage
 /// ```swift
@@ -86,5 +89,17 @@ struct NotebookCanvasView: View {
             onZoomChanged: callbacks.onZoomChanged,
             initialZoomScale: configuration.initialZoomScale
         )
+    }
+}
+
+// MARK: - NotebookCanvasView + Equatable
+
+/// Wrapper that tells SwiftUI to skip re-rendering when the configuration
+/// hasn't changed.  This is the diff optimization payoff: `CanvasPageConfiguration`
+/// is `Equatable`, so the `EquatableView` guard prevents the entire
+/// `updateUIView` cycle from running when no configuration field changed.
+extension NotebookCanvasView: Equatable {
+    static func == (lhs: NotebookCanvasView, rhs: NotebookCanvasView) -> Bool {
+        lhs.configuration == rhs.configuration
     }
 }

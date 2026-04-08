@@ -136,6 +136,7 @@ struct NotebookCarouselView: View {
             toolStore: toolStore,
             stickerImageProvider: stickerImageProvider
         )
+        .equatable()
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
     }

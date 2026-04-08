@@ -231,6 +231,10 @@
 		AA0001000000000000000266 /* NotebookCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000265 /* NotebookCanvasView.swift */; };
 		AA0001000000000000000268 /* NotebookCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000267 /* NotebookCarouselView.swift */; };
 		AA000100000000000000026A /* NoteEditorView+Canvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000269 /* NoteEditorView+Canvas.swift */; };
+		AA000100000000000000026D /* CanvasPageDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000026C /* CanvasPageDiff.swift */; };
+		AA000100000000000000026F /* CanvasCoordinator+DiffUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */; };
+		AA0001000000000000000271 /* ReaderCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000270 /* ReaderCanvasView.swift */; };
+		AA0001000000000000000273 /* NotebookReaderView+Canvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -485,6 +489,10 @@
 		AA0001000000000000000265 /* NotebookCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCanvasView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000267 /* NotebookCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCarouselView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000269 /* NoteEditorView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteEditorView+Canvas.swift; sourceTree = "<group>"; };
+		AA000100000000000000026C /* CanvasPageDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageDiff.swift; sourceTree = "<group>"; };
+		AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasCoordinator+DiffUpdate.swift; sourceTree = "<group>"; };
+		AA0001000000000000000270 /* ReaderCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderCanvasView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookReaderView+Canvas.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1057,9 +1065,13 @@
 			children = (
 				AA0001000000000000000261 /* CanvasPageConfiguration.swift */,
 				AA0001000000000000000263 /* CanvasPageCallbacks.swift */,
+				AA000100000000000000026C /* CanvasPageDiff.swift */,
+				AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */,
 				AA0001000000000000000265 /* NotebookCanvasView.swift */,
 				AA0001000000000000000267 /* NotebookCarouselView.swift */,
+				AA0001000000000000000270 /* ReaderCanvasView.swift */,
 				AA0001000000000000000269 /* NoteEditorView+Canvas.swift */,
+				AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */,
 			);
 			path = Canvas;
 			sourceTree = "<group>";
@@ -1347,6 +1359,10 @@
 				AA0001000000000000000266 /* NotebookCanvasView.swift in Sources */,
 				AA0001000000000000000268 /* NotebookCarouselView.swift in Sources */,
 				AA000100000000000000026A /* NoteEditorView+Canvas.swift in Sources */,
+				AA000100000000000000026D /* CanvasPageDiff.swift in Sources */,
+				AA000100000000000000026F /* CanvasCoordinator+DiffUpdate.swift in Sources */,
+				AA0001000000000000000271 /* ReaderCanvasView.swift in Sources */,
+				AA0001000000000000000273 /* NotebookReaderView+Canvas.swift in Sources */,
 				AA00010000000000000001EC /* Y2FloatingToolbar.swift in Sources */,
 				AA00010000000000000001EE /* Y2ToolPalette.swift in Sources */,
 				AA00010000000000000001F0 /* Y2ColorWheel.swift in Sources */,

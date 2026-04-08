@@ -76,6 +76,9 @@ struct CanvasPageCallbacks {
     var onPinchToOverview: (() -> Void)?
     /// Zoom scale changed.
     var onZoomChanged: ((CGFloat) -> Void)?
+    /// User swiped to turn a page (direction: +1 = forward, -1 = backward).
+    /// Used by `NotebookReaderView`'s book-mode page-turn gesture.
+    var onPageSwipe: ((Int) -> Void)?
 }
 
 // MARK: - Selection Helpers

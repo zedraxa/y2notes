@@ -22,7 +22,7 @@ import PencilKit
 /// )
 /// NotebookCanvasView(configuration: config, callbacks: callbacks)
 /// ```
-struct CanvasPageConfiguration {
+struct CanvasPageConfiguration: Equatable {
 
     // MARK: - Identity
 
@@ -107,6 +107,69 @@ struct CanvasPageConfiguration {
     let zoomResetTrigger: Bool
     /// Initial zoom scale to restore (nil = fit-to-width).
     let initialZoomScale: CGFloat?
+
+    // MARK: - Equatable
+
+    /// Custom Equatable conformance because `PKTool` and `UIColor` don't
+    /// conform to `Equatable` out of the box.
+    ///
+    /// Uses `ToolSnapshot` for tool identity comparison (same pattern as the
+    /// coordinator's guard against redundant `canvas.tool` assignments) and
+    /// compares `UIColor` via their CGColor representations.
+    static func == (lhs: CanvasPageConfiguration, rhs: CanvasPageConfiguration) -> Bool {
+        // Identity & page context (fast, cheap)
+        guard lhs.noteID == rhs.noteID,
+              lhs.pageIndex == rhs.pageIndex,
+              lhs.pageCount == rhs.pageCount,
+              lhs.isNewPage == rhs.isNewPage,
+              lhs.zoomResetTrigger == rhs.zoomResetTrigger,
+              lhs.initialZoomScale == rhs.initialZoomScale
+        else { return false }
+
+        // Drawing state
+        guard lhs.drawingData == rhs.drawingData,
+              ToolSnapshot(lhs.currentTool) == ToolSnapshot(rhs.currentTool),
+              lhs.drawingPolicy == rhs.drawingPolicy
+        else { return false }
+
+        // Appearance
+        guard lhs.backgroundColor.cgColor == rhs.backgroundColor.cgColor,
+              lhs.defaultInkColor.cgColor == rhs.defaultInkColor.cgColor,
+              lhs.pageType == rhs.pageType,
+              lhs.paperMaterial == rhs.paperMaterial
+        else { return false }
+
+        // Shape tool
+        guard lhs.isShapeToolActive == rhs.isShapeToolActive,
+              lhs.activeShapeType == rhs.activeShapeType,
+              lhs.shapeColor.cgColor == rhs.shapeColor.cgColor,
+              lhs.shapeWidth == rhs.shapeWidth
+        else { return false }
+
+        // Effects
+        guard lhs.activeFX == rhs.activeFX,
+              lhs.fxColor.cgColor == rhs.fxColor.cgColor,
+              lhs.isMagicModeActive == rhs.isMagicModeActive,
+              lhs.isStudyModeActive == rhs.isStudyModeActive,
+              lhs.activeAmbientScene == rhs.activeAmbientScene,
+              lhs.isAmbientSoundEnabled == rhs.isAmbientSoundEnabled
+        else { return false }
+
+        // Object layers
+        guard lhs.shapes == rhs.shapes,
+              lhs.attachments == rhs.attachments,
+              lhs.attachmentNoteID == rhs.attachmentNoteID,
+              lhs.widgets == rhs.widgets,
+              lhs.textObjects == rhs.textObjects,
+              lhs.isTextToolActive == rhs.isTextToolActive
+        else { return false }
+
+        // PDF background
+        guard lhs.pdfURL == rhs.pdfURL
+        else { return false }
+
+        return true
+    }
 }
 
 // MARK: - Derived Configurations
