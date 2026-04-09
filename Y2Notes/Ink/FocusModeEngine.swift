@@ -97,7 +97,7 @@ final class FocusModeEngine {
     ///   - canvasLayer: The `PKCanvasView`'s layer.  A warm inner glow is
     ///     applied to it.
     ///   - toolStore: The store whose `toolbarOpacity` is reduced.
-    func activate(
+    @MainActor func activate(
         on container: CALayer,
         canvasLayer: CALayer,
         toolStore: DrawingToolStore
@@ -137,7 +137,7 @@ final class FocusModeEngine {
     // MARK: - Deactivate
 
     /// Deactivates focus mode, removing all ambient layers.
-    func deactivate(
+    @MainActor func deactivate(
         canvasLayer: CALayer,
         toolStore: DrawingToolStore
     ) {

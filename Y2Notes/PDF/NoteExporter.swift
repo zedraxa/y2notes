@@ -42,7 +42,7 @@ final class NoteExporter {
     ///   - pageTypes:        Ruling style per page.  Element *i* is used for `pages[i]`.
     ///                       If `pageTypes` is shorter than `pages`, remaining pages are blank.
     /// - Returns: A temporary file URL pointing at the rendered PDF, or `nil` on failure.
-    static func exportAsPDF(
+    @MainActor static func exportAsPDF(
         title: String,
         pages: [Data],
         attachmentLayers: [[AttachmentObject]?] = [],
@@ -107,7 +107,7 @@ final class NoteExporter {
     ///
     /// Expansion pages carry a "← continued from page N" label and a thin dotted
     /// boundary line showing where the original page ended.
-    static func exportAsPDFWithExpansions(
+    @MainActor static func exportAsPDFWithExpansions(
         title: String,
         pages: [Data],
         attachmentLayers: [[AttachmentObject]?] = [],
@@ -326,7 +326,7 @@ final class NoteExporter {
     ///   - pageType:         Ruling style drawn behind the strokes.
     ///   - scale:            Rendering scale factor (default 2× for Retina).
     /// - Returns: A rendered `UIImage`, or `nil` when the page data cannot be decoded.
-    static func exportPageAsImage(
+    @MainActor static func exportPageAsImage(
         pageData: Data,
         attachments: [AttachmentObject]? = nil,
         widgets: [NoteWidget]? = nil,
@@ -457,7 +457,7 @@ final class NoteExporter {
 
     /// Pre-loads full-resolution (or thumbnail fallback) images for all attachments.
     /// Called on the main thread before the detached render task so file I/O is done once.
-    static func resolveAttachmentImages(
+    @MainActor static func resolveAttachmentImages(
         attachmentLayers: [[AttachmentObject]?],
         noteID: UUID?
     ) -> [UUID: UIImage] {
@@ -683,12 +683,13 @@ final class NoteExporter {
 
     /// Renders widget cards as static snapshots into the PDF/image export context.
     /// Each widget is drawn as a bordered card with type-specific body content.
+    // swiftlint:disable:next cyclomatic_complexity
     private static func renderWidgets(
         _ widgets: [NoteWidget],
         drawingScale: CGFloat,
         into ctx: CGContext
     ) {
-        let sorted = widgets.sorted(by: { $0.zIndex < $1.zIndex })
+        let sorted = widgets.sorted { $0.zIndex < $1.zIndex }
         for widget in sorted {
             let bounds = widget.frame.boundingRect
             let exportRect = CGRect(

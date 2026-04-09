@@ -169,7 +169,7 @@ final class NoteStore: ObservableObject {
 
     // MARK: - Crash detection
 
-    private static var crashFlagURL: URL {
+    private nonisolated static var crashFlagURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("session_active.flag")
     }
@@ -179,7 +179,7 @@ final class NoteStore: ObservableObject {
         try? data.write(to: Self.crashFlagURL, options: .atomic)
     }
 
-    private func removeCrashFlag() {
+    private nonisolated func removeCrashFlag() {
         try? FileManager.default.removeItem(at: Self.crashFlagURL)
     }
 
@@ -1684,7 +1684,7 @@ extension NoteStore {
     @discardableResult
     func bulkImportCards(toSet setID: UUID, text: String, noteID: UUID? = nil) -> Int {
         let lines = text.components(separatedBy: .newlines)
-        var count = 0
+        var imported = 0
         for line in lines {
             let parts = line.components(separatedBy: "::")
             guard parts.count >= 2 else { continue }
@@ -1694,10 +1694,10 @@ extension NoteStore {
             let card = StudyCard(setID: setID, noteID: noteID, front: front, back: back)
             studyCards.insert(card, at: 0)
             cardProgress.append(StudyCardProgress(cardID: card.id))
-            count += 1
+            imported += 1
         }
-        if count > 0 { saveStudy() }
-        return count
+        if imported > 0 { saveStudy() }
+        return imported
     }
 
     // MARK: Spaced repetition

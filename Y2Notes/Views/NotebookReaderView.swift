@@ -53,7 +53,7 @@ struct NotebookReaderView: View {
     // MARK: - Linearised page model
 
     /// A reference to a single page inside the notebook's note hierarchy.
-    private struct PageRef: Identifiable {
+    struct PageRef: Identifiable {
         let id: String  // "\(noteID)-\(pageIndex)" for stable identity
         let noteID: UUID
         let noteTitle: String
@@ -187,7 +187,6 @@ struct NotebookReaderView: View {
 
     // MARK: - Body
 
-    // swiftlint:disable:next function_body_length
     var body: some View {
         let pages = allPages
         VStack(spacing: 0) {
@@ -236,7 +235,7 @@ struct NotebookReaderView: View {
                             .offset(x: dragOffset)
                             // Subtle 3D page-flip hint: ~7.5° max at full 500pt drag
                             .rotation3DEffect(
-                                .degrees(Double(dragOffset) * 0.015),
+                                Angle.degrees(Double(dragOffset) * 0.015),
                                 axis: (x: 0, y: 1, z: 0),
                                 perspective: 0.5
                             )
@@ -320,9 +319,8 @@ struct NotebookReaderView: View {
                 }
                 .popover(isPresented: $showRecentLocations) {
                     RecentLocationsView(
-                        notebook: notebook,
-                        onJump: { anchor in navigateToAnchor(anchor) }
-                    )
+                        notebook: notebook
+                    ) { anchor in navigateToAnchor(anchor) }
                 }
                 .accessibilityLabel("Recent pages")
 
@@ -368,9 +366,8 @@ struct NotebookReaderView: View {
         .sheet(isPresented: $showBookmarks) {
             NavigationStack {
                 BookmarkListView(
-                    notebook: notebook,
-                    onJump: { anchor in navigateToAnchor(anchor) }
-                )
+                    notebook: notebook
+                ) { anchor in navigateToAnchor(anchor) }
             }
             .presentationDetents([.medium, .large])
         }
@@ -424,7 +421,7 @@ struct NotebookReaderView: View {
                 // Prefer the tab's persisted page index when running inside the
                 // tab workspace; fall back to the notebook-level last-page store.
                 let tabPage = tabID.flatMap { id in
-                    workspace.tabs.first(where: { $0.id == id })?.pageIndex
+                    workspace.tabs.first { $0.id == id }?.pageIndex
                 }
                 let saved = tabPage ?? noteStore.lastPageIndex(for: notebook.id)
                 let maxIdx = max(0, allPages.count - 1)
@@ -971,16 +968,15 @@ struct NotebookReaderView: View {
         base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
         uiTint.getRed(&tr, green: &tg, blue: &tb, alpha: nil)
         return UIColor(
-            red:   br + (tr - br) * fraction,
+            red: br + (tr - br) * fraction,
             green: bg + (tg - bg) * fraction,
-            blue:  bb + (tb - bb) * fraction,
+            blue: bb + (tb - bb) * fraction,
             alpha: ba
         )
     }
 
     // MARK: - Notebook cover page
 
-    // swiftlint:disable:next function_body_length
     private var notebookCoverPageView: some View {
         GeometryReader { geo in
             ZStack {

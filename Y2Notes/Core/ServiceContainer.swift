@@ -20,6 +20,7 @@ import os
 /// // SwiftUI adapter:
 /// let adapter = ObservableNoteStore(repository: container.noteRepository)
 /// ```
+@MainActor
 final class ServiceContainer {
 
     private let logger = Logger(subsystem: "com.y2notes", category: "ServiceContainer")

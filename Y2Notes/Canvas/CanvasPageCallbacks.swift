@@ -90,7 +90,7 @@ extension CanvasPageCallbacks {
     ///
     /// This eliminates the repetitive selection-clearing blocks that were
     /// previously duplicated for every object type in `NoteEditorView`.
-    static func selectionCallback<T>(
+    @MainActor static func selectionCallback<T>(
         for keyPath: ReferenceWritableKeyPath<DrawingToolStore, T?>,
         toolStore: DrawingToolStore,
         animation: Bool = true
@@ -126,7 +126,7 @@ extension CanvasPageCallbacks {
     ///
     /// This factory replaces the 100+ lines of callback wiring that was
     /// previously scattered across `NoteEditorView.canvasSection`.
-    static func forPage(
+    @MainActor static func forPage(
         _ pageIndex: Int,
         note: Note,
         noteStore: NoteStore,

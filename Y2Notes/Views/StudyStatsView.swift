@@ -186,12 +186,12 @@ struct StudyStatsView: View {
                 ForEach(days, id: \.date) { day in
                     VStack(spacing: 6) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(activityColor(count: day.count))
+                            .fill(activityColor(total: day.total))
                             .frame(height: 40)
                             .overlay(
-                                Text("\(day.count)")
+                                Text("\(day.total)")
                                     .font(.caption2.weight(.medium).monospacedDigit())
-                                    .foregroundStyle(day.count > 0 ? .white : .secondary)
+                                    .foregroundStyle(day.total > 0 ? .white : .secondary)
                             )
                         Text(day.label)
                             .font(.caption2)
@@ -209,7 +209,7 @@ struct StudyStatsView: View {
     private struct DayActivity {
         let date: Date
         let label: String
-        let count: Int
+        let total: Int
     }
 
     private var last7DaysActivity: [DayActivity] {
@@ -222,21 +222,21 @@ struct StudyStatsView: View {
             let date = calendar.date(byAdding: .day, value: -offset, to: today)!
             let dayStart = calendar.startOfDay(for: date)
             let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
-            let count = relevantHistory.filter {
+            let dayTotal = relevantHistory.filter {
                 $0.reviewedAt >= dayStart && $0.reviewedAt < dayEnd
             }.count
             return DayActivity(
                 date: date,
                 label: offset == 0 ? "Today" : formatter.string(from: date),
-                count: count
+                total: dayTotal
             )
         }
     }
 
-    private func activityColor(count: Int) -> Color {
-        if count == 0 { return Color(uiColor: .secondaryLabel).opacity(0.08) }
-        if count < 5  { return .green.opacity(0.4) }
-        if count < 15 { return .green.opacity(0.7) }
+    private func activityColor(total: Int) -> Color {
+        if total == 0 { return Color(uiColor: .secondaryLabel).opacity(0.08) }
+        if total < 5  { return .green.opacity(0.4) }
+        if total < 15 { return .green.opacity(0.7) }
         return .green
     }
 

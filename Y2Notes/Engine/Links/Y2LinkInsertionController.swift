@@ -48,7 +48,7 @@ final class Y2LinkInsertionController: UIViewController {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("Not supported") }
 
     // MARK: - Lifecycle
 

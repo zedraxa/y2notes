@@ -73,7 +73,7 @@ final class Y2PageCell: UICollectionViewCell {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("Not supported") }
 
     // MARK: - Layout
 
@@ -139,9 +139,9 @@ final class Y2PageCell: UICollectionViewCell {
         btnConfig.baseForegroundColor = .secondaryLabel
         btnConfig.title = "\(pageNumber)"
         btnConfig.titleTextAttributesTransformer = .init { container in
-            var c = container
-            c.font = UIFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-            return c
+            var transformed = container
+            transformed.font = UIFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+            return transformed
         }
         btnConfig.image = UIImage(systemName: "chevron.down")
         btnConfig.imagePlacement = .trailing

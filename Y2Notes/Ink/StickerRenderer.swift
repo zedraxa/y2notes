@@ -15,6 +15,7 @@ enum StickerRenderer {
     // MARK: - Public Entry Point
 
     /// Returns a `UIImage` for the given sticker ID, or `nil` if unknown.
+    // swiftlint:disable:next cyclomatic_complexity
     static func render(id: String, size: CGSize = defaultSize) -> UIImage? {
         switch id {
 

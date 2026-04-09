@@ -1,7 +1,6 @@
 import AVFoundation
 import UIKit
 import QuartzCore
-import AVFoundation
 
 // MARK: - Ambient Scene
 
@@ -205,7 +204,7 @@ final class AmbientEnvironmentEngine {
     ///   - scene: The ambient scene to activate.
     ///   - container: The root layer of the editor view.
     ///   - toolStore: Used to adjust toolbar opacity for immersion.
-    func activate(
+    @MainActor func activate(
         _ scene: AmbientScene,
         on container: CALayer,
         toolStore: DrawingToolStore
@@ -249,7 +248,7 @@ final class AmbientEnvironmentEngine {
     // MARK: - Deactivate
 
     /// Deactivates the current ambient scene with a fade-out.
-    func deactivate(toolStore: DrawingToolStore) {
+    @MainActor func deactivate(toolStore: DrawingToolStore) {
         guard let container = ambientContainer else {
             activeScene = nil
             return

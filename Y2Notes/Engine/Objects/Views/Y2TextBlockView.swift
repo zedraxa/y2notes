@@ -51,7 +51,7 @@ final class Y2TextBlockView: UIView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     // MARK: - Setup
 
@@ -69,12 +69,12 @@ final class Y2TextBlockView: UIView {
         textView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(textView)
 
-        for v in [label, textView] {
+        for subview in [label, textView] {
             NSLayoutConstraint.activate([
-                v.topAnchor.constraint(equalTo: topAnchor, constant: 4),
-                v.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-                v.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-                v.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+                subview.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+                subview.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+                subview.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+                subview.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
             ])
         }
 

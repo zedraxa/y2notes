@@ -35,11 +35,11 @@ final class Y2ObjectOverlayController: UIViewController {
     // MARK: - View lifecycle
 
     override func loadView() {
-        let v = UIView()
-        v.backgroundColor = .clear
-        v.isUserInteractionEnabled = true
-        v.clipsToBounds = false
-        view = v
+        let container = UIView()
+        container.backgroundColor = .clear
+        container.isUserInteractionEnabled = true
+        container.clipsToBounds = false
+        view = container
     }
 
     override func viewDidLoad() {
@@ -70,8 +70,8 @@ final class Y2ObjectOverlayController: UIViewController {
 
         let incoming = Set(newObjects.map(\.id))
         // Remove views for objects no longer present.
-        for (id, v) in objectViews where !incoming.contains(id) {
-            v.removeFromSuperview()
+        for (id, objView) in objectViews where !incoming.contains(id) {
+            objView.removeFromSuperview()
             objectViews.removeValue(forKey: id)
         }
         // Add / update views.
@@ -90,8 +90,10 @@ final class Y2ObjectOverlayController: UIViewController {
     /// Apply a zoom + content-offset transform so objects track the canvas.
     func applyTransform(zoomScale: CGFloat, contentOffset: CGPoint) {
         view.transform = CGAffineTransform(scaleX: zoomScale, y: zoomScale)
-        view.frame.origin = CGPoint(x: -contentOffset.x * zoomScale,
-                                     y: -contentOffset.y * zoomScale)
+        view.frame.origin = CGPoint(
+            x: -contentOffset.x * zoomScale,
+            y: -contentOffset.y * zoomScale
+        )
     }
 
     // MARK: - Object Insertion
@@ -109,36 +111,36 @@ final class Y2ObjectOverlayController: UIViewController {
     // MARK: - Private helpers
 
     private func makeObjectView(for wrapper: CanvasObjectWrapper) -> UIView {
-        let v: UIView
+        let objView: UIView
         switch wrapper.objectType {
         case .image(let img):
-            v = Y2ImageObjectView(imageObject: img)
+            objView = Y2ImageObjectView(imageObject: img)
         case .audioClip(let clip):
-            v = Y2AudioClipView(audioClip: clip)
+            objView = Y2AudioClipView(audioClip: clip)
         case .sticker(let sticker):
-            v = Y2StickerObjectView(stickerObject: sticker)
+            objView = Y2StickerObjectView(stickerObject: sticker)
         case .link(let link):
-            v = Y2LinkObjectView(linkObject: link)
+            objView = Y2LinkObjectView(linkObject: link)
         case .scannedDocument(let doc):
-            v = makeScannedDocView(doc)
+            objView = makeScannedDocView(doc)
         case .textBlock(let tb):
-            v = makeTextBlockView(tb)
+            objView = makeTextBlockView(tb)
         }
-        v.frame = wrapper.frame
-        v.transform = CGAffineTransform(rotationAngle: wrapper.rotation * .pi / 180)
-        v.isUserInteractionEnabled = !wrapper.isLocked
-        attachGestures(to: v, objectID: wrapper.id)
-        return v
+        objView.frame = wrapper.frame
+        objView.transform = CGAffineTransform(rotationAngle: wrapper.rotation * .pi / 180)
+        objView.isUserInteractionEnabled = !wrapper.isLocked
+        attachGestures(to: objView, objectID: wrapper.id)
+        return objView
     }
 
     private func makeScannedDocView(_ doc: ScannedDocObject) -> UIView {
-        return Y2ScannedDocObjectView(scannedDoc: doc)
+        Y2ScannedDocObjectView(scannedDoc: doc)
     }
 
     private func makeTextBlockView(_ tb: TextBlockObject) -> UIView {
-        let v = Y2TextBlockView(textBlock: tb)
-        v.textBlockDelegate = self
-        return v
+        let textView = Y2TextBlockView(textBlock: tb)
+        textView.textBlockDelegate = self
+        return textView
     }
 
     private func attachGestures(to view: UIView, objectID: UUID) {
@@ -203,47 +205,47 @@ final class Y2ObjectOverlayController: UIViewController {
     // MARK: - Gesture handlers
 
     @objc private func handleTap(_ g: UITapGestureRecognizer) {
-        guard let v = g.view, let id = objectID(for: v) else { return }
+        guard let target = g.view, let id = objectID(for: target) else { return }
         selectionHandler.select(id: id)
     }
 
     @objc private func handlePan(_ g: UIPanGestureRecognizer) {
-        guard let v = g.view, let id = objectID(for: v) else { return }
+        guard let target = g.view, let id = objectID(for: target) else { return }
         let delta = g.translation(in: view)
         if g.state == .changed || g.state == .ended {
-            v.center = CGPoint(x: v.center.x + delta.x, y: v.center.y + delta.y)
+            target.center = CGPoint(x: target.center.x + delta.x, y: target.center.y + delta.y)
             g.setTranslation(.zero, in: view)
             if g.state == .ended {
-                applyMove(id: id, frame: v.frame)
+                applyMove(id: id, frame: target.frame)
             }
         }
     }
 
     @objc private func handlePinch(_ g: UIPinchGestureRecognizer) {
-        guard let v = g.view else { return }
+        guard let target = g.view else { return }
         if g.state == .changed {
-            let s = g.scale
-            v.transform = v.transform.scaledBy(x: s, y: s)
+            let scale = g.scale
+            target.transform = target.transform.scaledBy(x: scale, y: scale)
             g.scale = 1
         }
-        if g.state == .ended, let id = objectID(for: v) {
-            applyMove(id: id, frame: v.frame)
+        if g.state == .ended, let id = objectID(for: target) {
+            applyMove(id: id, frame: target.frame)
         }
     }
 
     @objc private func handleRotate(_ g: UIRotationGestureRecognizer) {
-        guard let v = g.view else { return }
+        guard let target = g.view else { return }
         if g.state == .changed {
-            v.transform = v.transform.rotated(by: g.rotation)
+            target.transform = target.transform.rotated(by: g.rotation)
             g.rotation = 0
         }
     }
 
     @objc private func handleLongPress(_ g: UILongPressGestureRecognizer) {
         guard g.state == .began,
-              let v = g.view, let id = objectID(for: v) else { return }
+              let target = g.view, let id = objectID(for: target) else { return }
         selectionHandler.select(id: id)
-        showContextMenu(for: id, sourceView: v)
+        showContextMenu(for: id, sourceView: target)
     }
 
     // MARK: - Context menu
@@ -311,14 +313,14 @@ final class Y2ObjectOverlayController: UIViewController {
     }
 
     private func updateSelectionHighlight(selected: UUID?) {
-        for (id, v) in objectViews {
-            v.layer.borderWidth = (id == selected) ? 2 : 0
-            v.layer.borderColor = (id == selected) ? UIColor.systemBlue.cgColor : nil
+        for (id, objView) in objectViews {
+            objView.layer.borderWidth = (id == selected) ? 2 : 0
+            objView.layer.borderColor = (id == selected) ? UIColor.systemBlue.cgColor : nil
         }
     }
 
     private func objectID(for view: UIView) -> UUID? {
-        objectViews.first(where: { $0.value === view })?.key
+        objectViews.first { $0.value === view }?.key
     }
 }
 

@@ -39,8 +39,10 @@ enum Y2WaveformGenerator {
         var rawSamples: [Float] = []
         rawSamples.reserveCapacity(Int(frameCount))
 
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format,
-                                             frameCapacity: Constants.readBufferSize) else { return [] }
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: format,
+            frameCapacity: Constants.readBufferSize
+        ) else { return [] }
         file.framePosition = 0
 
         while file.framePosition < file.length {
@@ -63,14 +65,14 @@ enum Y2WaveformGenerator {
 
     // MARK: - Downsampling
 
-    private static func downsample(_ samples: [Float], to count: Int) -> [Float] {
-        guard !samples.isEmpty, count > 0 else { return [] }
-        let step = max(1, samples.count / count)
+    private static func downsample(_ samples: [Float], to targetCount: Int) -> [Float] {
+        guard !samples.isEmpty, targetCount > 0 else { return [] }
+        let step = max(1, samples.count / targetCount)
         var result = [Float]()
-        result.reserveCapacity(count)
+        result.reserveCapacity(targetCount)
 
         var i = 0
-        while i < samples.count && result.count < count {
+        while i < samples.count && result.count < targetCount {
             let slice = samples[i..<min(i + step, samples.count)]
             let peak = slice.max() ?? 0
             result.append(peak)

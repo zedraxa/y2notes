@@ -755,9 +755,9 @@ private struct BulkImportSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Import") {
-                        let count = noteStore.bulkImportCards(toSet: setID, text: bulkText)
-                        importedCount = count
-                        if count > 0 {
+                        let imported = noteStore.bulkImportCards(toSet: setID, text: bulkText)
+                        importedCount = imported
+                        if imported > 0 {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                 dismiss()
                             }

@@ -202,7 +202,7 @@ struct WritingInsightsView: View {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(heatmapColor(for: count))
                     .frame(width: 14, height: 14)
-                    .accessibilityLabel(heatmapAccessibilityLabel(date: day, count: count))
+                    .accessibilityLabel(heatmapAccessibilityLabel(date: day, editTotal: count))
             }
         }
         .padding()
@@ -219,13 +219,13 @@ struct WritingInsightsView: View {
         }
     }
 
-    private func heatmapAccessibilityLabel(date: Date, count: Int) -> String {
+    private func heatmapAccessibilityLabel(date: Date, editTotal: Int) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         let dateStr = formatter.string(from: date)
-        return count == 0
+        return editTotal == 0
             ? "\(dateStr): no edits"
-            : "\(dateStr): \(count) edit\(count == 1 ? "" : "s")"
+            : "\(dateStr): \(editTotal) edit\(editTotal == 1 ? "" : "s")"
     }
 
     // MARK: - Notebook Breakdown
