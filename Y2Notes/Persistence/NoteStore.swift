@@ -179,7 +179,7 @@ final class NoteStore: ObservableObject {
         try? data.write(to: Self.crashFlagURL, options: .atomic)
     }
 
-    private func removeCrashFlag() {
+    private nonisolated func removeCrashFlag() {
         try? FileManager.default.removeItem(at: Self.crashFlagURL)
     }
 

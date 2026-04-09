@@ -241,7 +241,7 @@ extension CanvasPageConfiguration {
     ///   - isNewPage: Whether this page was just created.
     ///   - initialZoomScale: Previously recorded zoom scale for this page.
     // swiftlint:disable:next function_parameter_count
-    static func page(
+    @MainActor static func page(
         for note: Note,
         at pageIndex: Int,
         toolStore: DrawingToolStore,

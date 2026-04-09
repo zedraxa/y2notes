@@ -98,7 +98,7 @@ enum NotePDFGenerator {
     ///   - noteID:           Note identifier used to resolve attachment file paths.
     ///   - backgroundColor:  Canvas background colour.
     ///   - pageTypes:        Ruling style per page.
-    static func regeneratePDF(
+    @MainActor static func regeneratePDF(
         filename: String,
         pages: [Data],
         attachmentLayers: [[AttachmentObject]?] = [],

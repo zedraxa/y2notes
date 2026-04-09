@@ -53,7 +53,7 @@ struct NotebookReaderView: View {
     // MARK: - Linearised page model
 
     /// A reference to a single page inside the notebook's note hierarchy.
-    private struct PageRef: Identifiable {
+    fileprivate struct PageRef: Identifiable {
         let id: String  // "\(noteID)-\(pageIndex)" for stable identity
         let noteID: UUID
         let noteTitle: String
@@ -157,7 +157,7 @@ struct NotebookReaderView: View {
     }
 
     /// Per-page ruling: pageTypes[pageIndex] → note.pageType → section.defaultPageType → notebook.pageType → .blank
-    func effectivePageType(for ref: PageRef) -> PageType {
+    fileprivate func effectivePageType(for ref: PageRef) -> PageType {
         guard let note = noteStore.notes.first(where: { $0.id == ref.noteID }) else {
             return notebook.pageType
         }
@@ -174,7 +174,7 @@ struct NotebookReaderView: View {
     }
 
     /// Canvas background: per-page colour → theme + material blend.
-    func canvasBackground(for ref: PageRef) -> UIColor {
+    fileprivate func canvasBackground(for ref: PageRef) -> UIColor {
         if let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
            let explicit = note.pageColor(forPage: ref.pageIndex) {
             return explicit
@@ -235,7 +235,7 @@ struct NotebookReaderView: View {
                             .offset(x: dragOffset)
                             // Subtle 3D page-flip hint: ~7.5° max at full 500pt drag
                             .rotation3DEffect(
-                                .degrees(Double(dragOffset) * 0.015),
+                                Angle.degrees(Double(dragOffset) * 0.015),
                                 axis: (x: 0, y: 1, z: 0),
                                 perspective: 0.5
                             )
