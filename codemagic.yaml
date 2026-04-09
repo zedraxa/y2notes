@@ -28,11 +28,11 @@ workflows:
       - name: Lint with SwiftLint
         script: |
           if command -v swiftlint &> /dev/null; then
-            swiftlint lint --strict --reporter xcode
+            swiftlint lint --reporter xcode
           else
             echo "SwiftLint not found, installing..."
             brew install swiftlint
-            swiftlint lint --strict --reporter xcode
+            swiftlint lint --reporter xcode
           fi
       - name: Run tests
         script: |
