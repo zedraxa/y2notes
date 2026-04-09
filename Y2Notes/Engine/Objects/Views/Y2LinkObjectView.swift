@@ -35,7 +35,7 @@ final class Y2LinkObjectView: UIView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("Not supported") }
 
     // MARK: - Style setup
 

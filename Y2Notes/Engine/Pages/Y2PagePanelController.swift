@@ -163,7 +163,7 @@ final class Y2PagePanelController: UIViewController {
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {
-        UICollectionViewCompositionalLayout { _, env in
+        UICollectionViewCompositionalLayout { _, _ in
             let itemSize = NSCollectionLayoutSize(
                 widthDimension: .fractionalWidth(0.5),
                 heightDimension: .estimated(180)
@@ -223,6 +223,7 @@ extension Y2PagePanelController: UICollectionViewDataSource {
 
         let cell = cv.dequeueReusableCell(
             withReuseIdentifier: Y2PageCell.reuseID, for: indexPath
+        // swiftlint:disable:next force_cast
         ) as! Y2PageCell
 
         let page = pages[indexPath.item]
@@ -273,7 +274,7 @@ private final class AddPageCell: UICollectionViewCell {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("Not supported") }
 
     private func setup() {
         dashedBorder.strokeColor = UIColor.systemBlue.cgColor

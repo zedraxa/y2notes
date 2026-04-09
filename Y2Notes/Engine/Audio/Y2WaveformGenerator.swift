@@ -39,8 +39,10 @@ enum Y2WaveformGenerator {
         var rawSamples: [Float] = []
         rawSamples.reserveCapacity(Int(frameCount))
 
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format,
-                                             frameCapacity: Constants.readBufferSize) else { return [] }
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: format,
+            frameCapacity: Constants.readBufferSize
+        ) else { return [] }
         file.framePosition = 0
 
         while file.framePosition < file.length {

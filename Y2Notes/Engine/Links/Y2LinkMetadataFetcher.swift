@@ -93,7 +93,7 @@ final class Y2LinkMetadataFetcher: NSObject {
         guard let wv = webView, let url = pendingURL, let completion = pendingCompletion else { return }
         timeoutWorkItem?.cancel()
 
-        wv.evaluateJavaScript(Constants.extractionJS) { [weak self] result, error in
+        wv.evaluateJavaScript(Constants.extractionJS) { [weak self] result, _ in
             guard let self else { return }
             self.tearDownWebView()
 

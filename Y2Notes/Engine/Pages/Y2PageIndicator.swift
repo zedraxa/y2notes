@@ -21,22 +21,22 @@ final class Y2PageIndicator: UIView {
     // MARK: - Subviews
 
     private let label: UILabel = {
-        let l = UILabel()
-        l.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        l.textColor = .secondaryLabel
-        l.textAlignment = .center
-        l.translatesAutoresizingMaskIntoConstraints = false
-        return l
+        let pageLabel = UILabel()
+        pageLabel.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        pageLabel.textColor = .secondaryLabel
+        pageLabel.textAlignment = .center
+        pageLabel.translatesAutoresizingMaskIntoConstraints = false
+        return pageLabel
     }()
 
     private let pillBackground: UIVisualEffectView = {
         let blur = UIBlurEffect(style: .systemUltraThinMaterial)
-        let v = UIVisualEffectView(effect: blur)
-        v.layer.cornerRadius = 12
-        v.layer.cornerCurve = .continuous
-        v.clipsToBounds = true
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
+        let blurView = UIVisualEffectView(effect: blur)
+        blurView.layer.cornerRadius = 12
+        blurView.layer.cornerCurve = .continuous
+        blurView.clipsToBounds = true
+        blurView.translatesAutoresizingMaskIntoConstraints = false
+        return blurView
     }()
 
     // MARK: - Init
@@ -88,7 +88,8 @@ final class Y2PageIndicator: UIView {
         label.text = "\(currentPage) / \(totalPages)"
         accessibilityLabel = String(
             format: NSLocalizedString("Page %d of %d", comment: "Page indicator a11y"),
-            currentPage, totalPages
+            currentPage,
+            totalPages
         )
     }
 

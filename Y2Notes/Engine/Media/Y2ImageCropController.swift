@@ -41,7 +41,7 @@ final class Y2ImageCropController: UIViewController {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("Not supported") }
 
     // MARK: - Lifecycle
 
@@ -154,7 +154,7 @@ private final class CropOverlayView: UIView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("Not supported") }
 
     func setCropRect(normalised: CGRect) {
         let r = CGRect(
@@ -208,23 +208,31 @@ private final class CropOverlayView: UIView {
         switch activeHandle {
         case .topLeft:
             cropRect = CGRect(
-                x: cropRect.minX + delta.x, y: cropRect.minY + delta.y,
-                width: cropRect.width - delta.x, height: cropRect.height - delta.y
+                x: cropRect.minX + delta.x,
+                y: cropRect.minY + delta.y,
+                width: cropRect.width - delta.x,
+                height: cropRect.height - delta.y
             )
         case .topRight:
             cropRect = CGRect(
-                x: cropRect.minX, y: cropRect.minY + delta.y,
-                width: cropRect.width + delta.x, height: cropRect.height - delta.y
+                x: cropRect.minX,
+                y: cropRect.minY + delta.y,
+                width: cropRect.width + delta.x,
+                height: cropRect.height - delta.y
             )
         case .bottomLeft:
             cropRect = CGRect(
-                x: cropRect.minX + delta.x, y: cropRect.minY,
-                width: cropRect.width - delta.x, height: cropRect.height + delta.y
+                x: cropRect.minX + delta.x,
+                y: cropRect.minY,
+                width: cropRect.width - delta.x,
+                height: cropRect.height + delta.y
             )
         case .bottomRight:
             cropRect = CGRect(
-                x: cropRect.minX, y: cropRect.minY,
-                width: cropRect.width + delta.x, height: cropRect.height + delta.y
+                x: cropRect.minX,
+                y: cropRect.minY,
+                width: cropRect.width + delta.x,
+                height: cropRect.height + delta.y
             )
         case nil:
             // Move entire rect.

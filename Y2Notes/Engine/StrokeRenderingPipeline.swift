@@ -86,7 +86,9 @@ final class StrokeRenderingPipeline {
     ///   - pressure: Normalised force (0–1).
     ///   - velocity: Instantaneous speed in points/second.
     ///   - inkEffectEngine: The ink effect engine for particle/animation rendering.
-    func strokeUpdated(at point: CGPoint, pressure: CGFloat, velocity: CGFloat,
+    func strokeUpdated(at point: CGPoint,
+                       pressure: CGFloat,
+                       velocity: CGFloat,
                        inkEffectEngine: InkEffectEngine?) {
         guard activeFX != .none else { return }
 
@@ -105,8 +107,11 @@ final class StrokeRenderingPipeline {
     ///   - inkColor: The stroke's ink colour.
     ///   - headingBounds: The stroke's `renderBounds` in viewport space.
     ///   - inkEffectEngine: The ink effect engine for particle/animation rendering.
-    func strokeEnded(at point: CGPoint, startPoint: CGPoint, inkColor: UIColor,
-                     headingBounds: CGRect, inkEffectEngine: InkEffectEngine?) {
+    func strokeEnded(at point: CGPoint,
+                     startPoint: CGPoint,
+                     inkColor: UIColor,
+                     headingBounds: CGRect,
+                     inkEffectEngine: InkEffectEngine?) {
         guard activeFX != .none else { return }
 
         effectsCoordinator.dispatch(

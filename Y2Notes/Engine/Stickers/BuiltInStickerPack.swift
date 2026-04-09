@@ -42,28 +42,85 @@ final class BuiltInStickerPack: StickerPackProviding {
 
     private lazy var allDefinitions: [StickerDefinition] = [
         // Academic
-        StickerDefinition(id: "academic.arrow.right",    category: "Academic", displayName: "Arrow Right",     symbolFallback: "arrow.right"),
-        StickerDefinition(id: "academic.arrow.up",       category: "Academic", displayName: "Arrow Up",        symbolFallback: "arrow.up"),
-        StickerDefinition(id: "academic.arrow.curved",   category: "Academic", displayName: "Curved Arrow",    symbolFallback: "arrow.turn.up.right"),
-        StickerDefinition(id: "academic.checkmark",      category: "Academic", displayName: "Checkmark",       symbolFallback: "checkmark"),
-        StickerDefinition(id: "academic.star.filled",    category: "Academic", displayName: "Star",            symbolFallback: "star.fill"),
-        StickerDefinition(id: "academic.bullet.round",   category: "Academic", displayName: "Round Bullet",    symbolFallback: "circle.fill"),
-        StickerDefinition(id: "academic.divider.wavy",   category: "Academic", displayName: "Wavy Divider",    symbolFallback: "minus"),
-        StickerDefinition(id: "academic.bracket.left",   category: "Academic", displayName: "Left Bracket",    symbolFallback: "lessthan"),
+        StickerDefinition(
+            id: "academic.arrow.right", category: "Academic",
+            displayName: "Arrow Right", symbolFallback: "arrow.right"
+        ),
+        StickerDefinition(
+            id: "academic.arrow.up", category: "Academic",
+            displayName: "Arrow Up", symbolFallback: "arrow.up"
+        ),
+        StickerDefinition(
+            id: "academic.arrow.curved", category: "Academic",
+            displayName: "Curved Arrow", symbolFallback: "arrow.turn.up.right"
+        ),
+        StickerDefinition(
+            id: "academic.checkmark", category: "Academic",
+            displayName: "Checkmark", symbolFallback: "checkmark"
+        ),
+        StickerDefinition(
+            id: "academic.star.filled", category: "Academic",
+            displayName: "Star", symbolFallback: "star.fill"
+        ),
+        StickerDefinition(
+            id: "academic.bullet.round", category: "Academic",
+            displayName: "Round Bullet", symbolFallback: "circle.fill"
+        ),
+        StickerDefinition(
+            id: "academic.divider.wavy", category: "Academic",
+            displayName: "Wavy Divider", symbolFallback: "minus"
+        ),
+        StickerDefinition(
+            id: "academic.bracket.left", category: "Academic",
+            displayName: "Left Bracket", symbolFallback: "lessthan"
+        ),
         // Shapes
-        StickerDefinition(id: "shape.speech.bubble",     category: "Shapes",   displayName: "Speech Bubble",   symbolFallback: "bubble.left.fill"),
-        StickerDefinition(id: "shape.banner.ribbon",     category: "Shapes",   displayName: "Banner",          symbolFallback: "flag.fill"),
-        StickerDefinition(id: "shape.frame.rounded",     category: "Shapes",   displayName: "Rounded Frame",   symbolFallback: "rectangle"),
-        StickerDefinition(id: "shape.cloud",             category: "Shapes",   displayName: "Cloud",           symbolFallback: "cloud.fill"),
+        StickerDefinition(
+            id: "shape.speech.bubble", category: "Shapes",
+            displayName: "Speech Bubble", symbolFallback: "bubble.left.fill"
+        ),
+        StickerDefinition(
+            id: "shape.banner.ribbon", category: "Shapes",
+            displayName: "Banner", symbolFallback: "flag.fill"
+        ),
+        StickerDefinition(
+            id: "shape.frame.rounded", category: "Shapes",
+            displayName: "Rounded Frame", symbolFallback: "rectangle"
+        ),
+        StickerDefinition(
+            id: "shape.cloud", category: "Shapes",
+            displayName: "Cloud", symbolFallback: "cloud.fill"
+        ),
         // Icons
-        StickerDefinition(id: "icon.lightbulb",          category: "Icons",    displayName: "Lightbulb",       symbolFallback: "lightbulb.fill"),
-        StickerDefinition(id: "icon.bookmark",           category: "Icons",    displayName: "Bookmark",        symbolFallback: "bookmark.fill"),
-        StickerDefinition(id: "icon.exclamation",        category: "Icons",    displayName: "Exclamation",     symbolFallback: "exclamationmark.circle.fill"),
-        StickerDefinition(id: "icon.question",           category: "Icons",    displayName: "Question",        symbolFallback: "questionmark.circle.fill"),
+        StickerDefinition(
+            id: "icon.lightbulb", category: "Icons",
+            displayName: "Lightbulb", symbolFallback: "lightbulb.fill"
+        ),
+        StickerDefinition(
+            id: "icon.bookmark", category: "Icons",
+            displayName: "Bookmark", symbolFallback: "bookmark.fill"
+        ),
+        StickerDefinition(
+            id: "icon.exclamation", category: "Icons",
+            displayName: "Exclamation", symbolFallback: "exclamationmark.circle.fill"
+        ),
+        StickerDefinition(
+            id: "icon.question", category: "Icons",
+            displayName: "Question", symbolFallback: "questionmark.circle.fill"
+        ),
         // Decorative
-        StickerDefinition(id: "deco.washi.pink",         category: "Decorative", displayName: "Pink Washi",    symbolFallback: "rectangle.fill"),
-        StickerDefinition(id: "deco.corner.leaf",        category: "Decorative", displayName: "Leaf Corner",   symbolFallback: "leaf.fill"),
-        StickerDefinition(id: "deco.flag.tab",           category: "Decorative", displayName: "Page Flag",     symbolFallback: "flag.fill"),
+        StickerDefinition(
+            id: "deco.washi.pink", category: "Decorative",
+            displayName: "Pink Washi", symbolFallback: "rectangle.fill"
+        ),
+        StickerDefinition(
+            id: "deco.corner.leaf", category: "Decorative",
+            displayName: "Leaf Corner", symbolFallback: "leaf.fill"
+        ),
+        StickerDefinition(
+            id: "deco.flag.tab", category: "Decorative",
+            displayName: "Page Flag", symbolFallback: "flag.fill"
+        ),
     ]
 
     // MARK: - Renderers
@@ -158,9 +215,13 @@ final class BuiltInStickerPack: StickerPackProviding {
         let path = CGMutablePath()
         for i in 0..<10 {
             let angle = CGFloat(i) * .pi / 5 - .pi / 2
-            let r = i % 2 == 0 ? outerR : innerR
-            let pt = CGPoint(x: cx + r * cos(angle), y: cy + r * sin(angle))
-            i == 0 ? path.move(to: pt) : path.addLine(to: pt)
+            let radius = i.isMultiple(of: 2) ? outerR : innerR
+            let pt = CGPoint(x: cx + radius * cos(angle), y: cy + radius * sin(angle))
+            if i == 0 {
+                path.move(to: pt)
+            } else {
+                path.addLine(to: pt)
+            }
         }
         path.closeSubpath()
         ctx.addPath(path)
@@ -168,10 +229,12 @@ final class BuiltInStickerPack: StickerPackProviding {
     }
 
     private func drawRoundBullet(_ ctx: CGContext, _ size: CGSize) {
-        let r = min(size.width, size.height) * 0.4
+        let radius = min(size.width, size.height) * 0.4
         let rect = CGRect(
-            x: size.width / 2 - r, y: size.height / 2 - r,
-            width: r * 2, height: r * 2
+            x: size.width / 2 - radius,
+            y: size.height / 2 - radius,
+            width: radius * 2,
+            height: radius * 2
         )
         ctx.setFillColor(UIColor.systemOrange.cgColor)
         ctx.fillEllipse(in: rect)
@@ -212,10 +275,14 @@ final class BuiltInStickerPack: StickerPackProviding {
         ctx.setFillColor(UIColor.systemBlue.withAlphaComponent(0.15).cgColor)
         ctx.setStrokeColor(UIColor.systemBlue.cgColor)
         ctx.setLineWidth(max(2, size.width * 0.05))
-        let r: CGFloat = size.height * 0.2
-        let bubble = CGRect(x: size.width * 0.05, y: size.height * 0.05,
-                            width: size.width * 0.9, height: size.height * 0.72)
-        let path = UIBezierPath(roundedRect: bubble, cornerRadius: r)
+        let cornerRadius: CGFloat = size.height * 0.2
+        let bubble = CGRect(
+            x: size.width * 0.05,
+            y: size.height * 0.05,
+            width: size.width * 0.9,
+            height: size.height * 0.72
+        )
+        let path = UIBezierPath(roundedRect: bubble, cornerRadius: cornerRadius)
         // Tail
         path.move(to: CGPoint(x: size.width * 0.25, y: bubble.maxY))
         path.addLine(to: CGPoint(x: size.width * 0.2, y: size.height * 0.95))
@@ -244,8 +311,12 @@ final class BuiltInStickerPack: StickerPackProviding {
         ctx.setStrokeColor(UIColor.systemGray.cgColor)
         ctx.setLineWidth(max(3, size.width * 0.06))
         ctx.setLineDash(phase: 0, lengths: [size.width * 0.06, size.width * 0.04])
-        let rect = CGRect(x: size.width * 0.08, y: size.height * 0.08,
-                          width: size.width * 0.84, height: size.height * 0.84)
+        let rect = CGRect(
+            x: size.width * 0.08,
+            y: size.height * 0.08,
+            width: size.width * 0.84,
+            height: size.height * 0.84
+        )
         let path = UIBezierPath(roundedRect: rect, cornerRadius: size.width * 0.12)
         ctx.addPath(path.cgPath)
         ctx.strokePath()
@@ -338,9 +409,9 @@ final class BuiltInStickerPack: StickerPackProviding {
 
 private extension UIColor {
     func darker() -> UIColor {
-        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        if getHue(&h, saturation: &s, brightness: &b, alpha: &a) {
-            return UIColor(hue: h, saturation: s, brightness: b * 0.75, alpha: a)
+        var hue: CGFloat = 0, sat: CGFloat = 0, bri: CGFloat = 0, alpha: CGFloat = 0
+        if getHue(&hue, saturation: &sat, brightness: &bri, alpha: &alpha) {
+            return UIColor(hue: hue, saturation: sat, brightness: bri * 0.75, alpha: alpha)
         }
         return self
     }

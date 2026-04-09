@@ -29,7 +29,7 @@ final class Y2ScannedDocObjectView: UIView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("Not supported") }
 
     // MARK: - Setup
 
