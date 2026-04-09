@@ -53,7 +53,7 @@ struct NotebookReaderView: View {
     // MARK: - Linearised page model
 
     /// A reference to a single page inside the notebook's note hierarchy.
-    fileprivate struct PageRef: Identifiable {
+    struct PageRef: Identifiable {
         let id: String  // "\(noteID)-\(pageIndex)" for stable identity
         let noteID: UUID
         let noteTitle: String
@@ -157,7 +157,7 @@ struct NotebookReaderView: View {
     }
 
     /// Per-page ruling: pageTypes[pageIndex] → note.pageType → section.defaultPageType → notebook.pageType → .blank
-    fileprivate func effectivePageType(for ref: PageRef) -> PageType {
+    func effectivePageType(for ref: PageRef) -> PageType {
         guard let note = noteStore.notes.first(where: { $0.id == ref.noteID }) else {
             return notebook.pageType
         }
@@ -174,7 +174,7 @@ struct NotebookReaderView: View {
     }
 
     /// Canvas background: per-page colour → theme + material blend.
-    fileprivate func canvasBackground(for ref: PageRef) -> UIColor {
+    func canvasBackground(for ref: PageRef) -> UIColor {
         if let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
            let explicit = note.pageColor(forPage: ref.pageIndex) {
             return explicit

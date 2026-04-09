@@ -169,7 +169,7 @@ final class NoteStore: ObservableObject {
 
     // MARK: - Crash detection
 
-    private static var crashFlagURL: URL {
+    private nonisolated static var crashFlagURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("session_active.flag")
     }
