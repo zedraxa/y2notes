@@ -1,4 +1,4 @@
-// swiftlint:disable file_length type_body_length function_body_length
+// swiftlint:disable file_length type_body_length
 import SwiftUI
 import PencilKit
 import PDFKit
@@ -150,11 +150,11 @@ struct CanvasPageView: UIViewRepresentable {
         // resting on the desk surface.  An explicit shadow path avoids the
         // expensive offscreen-composite pass that Core Animation would otherwise
         // need for a view with a non-opaque background.
-        pageBackground.layer.shadowColor   = UIColor.black.cgColor
+        pageBackground.layer.shadowColor = UIColor.black.cgColor
         pageBackground.layer.shadowOpacity = 0.18
-        pageBackground.layer.shadowRadius  = 12
-        pageBackground.layer.shadowOffset  = CGSize(width: 0, height: 3)
-        pageBackground.layer.shadowPath    =
+        pageBackground.layer.shadowRadius = 12
+        pageBackground.layer.shadowOffset = CGSize(width: 0, height: 3)
+        pageBackground.layer.shadowPath =
             UIBezierPath(rect: CGRect(origin: .zero, size: ps)).cgPath
 
         container.addSubview(pageBackground)
@@ -518,114 +518,12 @@ struct CanvasPageView: UIViewRepresentable {
         // Wire up toolbar store reference for auto-fade (idempotent).
         context.coordinator.toolStoreRef = toolStoreForFade
 
-        // Sync page background (ruling view).
-        if let bg = context.coordinator.pageBackground {
-            if bg.pageColor != backgroundColor {
-                bg.pageColor  = backgroundColor
-                bg.lineColor  = Self.rulingLineColor(for: backgroundColor)
-            }
-            if bg.pageType != pageType {
-                bg.pageType = pageType
-            }
-            let wantedIntensity = paperMaterial.grainIntensity
-            if bg.grainIntensity != wantedIntensity {
-                bg.grainIntensity = wantedIntensity
-            }
-            let wantedTint = paperMaterial.rulingTint
-            if bg.rulingTint != wantedTint {
-                bg.rulingTint = wantedTint
-            }
-            // Re-sync position/scale in case SwiftUI re-rendered while
-            // the canvas was scrolled or zoomed.
-            context.coordinator.syncBackgroundWithCanvas(canvas)
-        }
-
-        // Sync drawing policy when the user toggles the finger/pencil preference.
-        if canvas.drawingPolicy != drawingPolicy {
-            canvas.drawingPolicy = drawingPolicy
-            // Update touch type filtering to match: pencilOnly → restrict to pencil
-            // touches for faster first-touch discrimination, anyInput → allow all.
-            if WritingConfig.useTouchTypeFiltering {
-                if drawingPolicy == .pencilOnly {
-                    canvas.drawingGestureRecognizer.allowedTouchTypes = [
-                        NSNumber(value: UITouch.TouchType.pencil.rawValue)
-                    ]
-                } else {
-                    canvas.drawingGestureRecognizer.allowedTouchTypes = [
-                        NSNumber(value: UITouch.TouchType.direct.rawValue),
-                        NSNumber(value: UITouch.TouchType.pencil.rawValue),
-                    ]
-                }
-            }
-            // Reset palm guard when switching modes.
-            context.coordinator.palmGuard.reset()
-        }
-
-        // Update the active tool from DrawingToolStore — but ONLY when:
-        // 1. The user is not mid-stroke (setting tool mid-stroke kills PencilKit's
-        //    internal pressure/tilt pipeline, destroying pressure sensitivity).
-        // 2. The tool actually changed. We compare a lightweight snapshot of the
-        //    tool's identity (type + ink type + color + width) to avoid redundant
-        //    assignments that would reset PencilKit's state.
-        if !context.coordinator.isDrawing {
-            let snapshot = ToolSnapshot(currentTool)
-            if context.coordinator.lastToolSnapshot != snapshot {
-                canvas.tool = currentTool
-                context.coordinator.lastToolSnapshot = snapshot
-
-                // ── Interaction feedback for tool switch (AGENT-23) ─────
-                if currentTool is PKEraserTool {
-                    context.coordinator.interactionFeedback.play(.eraserEngage, on: canvas.layer)
-                } else {
-                    context.coordinator.interactionFeedback.play(.toolSwitch, on: canvas.layer)
-                    context.coordinator.microInteractionEngine.playToolSwitchMorph(on: canvas.layer)
-                }
-            }
-        }
+        syncPageBackground(context.coordinator, canvas: canvas)
+        syncDrawingPolicy(on: canvas, coordinator: context.coordinator)
+        syncActiveTool(on: canvas, coordinator: context.coordinator)
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
-        // Sync shape overlay properties.
-        if let overlay = context.coordinator.shapeOverlay {
-            overlay.isHidden    = !isShapeToolActive
-            overlay.shapeType   = activeShapeType
-            overlay.strokeColor = shapeColor
-            overlay.strokeWidth = CGFloat(shapeWidth)
-        }
-
-        // Sync shape object canvas.
-        if let shapeCanvas = context.coordinator.shapeCanvas {
-            shapeCanvas.isShapeToolActive = isShapeToolActive
-            shapeCanvas.shapes = currentPageShapes
-            shapeCanvas.selectedShapeID = toolStoreForFade?.activeShapeSelection
-        }
-
-        // Sync attachment canvas.
-        if let attachCanvas = context.coordinator.attachmentCanvas {
-            attachCanvas.attachments = currentPageAttachments
-            attachCanvas.noteID = attachmentNoteID
-            attachCanvas.selectedAttachmentID = toolStoreForFade?.activeAttachmentSelection
-            attachCanvas.zoomScale = canvas.zoomScale
-        }
-        context.coordinator.onAttachmentsChanged = onAttachmentsChanged
-        context.coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
-
-        // Sync widget canvas.
-        if let widgetCanvas = context.coordinator.widgetCanvas {
-            widgetCanvas.widgets = currentPageWidgets
-            widgetCanvas.selectedWidgetID = toolStoreForFade?.activeWidgetSelection
-        }
-        context.coordinator.onWidgetsChanged = onWidgetsChanged
-        context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
-
-        // Sync text object canvas.
-        if let textCanvas = context.coordinator.textCanvas {
-            textCanvas.isTextToolActive = isTextToolActive
-            textCanvas.textObjects = currentPageTextObjects
-            textCanvas.selectedTextObjectID = toolStoreForFade?.activeTextObjectSelection
-        }
-        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
-        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
-        context.coordinator.onPlaceTextObject = onPlaceTextObject
+        syncOverlayCanvases(context.coordinator, canvas: canvas)
 
         // Zoom reset: animate to fit-to-width when the trigger value flips.
         // "Fit to width" is more useful than a fixed 1× scale because it adapts
@@ -646,36 +544,155 @@ struct CanvasPageView: UIViewRepresentable {
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
+        syncEffectsEngines(context.coordinator, layer: uiView.layer, bounds: uiView.bounds)
+
+        // Keep the zoom-changed callback current.
+        context.coordinator.onZoomChanged = onZoomChanged
+    }
+
+    // MARK: - updateUIView helpers
+
+    private func syncPageBackground(_ coordinator: Coordinator, canvas: PKCanvasView) {
+        guard let bg = coordinator.pageBackground else { return }
+        if bg.pageColor != backgroundColor {
+            bg.pageColor = backgroundColor
+            bg.lineColor = Self.rulingLineColor(for: backgroundColor)
+        }
+        if bg.pageType != pageType {
+            bg.pageType = pageType
+        }
+        let wantedIntensity = paperMaterial.grainIntensity
+        if bg.grainIntensity != wantedIntensity {
+            bg.grainIntensity = wantedIntensity
+        }
+        let wantedTint = paperMaterial.rulingTint
+        if bg.rulingTint != wantedTint {
+            bg.rulingTint = wantedTint
+        }
+        // Re-sync position/scale in case SwiftUI re-rendered while
+        // the canvas was scrolled or zoomed.
+        coordinator.syncBackgroundWithCanvas(canvas)
+    }
+
+    private func syncDrawingPolicy(on canvas: PKCanvasView, coordinator: Coordinator) {
+        guard canvas.drawingPolicy != drawingPolicy else { return }
+        canvas.drawingPolicy = drawingPolicy
+        // Update touch type filtering to match: pencilOnly → restrict to pencil
+        // touches for faster first-touch discrimination, anyInput → allow all.
+        if WritingConfig.useTouchTypeFiltering {
+            if drawingPolicy == .pencilOnly {
+                canvas.drawingGestureRecognizer.allowedTouchTypes = [
+                    NSNumber(value: UITouch.TouchType.pencil.rawValue)
+                ]
+            } else {
+                canvas.drawingGestureRecognizer.allowedTouchTypes = [
+                    NSNumber(value: UITouch.TouchType.direct.rawValue),
+                    NSNumber(value: UITouch.TouchType.pencil.rawValue),
+                ]
+            }
+        }
+        // Reset palm guard when switching modes.
+        coordinator.palmGuard.reset()
+    }
+
+    private func syncActiveTool(on canvas: PKCanvasView, coordinator: Coordinator) {
+        // Update the active tool from DrawingToolStore — but ONLY when:
+        // 1. The user is not mid-stroke (setting tool mid-stroke kills PencilKit's
+        //    internal pressure/tilt pipeline, destroying pressure sensitivity).
+        // 2. The tool actually changed. We compare a lightweight snapshot of the
+        //    tool's identity (type + ink type + color + width) to avoid redundant
+        //    assignments that would reset PencilKit's state.
+        guard !coordinator.isDrawing else { return }
+        let snapshot = ToolSnapshot(currentTool)
+        guard coordinator.lastToolSnapshot != snapshot else { return }
+        canvas.tool = currentTool
+        coordinator.lastToolSnapshot = snapshot
+
+        // ── Interaction feedback for tool switch (AGENT-23) ─────
+        if currentTool is PKEraserTool {
+            coordinator.interactionFeedback.play(.eraserEngage, on: canvas.layer)
+        } else {
+            coordinator.interactionFeedback.play(.toolSwitch, on: canvas.layer)
+            coordinator.microInteractionEngine.playToolSwitchMorph(on: canvas.layer)
+        }
+    }
+
+    private func syncOverlayCanvases(_ coordinator: Coordinator, canvas: PKCanvasView) {
+        // Sync shape overlay properties.
+        if let overlay = coordinator.shapeOverlay {
+            overlay.isHidden = !isShapeToolActive
+            overlay.shapeType = activeShapeType
+            overlay.strokeColor = shapeColor
+            overlay.strokeWidth = CGFloat(shapeWidth)
+        }
+
+        // Sync shape object canvas.
+        if let shapeCanvas = coordinator.shapeCanvas {
+            shapeCanvas.isShapeToolActive = isShapeToolActive
+            shapeCanvas.shapes = currentPageShapes
+            shapeCanvas.selectedShapeID = toolStoreForFade?.activeShapeSelection
+        }
+
+        // Sync attachment canvas.
+        if let attachCanvas = coordinator.attachmentCanvas {
+            attachCanvas.attachments = currentPageAttachments
+            attachCanvas.noteID = attachmentNoteID
+            attachCanvas.selectedAttachmentID = toolStoreForFade?.activeAttachmentSelection
+            attachCanvas.zoomScale = canvas.zoomScale
+        }
+        coordinator.onAttachmentsChanged = onAttachmentsChanged
+        coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
+
+        // Sync widget canvas.
+        if let widgetCanvas = coordinator.widgetCanvas {
+            widgetCanvas.widgets = currentPageWidgets
+            widgetCanvas.selectedWidgetID = toolStoreForFade?.activeWidgetSelection
+        }
+        coordinator.onWidgetsChanged = onWidgetsChanged
+        coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
+
+        // Sync text object canvas.
+        if let textCanvas = coordinator.textCanvas {
+            textCanvas.isTextToolActive = isTextToolActive
+            textCanvas.textObjects = currentPageTextObjects
+            textCanvas.selectedTextObjectID = toolStoreForFade?.activeTextObjectSelection
+        }
+        coordinator.onTextObjectsChanged = onTextObjectsChanged
+        coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
+        coordinator.onPlaceTextObject = onPlaceTextObject
+    }
+
+    private func syncEffectsEngines(_ coordinator: Coordinator, layer: CALayer, bounds: CGRect) {
         // Sync page boundary info so adaptive effects can track page position.
-        context.coordinator.coordinatorPageIndex = pageIndex
-        context.coordinator.coordinatorPageCount = pageCount
+        coordinator.coordinatorPageIndex = pageIndex
+        coordinator.coordinatorPageCount = pageCount
 
         // Sync adaptive effects engine with current note complexity.
-        context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
+        coordinator.adaptiveEffectsEngine.pageCount = pageCount
         // Propagate current intensity to canvas sub-views (coordinator
         // handles its own sub-engines automatically via Combine).
-        let intensity = context.coordinator.adaptiveEffectsEngine.intensity
-        context.coordinator.effects.distribute(
+        let intensity = coordinator.adaptiveEffectsEngine.intensity
+        coordinator.effects.distribute(
             intensity: intensity,
-            shapeCanvas: context.coordinator.shapeCanvas,
-            attachmentCanvas: context.coordinator.attachmentCanvas,
-            widgetCanvas: context.coordinator.widgetCanvas
+            shapeCanvas: coordinator.shapeCanvas,
+            attachmentCanvas: coordinator.attachmentCanvas,
+            widgetCanvas: coordinator.widgetCanvas
         )
 
         // Sync magic mode engine — activate/deactivate when toggle changes.
-        context.coordinator.effects.setMagicMode(active: isMagicModeActive, on: uiView.layer)
+        coordinator.effects.setMagicMode(active: isMagicModeActive, on: layer)
         // Sync study mode engine — activate/deactivate when toggle changes.
-        context.coordinator.effects.setStudyMode(active: isStudyModeActive, on: uiView.layer)
+        coordinator.effects.setStudyMode(active: isStudyModeActive, on: layer)
         // Keep layout-sensitive engines in sync on resize / rotation.
-        context.coordinator.effects.updateLayout(containerBounds: uiView.bounds)
+        coordinator.effects.updateLayout(containerBounds: bounds)
 
         // Sync ambient environment engine — activate/deactivate/sound when scene changes.
-        let ambientEngine = context.coordinator.ambientEngine
+        let ambientEngine = coordinator.ambientEngine
         ambientEngine.soundEnabled = isAmbientSoundEnabled
         if let ts = toolStoreForFade {
             switch (activeAmbientScene, ambientEngine.activeScene) {
             case let (scene?, current) where current != scene:
-                ambientEngine.activate(scene, on: uiView.layer, toolStore: ts)
+                ambientEngine.activate(scene, on: layer, toolStore: ts)
             case (nil, .some):
                 ambientEngine.deactivate(toolStore: ts)
             default:
@@ -683,23 +700,20 @@ struct CanvasPageView: UIViewRepresentable {
             }
         }
         if ambientEngine.activeScene != nil {
-            ambientEngine.updateLayout(containerBounds: uiView.bounds)
+            ambientEngine.updateLayout(containerBounds: bounds)
         }
 
         // Sync ink effect engine configuration when FX type or colour changes.
-        if let engine = context.coordinator.effectEngine {
+        if let engine = coordinator.effectEngine {
             engine.syncLayerFrames()
             engine.configure(fx: activeFX, color: fxColor)
         }
 
         // Sync writing effects pipeline when the pen tool or colour changes.
-        context.coordinator.writingPipeline.configure(
+        coordinator.writingPipeline.configure(
             config: toolStoreForFade?.writingEffectConfig ?? .default,
             color: toolStoreForFade?.activeColor ?? .black
         )
-
-        // Keep the zoom-changed callback current.
-        context.coordinator.onZoomChanged = onZoomChanged
     }
 
     // MARK: - Ruling line color helper
@@ -944,7 +958,7 @@ struct CanvasPageView: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            return false
+            false
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
@@ -953,11 +967,11 @@ struct CanvasPageView: UIViewRepresentable {
         /// coordinate space so that ink-effect particles render at the correct
         /// on-screen position regardless of zoom/scroll state.
         private func viewportPoint(from contentPoint: CGPoint, in canvasView: PKCanvasView) -> CGPoint {
-            let z = canvasView.zoomScale
-            let o = canvasView.contentOffset
+            let zoom = canvasView.zoomScale
+            let offset = canvasView.contentOffset
             return CGPoint(
-                x: contentPoint.x * z - o.x,
-                y: contentPoint.y * z - o.y
+                x: contentPoint.x * zoom - offset.x,
+                y: contentPoint.y * zoom - offset.y
             )
         }
 
@@ -1060,21 +1074,31 @@ struct CanvasPageView: UIViewRepresentable {
                 } ?? endPt
                 let bbox = lastStroke.renderBounds
                 let vpOrigin = viewportPoint(from: bbox.origin, in: canvasView)
-                let vpMax    = viewportPoint(from: CGPoint(x: bbox.maxX, y: bbox.maxY), in: canvasView)
+                let vpMax = viewportPoint(from: CGPoint(x: bbox.maxX, y: bbox.maxY), in: canvasView)
                 let headingBounds = CGRect(
-                    x: vpOrigin.x, y: vpOrigin.y,
-                    width: vpMax.x - vpOrigin.x, height: vpMax.y - vpOrigin.y
+                    x: vpOrigin.x,
+                    y: vpOrigin.y,
+                    width: vpMax.x - vpOrigin.x,
+                    height: vpMax.y - vpOrigin.y
                 )
                 let strokeEndColor = (canvasView.tool as? PKInkingTool)?.color ?? .label
                 effects.dispatch(
-                    .strokeEnded(at: endPt, start: startPt,
-                                 inkColor: strokeEndColor, headingBounds: headingBounds),
+                    .strokeEnded(
+                        at: endPt,
+                        start: startPt,
+                        inkColor: strokeEndColor,
+                        headingBounds: headingBounds
+                    ),
                     inkEffectEngine: effectEngine
                 )
             } else {
                 effects.dispatch(
-                    .strokeEnded(at: fallbackPt, start: fallbackPt,
-                                 inkColor: .label, headingBounds: .zero),
+                    .strokeEnded(
+                        at: fallbackPt,
+                        start: fallbackPt,
+                        inkColor: .label,
+                        headingBounds: .zero
+                    ),
                     inkEffectEngine: effectEngine
                 )
             }
@@ -1322,15 +1346,15 @@ struct CanvasPageView: UIViewRepresentable {
         ///
         /// which is the inverse of `viewportPoint(from:in:)` defined nearby.
         private func contentRect(from viewportRect: CGRect, in canvasView: PKCanvasView) -> CGRect {
-            let z = canvasView.zoomScale
-            let o = canvasView.contentOffset
+            let zoom = canvasView.zoomScale
+            let offset = canvasView.contentOffset
             let origin = CGPoint(
-                x: (viewportRect.minX + o.x) / z,
-                y: (viewportRect.minY + o.y) / z
+                x: (viewportRect.minX + offset.x) / zoom,
+                y: (viewportRect.minY + offset.y) / zoom
             )
             let size = CGSize(
-                width:  viewportRect.width  / z,
-                height: viewportRect.height / z
+                width: viewportRect.width / zoom,
+                height: viewportRect.height / zoom
             )
             return CGRect(origin: origin, size: size)
         }
@@ -1427,18 +1451,18 @@ struct CanvasPageView: UIViewRepresentable {
             // This preserves pressure dynamics while straightening the geometry.
             let pointCount = max(3, min(path.count, WritingConfig.holdToStraightenMaxPoints))
             let straightPoints: [PKStrokePoint] = (0 ..< pointCount).map { i in
-                let t = CGFloat(i) / CGFloat(pointCount - 1)
+                let ratio = CGFloat(i) / CGFloat(pointCount - 1)
                 let loc = CGPoint(
-                    x: firstPoint.location.x + t * dx,
-                    y: firstPoint.location.y + t * dy
+                    x: firstPoint.location.x + ratio * dx,
+                    y: firstPoint.location.y + ratio * dy
                 )
                 // +0.5 performs nearest-neighbour rounding when mapping the
-                // straight-line position t back to an original path index.
-                let origIdx = min(Int(t * CGFloat(path.count - 1) + 0.5), path.count - 1)
+                // straight-line position back to an original path index.
+                let origIdx = min(Int(ratio * CGFloat(path.count - 1) + 0.5), path.count - 1)
                 let orig = path[origIdx]
                 return PKStrokePoint(
                     location: loc,
-                    timeOffset: firstPoint.timeOffset + t * (lastPoint.timeOffset - firstPoint.timeOffset),
+                    timeOffset: firstPoint.timeOffset + ratio * (lastPoint.timeOffset - firstPoint.timeOffset),
                     size: orig.size,
                     opacity: orig.opacity,
                     force: orig.force,
@@ -1447,9 +1471,16 @@ struct CanvasPageView: UIViewRepresentable {
                 )
             }
 
-            let straightPath   = PKStrokePath(controlPoints: straightPoints, creationDate: path.creationDate)
-            let straightStroke = PKStroke(ink: stroke.ink, path: straightPath,
-                                          transform: stroke.transform, mask: stroke.mask)
+            let straightPath = PKStrokePath(
+                controlPoints: straightPoints,
+                creationDate: path.creationDate
+            )
+            let straightStroke = PKStroke(
+                ink: stroke.ink,
+                path: straightPath,
+                transform: stroke.transform,
+                mask: stroke.mask
+            )
 
             var newStrokes = strokes
             newStrokes[strokeIndex] = straightStroke
@@ -1499,14 +1530,14 @@ struct CanvasPageView: UIViewRepresentable {
         /// origin land at `(−o.x, −o.y)`.
         func syncBackgroundWithCanvas(_ scrollView: UIScrollView) {
             guard let bg = pageBackground else { return }
-            let z = scrollView.zoomScale
-            let o = scrollView.contentOffset
+            let zoom = scrollView.zoomScale
+            let offset = scrollView.contentOffset
             let pw = bg.bounds.width
             let ph = bg.bounds.height
-            let tx = -o.x + pw * (z - 1) / 2
-            let ty = -o.y + ph * (z - 1) / 2
+            let tx = -offset.x + pw * (zoom - 1) / 2
+            let ty = -offset.y + ph * (zoom - 1) / 2
 
-            let xform = CGAffineTransform(scaleX: z, y: z)
+            let xform = CGAffineTransform(scaleX: zoom, y: zoom)
                 .concatenating(CGAffineTransform(translationX: tx, y: ty))
             CATransaction.begin()
             CATransaction.setDisableActions(true)
@@ -1534,7 +1565,9 @@ struct CanvasPageView: UIViewRepresentable {
             // Zoom detent haptic + visual feedback (AGENT-23).
             interactionFeedback.updateZoom(scrollView.zoomScale, on: scrollView.layer)
             // Micro-bounce visual tick on detent entry (short-circuits on first match).
-            let onDetent = InteractionFeedbackEngine.zoomDetents.first(where: { abs(scrollView.zoomScale - $0) < InteractionFeedbackEngine.detentTolerance }) != nil
+            let onDetent = InteractionFeedbackEngine.zoomDetents.contains {
+                abs(scrollView.zoomScale - $0) < InteractionFeedbackEngine.detentTolerance
+            }
             if onDetent && !wasOnZoomDetent {
                 microInteractionEngine.playZoomDetentTick(on: scrollView.layer)
             }
@@ -1549,17 +1582,19 @@ struct CanvasPageView: UIViewRepresentable {
         /// Adjusts content insets so the page stays centered when the scaled
         /// content is smaller than the viewport.
         private func centerContentDuringZoom(_ scrollView: UIScrollView) {
-            let boundsSize  = scrollView.bounds.size
+            let boundsSize = scrollView.bounds.size
             let contentSize = scrollView.contentSize
 
             // Horizontal centering: when scaled content is narrower than viewport
-            let xInset = max(0, (boundsSize.width  - contentSize.width)  / 2)
+            let xInset = max(0, (boundsSize.width - contentSize.width) / 2)
             // Vertical centering: when scaled content is shorter than viewport
             let yInset = max(0, (boundsSize.height - contentSize.height) / 2)
 
             scrollView.contentInset = UIEdgeInsets(
-                top: yInset, left: xInset,
-                bottom: yInset, right: xInset
+                top: yInset,
+                left: xInset,
+                bottom: yInset,
+                right: xInset
             )
 
             syncBackgroundWithCanvas(scrollView)
@@ -1649,8 +1684,8 @@ extension CanvasPageView.Coordinator: PencilActionDelegate {
         let isErasing = canvasRef?.tool is PKEraserTool
         if isErasing {
             // Show sized eraser ring; hide ghost-nib overlay.
-            let sub   = toolStoreRef?.eraserSubType ?? .standard
-            let width = toolStoreRef?.eraserWidth   ?? sub.defaultWidth
+            let sub = toolStoreRef?.eraserSubType ?? .standard
+            let width = toolStoreRef?.eraserWidth ?? sub.defaultWidth
             eraserCursorOverlay?.update(position: position, subType: sub, eraserWidth: width)
             hoverOverlay?.update(position: nil, altitude: altitude, azimuth: azimuth)
         } else {
@@ -1666,7 +1701,7 @@ extension CanvasPageView.Coordinator: PencilActionDelegate {
                     opacity: CGFloat(ts.activeOpacity),
                     widthMultiplier: CGFloat(personality?.widthMultiplier ?? 1.0),
                     showsAzimuthLine: personality?.usesTiltShading == true
-                                   || personality?.usesBarrelRoll  == true,
+                        || personality?.usesBarrelRoll == true,
                     eraserMode: ts.eraserMode
                 )
                 hoverOverlay?.configure(with: info)
