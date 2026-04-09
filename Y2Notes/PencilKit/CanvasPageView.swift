@@ -519,8 +519,8 @@ struct CanvasPageView: UIViewRepresentable {
         context.coordinator.toolStoreRef = toolStoreForFade
 
         syncPageBackground(context.coordinator, canvas: canvas)
-        syncDrawingPolicy(on: canvas, coordinator: context.coordinator)
-        syncActiveTool(on: canvas, coordinator: context.coordinator)
+        syncDrawingPolicy(context.coordinator, canvas: canvas)
+        syncActiveTool(context.coordinator, canvas: canvas)
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
         syncOverlayCanvases(context.coordinator, canvas: canvas)
@@ -574,7 +574,7 @@ struct CanvasPageView: UIViewRepresentable {
         coordinator.syncBackgroundWithCanvas(canvas)
     }
 
-    private func syncDrawingPolicy(on canvas: PKCanvasView, coordinator: Coordinator) {
+    private func syncDrawingPolicy(_ coordinator: Coordinator, canvas: PKCanvasView) {
         guard canvas.drawingPolicy != drawingPolicy else { return }
         canvas.drawingPolicy = drawingPolicy
         // Update touch type filtering to match: pencilOnly → restrict to pencil
@@ -595,7 +595,7 @@ struct CanvasPageView: UIViewRepresentable {
         coordinator.palmGuard.reset()
     }
 
-    private func syncActiveTool(on canvas: PKCanvasView, coordinator: Coordinator) {
+    private func syncActiveTool(_ coordinator: Coordinator, canvas: PKCanvasView) {
         // Update the active tool from DrawingToolStore — but ONLY when:
         // 1. The user is not mid-stroke (setting tool mid-stroke kills PencilKit's
         //    internal pressure/tilt pipeline, destroying pressure sensitivity).
@@ -1565,13 +1565,13 @@ struct CanvasPageView: UIViewRepresentable {
             // Zoom detent haptic + visual feedback (AGENT-23).
             interactionFeedback.updateZoom(scrollView.zoomScale, on: scrollView.layer)
             // Micro-bounce visual tick on detent entry (short-circuits on first match).
-            let onDetent = InteractionFeedbackEngine.zoomDetents.contains {
+            let isOnDetent = InteractionFeedbackEngine.zoomDetents.contains {
                 abs(scrollView.zoomScale - $0) < InteractionFeedbackEngine.detentTolerance
             }
-            if onDetent && !wasOnZoomDetent {
+            if isOnDetent && !wasOnZoomDetent {
                 microInteractionEngine.playZoomDetentTick(on: scrollView.layer)
             }
-            wasOnZoomDetent = onDetent
+            wasOnZoomDetent = isOnDetent
             onZoomChanged?(scrollView.zoomScale)
         }
 
