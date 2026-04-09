@@ -689,7 +689,7 @@ final class NoteExporter {
         drawingScale: CGFloat,
         into ctx: CGContext
     ) {
-        let sorted = widgets.sorted(by: { $0.zIndex < $1.zIndex })
+        let sorted = widgets.sorted { $0.zIndex < $1.zIndex }
         for widget in sorted {
             let bounds = widget.frame.boundingRect
             let exportRect = CGRect(
