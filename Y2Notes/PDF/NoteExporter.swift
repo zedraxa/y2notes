@@ -683,6 +683,7 @@ final class NoteExporter {
 
     /// Renders widget cards as static snapshots into the PDF/image export context.
     /// Each widget is drawn as a bordered card with type-specific body content.
+    // swiftlint:disable:next cyclomatic_complexity
     private static func renderWidgets(
         _ widgets: [NoteWidget],
         drawingScale: CGFloat,

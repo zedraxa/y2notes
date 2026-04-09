@@ -162,8 +162,8 @@ final class Y2ToolPalette: UIView {
     }
 
     private func layoutRadial(radius: CGFloat, arcDegrees: CGFloat) {
+        guard !buttons.isEmpty else { return }
         let count = buttons.count
-        guard count > 0 else { return }
 
         let arcRadians = arcDegrees * .pi / 180
         let startAngle = -.pi / 2 - arcRadians / 2
