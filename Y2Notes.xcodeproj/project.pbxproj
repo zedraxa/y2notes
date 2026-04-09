@@ -1077,6 +1077,9 @@
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA0001000000000000000002 /* Y2Notes */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA000100000000000000000A /* Build configuration list for PBXNativeTarget "Y2Notes" */;
 			buildPhases = (
