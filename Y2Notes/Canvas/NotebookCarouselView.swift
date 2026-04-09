@@ -122,13 +122,24 @@ struct NotebookCarouselView: View {
 
     // MARK: - Per-Page Canvas
 
+    /// Returns callbacks for `idx` with zoom tracking wired so the carousel
+    /// can disable horizontal scroll while the user is pinch-zoomed in.
+    ///
+    /// Extracted from `pageView(for:)` because SwiftUI's `@ViewBuilder`
+    /// result builder treats every expression as a potential `View`; the
+    /// bare assignment `callbacks.onZoomChanged = …` produces a `Void`
+    /// expression that doesn't conform to `View` and causes a compile error.
+    private func preparedCallbacks(for idx: Int) -> CanvasPageCallbacks {
+        var callbacks = callbacksForPage(idx)
+        callbacks.onZoomChanged = { zoom in pageZooms[idx] = zoom }
+        return callbacks
+    }
+
     @ViewBuilder
     private func pageView(for idx: Int) -> some View {
         let config = configurationForPage(idx)
             .withInitialZoomScale(pageZooms[idx] ?? configurationForPage(idx).initialZoomScale)
-        var callbacks = callbacksForPage(idx)
-        // Wire zoom tracking so the carousel can isolate zoom from page swipes.
-        callbacks.onZoomChanged = { zoom in pageZooms[idx] = zoom }
+        let callbacks = preparedCallbacks(for: idx)
 
         NotebookCanvasView(
             configuration: config,
