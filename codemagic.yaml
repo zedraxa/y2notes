@@ -16,7 +16,7 @@ workflows:
     scripts:
       - name: Set up code signing settings on Xcode project
         script: |
-          xcode-project use-profiles --project "$XCODE_PROJECT" --target Y2Notes
+          xcode-project use-profiles --project "$XCODE_PROJECT"
       - name: Increment build number
         script: |
           agvtool new-version -all $(($BUILD_NUMBER))
