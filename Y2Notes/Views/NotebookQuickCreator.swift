@@ -58,6 +58,11 @@ struct NotebookQuickCreator: View {
         }
         .presentationDetents([.medium, .large], selection: $selectedDetent)
         .presentationDragIndicator(.visible)
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                creatorAppeared = true
+            }
+        }
         .task(id: pickerItem) {
             guard let item = pickerItem else { return }
             if let raw = try? await item.loadTransferable(type: Data.self),

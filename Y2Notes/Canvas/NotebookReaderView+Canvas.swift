@@ -65,10 +65,8 @@ extension NotebookReaderView {
 
     /// Builds a `CanvasPageCallbacks` for a reader page.
     ///
-    /// Reader callbacks are simpler than editor callbacks:
-    /// - No undo state reporting (reader toolbar doesn't show undo/redo).
-    /// - `onPageSwipe` wired to `turnPage(direction:totalPages:)`.
-    /// - `onPinchToOverview` wired to `showPageOverview`.
+    /// Reader callbacks wire undo-state reporting so the FloatingToolbarCapsule
+    /// can enable/disable its undo and redo buttons.
     func makeReaderPageCallbacks(
         for ref: PageRef,
         totalPages: Int
@@ -79,6 +77,10 @@ extension NotebookReaderView {
             },
             onSaveRequested: { noteStore.save() }
         )
+        callbacks.onUndoStateChanged = { [self] canUndoVal, canRedoVal in
+            canUndo = canUndoVal
+            canRedo = canRedoVal
+        }
         callbacks.onPinchToOverview = { showPageOverview = true }
         callbacks.onPageSwipe = { direction in
             turnPage(direction: direction, totalPages: totalPages)

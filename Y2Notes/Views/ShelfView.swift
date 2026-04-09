@@ -14,6 +14,7 @@ enum LibrarySection: Hashable {
     case documentLibrary
     /// Notes linked to imported PDFs or documents.
     case importNotes
+    case studySets
     case notebook(UUID)
     /// Filter to notes that carry a specific tag.
     case tag(String)
@@ -141,6 +142,8 @@ struct ShelfView: View {
                 DocumentLibraryView(selectedDocumentID: $selectedDocumentID)
             } else if case .importNotes = selectedSection {
                 ImportLinkedNotesView(selectedNoteID: $selectedNoteID)
+            } else if case .studySets = selectedSection {
+                StudySetListView()
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
@@ -176,6 +179,10 @@ struct ShelfView: View {
             case .importNotes:
                 selectedPDFID  = nil
                 selectedDocumentID = nil
+            case .studySets:
+                selectedPDFID  = nil
+                selectedDocumentID = nil
+                selectedNoteID = nil
             case .notebook:
                 // Notebook tabs are already opened in onOpenNotebook
                 selectedPDFID  = nil
@@ -312,10 +319,9 @@ private struct ShelfSidebarView: View {
 
             // ── Study ─────────────────────────────────────────────────────
             Section("Study") {
-                NavigationLink(destination: StudySetListView()) {
-                    Label("Study Sets", systemImage: "rectangle.on.rectangle.angled")
-                        .badge(noteStore.studySets.count)
-                }
+                Label("Study Sets", systemImage: "rectangle.on.rectangle.angled")
+                    .tag(LibrarySection.studySets)
+                    .badge(noteStore.studySets.count)
             }
 
             // ── Notebooks ─────────────────────────────────────────────────
@@ -847,12 +853,6 @@ struct NoteGridView: View {
                         displayName: record.title,
                         accentColor: [0.8, 0.3, 0.3]
                     )
-                    let note = noteStore.addNote(forPDF: record)
-                    tabSession.openTab(
-                        .note(id: note.id),
-                        displayName: note.title,
-                        accentColor: [0.8, 0.3, 0.3]
-                    )
                 }
             }
         }
@@ -867,12 +867,6 @@ struct NoteGridView: View {
                     tabSession.openTab(
                         .document(id: doc.id),
                         displayName: doc.displayName,
-                        accentColor: [0.3, 0.5, 0.7]
-                    )
-                    let note = noteStore.addNote(forDocument: doc)
-                    tabSession.openTab(
-                        .note(id: note.id),
-                        displayName: note.title,
                         accentColor: [0.3, 0.5, 0.7]
                     )
                 }
@@ -2310,12 +2304,6 @@ private struct PDFLibraryView: View {
             if case .success(let urls) = result, let url = urls.first {
                 if let record = pdfStore.importPDF(from: url) {
                     selectedPDFID = record.id
-                    let note = noteStore.addNote(forPDF: record)
-                    tabSession.openTab(
-                        .note(id: note.id),
-                        displayName: note.title,
-                        accentColor: [0.8, 0.3, 0.3]
-                    )
                 }
             }
         }

@@ -19,8 +19,10 @@ struct NotebookReaderView: View {
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
+    @EnvironmentObject var stickerStore: StickerStore
     @EnvironmentObject var navigationStore: NavigationStore
     @Environment(TabWorkspaceStore.self) private var workspace
+    @Environment(\.undoManager) private var undoManager
     let notebook: Notebook
     /// The tab ID for state sync. `nil` when the reader is not hosted inside
     /// the tab workspace (e.g. launched directly from a shortcut or widget).
@@ -29,6 +31,8 @@ struct NotebookReaderView: View {
     @State var flatPageIndex = 0
     @State private var didRestorePosition = false
     @State var showPageOverview = false
+    @State var canUndo = false
+    @State var canRedo = false
     /// Horizontal drag offset for the page-turn gesture.
     @State private var dragOffset: CGFloat = 0
     /// Direction of the last completed page turn for the slide transition.
@@ -253,7 +257,12 @@ struct NotebookReaderView: View {
                     // Floating toolbar capsule — bottom-center, above page bar
                     FloatingToolbarCapsule(
                         toolStore: toolStore,
-                        inkStore: inkStore
+                        inkStore: inkStore,
+                        stickerStore: stickerStore,
+                        canUndo: canUndo,
+                        canRedo: canRedo,
+                        onUndo: { undoManager?.undo() },
+                        onRedo: { undoManager?.redo() }
                     )
                     .opacity(toolStore.toolbarOpacity)
                     .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
@@ -391,6 +400,11 @@ struct NotebookReaderView: View {
         .sheet(isPresented: $showNotebookInfo) {
             NotebookInfoView(notebook: notebook)
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
+            StickerLibraryView(stickerStore: stickerStore) { asset in
+                placeSticker(asset)
+            }
         }
         .overlay(alignment: .topTrailing) {
             if showSavedBadge {
@@ -958,6 +972,33 @@ struct NotebookReaderView: View {
     }
 
     // MARK: - Helpers
+
+    /// Places a sticker at the centre of the current page.
+    func placeSticker(_ asset: StickerAsset) {
+        guard let ref = currentPage,
+              var note = noteStore.notes.first(where: { $0.id == ref.noteID }) else { return }
+        let pageIdx = ref.pageIndex
+
+        while note.stickerLayers.count < note.pages.count {
+            note.stickerLayers.append(nil)
+        }
+        var existing = note.stickerLayers[pageIdx] ?? []
+        guard existing.count < StickerConstants.maxStickersPerPage else { return }
+
+        let pageSize = CanvasView.pageSize
+        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
+        let instance = StickerInstance(
+            stickerID: asset.id,
+            position: center,
+            scale: 1.0,
+            rotation: 0,
+            opacity: 1.0,
+            zIndex: (existing.map(\.zIndex).max() ?? 0) + 1,
+            isLocked: false
+        )
+        existing.append(instance)
+        noteStore.updateStickers(for: ref.noteID, pageIndex: pageIdx, stickers: existing)
+    }
 
     private func blendedBackground(base: UIColor, tint: Color) -> UIColor {
         let isDark = effectiveDefinition.canvasIsDark

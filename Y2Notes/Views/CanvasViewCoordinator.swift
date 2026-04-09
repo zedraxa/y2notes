@@ -367,8 +367,10 @@ extension CanvasView {
                 pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
             case .ended, .cancelled:
                 // Trigger overview when the user performed a clear pinch-in
-                // (fingers came together significantly).
-                if pinchOverviewMinScale < 0.7 {
+                // (fingers came together significantly). Threshold is 0.45 so that
+                // a normal zoom-out (which typically stays above 0.6) never
+                // accidentally triggers the overview grid.
+                if pinchOverviewMinScale < 0.45 {
                     onPinchToOverview?()
                 }
                 pinchOverviewMinScale = 1.0
@@ -1070,11 +1072,26 @@ extension CanvasView.Coordinator: PencilActionDelegate {
               let window = canvas.window else { return }
         // Convert from canvas coordinates to window coordinates.
         let windowPoint = canvas.convert(anchorPoint, to: window)
+        let ts = toolStoreRef
         ContextualPencilPaletteView.show(
             at: windowPoint,
             in: window,
             canvas: canvas,
-            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector
+            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector,
+            onToolSelected: { [weak ts] pkTool in
+                guard let ts else { return }
+                if pkTool is PKEraserTool {
+                    ts.activeTool = .eraser
+                } else if let ink = pkTool as? PKInkingTool {
+                    switch ink.inkType {
+                    case .pen:         ts.activeTool = .pen
+                    case .pencil:      ts.activeTool = .pencil
+                    case .marker:      ts.activeTool = .highlighter
+                    case .fountainPen: ts.activeTool = .fountainPen
+                    default:           break
+                    }
+                }
+            }
         )
     }
 
