@@ -1619,6 +1619,8 @@ final class NoteStore: ObservableObject {
 // MARK: - Study set & flashcard persistence
 
 extension NoteStore {
+    /// Non-printable separator unlikely to appear in prompts/options.
+    private static let studyTestKeyOptionSeparator = "\u{1F}"
 
     // MARK: StudySet CRUD
 
@@ -1756,19 +1758,17 @@ extension NoteStore {
             var addedCount = 0
             var skippedCount = 0
             var messages: [String] = []
-            let existing = testQuestions(inSet: setID)
+            var existingKeys = Set(
+                testQuestions(inSet: setID).map {
+                    normalizedQuestionKey(prompt: $0.prompt, options: $0.options)
+                }
+            )
 
             for question in validated {
                 let trimmedPrompt = question.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
                 let normalizedOptions = question.options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                let duplicate = existing.contains {
-                    $0.prompt.caseInsensitiveCompare(trimmedPrompt) == .orderedSame &&
-                    $0.options.map { $0.lowercased() } == normalizedOptions.map { $0.lowercased() }
-                } || studyTestQuestions.contains {
-                    $0.setID == setID &&
-                    $0.prompt.caseInsensitiveCompare(trimmedPrompt) == .orderedSame &&
-                    $0.options.map { $0.lowercased() } == normalizedOptions.map { $0.lowercased() }
-                }
+                let key = normalizedQuestionKey(prompt: trimmedPrompt, options: normalizedOptions)
+                let duplicate = existingKeys.contains(key)
 
                 if duplicate {
                     skippedCount += 1
@@ -1787,6 +1787,7 @@ extension NoteStore {
                 )
                 if saved != nil {
                     addedCount += 1
+                    existingKeys.insert(key)
                 }
             }
 
@@ -1820,13 +1821,14 @@ extension NoteStore {
         }
     }
 
+    @discardableResult
     func recordTestAttempt(
         questionID: UUID,
         selectedOptionIndex: Int?,
         durationSeconds: TimeInterval? = nil,
         answeredAt: Date = Date()
-    ) {
-        guard let question = studyTestQuestions.first(where: { $0.id == questionID }) else { return }
+    ) -> Bool? {
+        guard let question = studyTestQuestions.first(where: { $0.id == questionID }) else { return nil }
         let isCorrect = selectedOptionIndex == question.correctOptionIndex
         let attempt = StudyTestAttempt(
             questionID: question.id,
@@ -1838,6 +1840,7 @@ extension NoteStore {
         )
         studyTestAttempts.append(attempt)
         saveStudy()
+        return isCorrect
     }
 
     func testStats(forQuestion questionID: UUID) -> StudyTestQuestionStats {
@@ -1878,10 +1881,7 @@ extension NoteStore {
                 )
             }
             .filter { $0.attempts > 0 }
-            .sorted {
-                if $0.accuracy == $1.accuracy { return $0.attempts > $1.attempts }
-                return $0.accuracy < $1.accuracy
-            }
+            .sorted { StudyTestWeakQuestion.ranksWeaker($0, than: $1) }
             .prefix(5)
 
         let calendar = Calendar.current
@@ -1906,6 +1906,14 @@ extension NoteStore {
             weakQuestions: Array(weakQuestions),
             dailyTrend: points
         )
+    }
+
+    private func normalizedQuestionKey(prompt: String, options: [String]) -> String {
+        let normalizedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedOptions = options
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .joined(separator: Self.studyTestKeyOptionSeparator)
+        return "\(normalizedPrompt)|\(normalizedOptions)"
     }
 
     // MARK: Spaced repetition

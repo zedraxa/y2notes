@@ -845,6 +845,8 @@ private struct TestFileImportSheet: View {
     @State private var errorMessage: String?
     @State private var importSummary: StudyTestImportSummary?
 
+    private let importSuccessDelay: TimeInterval = 0.8
+
     var body: some View {
         NavigationStack {
             Form {
@@ -914,7 +916,7 @@ private struct TestFileImportSheet: View {
                         let summary = noteStore.importTestQuestions(toSet: setID, jsonData: importData)
                         importSummary = summary
                         if summary.invalidCount == 0 && summary.addedCount > 0 {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { dismiss() }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + importSuccessDelay) { dismiss() }
                         }
                     }
                     .disabled(importData == nil || payloadPreview == nil)

@@ -69,7 +69,7 @@ final class StudyTestImportTests: XCTestCase {
         XCTAssertEqual(decoded.id, questionID)
         XCTAssertEqual(decoded.setID, setID)
         XCTAssertEqual(decoded.correctOptionIndex, 1)
-        XCTAssertFalse(decoded.createdAt.timeIntervalSince1970.isNaN)
-        XCTAssertFalse(decoded.modifiedAt.timeIntervalSince1970.isNaN)
+        XCTAssertEqual(decoded.modifiedAt, decoded.createdAt)
+        XCTAssertTrue(decoded.explanation == nil)
     }
 }

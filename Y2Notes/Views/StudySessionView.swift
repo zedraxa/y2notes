@@ -471,9 +471,19 @@ struct StudyTestSessionView: View {
     @State private var showSummary = false
     @State private var immediateFeedback = true
 
+    private static let optionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
     private var currentQuestion: StudyTestQuestion? {
         guard questions.indices.contains(index) else { return nil }
         return questions[index]
+    }
+
+    private var canAdvanceToNextQuestion: Bool {
+        guard selectedOptionIndex != nil else { return false }
+        if immediateFeedback {
+            return revealed
+        }
+        return true
     }
 
     var body: some View {
@@ -581,7 +591,7 @@ struct StudyTestSessionView: View {
                 advance()
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedOptionIndex == nil || (!revealed && immediateFeedback))
+            .disabled(!canAdvanceToNextQuestion)
             .padding()
         }
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
@@ -606,7 +616,7 @@ struct StudyTestSessionView: View {
     }
 
     private var summaryView: some View {
-        let duration = Int(Date().timeIntervalSince(sessionStart))
+        let duration = Date().timeIntervalSince(sessionStart)
         let accuracy = answeredTotal > 0 ? Double(correctAnswers) / Double(answeredTotal) * 100 : 0
         return VStack(spacing: 18) {
             Image(systemName: "rosette")
@@ -618,7 +628,7 @@ struct StudyTestSessionView: View {
                 .foregroundStyle(.secondary)
             HStack(spacing: 12) {
                 summaryStat(title: "Accuracy", value: String(format: "%.0f%%", accuracy))
-                summaryStat(title: "Duration", value: "\(duration)s")
+                summaryStat(title: "Duration", value: formattedDuration(duration))
             }
             .padding(.horizontal)
             Button("Done") { dismiss() }
@@ -647,13 +657,13 @@ struct StudyTestSessionView: View {
         selectedOptionIndex = optionIndex
 
         let elapsed = Date().timeIntervalSince(questionStart)
-        noteStore.recordTestAttempt(
+        let isCorrect = noteStore.recordTestAttempt(
             questionID: question.id,
             selectedOptionIndex: optionIndex,
             durationSeconds: elapsed
         )
         answeredTotal += 1
-        if optionIndex == question.correctOptionIndex {
+        if isCorrect ?? false {
             correctAnswers += 1
         }
         if immediateFeedback {
@@ -675,9 +685,9 @@ struct StudyTestSessionView: View {
     }
 
     private func letter(for index: Int) -> String {
-        let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        guard index < letters.count else { return "\(index + 1)" }
-        return String(Array(letters)[index])
+        guard index < Self.optionLetters.count else { return "\(index + 1)" }
+        let letterIndex = Self.optionLetters.index(Self.optionLetters.startIndex, offsetBy: index)
+        return String(Self.optionLetters[letterIndex])
     }
 
     private func optionRowBackground(_ optionIndex: Int, question: StudyTestQuestion) -> Color {
@@ -702,5 +712,15 @@ struct StudyTestSessionView: View {
         }
         if optionIndex == selectedOptionIndex { return .blue.opacity(0.2) }
         return Color(uiColor: .tertiarySystemFill)
+    }
+
+    private func formattedDuration(_ seconds: TimeInterval) -> String {
+        if seconds < 60 {
+            return String(format: "%.1fs", seconds)
+        }
+        let totalSeconds = Int(seconds.rounded())
+        let minutes = totalSeconds / 60
+        let remainder = totalSeconds % 60
+        return String(format: "%d:%02d", minutes, remainder)
     }
 }

@@ -108,11 +108,17 @@ struct StudyStatsView: View {
     }
 
     private var testAccuracyPercentText: String {
-        let total = relevantTestAttempts.count
-        guard total > 0 else { return "0%" }
-        let correct = relevantTestAttempts.filter(\.isCorrect).count
-        return String(format: "%.0f%%", (Double(correct) / Double(total)) * 100)
+        guard testTotalAttempts > 0 else { return "—" }
+        String(format: "%.0f%%", testAccuracyRatio * 100)
     }
+
+    private var testAccuracyRatio: Double {
+        accuracyRatio(correct: testCorrectAttempts, total: testTotalAttempts)
+    }
+
+    private var testTotalAttempts: Int { relevantTestAttempts.count }
+    private var testCorrectAttempts: Int { relevantTestAttempts.filter(\.isCorrect).count }
+    private var testIncorrectAttempts: Int { testTotalAttempts - testCorrectAttempts }
 
     private func statCard(title: String, value: String, icon: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -343,15 +349,12 @@ struct StudyStatsView: View {
                     .font(.callout)
                     .foregroundStyle(.tertiary)
             } else {
-                let total = relevantTestAttempts.count
-                let correct = relevantTestAttempts.filter(\.isCorrect).count
-                let incorrect = total - correct
-                let accuracy = total > 0 ? Double(correct) / Double(total) * 100 : 0
+                let accuracy = testAccuracyRatio * 100
 
                 HStack(spacing: 12) {
                     testBadge(title: "Questions", value: "\(relevantTestQuestions.count)", color: .blue)
-                    testBadge(title: "Correct", value: "\(correct)", color: .green)
-                    testBadge(title: "Wrong", value: "\(incorrect)", color: .red)
+                    testBadge(title: "Correct", value: "\(testCorrectAttempts)", color: .green)
+                    testBadge(title: "Wrong", value: "\(testIncorrectAttempts)", color: .red)
                     testBadge(title: "Accuracy", value: String(format: "%.0f%%", accuracy), color: .indigo)
                 }
             }
@@ -413,11 +416,15 @@ struct StudyStatsView: View {
             return StudyTestWeakQuestion(id: question.id, prompt: question.prompt, accuracy: accuracy, attempts: total)
         }
         .sorted {
-            if $0.accuracy == $1.accuracy { return $0.attempts > $1.attempts }
-            return $0.accuracy < $1.accuracy
+            StudyTestWeakQuestion.ranksWeaker($0, than: $1)
         }
         .prefix(5)
         .map { $0 }
+    }
+
+    private func accuracyRatio(correct: Int, total: Int) -> Double {
+        guard total > 0 else { return 0 }
+        return Double(correct) / Double(total)
     }
 
     private var testWeeklyTrend: some View {

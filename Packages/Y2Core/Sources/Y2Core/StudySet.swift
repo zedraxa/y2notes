@@ -355,7 +355,11 @@ public struct StudyTestQuestion: Identifiable, Codable, Hashable {
         explanation = try c.decodeIfPresent(String.self, forKey: .explanation)
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         source = try c.decodeIfPresent(String.self, forKey: .source)
-        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        // Backward compatibility: if old payloads only carried `modifiedAt`, use it.
+        // If neither timestamp exists (legacy/import edge case), default to decode time.
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+            ?? c.decodeIfPresent(Date.self, forKey: .modifiedAt)
+            ?? Date()
         modifiedAt = try c.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
     }
 }
@@ -424,6 +428,15 @@ public struct StudyTestWeakQuestion: Identifiable, Equatable {
         self.prompt = prompt
         self.accuracy = accuracy
         self.attempts = attempts
+    }
+}
+
+public extension StudyTestWeakQuestion {
+    static func ranksWeaker(_ lhs: StudyTestWeakQuestion, than rhs: StudyTestWeakQuestion) -> Bool {
+        if lhs.accuracy == rhs.accuracy {
+            return lhs.attempts > rhs.attempts
+        }
+        return lhs.accuracy < rhs.accuracy
     }
 }
 
