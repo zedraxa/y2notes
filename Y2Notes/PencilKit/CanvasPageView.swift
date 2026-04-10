@@ -1644,11 +1644,27 @@ extension CanvasPageView.Coordinator: PencilActionDelegate {
               let window = canvas.window else { return }
         // Convert from canvas coordinates to window coordinates.
         let windowPoint = canvas.convert(anchorPoint, to: window)
+        let ts = toolStoreRef
         ContextualPencilPaletteView.show(
             at: windowPoint,
             in: window,
             canvas: canvas,
-            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector
+            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector,
+            onToolSelected: { [weak ts] pkTool in
+                guard let ts else { return }
+                if pkTool is PKEraserTool {
+                    ts.activeTool = .eraser
+                } else if let ink = pkTool as? PKInkingTool {
+                    switch ink.inkType {
+                    case .pen:         ts.activeTool = .pen
+                    case .pencil:      ts.activeTool = .pencil
+                    case .marker:      ts.activeTool = .highlighter
+                    case .fountainPen: ts.activeTool = .fountainPen
+                    default:           break
+                    }
+                    ts.activeColor = ink.color
+                }
+            }
         )
     }
 

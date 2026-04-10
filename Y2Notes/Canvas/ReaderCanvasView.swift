@@ -36,6 +36,9 @@ struct ReaderCanvasView: View {
     /// Reference to the drawing tool store for toolbar auto-fade.
     var toolStore: DrawingToolStore?
 
+    /// Image provider for rendering sticker assets.
+    var stickerImageProvider: ((String) -> UIImage?)?
+
     var body: some View {
         CanvasView(
             noteID: configuration.noteID,
@@ -61,7 +64,31 @@ struct ReaderCanvasView: View {
             onPageSwipe: callbacks.onPageSwipe,
             onPinchToOverview: callbacks.onPinchToOverview,
             pdfURL: configuration.pdfURL,
-            toolStoreForFade: toolStore
+            toolStoreForFade: toolStore,
+            currentPageShapes: configuration.shapes,
+            onShapesChanged: callbacks.onShapesChanged,
+            currentPageAttachments: configuration.attachments,
+            attachmentNoteID: configuration.attachmentNoteID,
+            onAttachmentsChanged: callbacks.onAttachmentsChanged,
+            onAttachmentSelectionChanged: callbacks.onAttachmentSelectionChanged,
+            currentPageWidgets: configuration.widgets,
+            onWidgetsChanged: callbacks.onWidgetsChanged,
+            onWidgetSelectionChanged: callbacks.onWidgetSelectionChanged,
+            isTextToolActive: configuration.isTextToolActive,
+            currentPageTextObjects: configuration.textObjects,
+            onTextObjectsChanged: callbacks.onTextObjectsChanged,
+            onTextObjectSelectionChanged: callbacks.onTextObjectSelectionChanged,
+            onPlaceTextObject: callbacks.onPlaceTextObject,
+            currentPageStickers: configuration.stickers,
+            stickerImageProvider: stickerImageProvider,
+            onStickersChanged: callbacks.onStickersChanged,
+            onStickerSelectionChanged: callbacks.onStickerSelectionChanged,
+            pageCount: configuration.pageCount,
+            isMagicModeActive: configuration.isMagicModeActive,
+            isStudyModeActive: configuration.isStudyModeActive,
+            activeAmbientScene: configuration.activeAmbientScene,
+            isAmbientSoundEnabled: configuration.isAmbientSoundEnabled,
+            isNewPage: configuration.isNewPage
         )
     }
 }

@@ -1098,6 +1098,7 @@ extension CanvasView.Coordinator: PencilActionDelegate {
                 if pkTool is PKEraserTool {
                     ts.activeTool = .eraser
                 } else if let ink = pkTool as? PKInkingTool {
+                    // Sync tool type.
                     switch ink.inkType {
                     case .pen:         ts.activeTool = .pen
                     case .pencil:      ts.activeTool = .pencil
@@ -1105,6 +1106,8 @@ extension CanvasView.Coordinator: PencilActionDelegate {
                     case .fountainPen: ts.activeTool = .fountainPen
                     default:           break
                     }
+                    // Sync color so the floating toolbar reflects the palette's choice.
+                    ts.activeColor = ink.color
                 }
             }
         )

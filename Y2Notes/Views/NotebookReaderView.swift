@@ -409,6 +409,12 @@ struct NotebookReaderView: View {
                 placeSticker(asset)
             }
         }
+        .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
+            WidgetPickerView { kind in
+                placeWidget(kind)
+            }
+            .presentationDetents([.medium])
+        }
         .overlay(alignment: .topTrailing) {
             if showSavedBadge {
                 Label("Saved", systemImage: "checkmark.circle.fill")
@@ -1002,6 +1008,76 @@ struct NotebookReaderView: View {
         )
         existing.append(instance)
         noteStore.updateStickers(for: ref.noteID, pageIndex: pageIdx, stickers: existing)
+    }
+
+    /// Places a new widget on the current page, called from the WidgetPickerView sheet.
+    func placeWidget(_ kind: WidgetKind) {
+        guard let ref = currentPage else { return }
+        let pageIdx = ref.pageIndex
+        var widgets = noteStore.notes.first(where: { $0.id == ref.noteID })?.widgets(forPage: pageIdx) ?? []
+        guard widgets.count < WidgetConstants.maxWidgetsPerPage else { return }
+
+        let maxZ = widgets.map(\.zIndex).max() ?? 0
+        let pageSize = CanvasView.pageSize
+        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
+
+        var widget: NoteWidget
+        switch kind {
+        case .checklist:       widget = NoteWidget.makeChecklist(at: center)
+        case .quickTable:      widget = NoteWidget.makeQuickTable(at: center)
+        case .calloutBox:      widget = NoteWidget.makeCalloutBox(at: center)
+        case .referenceCard:   widget = NoteWidget.makeReferenceCard(at: center)
+        case .stickyNote:      widget = NoteWidget.makeStickyNote(at: center)
+        case .flashcard:       widget = NoteWidget.makeFlashcard(at: center)
+        case .progressTracker: widget = NoteWidget.makeProgressTracker(at: center)
+        }
+        widget.zIndex = maxZ + 1
+        widgets.append(widget)
+        noteStore.updateWidgets(for: ref.noteID, pageIndex: pageIdx, widgets: widgets)
+
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            toolStore.activeWidgetSelection = widget.id
+            toolStore.activeShapeSelection = nil
+            toolStore.activeStickerSelection = nil
+            toolStore.activeAttachmentSelection = nil
+            toolStore.activeTextObjectSelection = nil
+            toolStore.hasActiveSelection = false
+        }
+    }
+
+    /// Places a new text object at the given point, called from the text tool tap callback.
+    func placeTextObject(at tapPoint: CGPoint) {
+        guard let ref = currentPage else { return }
+        let pageIdx = ref.pageIndex
+        var objects = noteStore.notes.first(where: { $0.id == ref.noteID })?.textObjects(forPage: pageIdx) ?? []
+        guard objects.count < TextObjectConstants.maxTextObjectsPerPage else { return }
+
+        let maxZ = objects.map(\.zIndex).max() ?? 0
+        let size = TextObjectConstants.defaultSize
+        let origin = CGPoint(x: tapPoint.x - size.width / 2, y: tapPoint.y - size.height / 2)
+        let frame = CGRect(origin: origin, size: size)
+
+        let obj = TextObject(
+            frame: frame,
+            fontSize: toolStore.activeTextFontSize,
+            fontFamily: toolStore.activeTextFontFamily,
+            isBold: toolStore.activeTextBold,
+            textColor: .label,
+            alignment: toolStore.activeTextAlignment,
+            zIndex: maxZ + 1
+        )
+
+        objects.append(obj)
+        noteStore.updateTextObjects(for: ref.noteID, pageIndex: pageIdx, textObjects: objects)
+
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            toolStore.activeTextObjectSelection = obj.id
+            toolStore.activeShapeSelection = nil
+            toolStore.activeStickerSelection = nil
+            toolStore.activeAttachmentSelection = nil
+            toolStore.activeWidgetSelection = nil
+            toolStore.hasActiveSelection = false
+        }
     }
 
     private func blendedBackground(base: UIColor, tint: Color) -> UIColor {

@@ -143,7 +143,9 @@ struct ShelfView: View {
             } else if case .importNotes = selectedSection {
                 ImportLinkedNotesView(selectedNoteID: $selectedNoteID)
             } else if case .studySets = selectedSection {
-                StudySetListView()
+                NavigationStack {
+                    StudySetListView()
+                }
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,

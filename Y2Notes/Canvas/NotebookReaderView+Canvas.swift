@@ -51,8 +51,9 @@ extension NotebookReaderView {
             attachments: note.attachments(forPage: ref.pageIndex),
             attachmentNoteID: note.id,
             widgets: note.widgets(forPage: ref.pageIndex),
+            stickers: note.stickers(forPage: ref.pageIndex),
             textObjects: note.textObjects(forPage: ref.pageIndex),
-            isTextToolActive: false,
+            isTextToolActive: toolStore.activeTool == .text,
             pdfURL: noteStore.notePDFURL(for: note),
             pageCount: note.pageCount,
             isNewPage: false,
@@ -88,6 +89,35 @@ extension NotebookReaderView {
         callbacks.onPageSwipe = { direction in
             turnPage(direction: direction, totalPages: totalPages)
         }
+        // Object layer persistence
+        callbacks.onShapesChanged = { shapes in
+            noteStore.updateShapes(for: ref.noteID, pageIndex: ref.pageIndex, shapes: shapes)
+        }
+        callbacks.onAttachmentsChanged = { atts in
+            noteStore.updateAttachments(for: ref.noteID, pageIndex: ref.pageIndex, attachments: atts)
+        }
+        callbacks.onAttachmentSelectionChanged = CanvasPageCallbacks.selectionCallback(
+            for: \.activeAttachmentSelection, toolStore: toolStore
+        )
+        callbacks.onWidgetsChanged = { widgets in
+            noteStore.updateWidgets(for: ref.noteID, pageIndex: ref.pageIndex, widgets: widgets)
+        }
+        callbacks.onWidgetSelectionChanged = CanvasPageCallbacks.selectionCallback(
+            for: \.activeWidgetSelection, toolStore: toolStore
+        )
+        callbacks.onStickersChanged = { stickers in
+            noteStore.updateStickers(for: ref.noteID, pageIndex: ref.pageIndex, stickers: stickers)
+        }
+        callbacks.onStickerSelectionChanged = CanvasPageCallbacks.selectionCallback(
+            for: \.activeStickerSelection, toolStore: toolStore
+        )
+        callbacks.onTextObjectsChanged = { objs in
+            noteStore.updateTextObjects(for: ref.noteID, pageIndex: ref.pageIndex, textObjects: objs)
+        }
+        callbacks.onTextObjectSelectionChanged = CanvasPageCallbacks.selectionCallback(
+            for: \.activeTextObjectSelection, toolStore: toolStore
+        )
+        callbacks.onPlaceTextObject = { point in placeTextObject(at: point) }
         return callbacks
     }
 
@@ -104,7 +134,8 @@ extension NotebookReaderView {
             ReaderCanvasView(
                 configuration: config,
                 callbacks: callbacks,
-                toolStore: toolStore
+                toolStore: toolStore,
+                stickerImageProvider: { stickerStore.image(for: $0) }
             )
             .equatable()
             .id("\(ref.noteID)-\(ref.pageIndex)")
