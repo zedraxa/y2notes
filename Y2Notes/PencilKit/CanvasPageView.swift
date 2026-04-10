@@ -1787,9 +1787,9 @@ struct CanvasPageView: UIViewRepresentable {
         // MARK: - Dynamic Infinite Canvas Expansion
 
         /// Distance (in content points) from the current content edge at which
-        /// the canvas auto-expands. Using one page-width gives ample runway so
-        /// the user never actually hits the boundary.
-        private static let expansionMargin: CGFloat = CanvasPageView.pageSize.width
+        /// the canvas auto-expands. Half a page-width provides enough runway to
+        /// expand before the user reaches the boundary without growing too eagerly.
+        private static let expansionMargin: CGFloat = CanvasPageView.pageSize.width * 0.5
 
         /// Amount to grow the canvas in each direction that needs expanding,
         /// expressed as a multiple of the base page size.
