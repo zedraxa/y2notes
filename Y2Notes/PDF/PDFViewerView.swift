@@ -29,6 +29,9 @@ struct PDFViewerView: View {
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
 
+    /// Default centre for newly placed overlays (points from top-left).
+    private static let defaultOverlayCenter = CGPoint(x: 200, y: 300)
+
     // Sticker / widget state for the current page
     @State private var pageStickers: [StickerInstance] = []
     @State private var pageWidgets: [NoteWidget] = []
@@ -238,7 +241,7 @@ struct PDFViewerView: View {
                     Button {
                         let sticker = StickerInstance(
                             stickerID: "\(category.rawValue)_default",
-                            position: CGPoint(x: 200, y: 300),
+                            position: Self.defaultOverlayCenter,
                             scale: 1.0
                         )
                         pageStickers.append(sticker)
@@ -267,7 +270,7 @@ struct PDFViewerView: View {
             List {
                 ForEach(WidgetKind.allCases, id: \.rawValue) { kind in
                     Button {
-                        let center = CGPoint(x: 200, y: 300)
+                        let center = Self.defaultOverlayCenter
                         let widget: NoteWidget
                         switch kind {
                         case .checklist:       widget = .makeChecklist(at: center)

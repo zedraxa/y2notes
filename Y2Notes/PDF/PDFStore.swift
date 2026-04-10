@@ -230,7 +230,7 @@ final class PDFStore: ObservableObject {
         // Draw a placeholder rectangle for each sticker in the export
         // (actual sticker images require StickerStore which is not
         // available at this layer — a future enhancement).
-        let size: CGFloat = 64 * sticker.scale
+        let size: CGFloat = StickerConstants.defaultNaturalSize.width * sticker.scale
         let rect = CGRect(
             x: sticker.position.x - size / 2,
             y: sticker.position.y - size / 2,
