@@ -688,6 +688,8 @@ struct NoteGridView: View {
             return []
         case .documentLibrary:
             return []
+        case .studySets:
+            return []
         }
     }
 
@@ -719,6 +721,7 @@ struct NoteGridView: View {
         case .tag(let tag):       return "#\(tag)"
         case .pdfLibrary:         return "PDF Documents"
         case .documentLibrary:    return "Documents"
+        case .studySets:          return "Study Sets"
         }
     }
 
@@ -1515,6 +1518,7 @@ struct NoteGridView: View {
         case .tag:       return "tag"
         case .pdfLibrary: return "doc.richtext"
         case .documentLibrary: return "doc.fill"
+        case .studySets: return "rectangle.on.rectangle.angled"
         }
     }
 
@@ -1528,6 +1532,7 @@ struct NoteGridView: View {
         case .tag(let t): return "No Notes Tagged with \"#\(t)\""
         case .pdfLibrary: return "No PDFs Yet"
         case .documentLibrary: return "No Documents Yet"
+        case .studySets: return "No Study Sets Yet"
         }
     }
 
@@ -1541,6 +1546,7 @@ struct NoteGridView: View {
         case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
         case .documentLibrary: return "Import a document to get started."
+        case .studySets: return "Create a study set from a note's context menu."
         }
     }
 }

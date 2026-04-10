@@ -366,11 +366,13 @@ extension CanvasView {
             case .changed:
                 pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
             case .ended, .cancelled:
-                // Trigger overview when the user performed a clear pinch-in
-                // (fingers came together significantly). Threshold is 0.45 so that
-                // a normal zoom-out (which typically stays above 0.6) never
-                // accidentally triggers the overview grid.
-                if pinchOverviewMinScale < 0.45 {
+                // Trigger overview only when:
+                // 1. The gesture reached a very small scale (fingers came close together).
+                // 2. The gesture velocity is negative (fingers still moving inward at release).
+                // This prevents normal zoom-out from accidentally triggering the overview.
+                let isDeepPinch = pinchOverviewMinScale < 0.35
+                let isClosingAtEnd = gesture.velocity < 0
+                if isDeepPinch && isClosingAtEnd {
                     onPinchToOverview?()
                 }
                 pinchOverviewMinScale = 1.0
