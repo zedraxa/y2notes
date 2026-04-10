@@ -294,6 +294,10 @@ struct CanvasPageView: UIViewRepresentable {
         context.coordinator.canvas = canvas
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
+        // Tell the coordinator whether we're in infinite canvas mode so it can
+        // handle dynamic expansion when strokes approach the edges.
+        context.coordinator.isInfiniteCanvas = isInfiniteCanvas
+
         // Begin observing scroll/zoom so the page background tracks the canvas
         // content (zoom + pan).
         context.coordinator.observeCanvasScroll(canvas)
@@ -593,8 +597,14 @@ struct CanvasPageView: UIViewRepresentable {
         // run-loop tick because `canvas.bounds` may be `.zero` during `makeUIView`.
         if isInfiniteCanvas {
             DispatchQueue.main.async {
-                let cx = (contentSize.width - canvas.bounds.width) / 2
-                let cy = (contentSize.height - canvas.bounds.height) / 2
+                // If a restored drawing already extends beyond the initial
+                // content area (from a previous session that expanded), grow
+                // the canvas before centering so all content is reachable.
+                context.coordinator.expandCanvasIfNeeded(in: canvas)
+
+                let cs = canvas.contentSize
+                let cx = (cs.width - canvas.bounds.width) / 2
+                let cy = (cs.height - canvas.bounds.height) / 2
                 canvas.contentOffset = CGPoint(x: max(cx, 0), y: max(cy, 0))
             }
         }
@@ -989,6 +999,11 @@ struct CanvasPageView: UIViewRepresentable {
         /// Total page count, kept in sync by `updateUIView`.
         var coordinatorPageCount: Int = 1
 
+        /// Whether this page uses infinite canvas mode. When `true`, the
+        /// coordinator dynamically expands the content area when strokes
+        /// approach the current boundaries, giving a truly boundless surface.
+        var isInfiniteCanvas: Bool = false
+
         /// True while the user is actively drawing a stroke. Used to prevent
         /// `updateUIView` from overwriting `canvas.tool` mid-stroke, which
         /// would reset PencilKit's internal pressure/tilt pipeline.
@@ -1025,6 +1040,11 @@ struct CanvasPageView: UIViewRepresentable {
         /// `canvasViewDrawingDidChange` does not restart `holdToStraightenTimer`
         /// on the programmatic change.
         private var isStraightening = false
+
+        /// True while the canvas is being expanded (content shift in progress).
+        /// Prevents recursive `canvasViewDrawingDidChange` triggers from the
+        /// programmatic `drawing.transformed(using:)` call during expansion.
+        private var isExpandingCanvas = false
 
         /// Tracks Apple Pencil contact timing for palm rejection in `.anyInput` mode.
         let palmGuard = PalmGuardState()
@@ -1547,6 +1567,9 @@ struct CanvasPageView: UIViewRepresentable {
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            // Skip programmatic drawing changes from canvas expansion.
+            guard !isExpandingCanvas else { return }
+
             canvasPageSignposter.emitEvent("DrawingChanged")
 
             let data = canvasView.drawing.dataRepresentation()
@@ -1558,6 +1581,19 @@ struct CanvasPageView: UIViewRepresentable {
             lastPropagatedDrawingData = data
 
             onDrawingChanged(data)
+
+            // Dynamically expand the canvas if strokes are approaching the edges.
+            // When expansion shifts the drawing (left/top growth), re-propagate
+            // the updated drawing data so persistence stays in sync.
+            let preExpansionSize = canvasView.contentSize
+            expandCanvasIfNeeded(in: canvasView)
+            if canvasView.contentSize != preExpansionSize {
+                let updatedData = canvasView.drawing.dataRepresentation()
+                if updatedData != data {
+                    lastPropagatedDrawingData = updatedData
+                    onDrawingChanged(updatedData)
+                }
+            }
 
             // NOTE: effect position updates are driven by PencilNibTrackerGestureRecognizer
             // at the hardware's native touch rate.  No position dispatch is needed here.
@@ -1746,6 +1782,103 @@ struct CanvasPageView: UIViewRepresentable {
             stickerCanvas?.transform = xform
             textCanvas?.transform = xform
             CATransaction.commit()
+        }
+
+        // MARK: - Dynamic Infinite Canvas Expansion
+
+        /// Distance (in content points) from the current content edge at which
+        /// the canvas auto-expands. Using one page-width gives ample runway so
+        /// the user never actually hits the boundary.
+        private static let expansionMargin: CGFloat = CanvasPageView.pageSize.width
+
+        /// Amount to grow the canvas in each direction that needs expanding,
+        /// expressed as a multiple of the base page size.
+        private static let expansionIncrement: CGFloat = 2.0
+
+        /// Checks whether the drawing content is approaching the edges of the
+        /// current canvas content area and, if so, expands the canvas so the
+        /// user never hits a hard boundary.
+        ///
+        /// Expansion is performed by:
+        /// 1. Growing `canvas.contentSize` in the direction(s) that need room.
+        /// 2. Growing the `PageBackgroundView` frame to fill the new area.
+        /// 3. Adjusting `canvas.contentOffset` when the canvas grows toward the
+        ///    top or left so existing content doesn't jump.
+        func expandCanvasIfNeeded(in canvasView: PKCanvasView) {
+            guard isInfiniteCanvas else { return }
+
+            let drawingBounds = canvasView.drawing.bounds
+            // Nothing drawn yet — nothing to expand for.
+            guard !drawingBounds.isEmpty else { return }
+
+            let currentSize = canvasView.contentSize
+            let ps = CanvasPageView.pageSize
+            let margin = Self.expansionMargin
+            let increment = ps.width * Self.expansionIncrement
+
+            var dw: CGFloat = 0          // extra width to add
+            var dh: CGFloat = 0          // extra height to add
+            var offsetDx: CGFloat = 0    // content offset shift (left expansion)
+            var offsetDy: CGFloat = 0    // content offset shift (top expansion)
+
+            // Right edge: drawing is within margin of the content right boundary.
+            if drawingBounds.maxX > currentSize.width - margin {
+                dw += increment
+            }
+
+            // Left edge: drawing is within margin of the content left boundary.
+            if drawingBounds.minX < margin {
+                dw += increment
+                offsetDx = increment   // shift existing content rightward
+            }
+
+            // Bottom edge: drawing is within margin of the content bottom boundary.
+            if drawingBounds.maxY > currentSize.height - margin {
+                dh += increment
+            }
+
+            // Top edge: drawing is within margin of the content top boundary.
+            if drawingBounds.minY < margin {
+                dh += increment
+                offsetDy = increment   // shift existing content downward
+            }
+
+            // Nothing to expand.
+            guard dw > 0 || dh > 0 else { return }
+
+            let newSize = CGSize(
+                width: currentSize.width + dw,
+                height: currentSize.height + dh
+            )
+
+            // If expanding toward the top or left the origin moves, so we must
+            // translate every existing stroke so it stays in the same visual
+            // position relative to the new, larger content area.
+            if offsetDx > 0 || offsetDy > 0 {
+                let shift = CGAffineTransform(translationX: offsetDx, y: offsetDy)
+                isExpandingCanvas = true
+                canvasView.drawing = canvasView.drawing.transformed(using: shift)
+                isExpandingCanvas = false
+            }
+
+            // Resize the canvas content area.
+            canvasView.contentSize = newSize
+
+            // Shift scroll position to compensate so the viewport doesn't jump.
+            if offsetDx > 0 || offsetDy > 0 {
+                var offset = canvasView.contentOffset
+                offset.x += offsetDx
+                offset.y += offsetDy
+                canvasView.contentOffset = offset
+            }
+
+            // Resize the page background to cover the new content area.
+            if let bg = pageBackground {
+                bg.frame = CGRect(origin: .zero, size: newSize)
+            }
+
+            // Keep overlay backgrounds in sync.
+            syncBackgroundWithCanvas(canvasView)
         }
 
         // MARK: - UIScrollViewDelegate (zoom centering)
