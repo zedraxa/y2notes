@@ -30,7 +30,6 @@ These are the most critical tests — data corruption is the worst possible bug.
 | | `drawingData` computed property maps to `pages[0]` |
 | | Dual encoding: both `drawingData` and `pages` keys present |
 | `NotebookTests.swift` | All `NotebookCover` cases encode/decode |
-| | All `PaperMaterial` cases encode/decode |
 | | All `PageType` cases encode/decode |
 | | Custom cover data round-trip |
 | `StudySetTests.swift` | Flashcard SM-2 parameters persist |

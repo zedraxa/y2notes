@@ -24,7 +24,6 @@ The fundamental unit of content. Each note contains multi-page drawing data and 
 | `templateID` | `String` | `"builtin.blank"` | Page template applied at creation |
 | `themeOverride` | `AppTheme?` | `nil` | Per-note theme (nil = inherit) |
 | `pageType` | `PageType?` | `nil` | Per-note ruling (nil = inherit from notebook, or .blank) |
-| `paperMaterial` | `PaperMaterial?` | `nil` | Per-note paper (nil = inherit from notebook, or .standard) |
 | `typedText` | `String` | `""` | Keyboard-typed text content |
 | `ocrText` | `String` | `""` | Handwriting OCR result |
 
@@ -51,7 +50,6 @@ Organises notes into named containers with default page configuration.
 | `pageSize` | `PageSize` | `.letter` | Default page size |
 | `orientation` | `PageOrientation` | `.portrait` | Default orientation |
 | `defaultTheme` | `AppTheme?` | `nil` | Theme override for notes |
-| `paperMaterial` | `PaperMaterial` | `.standard` | Default paper texture |
 | `customCoverData` | `Data?` | `nil` | JPEG cover image from photo library |
 
 ---
@@ -172,20 +170,6 @@ Derived from `interval` field:
 
 ---
 
-### PaperMaterial (7 cases)
-
-| Case | Display | Ink Alpha | Grain Texture | Page Tint |
-|------|---------|-----------|---------------|-----------|
-| `.standard` | Standard | 1.00 | No | White |
-| `.premium` | Premium | 1.00 | No | Slight purple |
-| `.craft` | Craft | 0.88 | Yes | Warm kraft |
-| `.recycled` | Recycled | 0.90 | Yes | Light gray |
-| `.matte` | Matte | 0.92 | No | Near-white |
-| `.glossy` | Glossy | 1.00 | No | Pure white |
-| `.textured` | Textured | 0.84 | Yes | Warm cream |
-
----
-
 ### AppTheme (6 cases)
 
 | Case | Canvas BG | Ink Color | Description |
@@ -292,7 +276,6 @@ handwritten note is 5–50 KB of base64 data. Multi-page notes store an array of
   "templateID": "builtin.lined",
   "themeOverride": null,
   "pageType": "ruled",
-  "paperMaterial": "premium",
   "typedText": "",
   "ocrText": ""
 }

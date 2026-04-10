@@ -701,7 +701,7 @@ Y2Notes supports rich embedded objects placed directly on the canvas alongside i
 
 ```
 Bottom (furthest back)
-├── Page background (ruling lines, paper texture)
+├── Page background (ruling lines)
 ├── Embedded objects (sorted by zIndex) ← Y2ObjectOverlayController
 │   ├── Images (Y2ImageObjectView)
 │   ├── Audio clips (Y2AudioClipView)
