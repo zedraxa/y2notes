@@ -35,7 +35,7 @@ struct NotebookReaderView: View {
     /// Weak reference to the active canvas page's undo manager, captured via
     /// `onUndoStateChanged`. Using this instead of `@Environment(\.undoManager)`
     /// ensures undo/redo targets the PKCanvasView directly.
-    @State private var canvasUndoManager: UndoManager?
+    @State var canvasUndoManager: UndoManager?
     /// Horizontal drag offset for the page-turn gesture.
     @State private var dragOffset: CGFloat = 0
     /// Direction of the last completed page turn for the slide transition.

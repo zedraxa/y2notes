@@ -135,7 +135,10 @@ extension NotebookReaderView {
                 configuration: config,
                 callbacks: callbacks,
                 toolStore: toolStore,
-                stickerImageProvider: { stickerStore.image(for: $0) }
+                stickerImageProvider: { id in
+                    guard let asset = stickerStore.asset(for: id) else { return nil }
+                    return stickerStore.image(for: asset)
+                }
             )
             .equatable()
             .id("\(ref.noteID)-\(ref.pageIndex)")
