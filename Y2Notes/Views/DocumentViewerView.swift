@@ -455,7 +455,10 @@ private struct DocumentGridCell: View {
     var hasCompanionNote: Bool = false
     let onTap: () -> Void
 
-    private static let companionBadgeColor = Color(uiColor: UIColor(red: 0.3, green: 0.5, blue: 0.7, alpha: 1.0))
+    private static let companionBadgeUIColor = UIColor(
+        displayP3Red: 0.3, green: 0.5, blue: 0.7, alpha: 1.0
+    )
+    private static let companionBadgeColor = Color(uiColor: companionBadgeUIColor)
 
     var body: some View {
         Button(action: onTap) {
