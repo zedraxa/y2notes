@@ -65,10 +65,9 @@ extension NotebookReaderView {
 
     /// Builds a `CanvasPageCallbacks` for a reader page.
     ///
-    /// Reader callbacks are simpler than editor callbacks:
-    /// - No undo state reporting (reader toolbar doesn't show undo/redo).
-    /// - `onPageSwipe` wired to `turnPage(direction:totalPages:)`.
-    /// - `onPinchToOverview` wired to `showPageOverview`.
+    /// Wires drawing persistence, navigation, and object-layer persistence
+    /// callbacks so shapes, attachments, widgets, stickers, and text objects
+    /// are fully functional in reader mode.
     func makeReaderPageCallbacks(
         for ref: PageRef,
         totalPages: Int
@@ -79,10 +78,42 @@ extension NotebookReaderView {
             },
             onSaveRequested: { noteStore.save() }
         )
+        callbacks.onUndoStateChanged = { [self] canUndoVal, canRedoVal in
+            canUndo = canUndoVal
+            canRedo = canRedoVal
+        }
         callbacks.onPinchToOverview = { showPageOverview = true }
         callbacks.onPageSwipe = { direction in
             turnPage(direction: direction, totalPages: totalPages)
         }
+        // Object layer persistence
+        callbacks.onShapesChanged = { shapes in
+            noteStore.updateShapes(for: ref.noteID, pageIndex: ref.pageIndex, shapes: shapes)
+        }
+        callbacks.onAttachmentsChanged = { atts in
+            noteStore.updateAttachments(for: ref.noteID, pageIndex: ref.pageIndex, attachments: atts)
+        }
+        callbacks.onAttachmentSelectionChanged = CanvasPageCallbacks.selectionCallback(
+            for: \.activeAttachmentSelection, toolStore: toolStore
+        )
+        callbacks.onWidgetsChanged = { widgets in
+            noteStore.updateWidgets(for: ref.noteID, pageIndex: ref.pageIndex, widgets: widgets)
+        }
+        callbacks.onWidgetSelectionChanged = CanvasPageCallbacks.selectionCallback(
+            for: \.activeWidgetSelection, toolStore: toolStore
+        )
+        callbacks.onStickersChanged = { stickers in
+            noteStore.updateStickers(for: ref.noteID, pageIndex: ref.pageIndex, stickers: stickers)
+        }
+        callbacks.onStickerSelectionChanged = CanvasPageCallbacks.selectionCallback(
+            for: \.activeStickerSelection, toolStore: toolStore
+        )
+        callbacks.onTextObjectsChanged = { objs in
+            noteStore.updateTextObjects(for: ref.noteID, pageIndex: ref.pageIndex, textObjects: objs)
+        }
+        callbacks.onTextObjectSelectionChanged = CanvasPageCallbacks.selectionCallback(
+            for: \.activeTextObjectSelection, toolStore: toolStore
+        )
         return callbacks
     }
 
@@ -99,7 +130,11 @@ extension NotebookReaderView {
             ReaderCanvasView(
                 configuration: config,
                 callbacks: callbacks,
-                toolStore: toolStore
+                toolStore: toolStore,
+                stickerImageProvider: { id in
+                    guard let asset = stickerStore.asset(for: id) else { return nil }
+                    return stickerStore.image(for: asset)
+                }
             )
             .equatable()
             .id("\(ref.noteID)-\(ref.pageIndex)")
@@ -123,7 +158,6 @@ extension NotebookReaderView {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
             .padding(.horizontal, 4)
-            .animation(.spring(response: 0.3, dampingFraction: 0.88), value: flatPageIndex)
         }
     }
 }

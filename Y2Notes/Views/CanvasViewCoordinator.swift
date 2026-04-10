@@ -978,12 +978,14 @@ extension CanvasView {
             CATransaction.setDisableActions(true)
             bg.transform = xform
             pdfBackgroundView?.transform = xform
-            // Keep object overlay canvases (shapes, attachments, widgets)
-            // in sync with the PencilKit canvas zoom/scroll so objects
-            // rendered in page-local coordinates don't drift from ink.
+            // Keep object overlay canvases in sync with the PencilKit canvas
+            // zoom/scroll so objects rendered in page-local coordinates
+            // don't drift from ink.
             shapeCanvas?.transform = xform
             attachmentCanvas?.transform = xform
             widgetCanvas?.transform = xform
+            stickerCanvas?.transform = xform
+            textCanvas?.transform = xform
             CATransaction.commit()
         }
 

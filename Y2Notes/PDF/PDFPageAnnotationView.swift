@@ -107,10 +107,13 @@ final class PDFAnnotationContainer: UIView {
         ])
 
         // ── PKCanvasView ───────────────────────────────────────────────────
+        // The canvas must NOT have its own zoom/scroll — PDFView owns zoom.
+        // Setting min/max to 1.0 and disabling scroll ensures the canvas acts
+        // as a fixed overlay on the PDF page.
         canvas.backgroundColor             = .clear
-        canvas.minimumZoomScale            = 0.25
-        canvas.maximumZoomScale            = 5.0
-        canvas.bouncesZoom                 = true
+        canvas.minimumZoomScale            = 1.0
+        canvas.maximumZoomScale            = 1.0
+        canvas.isScrollEnabled             = false
         canvas.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(canvas)
@@ -132,6 +135,14 @@ final class PDFAnnotationContainer: UIView {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Give PKCanvasView a valid drawing area that matches the view bounds.
+        // Without this, the canvas contentSize may be zero and drawing input
+        // is silently ignored.
+        canvas.contentSize = bounds.size
     }
 
     // MARK: - Configuration

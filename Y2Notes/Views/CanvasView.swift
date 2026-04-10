@@ -479,8 +479,7 @@ struct CanvasView: UIViewRepresentable {
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [context] location in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
                 .strokeBegan(at: location, inkColor: inkColor),
@@ -489,8 +488,7 @@ struct CanvasView: UIViewRepresentable {
         }
         nibTracker.onNibMoved = { [context] location, force, velocity in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),
                 inkEffectEngine: coordinator.effectEngine

@@ -20,7 +20,9 @@ struct NotebookReaderView: View {
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
     @EnvironmentObject var navigationStore: NavigationStore
+    @EnvironmentObject var stickerStore: StickerStore
     @Environment(TabWorkspaceStore.self) private var workspace
+    @Environment(\.undoManager) var undoManager
     let notebook: Notebook
     /// The tab ID for state sync. `nil` when the reader is not hosted inside
     /// the tab workspace (e.g. launched directly from a shortcut or widget).
@@ -49,6 +51,10 @@ struct NotebookReaderView: View {
     @State private var isShowingCoverPage = false
     /// Whether the notebook info sheet is shown.
     @State private var showNotebookInfo = false
+    /// Whether the canvas can undo.
+    @State var canUndo = false
+    /// Whether the canvas can redo.
+    @State var canRedo = false
 
     // MARK: - Linearised page model
 
@@ -253,7 +259,12 @@ struct NotebookReaderView: View {
                     // Floating toolbar capsule — bottom-center, above page bar
                     FloatingToolbarCapsule(
                         toolStore: toolStore,
-                        inkStore: inkStore
+                        inkStore: inkStore,
+                        stickerStore: stickerStore,
+                        canUndo: canUndo,
+                        canRedo: canRedo,
+                        onUndo: { undoManager?.undo() },
+                        onRedo: { undoManager?.redo() }
                     )
                     .opacity(toolStore.toolbarOpacity)
                     .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
@@ -391,6 +402,18 @@ struct NotebookReaderView: View {
         .sheet(isPresented: $showNotebookInfo) {
             NotebookInfoView(notebook: notebook)
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
+            StickerLibraryView(stickerStore: stickerStore) { asset in
+                placeSticker(asset)
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
+            WidgetPickerView { kind in
+                placeWidget(kind)
+            }
+            .presentationDetents([.medium])
         }
         .overlay(alignment: .topTrailing) {
             if showSavedBadge {
@@ -715,6 +738,55 @@ struct NotebookReaderView: View {
                     }
                 }
             }
+    }
+
+    // MARK: - Object Placement
+
+    /// Places a sticker on the current reader page.
+    func placeSticker(_ asset: StickerAsset) {
+        guard let ref = currentPage else { return }
+        var stickers = noteStore.notes
+            .first(where: { $0.id == ref.noteID })?
+            .stickers(forPage: ref.pageIndex) ?? []
+        guard stickers.count < StickerConstants.maxStickersPerPage else { return }
+        let maxZ = stickers.map(\.zIndex).max() ?? 0
+        let pageSize = CanvasView.pageSize
+        let instance = StickerInstance(
+            stickerID: asset.id,
+            position: CGPoint(x: pageSize.width / 2, y: pageSize.height / 2),
+            scale: 1.0,
+            rotation: 0,
+            opacity: 1.0,
+            zIndex: maxZ + 1,
+            isLocked: false
+        )
+        stickers.append(instance)
+        noteStore.updateStickers(for: ref.noteID, pageIndex: ref.pageIndex, stickers: stickers)
+    }
+
+    /// Places a widget on the current reader page.
+    func placeWidget(_ kind: WidgetKind) {
+        guard let ref = currentPage else { return }
+        var widgets = noteStore.notes
+            .first(where: { $0.id == ref.noteID })?
+            .widgets(forPage: ref.pageIndex) ?? []
+        guard widgets.count < WidgetConstants.maxWidgetsPerPage else { return }
+        let maxZ = widgets.map(\.zIndex).max() ?? 0
+        let pageSize = CanvasView.pageSize
+        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
+        var widget: NoteWidget
+        switch kind {
+        case .checklist:     widget = NoteWidget.makeChecklist(at: center)
+        case .quickTable:    widget = NoteWidget.makeQuickTable(at: center)
+        case .calloutBox:    widget = NoteWidget.makeCalloutBox(at: center)
+        case .referenceCard: widget = NoteWidget.makeReferenceCard(at: center)
+        case .stickyNote:    widget = NoteWidget.makeStickyNote(at: center)
+        case .flashcard:     widget = NoteWidget.makeFlashcard(at: center)
+        case .progressTracker: widget = NoteWidget.makeProgressTracker(at: center)
+        }
+        widget.zIndex = maxZ + 1
+        widgets.append(widget)
+        noteStore.updateWidgets(for: ref.noteID, pageIndex: ref.pageIndex, widgets: widgets)
     }
 
     /// Turns to the next or previous page. When swiping past the last page,
