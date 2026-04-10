@@ -60,7 +60,23 @@ struct NotebookCarouselView: View {
         ZStack(alignment: .bottom) {
             carouselScrollView
             pageIndicator
+            // Show a hint when zoom disables page swiping, so the user
+            // understands why horizontal swipe doesn't change pages.
+            if note.pageCount > 1,
+               pageZooms[currentPageIndex, default: 1.0] > Self.minZoomForScrollDisable {
+                Text(NSLocalizedString("Pages.ZoomOutToSwipe",
+                                       comment: "Hint shown when zoom disables page swiping"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.bottom, 44)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: pageZooms[currentPageIndex, default: 1.0] > Self.minZoomForScrollDisable)
         .onChange(of: currentPageIndex) { oldVal, newVal in
             guard oldVal != newVal else { return }
             pageTurnHaptic.impactOccurred(intensity: 0.5)

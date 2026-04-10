@@ -129,8 +129,12 @@ struct CanvasPageConfiguration: Equatable {
         else { return false }
 
         // Drawing state
-        guard lhs.drawingData == rhs.drawingData,
-              ToolSnapshot(lhs.currentTool) == ToolSnapshot(rhs.currentTool),
+        // NOTE: `drawingData` is intentionally EXCLUDED from equality.
+        // PKCanvasView owns the drawing after makeUIView sets it once.
+        // Including drawingData here causes a feedback loop:
+        //   stroke → onDrawingChanged → noteStore @Published → SwiftUI re-eval
+        //   → config inequality → updateUIView / view recreation → double writing.
+        guard ToolSnapshot(lhs.currentTool) == ToolSnapshot(rhs.currentTool),
               lhs.drawingPolicy == rhs.drawingPolicy
         else { return false }
 

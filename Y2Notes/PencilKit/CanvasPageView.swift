@@ -67,6 +67,15 @@ struct CanvasPageView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Sticker instances for the current page.
+    var currentPageStickers: [StickerInstance] = []
+    /// Callback to persist sticker changes.
+    var onStickersChanged: (([StickerInstance]) -> Void)?
+    /// Callback when sticker selection changes.
+    var onStickerSelectionChanged: ((UUID?) -> Void)?
+    /// Image provider for rendering sticker assets.
+    var stickerImageProvider: ((String) -> UIImage?)?
+
     /// Whether the text tool is active (text canvas overlay intercepts touches).
     var isTextToolActive: Bool = false
     /// Text objects for the current page.
@@ -331,6 +340,31 @@ struct CanvasPageView: UIViewRepresentable {
             widgetCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         context.coordinator.widgetCanvas = widgetCanvas
+
+        // ── Sticker canvas (draggable sticker overlays) ──────────────────────
+        let stickerCanvas = StickerCanvasView(frame: .zero)
+        stickerCanvas.translatesAutoresizingMaskIntoConstraints = false
+        stickerCanvas.stickers = currentPageStickers
+        stickerCanvas.imageProvider = stickerImageProvider
+        stickerCanvas.onStickerTransformed = { sticker in
+            context.coordinator.handleStickerTransformed(sticker)
+        }
+        stickerCanvas.onStickerDeleted = { stickerID in
+            context.coordinator.handleStickerDeleted(stickerID)
+        }
+        stickerCanvas.onSelectionChanged = { stickerID in
+            context.coordinator.handleStickerSelectionChanged(stickerID)
+        }
+        context.coordinator.onStickersChanged = onStickersChanged
+        context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
+        container.addSubview(stickerCanvas)
+        NSLayoutConstraint.activate([
+            stickerCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            stickerCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stickerCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stickerCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.stickerCanvas = stickerCanvas
 
         // ── Text object canvas (anchored text boxes layer) ───────────────────
         let textCanvas = TextCanvasView(frame: .zero)
@@ -649,6 +683,15 @@ struct CanvasPageView: UIViewRepresentable {
         coordinator.onWidgetsChanged = onWidgetsChanged
         coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
 
+        // Sync sticker canvas.
+        if let stickerCanvas = coordinator.stickerCanvas {
+            stickerCanvas.stickers = currentPageStickers
+            stickerCanvas.imageProvider = stickerImageProvider
+            stickerCanvas.selectedStickerID = toolStoreForFade?.activeStickerSelection
+        }
+        coordinator.onStickersChanged = onStickersChanged
+        coordinator.onStickerSelectionChanged = onStickerSelectionChanged
+
         // Sync text object canvas.
         if let textCanvas = coordinator.textCanvas {
             textCanvas.isTextToolActive = isTextToolActive
@@ -674,7 +717,8 @@ struct CanvasPageView: UIViewRepresentable {
             intensity: intensity,
             shapeCanvas: coordinator.shapeCanvas,
             attachmentCanvas: coordinator.attachmentCanvas,
-            widgetCanvas: coordinator.widgetCanvas
+            widgetCanvas: coordinator.widgetCanvas,
+            stickerCanvas: coordinator.stickerCanvas
         )
 
         // Sync magic mode engine — activate/deactivate when toggle changes.
@@ -772,7 +816,10 @@ struct CanvasPageView: UIViewRepresentable {
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
         var lastZoomResetTrigger: Bool = false
         private var debounceTimer: Timer?
-
+        /// Tracks the last drawing data that was propagated to the store.
+        /// Prevents the feedback loop: stroke → onDrawingChanged → noteStore
+        /// → SwiftUI re-eval → canvasViewDrawingDidChange → duplicate dispatch.
+        private var lastPropagatedDrawingData: Data?
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
         /// Passive gesture recognizer that feeds real-time pencil positions
@@ -834,6 +881,18 @@ struct CanvasPageView: UIViewRepresentable {
 
         /// Callback when widget selection changes.
         var onWidgetSelectionChanged: ((UUID?) -> Void)?
+
+        /// Sticker canvas overlay for the current page.
+        weak var stickerCanvas: StickerCanvasView?
+
+        /// Debounce timer for persisting sticker changes.
+        private var stickerDebounceTimer: Timer?
+
+        /// Callback to persist sticker changes.
+        var onStickersChanged: (([StickerInstance]) -> Void)?
+
+        /// Callback when sticker selection changes.
+        var onStickerSelectionChanged: ((UUID?) -> Void)?
 
         /// Text object canvas overlay for the current page.
         weak var textCanvas: TextCanvasView?
@@ -1231,6 +1290,40 @@ struct CanvasPageView: UIViewRepresentable {
             }
         }
 
+        // MARK: - Sticker Coordinator
+
+        /// Called when a sticker is moved, scaled, or rotated.
+        func handleStickerTransformed(_ sticker: StickerInstance) {
+            guard let stickerCanvas = stickerCanvas else { return }
+            if let idx = stickerCanvas.stickers.firstIndex(where: { $0.id == sticker.id }) {
+                stickerCanvas.stickers[idx] = sticker
+            }
+            handleStickersChanged(stickerCanvas.stickers)
+        }
+
+        /// Called when a sticker is deleted.
+        func handleStickerDeleted(_ stickerID: UUID) {
+            guard let stickerCanvas = stickerCanvas else { return }
+            stickerCanvas.stickers.removeAll(where: { $0.id == stickerID })
+            handleStickersChanged(stickerCanvas.stickers)
+        }
+
+        /// Called when sticker selection changes.
+        func handleStickerSelectionChanged(_ stickerID: UUID?) {
+            onStickerSelectionChanged?(stickerID)
+        }
+
+        /// Debounced persistence for sticker changes.
+        func handleStickersChanged(_ stickers: [StickerInstance]) {
+            stickerDebounceTimer?.invalidate()
+            stickerDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: 0.3,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onStickersChanged?(stickers)
+            }
+        }
+
         // MARK: - Text Object Coordinator
 
         /// Called when a text object is moved, resized, or rotated.
@@ -1361,6 +1454,13 @@ struct CanvasPageView: UIViewRepresentable {
             canvasPageSignposter.emitEvent("DrawingChanged")
 
             let data = canvasView.drawing.dataRepresentation()
+
+            // Guard against feedback loops: if the data matches what we last
+            // propagated, this change was caused by SwiftUI re-applying state
+            // (e.g. view recreation by LazyHStack) — skip the round-trip.
+            guard data != lastPropagatedDrawingData else { return }
+            lastPropagatedDrawingData = data
+
             onDrawingChanged(data)
 
             // NOTE: effect position updates are driven by PencilNibTrackerGestureRecognizer
@@ -1547,6 +1647,7 @@ struct CanvasPageView: UIViewRepresentable {
             shapeCanvas?.transform = xform
             attachmentCanvas?.transform = xform
             widgetCanvas?.transform = xform
+            stickerCanvas?.transform = xform
             textCanvas?.transform = xform
             CATransaction.commit()
         }

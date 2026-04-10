@@ -30,6 +30,10 @@ extension CanvasView {
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
         var lastZoomResetTrigger: Bool = false
         private var debounceTimer: Timer?
+        /// Tracks the last drawing data that was propagated to the store.
+        /// Prevents the feedback loop: stroke → onDrawingChanged → noteStore
+        /// → SwiftUI re-eval → canvasViewDrawingDidChange → duplicate dispatch.
+        private var lastPropagatedDrawingData: Data?
 
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
@@ -805,6 +809,13 @@ extension CanvasView {
             editorSignposter.emitEvent("DrawingChanged")
 
             let data = canvasView.drawing.dataRepresentation()
+
+            // Guard against feedback loops: if the data matches what we last
+            // propagated, this change was caused by SwiftUI re-applying state
+            // (e.g. view recreation by LazyHStack) — skip the round-trip.
+            guard data != lastPropagatedDrawingData else { return }
+            lastPropagatedDrawingData = data
+
             onDrawingChanged(data)
 
             // NOTE: effect position updates are driven by PencilNibTrackerGestureRecognizer
