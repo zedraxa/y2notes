@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - Notebook Info View
 
@@ -8,6 +9,10 @@ struct NotebookInfoView: View {
     @EnvironmentObject var noteStore: NoteStore
     @Environment(\.dismiss) private var dismiss
     let notebook: Notebook
+
+    @State private var showCoverPicker = false
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var customCoverData: Data?
 
     private var allNotes: [Note] {
         noteStore.notes(inNotebook: notebook.id)
@@ -42,6 +47,18 @@ struct NotebookInfoView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("Common.Done", comment: "")) { dismiss() }
+                }
+            }
+            .sheet(isPresented: $showCoverPicker) {
+                coverPickerSheet
+            }
+            .task(id: pickerItem) {
+                guard let item = pickerItem else { return }
+                if let raw = try? await item.loadTransferable(type: Data.self),
+                   let uiImg = UIImage(data: raw),
+                   let jpeg = uiImg.jpegData(compressionQuality: 0.75) {
+                    customCoverData = jpeg
+                    noteStore.updateNotebookCustomCover(id: liveNotebook.id, customCoverData: jpeg)
                 }
             }
         }
@@ -216,6 +233,13 @@ struct NotebookInfoView: View {
 
     private var actionsSection: some View {
         Section {
+            // Change cover button
+            Button {
+                showCoverPicker = true
+            } label: {
+                Label("Change Cover", systemImage: "photo.on.rectangle")
+            }
+
             // Colour tag picker
             HStack {
                 Label(
@@ -311,5 +335,109 @@ struct NotebookInfoView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    // MARK: - Cover Picker Sheet
+
+    private var coverPickerSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    Text("Choose a new cover for your notebook")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+
+                    // Built-in covers grid
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 12)], spacing: 12) {
+                        ForEach(NotebookCover.allCases, id: \.self) { cover in
+                            coverSwatch(cover)
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    Divider()
+                        .padding(.vertical, 8)
+
+                    // Custom photo cover picker
+                    PhotosPicker(
+                        selection: $pickerItem,
+                        matching: .images,
+                        photoLibrary: .shared()
+                    ) {
+                        VStack(spacing: 8) {
+                            if let data = liveNotebook.customCoverData,
+                               let uiImg = UIImage(data: data) {
+                                Image(uiImage: uiImg)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 100, height: 140)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.accentColor, lineWidth: 2)
+                                    )
+                            } else {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.tertiarySystemGroupedBackground))
+                                    .frame(width: 100, height: 140)
+                                    .overlay(
+                                        VStack(spacing: 6) {
+                                            Image(systemName: "camera.fill")
+                                                .font(.system(size: 24))
+                                            Text("Custom")
+                                                .font(.caption)
+                                        }
+                                        .foregroundStyle(.secondary)
+                                    )
+                            }
+                            Text("Choose from Photos")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.accentColor)
+                        }
+                    }
+                }
+                .padding(.vertical, 20)
+            }
+            .navigationTitle("Change Cover")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        showCoverPicker = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func coverSwatch(_ cover: NotebookCover) -> some View {
+        let isSelected = liveNotebook.customCoverData == nil && liveNotebook.cover == cover
+        return Button {
+            noteStore.updateNotebookCover(id: liveNotebook.id, cover: cover)
+            noteStore.updateNotebookCustomCover(id: liveNotebook.id, customCoverData: nil)
+        } label: {
+            VStack(spacing: 4) {
+                ZStack {
+                    cover.gradient
+                        .frame(width: 70, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(.white, lineWidth: 3)
+                            .frame(width: 70, height: 100)
+                    }
+                }
+                .shadow(color: .black.opacity(isSelected ? 0.25 : 0.1), radius: isSelected ? 6 : 3, y: 2)
+
+                Text(cover.displayName)
+                    .font(.caption2)
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }

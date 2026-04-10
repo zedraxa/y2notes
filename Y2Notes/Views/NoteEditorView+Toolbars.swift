@@ -31,7 +31,7 @@ extension NoteEditorView {
                 )
                 .opacity(toolStore.toolbarOpacity)
                 .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
-                .allowsHitTesting(toolStore.toolbarOpacity > 0.5)
+                .allowsHitTesting(toolStore.toolbarOpacity > 0.2)
                 .padding(.bottom, 8)
             }
             .zIndex(0.5)

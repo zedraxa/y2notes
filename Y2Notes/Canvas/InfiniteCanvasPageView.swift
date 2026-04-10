@@ -243,6 +243,23 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
 
         context.coordinator.toolStoreRef = toolStoreForFade
 
+        // Sync drawing data if it changed externally (e.g., page navigated away and back).
+        let currentDrawingData = canvas.drawing.dataRepresentation()
+        if currentDrawingData != drawingData {
+            context.coordinator.suppressDrawingChangeHandler = true
+            if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
+                canvas.drawing = drawing
+                // Re-expand canvas if needed after restoring drawing
+                context.coordinator.expandCanvasIfNeeded(in: canvas)
+            } else {
+                canvas.drawing = PKDrawing()
+            }
+            context.coordinator.lastPropagatedDrawingData = canvas.drawing.dataRepresentation()
+            context.coordinator.suppressDrawingChangeHandler = false
+            // Explicitly sync background after drawing restoration
+            context.coordinator.syncBackgroundWithCanvas(canvas)
+        }
+
         // Sync page background.
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {

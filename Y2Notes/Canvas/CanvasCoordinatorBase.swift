@@ -1304,15 +1304,22 @@ enum CanvasViewBuilder {
 
         let ambientEngine = coordinator.ambientEngine
         ambientEngine.soundEnabled = isAmbientSoundEnabled
-        if let ts = toolStore {
-            switch (activeAmbientScene, ambientEngine.activeScene) {
-            case let (scene?, current) where current != scene:
+        switch (activeAmbientScene, ambientEngine.activeScene) {
+        case let (scene?, current) where current != scene:
+            // New scene requested — activate it (requires toolStore for fade control)
+            if let ts = toolStore {
                 ambientEngine.activate(scene, on: layer, toolStore: ts)
-            case (nil, .some):
-                ambientEngine.deactivate(toolStore: ts)
-            default:
-                break
             }
+        case (nil, .some):
+            // Scene should be deactivated
+            if let ts = toolStore {
+                ambientEngine.deactivate(toolStore: ts)
+            } else {
+                // Fallback: deactivate immediately if toolStore unavailable
+                ambientEngine.deactivateImmediately()
+            }
+        default:
+            break
         }
         if ambientEngine.activeScene != nil {
             ambientEngine.updateLayout(containerBounds: bounds)

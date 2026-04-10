@@ -1106,6 +1106,13 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    func updateNotebookCustomCover(id: UUID, customCoverData: Data?) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].customCoverData = customCoverData
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
     func updateNotebookLastOpened(id: UUID) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
         notebooks[idx].lastOpenedAt = Date()
