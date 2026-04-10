@@ -156,16 +156,6 @@ enum WritingFXType: String, CaseIterable, Codable, Identifiable {
     case none      // no effect; always available on all devices
     case sparkle   // brief bright sparks on stroke (standard+ tier)
     case fire      // flame particles trailing the nib (pro+ tier)
-    case glitch    // digital scan-line / colour-shift artefacts (pro+ tier)
-    case ripple    // expanding ring at stroke end (standard+ tier)
-    case rainbow   // multi-hue trail following the nib (standard+ tier)
-    case snow      // falling snowflake particles (standard+ tier)
-    case lightning // electric bolt branching from stroke end (pro+ tier)
-    case dissolve  // particles crumbling away from the stroke (pro+ tier)
-    case glow      // soft luminous aura around the nib (standard+ tier)
-    case sheen     // iridescent holographic shimmer following the nib (standard+ tier)
-    case shadow    // dark smoke particles trailing behind the stroke (standard+ tier)
-    case blood     // viscous dripping crimson particles (pro+ tier)
 
     var id: String { rawValue }
 
@@ -174,16 +164,6 @@ enum WritingFXType: String, CaseIterable, Codable, Identifiable {
         case .none:      return "None"
         case .sparkle:   return "Sparkle"
         case .fire:      return "Fire"
-        case .glitch:    return "Glitch"
-        case .ripple:    return "Ripple"
-        case .rainbow:   return "Rainbow"
-        case .snow:      return "Snow"
-        case .lightning: return "Lightning"
-        case .dissolve:  return "Dissolve"
-        case .glow:      return "Glow"
-        case .sheen:     return "Sheen"
-        case .shadow:    return "Shadow"
-        case .blood:     return "Blood"
         }
     }
 
@@ -192,31 +172,18 @@ enum WritingFXType: String, CaseIterable, Codable, Identifiable {
         case .none:      return "slash.circle"
         case .sparkle:   return "sparkles"
         case .fire:      return "flame.fill"
-        case .glitch:    return "waveform.path.ecg"
-        case .ripple:    return "circle.dashed"
-        case .rainbow:   return "rainbow"
-        case .snow:      return "snowflake"
-        case .lightning: return "bolt.fill"
-        case .dissolve:  return "aqi.medium"
-        case .glow:      return "light.max"
-        case .sheen:     return "sun.dust.fill"
-        case .shadow:    return "smoke.fill"
-        case .blood:     return "drop.fill"
         }
     }
 
     /// Minimum device tier required for this effect.
     ///
-    /// All emitter-based effects (including fire, glitch, blood) run on `.standard`
+    /// All emitter-based effects (including fire) run on `.standard`
     /// and above.  Only `.basic` devices (pre-2018 iPads with < 2 GB RAM) are excluded.
     /// The engine's per-tier `maxParticles` cap ensures older hardware stays at 60 fps.
     var minimumTier: DeviceCapabilityTier {
         switch self {
-        case .none:                                   return .basic
-        case .sparkle, .ripple, .rainbow,
-             .snow, .glow, .sheen, .shadow,
-             .fire, .glitch, .lightning,
-             .dissolve, .blood:                       return .standard
+        case .none:                    return .basic
+        case .sparkle, .fire:          return .standard
         }
     }
 
