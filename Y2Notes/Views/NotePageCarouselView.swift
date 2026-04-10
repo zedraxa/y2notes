@@ -57,6 +57,8 @@ struct NotePageCarouselView: View {
     var activeAmbientScene: AmbientScene?
     var isAmbientSoundEnabled: Bool = true
     var isNewPage: Bool = false
+    /// Called when the user taps the "add page" slot at the end of the carousel.
+    var onAddPage: (() -> Void)?
 
     // MARK: - Tuning
 
@@ -216,5 +218,7 @@ struct NotePageCarouselView: View {
             }
         }
         .padding(.horizontal, 16)
+        .contentShape(Rectangle())
+        .onTapGesture { onAddPage?() }
     }
 }
