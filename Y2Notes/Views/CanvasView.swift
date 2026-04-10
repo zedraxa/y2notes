@@ -147,6 +147,10 @@ struct CanvasView: UIViewRepresentable {
         "\(noteID.uuidString)-\(pageIndex)"
     }
 
+    static func pdfBackgroundToken(pdfURL: URL?, pageIndex: Int, backgroundColor: UIColor) -> String {
+        "\(pdfURL?.absoluteString ?? "nil")::\(pageIndex)::\(backgroundColor.description)"
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(
             onDrawingChanged: onDrawingChanged,
@@ -225,7 +229,11 @@ struct CanvasView: UIViewRepresentable {
             pdfImageView.isUserInteractionEnabled = false
             container.addSubview(pdfImageView)
             context.coordinator.pdfBackgroundView = pdfImageView
-            context.coordinator.pdfBackgroundToken = "\(pdfURL.absoluteString)::\(pageIndex)::\(backgroundColor.description)"
+            context.coordinator.pdfBackgroundToken = Self.pdfBackgroundToken(
+                pdfURL: pdfURL,
+                pageIndex: pageIndex,
+                backgroundColor: backgroundColor
+            )
         }
 
         // ── PencilKit canvas ─────────────────────────────────────────────────
@@ -804,7 +812,11 @@ struct CanvasView: UIViewRepresentable {
     /// Ensures exactly one PDF background layer is bound for the current page.
     /// Removes stale page/template layers before binding the new one.
     private func syncPDFBackground(in container: UIView, coordinator: Coordinator) {
-        let desiredToken = "\(pdfURL?.absoluteString ?? "nil")::\(pageIndex)::\(backgroundColor.description)"
+        let desiredToken = Self.pdfBackgroundToken(
+            pdfURL: pdfURL,
+            pageIndex: pageIndex,
+            backgroundColor: backgroundColor
+        )
         guard coordinator.pdfBackgroundToken != desiredToken else { return }
         coordinator.pdfBackgroundToken = desiredToken
 

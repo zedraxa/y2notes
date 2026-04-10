@@ -8,6 +8,13 @@ import SwiftUI
 private let editorLogger = Logger(subsystem: "com.y2notes.app", category: "editor")
 private let editorSignposter = OSSignposter(subsystem: "com.y2notes.app", category: "editor.perf")
 
+enum PinchOverviewGestureTuning {
+    /// Require pinch start near baseline zoom.
+    static let maxStartZoomScale: CGFloat = 1.08
+    /// Minimum pinch-in scale to count as an intentional overview request.
+    static let triggerScale: CGFloat = 0.58
+}
+
 // MARK: - CanvasView.Coordinator
 
 extension CanvasView {
@@ -271,14 +278,6 @@ extension CanvasView {
             static let reducedMotionCommitVelocity: CGFloat = 400
         }
 
-        /// Tuning constants for pinch-to-overview gesture detection.
-        private enum PinchOverviewTuning {
-            /// Require pinch start near baseline zoom.
-            static let maxStartZoomScale: CGFloat = 1.08
-            /// Minimum pinch-in scale to count as an intentional overview request.
-            static let triggerScale: CGFloat = 0.58
-        }
-
         /// Two-finger pan handler for interactive page navigation.
         ///
         /// The page follows the finger in real-time.  Direction is determined on
@@ -384,14 +383,14 @@ extension CanvasView {
             case .began:
                 pinchOverviewMinScale = gesture.scale
                 pinchOverviewStartedNearBaseZoom =
-                    (canvas?.zoomScale ?? 1.0) <= PinchOverviewTuning.maxStartZoomScale
+                    (canvas?.zoomScale ?? 1.0) <= PinchOverviewGestureTuning.maxStartZoomScale
             case .changed:
                 pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
             case .ended, .cancelled:
                 // Trigger overview when the user performed a clear pinch-in
                 // (fingers came together significantly).
                 if pinchOverviewStartedNearBaseZoom,
-                   pinchOverviewMinScale < PinchOverviewTuning.triggerScale {
+                   pinchOverviewMinScale < PinchOverviewGestureTuning.triggerScale {
                     onPinchToOverview?()
                 }
                 pinchOverviewMinScale = 1.0

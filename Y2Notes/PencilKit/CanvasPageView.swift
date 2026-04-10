@@ -1039,24 +1039,18 @@ struct CanvasPageView: UIViewRepresentable {
             gestureRecognizer === pinchOverviewGesture
         }
 
-        /// Tuning constants for pinch-to-overview gesture detection.
-        private enum PinchOverviewTuning {
-            static let maxStartZoomScale: CGFloat = 1.08
-            static let triggerScale: CGFloat = 0.58
-        }
-
         /// Pinch-in handler for page overview.
         @objc func handlePinchToOverview(_ gesture: UIPinchGestureRecognizer) {
             switch gesture.state {
             case .began:
                 pinchOverviewMinScale = gesture.scale
                 pinchOverviewStartedNearBaseZoom =
-                    (canvas?.zoomScale ?? 1.0) <= PinchOverviewTuning.maxStartZoomScale
+                    (canvas?.zoomScale ?? 1.0) <= PinchOverviewGestureTuning.maxStartZoomScale
             case .changed:
                 pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
             case .ended, .cancelled:
                 if pinchOverviewStartedNearBaseZoom,
-                   pinchOverviewMinScale < PinchOverviewTuning.triggerScale {
+                   pinchOverviewMinScale < PinchOverviewGestureTuning.triggerScale {
                     onPinchToOverview?()
                 }
                 pinchOverviewMinScale = 1.0
