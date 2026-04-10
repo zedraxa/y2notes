@@ -319,7 +319,7 @@ extension PDFViewerView {
 
     // MARK: - Toolbar buttons
 
-    var companionNoteButton: some View {
+    fileprivate var companionNoteButton: some View {
         Button {
             if let existing = noteStore.notes(forPDF: record.id).first {
                 workspace.openTab(
@@ -343,7 +343,7 @@ extension PDFViewerView {
                             ? "Open companion note" : "Create companion note")
     }
 
-    var stickerButton: some View {
+    fileprivate var stickerButton: some View {
         Button { showStickerPicker = true } label: {
             Image(systemName: "star.square")
         }
@@ -351,7 +351,7 @@ extension PDFViewerView {
         .accessibilityLabel("Add sticker")
     }
 
-    var widgetButton: some View {
+    fileprivate var widgetButton: some View {
         Button { showWidgetPicker = true } label: {
             Image(systemName: "widget.small")
         }
@@ -359,7 +359,7 @@ extension PDFViewerView {
         .accessibilityLabel("Add widget")
     }
 
-    var annotateToggleButton: some View {
+    fileprivate var annotateToggleButton: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { isAnnotating.toggle() }
         } label: {
@@ -368,7 +368,7 @@ extension PDFViewerView {
         .accessibilityLabel(isAnnotating ? "Switch to read mode" : "Switch to annotate mode")
     }
 
-    var pencilPolicyButton: some View {
+    fileprivate var pencilPolicyButton: some View {
         Button {
             pencilOnlyDrawing.toggle()
         } label: {
@@ -380,7 +380,7 @@ extension PDFViewerView {
         )
     }
 
-    var searchButton: some View {
+    fileprivate var searchButton: some View {
         Button {
             withAnimation {
                 isSearching.toggle()
@@ -396,7 +396,7 @@ extension PDFViewerView {
         .accessibilityLabel(isSearching ? "Close search" : "Search PDF text")
     }
 
-    var shareMenu: some View {
+    fileprivate var shareMenu: some View {
         Menu {
             Button {
                 shareOriginal()
@@ -421,7 +421,7 @@ extension PDFViewerView {
 
     // MARK: - Page navigation bar
 
-    var pageNavigationBar: some View {
+    fileprivate var pageNavigationBar: some View {
         HStack(spacing: 20) {
             Button {
                 guard currentPage > 0 else { return }
@@ -462,7 +462,7 @@ extension PDFViewerView {
 
     // MARK: - Search bar
 
-    var searchBar: some View {
+    fileprivate var searchBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
@@ -539,7 +539,7 @@ extension PDFViewerView {
 
     // MARK: - Search logic
 
-    func performSearch() {
+    fileprivate func performSearch() {
         guard !searchQuery.isEmpty else { searchResults = []; return }
         let url = pdfStore.pdfURL(for: record)
         guard let document = PDFDocument(url: url) else { return }
@@ -564,19 +564,19 @@ extension PDFViewerView {
 
     // MARK: - Share / Export / Open-In
 
-    func shareOriginal() {
+    fileprivate func shareOriginal() {
         shareItems = [pdfStore.pdfURL(for: record)]
         showShareSheet = true
     }
 
-    func exportAndShare() {
+    fileprivate func exportAndShare() {
         saveCurrentPageOverlays()
         guard let url = pdfStore.exportAnnotatedPDF(for: liveRecord) else { return }
         shareItems = [url]
         showShareSheet = true
     }
 
-    func openIn() {
+    fileprivate func openIn() {
         saveCurrentPageOverlays()
         guard let url = pdfStore.exportAnnotatedPDF(for: liveRecord) else { return }
         let controller = UIDocumentInteractionController(url: url)
