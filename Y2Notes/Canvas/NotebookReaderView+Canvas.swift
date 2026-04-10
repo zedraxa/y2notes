@@ -159,7 +159,6 @@ extension NotebookReaderView {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
             .padding(.horizontal, 4)
-            .animation(.spring(response: 0.3, dampingFraction: 0.88), value: flatPageIndex)
         }
     }
 }

@@ -270,7 +270,9 @@ final class Y2CanvasViewController: UIViewController {
         // the hardware's native touch rate without interfering with PencilKit.
         let tracker = PencilNibTrackerGestureRecognizer()
         tracker.onNibBegan = { [weak self] location in
-            guard let self, self.isDrawing,
+            // Don't guard on isDrawing — the nib tracker fires before PencilKit's
+            // canvasViewDidBeginUsingTool delegate so isDrawing is still false.
+            guard let self,
                   self.canvasView.tool is PKInkingTool else { return }
             let inkColor = (self.canvasView.tool as? PKInkingTool)?.color ?? .label
             self.renderingPipeline.effectsCoordinator.dispatch(
@@ -279,7 +281,7 @@ final class Y2CanvasViewController: UIViewController {
             )
         }
         tracker.onNibMoved = { [weak self] location, force, velocity in
-            guard let self, self.isDrawing,
+            guard let self,
                   self.canvasView.tool is PKInkingTool else { return }
             self.renderingPipeline.effectsCoordinator.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),
