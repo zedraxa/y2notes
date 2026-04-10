@@ -875,37 +875,67 @@ struct NotebookReaderView: View {
     // MARK: - Page navigation bar
 
     private func notebookPageBar(totalPages: Int) -> some View {
-        HStack(spacing: 16) {
-            // Previous page
-            Button {
-                slideDirection = .leading
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                    flatPageIndex = max(0, flatPageIndex - 1)
+        HStack(spacing: 12) {
+            // Left: Back / Forward arrows
+            HStack(spacing: 4) {
+                Button {
+                    navigateBack()
+                } label: {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 32, height: 32)
                 }
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 32, height: 32)
+                .disabled(!navigationStore.canGoBack)
+                .accessibilityLabel("Go back")
+
+                Button {
+                    navigateForward()
+                } label: {
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 32, height: 32)
+                }
+                .disabled(!navigationStore.canGoForward)
+                .accessibilityLabel("Go forward")
             }
-            .disabled(flatPageIndex <= 0)
-            .accessibilityLabel("Previous page")
 
             Spacer()
 
-            // Page info — section + absolute page number (tap to jump)
+            // Center: Page indicator (tappable → page overview)
             Button {
                 jumpPageText = "\(flatPageIndex + 1)"
                 showJumpToPage = true
             } label: {
-                VStack(spacing: 1) {
-                    if let sName = currentPage?.sectionName {
-                        Text(sName)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(Color.accentColor)
+                HStack(spacing: 6) {
+                    // Previous page chevron
+                    Button {
+                        slideDirection = .leading
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                            flatPageIndex = max(0, flatPageIndex - 1)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
+                    .disabled(flatPageIndex <= 0)
+
                     Text("Page \(flatPageIndex + 1) of \(totalPages)")
-                        .font(.subheadline.monospacedDigit())
+                        .font(.caption.weight(.medium).monospacedDigit())
                         .foregroundStyle(.secondary)
+
+                    // Next page chevron
+                    Button {
+                        slideDirection = .trailing
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                            flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .disabled(flatPageIndex >= totalPages - 1)
                 }
             }
             .buttonStyle(.plain)
@@ -916,71 +946,44 @@ struct NotebookReaderView: View {
 
             Spacer()
 
-            // Add page to the current note
-            Button {
-                if let ref = currentPage,
-                   let newIdx = noteStore.addPage(to: ref.noteID) {
-                    let updatedPages = allPages
-                    if let newFlat = updatedPages.firstIndex(where: {
-                        $0.noteID == ref.noteID && $0.pageIndex == newIdx
-                    }) {
-                        slideDirection = .trailing
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                            flatPageIndex = newFlat
-                        }
-                    } else {
-                        slideDirection = .trailing
-                        flatPageIndex = min(flatPageIndex + 1, allPages.count - 1)
+            // Right: Bookmark toggle + Search
+            HStack(spacing: 4) {
+                Button {
+                    if let ref = currentPage {
+                        navigationStore.toggleBookmark(
+                            notebookID: notebook.id,
+                            noteID: ref.noteID,
+                            pageIndex: ref.pageIndex
+                        )
                     }
+                } label: {
+                    let isMarked = currentPage.map {
+                        navigationStore.isBookmarked(
+                            notebookID: notebook.id,
+                            noteID: $0.noteID,
+                            pageIndex: $0.pageIndex
+                        )
+                    } ?? false
+                    Image(systemName: isMarked ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(isMarked ? .red : .primary)
+                        .frame(width: 32, height: 32)
                 }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 32, height: 32)
-            }
-            .accessibilityLabel("Add page")
+                .accessibilityLabel("Toggle bookmark")
 
-            // Bookmark toggle for current page
-            Button {
-                if let ref = currentPage {
-                    navigationStore.toggleBookmark(
-                        notebookID: notebook.id,
-                        noteID: ref.noteID,
-                        pageIndex: ref.pageIndex
-                    )
+                Button {
+                    showUniversalSearch = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 32, height: 32)
                 }
-            } label: {
-                let isMarked = currentPage.map {
-                    navigationStore.isBookmarked(
-                        notebookID: notebook.id,
-                        noteID: $0.noteID,
-                        pageIndex: $0.pageIndex
-                    )
-                } ?? false
-                Image(systemName: isMarked ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isMarked ? .red : .primary)
-                    .frame(width: 32, height: 32)
+                .accessibilityLabel("Search in notebook")
             }
-            .accessibilityLabel("Toggle bookmark")
-
-            // Next page
-            Button {
-                slideDirection = .trailing
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                    flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
-                }
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 32, height: 32)
-            }
-            .disabled(flatPageIndex >= totalPages - 1)
-            .accessibilityLabel("Next page")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .background(Color(uiColor: .secondarySystemBackground).opacity(0.85))
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Empty state

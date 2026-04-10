@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - FloatingActionButton
 
@@ -107,7 +108,7 @@ struct FloatingActionButton: View {
         .padding(.trailing, 20)
         .padding(.bottom, 20)
         .sheet(isPresented: $showNoteCreationSheet) {
-            NoteCreationSheet(onCreated: { id in onSelectNote(id) })
+            NoteCreationSheet(notebookID: nil, onCreated: { id in onSelectNote(id) })
         }
         .sheet(isPresented: $showNotebookWizard) {
             NotebookQuickCreator()

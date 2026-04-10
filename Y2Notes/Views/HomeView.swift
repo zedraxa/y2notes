@@ -1,5 +1,6 @@
 import SwiftUI
 import PencilKit
+import UniformTypeIdentifiers
 
 // MARK: - HomeView
 
@@ -36,7 +37,7 @@ struct HomeView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Home")
         .sheet(isPresented: $showNoteCreationSheet) {
-            NoteCreationSheet(onCreated: { id in onSelectNote(id) })
+            NoteCreationSheet(notebookID: nil, onCreated: { id in onSelectNote(id) })
         }
         .sheet(isPresented: $showNotebookWizard) {
             NotebookQuickCreator()

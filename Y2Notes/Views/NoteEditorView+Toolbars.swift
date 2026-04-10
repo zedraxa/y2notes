@@ -207,12 +207,8 @@ extension NoteEditorView {
 
             Divider()
 
-            // Page setup
-            Button {
-                // Inline page setup — reuse existing pageSetupMenu action
-            } label: {
-                Label("Page Setup", systemImage: "doc.richtext")
-            }
+            // Page setup (submenu)
+            pageSetupSubmenu
 
             // Draw ↔ Type mode toggle
             Button {
@@ -411,6 +407,64 @@ extension NoteEditorView {
             ("Dark Grey",    UIColor(red: 0.20, green: 0.20, blue: 0.22, alpha: 1)),
             ("Black",        UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1)),
         ]
+    }
+
+    /// Page setup as a submenu (for embedding inside the overflow menu).
+    @ViewBuilder
+    var pageSetupSubmenu: some View {
+        let currentPagePT = effectivePageType(forPage: safePageIndex)
+        Menu {
+            Section("This Page") {
+                ForEach(PageType.allCases) { pt in
+                    Button {
+                        noteStore.updatePageType(for: note.id, pageIndex: safePageIndex, pageType: pt)
+                    } label: {
+                        if currentPagePT == pt {
+                            Label(pt.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pt.displayName, systemImage: pt.systemImage)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            Section("All Pages") {
+                ForEach(PageType.allCases) { pt in
+                    Button {
+                        noteStore.updatePageType(for: note.id, pageType: pt)
+                    } label: {
+                        if effectivePageType == pt {
+                            Label(pt.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pt.displayName, systemImage: pt.systemImage)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            Section("Page Colour") {
+                Button {
+                    noteStore.updatePageColor(for: note.id, pageIndex: safePageIndex, color: nil)
+                } label: {
+                    Label("Theme Default", systemImage: note.pageColor(forPage: safePageIndex) == nil
+                          ? "checkmark" : "paintbrush")
+                }
+                ForEach(pageColorPresets, id: \.name) { preset in
+                    Button {
+                        noteStore.updatePageColor(
+                            for: note.id, pageIndex: safePageIndex, color: preset.color)
+                    } label: {
+                        Label(preset.name, systemImage: "circle.fill")
+                    }
+                }
+            }
+        } label: {
+            Label("Page Setup", systemImage: "doc.richtext")
+        }
     }
 
     // MARK: - Export Menu
