@@ -103,6 +103,43 @@ enum PageOrientation: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+// MARK: - CanvasMode
+
+/// Whether a note uses a traditional paginated layout or an infinite whiteboard canvas.
+///
+/// Paginated mode presents pages in a horizontal carousel (standard note-taking).
+/// Infinite mode provides a single, boundless canvas that the user can zoom
+/// and pan freely — similar to GoodNotes' whiteboard or Apple Freeform.
+enum CanvasMode: String, CaseIterable, Codable, Identifiable {
+    /// Traditional multi-page layout with fixed-size pages.
+    case paginated
+    /// Single boundless canvas with unlimited space in all directions.
+    case infinite
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .paginated: return "Paginated"
+        case .infinite:  return "Infinite Canvas"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .paginated: return "Traditional multi-page notes"
+        case .infinite:  return "Boundless whiteboard"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .paginated: return "doc.on.doc"
+        case .infinite:  return "arrow.up.left.and.arrow.down.right"
+        }
+    }
+}
+
 // MARK: - PaperMaterial
 
 /// Simulated paper surface / feel of notebook pages.

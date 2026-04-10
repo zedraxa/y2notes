@@ -18,6 +18,7 @@ struct NoteCreationSheet: View {
 
     @State private var selectedPageType: PageType = .ruled
     @State private var selectedMaterial: PaperMaterial = .standard
+    @State private var selectedCanvasMode: CanvasMode = .paginated
     @State private var gridAppeared = false
 
     private let selectionFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -36,68 +37,99 @@ struct NoteCreationSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
 
-                    // ── Paper type ─────────────────────────────────
+                    // ── Canvas mode ────────────────────────────────
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Paper Type")
+                        Text("Canvas Mode")
                             .font(.headline)
                             .padding(.horizontal, 4)
 
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(Array(PageType.allCases.enumerated()), id: \.element) { index, pt in
-                                PaperTypeCard(
-                                    pageType: pt,
-                                    isSelected: selectedPageType == pt
+                        HStack(spacing: 10) {
+                            ForEach(CanvasMode.allCases) { mode in
+                                CanvasModeChip(
+                                    mode: mode,
+                                    isSelected: selectedCanvasMode == mode
                                 )
                                 .onTapGesture {
-                                    if selectedPageType != pt {
-                                        selectionFeedback.impactOccurred()
+                                    if selectedCanvasMode != mode {
+                                        selectionFeedback.impactOccurred(intensity: 0.6)
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                            selectedPageType = pt
+                                            selectedCanvasMode = mode
                                         }
                                     }
                                 }
-                                .opacity(gridAppeared ? 1 : 0)
-                                .offset(y: gridAppeared ? 0 : 16)
-                                .animation(
-                                    .spring(response: 0.4, dampingFraction: 0.8)
-                                        .delay(Double(index) * 0.06),
-                                    value: gridAppeared
-                                )
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+
+                    // ── Paper type ─────────────────────────────────
+                    // Hidden for infinite canvas — always uses blank.
+                    if selectedCanvasMode != .infinite {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Paper Type")
+                                .font(.headline)
+                                .padding(.horizontal, 4)
+
+                            LazyVGrid(columns: columns, spacing: 12) {
+                                ForEach(Array(PageType.allCases.enumerated()), id: \.element) { index, pt in
+                                    PaperTypeCard(
+                                        pageType: pt,
+                                        isSelected: selectedPageType == pt
+                                    )
+                                    .onTapGesture {
+                                        if selectedPageType != pt {
+                                            selectionFeedback.impactOccurred()
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                selectedPageType = pt
+                                            }
+                                        }
+                                    }
+                                    .opacity(gridAppeared ? 1 : 0)
+                                    .offset(y: gridAppeared ? 0 : 16)
+                                    .animation(
+                                        .spring(response: 0.4, dampingFraction: 0.8)
+                                            .delay(Double(index) * 0.06),
+                                        value: gridAppeared
+                                    )
+                                }
                             }
                         }
                     }
 
                     // ── Paper material ─────────────────────────────
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Paper Material")
-                            .font(.headline)
-                            .padding(.horizontal, 4)
+                    // Hidden for infinite canvas — whiteboard has no paper texture.
+                    if selectedCanvasMode != .infinite {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Paper Material")
+                                .font(.headline)
+                                .padding(.horizontal, 4)
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                ForEach(Array(PaperMaterial.allCases.enumerated()), id: \.element) { index, pm in
-                                    MaterialChip(
-                                        material: pm,
-                                        isSelected: selectedMaterial == pm
-                                    )
-                                    .onTapGesture {
-                                        if selectedMaterial != pm {
-                                            selectionFeedback.impactOccurred(intensity: 0.6)
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                                selectedMaterial = pm
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(Array(PaperMaterial.allCases.enumerated()), id: \.element) { index, pm in
+                                        MaterialChip(
+                                            material: pm,
+                                            isSelected: selectedMaterial == pm
+                                        )
+                                        .onTapGesture {
+                                            if selectedMaterial != pm {
+                                                selectionFeedback.impactOccurred(intensity: 0.6)
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                    selectedMaterial = pm
+                                                }
                                             }
                                         }
+                                        .opacity(gridAppeared ? 1 : 0)
+                                        .offset(y: gridAppeared ? 0 : 8)
+                                        .animation(
+                                            .spring(response: 0.35, dampingFraction: 0.8)
+                                                .delay(Double(index) * 0.04),
+                                            value: gridAppeared
+                                        )
                                     }
-                                    .opacity(gridAppeared ? 1 : 0)
-                                    .offset(y: gridAppeared ? 0 : 8)
-                                    .animation(
-                                        .spring(response: 0.35, dampingFraction: 0.8)
-                                            .delay(Double(index) * 0.04),
-                                        value: gridAppeared
-                                    )
                                 }
+                                .padding(.horizontal, 4)
                             }
-                            .padding(.horizontal, 4)
                         }
                     }
 
@@ -107,20 +139,41 @@ struct NoteCreationSheet: View {
                             .font(.headline)
                             .padding(.horizontal, 4)
 
-                        PaperPreview(pageType: selectedPageType, material: selectedMaterial)
+                        if selectedCanvasMode == .infinite {
+                            // Infinite canvas preview — simple whiteboard card
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color(uiColor: .systemBackground))
+                                VStack(spacing: 8) {
+                                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                        .font(.system(size: 36, weight: .ultraLight))
+                                        .foregroundStyle(.tertiary)
+                                    Text("Boundless whiteboard — zoom & pan freely")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                             .frame(height: 180)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.97)),
-                                removal: .opacity
-                            ))
-                            .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
-                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedPageType)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedMaterial)
+                        } else {
+                            PaperPreview(pageType: selectedPageType, material: selectedMaterial)
+                                .frame(height: 180)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .scale(scale: 0.97)),
+                                    removal: .opacity
+                                ))
+                                .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
+                                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedPageType)
+                                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedMaterial)
+                        }
                     }
                 }
                 .padding(20)
@@ -150,8 +203,9 @@ struct NoteCreationSheet: View {
         confirmFeedback.notificationOccurred(.success)
         let note = noteStore.addNote(
             inNotebook: notebookID,
-            pageType: selectedPageType,
-            paperMaterial: selectedMaterial
+            pageType: selectedCanvasMode == .infinite ? .blank : selectedPageType,
+            paperMaterial: selectedMaterial,
+            canvasMode: selectedCanvasMode
         )
         onCreated(note.id)
         dismiss()
@@ -374,6 +428,53 @@ private struct MaterialChip: View {
         )
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityLabel("\(material.displayName) paper")
+    }
+}
+
+// MARK: - Canvas mode chip
+
+/// Compact selectable chip for choosing between paginated and infinite canvas modes.
+private struct CanvasModeChip: View {
+    let mode: CanvasMode
+    let isSelected: Bool
+
+    @GestureState private var isPressed = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: mode.systemImage)
+                .font(.system(size: 16))
+                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(mode.displayName)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(isSelected ? Color.accentColor : .primary)
+                Text(mode.subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.8) : Color(uiColor: .secondaryLabel))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? Color.accentColor.opacity(0.1) : Color(uiColor: .tertiarySystemFill))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+        )
+        .scaleEffect(isPressed ? 0.95 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
+        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in state = true }
+        )
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel("\(mode.displayName) mode")
+        .accessibilityHint(mode.subtitle)
     }
 }
 

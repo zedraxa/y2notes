@@ -108,6 +108,11 @@ struct CanvasPageConfiguration: Equatable {
     /// Initial zoom scale to restore (nil = fit-to-width).
     let initialZoomScale: CGFloat?
 
+    // MARK: - Canvas Mode
+
+    /// Whether this page uses infinite canvas mode (boundless whiteboard).
+    let isInfiniteCanvas: Bool
+
     // MARK: - Equatable
 
     /// Custom Equatable conformance because `PKTool` and `UIColor` don't
@@ -168,6 +173,10 @@ struct CanvasPageConfiguration: Equatable {
         guard lhs.pdfURL == rhs.pdfURL
         else { return false }
 
+        // Canvas mode
+        guard lhs.isInfiniteCanvas == rhs.isInfiniteCanvas
+        else { return false }
+
         return true
     }
 }
@@ -211,7 +220,8 @@ extension CanvasPageConfiguration {
             pageCount: pageCount,
             isNewPage: isNewPage,
             zoomResetTrigger: zoomResetTrigger,
-            initialZoomScale: scale
+            initialZoomScale: scale,
+            isInfiniteCanvas: isInfiniteCanvas
         )
     }
 }
@@ -254,7 +264,8 @@ extension CanvasPageConfiguration {
         pdfURL: URL?,
         zoomResetTrigger: Bool,
         isNewPage: Bool,
-        initialZoomScale: CGFloat?
+        initialZoomScale: CGFloat?,
+        isInfiniteCanvas: Bool = false
     ) -> CanvasPageConfiguration {
         CanvasPageConfiguration(
             noteID: note.id,
@@ -286,7 +297,8 @@ extension CanvasPageConfiguration {
             pageCount: note.pageCount,
             isNewPage: isNewPage,
             zoomResetTrigger: zoomResetTrigger,
-            initialZoomScale: initialZoomScale
+            initialZoomScale: initialZoomScale,
+            isInfiniteCanvas: isInfiniteCanvas
         )
     }
 }

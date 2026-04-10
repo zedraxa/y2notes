@@ -102,10 +102,19 @@ struct CanvasPageView: UIViewRepresentable {
     /// zoom state per-page across page switches.
     var initialZoomScale: CGFloat?
 
+    /// Whether this page uses infinite canvas mode. When `true` the canvas
+    /// provides a much larger content area and a wider zoom range, giving the
+    /// user an unbounded whiteboard-like drawing surface.
+    var isInfiniteCanvas: Bool = false
+
     // MARK: - Page dimensions
 
     /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
     private static let a4AspectRatio: CGFloat = 1.414
+
+    /// Multiplier applied to the standard page size in each dimension to create
+    /// the infinite canvas content area (e.g. 4× = 16× total area).
+    private static let infiniteCanvasMultiplier: CGFloat = 4.0
 
     /// Fixed page size for the canvas content area. Uses the *landscape* screen
     /// width (the larger dimension) with an A4 aspect ratio so the page fills
@@ -135,12 +144,21 @@ struct CanvasPageView: UIViewRepresentable {
         container.backgroundColor = Self.deskSurfaceColor
 
         // ── Page background (ruling + paper tint, sits behind the canvas) ──────
-        // Frame-based layout sized to the fixed page dimensions so the ruling
+        // Frame-based layout sized to the page dimensions so the ruling
         // zooms and scrolls together with the PencilKit drawing content.
         let ps = Self.pageSize
-        let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: ps))
+        let bgSize: CGSize
+        if isInfiniteCanvas {
+            bgSize = CGSize(
+                width: ps.width * Self.infiniteCanvasMultiplier,
+                height: ps.height * Self.infiniteCanvasMultiplier
+            )
+        } else {
+            bgSize = ps
+        }
+        let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: bgSize))
         pageBackground.pageColor    = backgroundColor
-        pageBackground.pageType     = pageType
+        pageBackground.pageType     = isInfiniteCanvas ? .blank : pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
         pageBackground.grainIntensity = paperMaterial.grainIntensity
         pageBackground.rulingTint   = paperMaterial.rulingTint
@@ -150,12 +168,14 @@ struct CanvasPageView: UIViewRepresentable {
         // resting on the desk surface.  An explicit shadow path avoids the
         // expensive offscreen-composite pass that Core Animation would otherwise
         // need for a view with a non-opaque background.
-        pageBackground.layer.shadowColor = UIColor.black.cgColor
-        pageBackground.layer.shadowOpacity = 0.18
-        pageBackground.layer.shadowRadius = 12
-        pageBackground.layer.shadowOffset = CGSize(width: 0, height: 3)
-        pageBackground.layer.shadowPath =
-            UIBezierPath(rect: CGRect(origin: .zero, size: ps)).cgPath
+        if !isInfiniteCanvas {
+            pageBackground.layer.shadowColor = UIColor.black.cgColor
+            pageBackground.layer.shadowOpacity = 0.18
+            pageBackground.layer.shadowRadius = 12
+            pageBackground.layer.shadowOffset = CGSize(width: 0, height: 3)
+            pageBackground.layer.shadowPath =
+                UIBezierPath(rect: CGRect(origin: .zero, size: bgSize)).cgPath
+        }
 
         container.addSubview(pageBackground)
         context.coordinator.pageBackground = pageBackground
@@ -217,10 +237,17 @@ struct CanvasPageView: UIViewRepresentable {
         }
 
         // Zoom/pan: PKCanvasView inherits UIScrollView zoom support.
-        // 0.25× minimum lets users step back for a full-page view.
-        // 5×   maximum provides fine-detail writing precision.
-        canvas.minimumZoomScale = 0.25
-        canvas.maximumZoomScale = 5.0
+        if isInfiniteCanvas {
+            // Infinite canvas: wider zoom range so users can zoom far out to see
+            // the whole board or zoom in for fine detail.
+            canvas.minimumZoomScale = 0.1
+            canvas.maximumZoomScale = 8.0
+        } else {
+            // Paginated: 0.25× minimum lets users step back for a full-page view.
+            // 5× maximum provides fine-detail writing precision.
+            canvas.minimumZoomScale = 0.25
+            canvas.maximumZoomScale = 5.0
+        }
         canvas.bouncesZoom = true
 
         // Deceleration rate: fast deceleration feels more "anchored" and prevents
@@ -228,9 +255,18 @@ struct CanvasPageView: UIViewRepresentable {
         // of physical paper on a desk.
         canvas.decelerationRate = .fast
 
-        // Set the canvas content area to the fixed page dimensions so the user
-        // can draw across the full page and scroll vertically.
-        canvas.contentSize = ps
+        // Set the canvas content area. For infinite canvas mode the area is much
+        // larger so the user has essentially unbounded space to draw on.
+        let contentSize: CGSize
+        if isInfiniteCanvas {
+            contentSize = CGSize(
+                width: ps.width * Self.infiniteCanvasMultiplier,
+                height: ps.height * Self.infiniteCanvasMultiplier
+            )
+        } else {
+            contentSize = ps
+        }
+        canvas.contentSize = contentSize
 
         // Restore previously saved drawing, if any.
         if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
@@ -507,6 +543,17 @@ struct CanvasPageView: UIViewRepresentable {
         // Play a paper-settle reveal when this canvas represents a newly added page.
         if isNewPage {
             PageTransitionEngine.playNewPageReveal(on: container.layer)
+        }
+
+        // For infinite canvas, scroll to the centre of the content area so the
+        // user starts drawing in the middle of the board. Deferred to the next
+        // run-loop tick because `canvas.bounds` may be `.zero` during `makeUIView`.
+        if isInfiniteCanvas {
+            DispatchQueue.main.async {
+                let cx = (contentSize.width - canvas.bounds.width) / 2
+                let cy = (contentSize.height - canvas.bounds.height) / 2
+                canvas.contentOffset = CGPoint(x: max(cx, 0), y: max(cy, 0))
+            }
         }
 
         return container

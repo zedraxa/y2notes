@@ -32,7 +32,8 @@ extension NoteEditorView {
             pdfURL: noteStore.notePDFURL(for: note),
             zoomResetTrigger: zoomResetTrigger,
             isNewPage: isNewPageJustAdded && pageIndex == currentPageIndex,
-            initialZoomScale: nil
+            initialZoomScale: nil,
+            isInfiniteCanvas: note.isInfiniteCanvas
         )
     }
 
@@ -52,7 +53,7 @@ extension NoteEditorView {
                 canUndo = canUndoVal
                 canRedo = canRedoVal
             },
-            onPinchToOverview: { showPageOverview = true },
+            onPinchToOverview: note.isInfiniteCanvas ? nil : { showPageOverview = true },
             onPlaceTextObject: { point in placeTextObject(at: point) }
         )
     }
@@ -65,16 +66,29 @@ extension NoteEditorView {
     /// through the view hierarchy.
     @ViewBuilder
     var notebookCanvasSection: some View {
-        NotebookCarouselView(
-            note: note,
-            currentPageIndex: $currentPageIndex,
-            configurationForPage: { idx in makePageConfiguration(for: idx) },
-            callbacksForPage: { idx in makePageCallbacks(for: idx) },
-            toolStore: toolStore,
-            stickerImageProvider: { id in
-                guard let asset = stickerStore.asset(for: id) else { return nil }
-                return stickerStore.image(for: asset)
-            }
-        )
+        if note.isInfiniteCanvas {
+            InfiniteCanvasView(
+                note: note,
+                configurationForPage: { idx in makePageConfiguration(for: idx) },
+                callbacksForPage: { idx in makePageCallbacks(for: idx) },
+                toolStore: toolStore,
+                stickerImageProvider: { id in
+                    guard let asset = stickerStore.asset(for: id) else { return nil }
+                    return stickerStore.image(for: asset)
+                }
+            )
+        } else {
+            NotebookCarouselView(
+                note: note,
+                currentPageIndex: $currentPageIndex,
+                configurationForPage: { idx in makePageConfiguration(for: idx) },
+                callbacksForPage: { idx in makePageCallbacks(for: idx) },
+                toolStore: toolStore,
+                stickerImageProvider: { id in
+                    guard let asset = stickerStore.asset(for: id) else { return nil }
+                    return stickerStore.image(for: asset)
+                }
+            )
+        }
     }
 }
