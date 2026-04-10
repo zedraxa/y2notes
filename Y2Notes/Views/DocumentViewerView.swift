@@ -455,7 +455,8 @@ private struct DocumentGridCell: View {
     var hasCompanionNote: Bool = false
     let onTap: () -> Void
 
-    // swiftlint:disable:next no_hardcoded_color -- false positive on UIColor RGB initializer
+    // False positive for the custom color regex in this mixed Color/UIColor initializer.
+    // swiftlint:disable:next no_hardcoded_color
     private static let companionBadgeColor = Color(uiColor: UIColor(red: 0.3, green: 0.5, blue: 0.7, alpha: 1.0))
 
     var body: some View {
