@@ -150,7 +150,8 @@ struct CanvasView: UIViewRepresentable {
     static func pdfBackgroundToken(pdfURL: URL?, pageIndex: Int, backgroundColor: UIColor) -> String {
         let url = pdfURL?.absoluteString ?? ""
         let color = stableColorToken(backgroundColor)
-        // Length-prefixed encoding avoids delimiter-collision issues.
+        // Length-prefixing makes parsing unambiguous even when URL/color strings
+        // themselves contain '#', '|' or other delimiter-like characters.
         return "\(url.count)#\(url)|\(pageIndex)|\(color.count)#\(color)"
     }
 
@@ -171,7 +172,11 @@ struct CanvasView: UIViewRepresentable {
         if color.getWhite(&white, alpha: &alpha) {
             return String(format: "w%.5f-a%.5f", white, alpha)
         }
-        return "unknown-\(String(describing: color))"
+        if let components = color.cgColor.components {
+            let values = components.map { String(format: "%.5f", $0) }.joined(separator: "-")
+            return "cg-\(values)"
+        }
+        return "unknown"
     }
 
     func makeCoordinator() -> Coordinator {
