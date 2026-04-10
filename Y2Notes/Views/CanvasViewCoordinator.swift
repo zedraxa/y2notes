@@ -899,16 +899,14 @@ extension CanvasView {
         /// Used by reader-mode page turns to keep canvas identity stable while
         /// swapping page content.
         func bindPageIfNeeded(
-            noteID: UUID,
-            pageIndex: Int,
+            pageToken: String,
             drawingData: Data,
             canvas: PKCanvasView
         ) {
-            let token = "\(noteID.uuidString)-\(pageIndex)"
-            guard boundPageToken != token else { return }
+            guard boundPageToken != pageToken else { return }
 
             flushPendingSave()
-            boundPageToken = token
+            boundPageToken = pageToken
 
             let drawing = (try? PKDrawing(data: drawingData)) ?? PKDrawing()
             // Prevent a feedback loop when programmatically swapping page content.

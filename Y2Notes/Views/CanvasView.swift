@@ -143,6 +143,10 @@ struct CanvasView: UIViewRepresentable {
         return CGSize(width: w, height: ceil(w * a4AspectRatio))
     }()
 
+    static func pageToken(noteID: UUID, pageIndex: Int) -> String {
+        "\(noteID.uuidString)-\(pageIndex)"
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(
             onDrawingChanged: onDrawingChanged,
@@ -275,7 +279,7 @@ struct CanvasView: UIViewRepresentable {
             canvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         context.coordinator.canvas = canvas
-        context.coordinator.boundPageToken = "\(noteID.uuidString)-\(pageIndex)"
+        context.coordinator.boundPageToken = Self.pageToken(noteID: noteID, pageIndex: pageIndex)
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
         // Begin observing scroll/zoom so the page background tracks the canvas
@@ -599,8 +603,7 @@ struct CanvasView: UIViewRepresentable {
         // Keep a stable PKCanvasView instance and rebind page content when the
         // logical page changes.
         context.coordinator.bindPageIfNeeded(
-            noteID: noteID,
-            pageIndex: pageIndex,
+            pageToken: Self.pageToken(noteID: noteID, pageIndex: pageIndex),
             drawingData: drawingData,
             canvas: canvas
         )
