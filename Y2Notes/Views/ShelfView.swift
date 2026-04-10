@@ -2208,8 +2208,7 @@ private struct TagChipsRow: View {
 // MARK: - Notebook cover card (shelf display)
 
 /// Rich notebook cover card that looks like a physical notebook on a shelf.
-/// Shows the gradient cover with texture overlay, embossed title, page edge
-/// effect, and a subtle 3D perspective tilt.
+/// Shows the gradient cover with a subtle 3D perspective tilt.
 private struct NotebookCoverCard: View {
     let notebook: Notebook
     let pageCount: Int
@@ -2222,10 +2221,6 @@ private struct NotebookCoverCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 0) {
-                // Page edge (visible pages on the right of the book)
-                CoverPageEdge(height: coverHeight)
-                    .offset(x: 2)
-
                 // Book cover
                 ZStack(alignment: .bottomLeading) {
                     // Main cover surface
@@ -2240,34 +2235,19 @@ private struct NotebookCoverCard: View {
                             )
                         )
 
-                    // Spine with stitching
-                    ZStack {
-                        LinearGradient(
-                            colors: [.white.opacity(0.18), .black.opacity(0.06), .clear],
-                            startPoint: .leading,
-                            endPoint: .init(x: 0.15, y: 0)
-                        )
-                        .frame(width: coverWidth, height: coverHeight)
-
-                        CoverSpineStitching(height: coverHeight)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 1)
-                    }
+                    // Spine
+                    LinearGradient(
+                        colors: [.white.opacity(0.18), .black.opacity(0.06), .clear],
+                        startPoint: .leading,
+                        endPoint: .init(x: 0.15, y: 0)
+                    )
                     .clipShape(
                         .rect(topLeadingRadius: 4, bottomLeadingRadius: 4)
                     )
                     .frame(width: coverWidth, height: coverHeight)
 
-                    // Book icon + page count + embossed title
+                    // Book icon + page count
                     VStack(alignment: .leading, spacing: 4) {
-                        // Embossed title at top
-                        if !notebook.name.isEmpty {
-                            CoverEmbossedTitle(text: notebook.name, maxWidth: coverWidth - 20)
-                                .padding(.top, 14)
-                                .padding(.horizontal, 10)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                        }
-
                         Spacer()
 
                         Image(systemName: "book.fill")
