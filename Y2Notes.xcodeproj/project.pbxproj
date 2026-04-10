@@ -238,6 +238,7 @@
 		AA0001000000000000000273 /* NotebookReaderView+Canvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */; };
 		AA0001000000000000000277 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000276 /* HomeView.swift */; };
 		AA0001000000000000000279 /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000278 /* FloatingActionButton.swift */; };
+		AA0001000000000000000281 /* CanvasCoordinatorBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000280 /* CanvasCoordinatorBase.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
