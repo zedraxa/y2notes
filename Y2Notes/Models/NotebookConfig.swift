@@ -112,9 +112,9 @@ enum PageOrientation: String, CaseIterable, Codable, Identifiable {
 /// and pan freely — similar to GoodNotes' whiteboard or Apple Freeform.
 enum CanvasMode: String, CaseIterable, Codable, Identifiable {
     /// Traditional multi-page layout with fixed-size pages.
-    case paginated = "paginated"
+    case paginated
     /// Single boundless canvas with unlimited space in all directions.
-    case infinite  = "infinite"
+    case infinite
 
     var id: String { rawValue }
 

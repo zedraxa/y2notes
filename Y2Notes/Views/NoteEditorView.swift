@@ -256,8 +256,9 @@ struct NoteEditorView: View {
                 toolStore.currentPaperMaterial = .standard
             }
             // Sync tab navigation state and handle carousel swiping to the "add page" slot.
+            // Infinite canvas notes are single-page and never add new pages.
             .onChange(of: currentPageIndex) { _, newIndex in
-                if newIndex >= note.pageCount {
+                if !note.isInfiniteCanvas && newIndex >= note.pageCount {
                     if let newIdx = noteStore.addPage(to: note.id) {
                         currentPageIndex = newIdx
                         isNewPageJustAdded = true

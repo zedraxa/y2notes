@@ -53,7 +53,7 @@ extension NoteEditorView {
                 canUndo = canUndoVal
                 canRedo = canRedoVal
             },
-            onPinchToOverview: { showPageOverview = true },
+            onPinchToOverview: note.isInfiniteCanvas ? nil : { showPageOverview = true },
             onPlaceTextObject: { point in placeTextObject(at: point) }
         )
     }

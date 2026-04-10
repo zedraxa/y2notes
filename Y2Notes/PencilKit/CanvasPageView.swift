@@ -546,11 +546,15 @@ struct CanvasPageView: UIViewRepresentable {
         }
 
         // For infinite canvas, scroll to the centre of the content area so the
-        // user starts drawing in the middle of the board.
+        // user starts drawing in the middle of the board. Deferred to the next
+        // run-loop tick because `canvas.bounds` may be `.zero` during `makeUIView`.
         if isInfiniteCanvas {
-            let cx = (contentSize.width - canvas.bounds.width) / 2
-            let cy = (contentSize.height - canvas.bounds.height) / 2
-            canvas.contentOffset = CGPoint(x: max(cx, 0), y: max(cy, 0))
+            let capturedContentSize = contentSize
+            DispatchQueue.main.async {
+                let cx = (capturedContentSize.width - canvas.bounds.width) / 2
+                let cy = (capturedContentSize.height - canvas.bounds.height) / 2
+                canvas.contentOffset = CGPoint(x: max(cx, 0), y: max(cy, 0))
+            }
         }
 
         return container

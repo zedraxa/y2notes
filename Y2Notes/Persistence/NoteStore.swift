@@ -212,8 +212,12 @@ final class NoteStore: ObservableObject {
             backgroundColor: .white,
             pageTypes: [effectiveType]
         )
+        let isInfinite = canvasMode == .infinite
+        let noteTitle = isInfinite
+            ? "Canvas \(notes.count + 1)"
+            : "Note \(notes.count + 1)"
         let note = Note(
-            title: "Note \(notes.count + 1)",
+            title: noteTitle,
             notebookID: notebookID,
             pageType: pageType,
             paperMaterial: paperMaterial,

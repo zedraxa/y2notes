@@ -1,8 +1,4 @@
 import SwiftUI
-import PencilKit
-import OSLog
-
-private let infiniteCanvasLogger = Logger(subsystem: "com.y2notes.app", category: "infiniteCanvas")
 
 // MARK: - InfiniteCanvasView
 
@@ -42,6 +38,10 @@ struct InfiniteCanvasView: View {
 
     /// Current zoom level of the canvas, used for UI overlays.
     @State private var currentZoom: CGFloat = 1.0
+    /// Controls auto-hide of the zoom indicator after a delay.
+    @State private var showZoomBadge = false
+    /// Work item that auto-hides the zoom badge.
+    @State private var zoomHideTask: DispatchWorkItem?
 
     // MARK: - Body
 
@@ -50,6 +50,8 @@ struct InfiniteCanvasView: View {
             canvasView
             zoomIndicator
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Infinite canvas")
     }
 
     // MARK: - Canvas
@@ -57,7 +59,15 @@ struct InfiniteCanvasView: View {
     private var canvasView: some View {
         let config = configurationForPage(0)
         var callbacks = callbacksForPage(0)
-        callbacks.onZoomChanged = { zoom in currentZoom = zoom }
+        callbacks.onZoomChanged = { zoom in
+            currentZoom = zoom
+            showZoomBadge = true
+            // Auto-hide after 1.5 seconds of no zoom changes.
+            zoomHideTask?.cancel()
+            let task = DispatchWorkItem { showZoomBadge = false }
+            zoomHideTask = task
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: task)
+        }
 
         return NotebookCanvasView(
             configuration: config,
@@ -70,24 +80,26 @@ struct InfiniteCanvasView: View {
 
     // MARK: - Zoom Indicator
 
-    /// Current zoom as a percentage string (e.g. "50%", "200%").
+    /// Current zoom as a percentage (e.g. 50, 200).
     private var zoomPercentage: Int {
         Int(round(currentZoom * 100))
     }
 
     /// Floating zoom-level badge in the bottom-right corner.
-    /// Hidden at 1× so it only appears when the user zooms in or out.
+    /// Appears when the user zooms and auto-hides after 1.5 seconds.
     private var zoomIndicator: some View {
         Group {
-            if currentZoom < 0.98 || currentZoom > 1.02 {
+            if showZoomBadge {
                 Text("\(zoomPercentage)%")
                     .font(.caption2.monospacedDigit())
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.ultraThinMaterial, in: Capsule())
                     .padding(12)
+                    .allowsHitTesting(false)
                     .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.2), value: currentZoom)
+                    .animation(.easeInOut(duration: 0.2), value: showZoomBadge)
+                    .accessibilityLabel("Zoom \(zoomPercentage) percent")
             }
         }
     }
