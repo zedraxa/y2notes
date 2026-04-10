@@ -251,6 +251,13 @@ extension CanvasView {
 
         // MARK: - Page gesture handlers
 
+        /// Tuning constants for the pinch-to-overview gesture.
+        private enum PinchOverviewTuning {
+            /// Maximum scale the gesture must reach to be considered a
+            /// deliberate squeeze-in (fingers close together).
+            static let scaleThreshold: CGFloat = 0.35
+        }
+
         /// Tuning constants for the two-finger page-pan gesture recogniser.
         private enum PagePanTuning {
             /// Minimum horizontal-to-vertical ratio required before the gesture
@@ -375,7 +382,7 @@ extension CanvasView {
                 // 1. The gesture reached a very small scale (fingers came close together).
                 // 2. The gesture velocity is negative (fingers still moving inward at release).
                 // This prevents normal zoom-out from accidentally triggering the overview.
-                let isDeepPinch = pinchOverviewMinScale < 0.35
+                let isDeepPinch = pinchOverviewMinScale < PinchOverviewTuning.scaleThreshold
                 let isClosingAtEnd = gesture.velocity < 0
                 if isDeepPinch && isClosingAtEnd {
                     onPinchToOverview?()
