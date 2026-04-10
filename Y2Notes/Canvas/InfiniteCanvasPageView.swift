@@ -137,9 +137,15 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
         )
         canvas.contentSize = contentSize
 
+        // Suppress the drawing-change handler during the initial load so the
+        // delegate callback does not propagate the same drawing data back to
+        // SwiftUI, which would trigger a redundant update cycle.
+        context.coordinator.suppressDrawingChangeHandler = true
         if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
             canvas.drawing = drawing
         }
+        context.coordinator.lastPropagatedDrawingData = canvas.drawing.dataRepresentation()
+        context.coordinator.suppressDrawingChangeHandler = false
 
         container.addSubview(canvas)
         canvas.translatesAutoresizingMaskIntoConstraints = false
@@ -218,6 +224,10 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
             let cx = (cs.width - canvas.bounds.width) / 2
             let cy = (cs.height - canvas.bounds.height) / 2
             canvas.contentOffset = CGPoint(x: max(cx, 0), y: max(cy, 0))
+
+            // Explicitly sync the page background after centering so it is
+            // perfectly aligned from the first frame.
+            context.coordinator.syncBackgroundWithCanvas(canvas)
 
             infiniteSignposter.endInterval("InfiniteCanvasSetup", setupState)
             infiniteLogger.debug("[\(noteID, privacy: .public)] infinite canvas setup - complete")

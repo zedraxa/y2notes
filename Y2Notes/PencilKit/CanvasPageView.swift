@@ -205,9 +205,16 @@ struct CanvasPageView: UIViewRepresentable {
 
         canvas.contentSize = ps
 
+        // Suppress the drawing-change handler during the initial load so the
+        // delegate callback does not propagate the same drawing data back to
+        // SwiftUI, which would trigger a redundant update cycle ("doubled
+        // writing" bug).
+        context.coordinator.suppressDrawingChangeHandler = true
         if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
             canvas.drawing = drawing
         }
+        context.coordinator.lastPropagatedDrawingData = canvas.drawing.dataRepresentation()
+        context.coordinator.suppressDrawingChangeHandler = false
 
         container.addSubview(canvas)
         canvas.translatesAutoresizingMaskIntoConstraints = false
@@ -299,6 +306,11 @@ struct CanvasPageView: UIViewRepresentable {
                                   min(canvas.maximumZoomScale, targetZoom))
                 canvas.setZoomScale(clamped, animated: false)
             }
+            // Explicitly sync the page background after the initial zoom so
+            // ruling lines and paper are perfectly aligned from the first
+            // frame.  KVO alone may miss this because contentOffset might not
+            // change when only zoomScale is set.
+            context.coordinator.syncBackgroundWithCanvas(canvas)
             canvasPageSignposter.endInterval("CanvasSetup", setupState)
             canvasPageLogger.debug("[\(noteID, privacy: .public)] canvas setup - complete")
         }

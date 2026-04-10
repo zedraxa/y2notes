@@ -678,7 +678,11 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
 
         let drawing = (try? PKDrawing(data: drawingData)) ?? PKDrawing()
         lastPropagatedDrawingData = drawing.dataRepresentation()
+        // Suppress the drawing-change handler while programmatically loading
+        // the new page's drawing to avoid a redundant round-trip to SwiftUI.
+        suppressDrawingChangeHandler = true
         canvas.drawing = drawing
+        suppressDrawingChangeHandler = false
 
         let um = canvas.undoManager
         onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
