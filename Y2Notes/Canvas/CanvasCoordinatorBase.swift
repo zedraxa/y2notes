@@ -947,6 +947,7 @@ enum CanvasViewBuilder {
     ///
     /// Call this from `makeUIView` after the PKCanvasView and shape overlay
     /// have been added to the container.
+    // swiftlint:disable:next function_parameter_count
     static func buildOverlays(
         in container: UIView,
         canvas: PKCanvasView,
@@ -1190,6 +1191,7 @@ enum CanvasViewBuilder {
 
     /// Syncs overlay canvases with the current representable properties.
     /// Used by both `CanvasView.updateUIView` and `CanvasPageView.updateUIView`.
+    // swiftlint:disable:next function_parameter_count
     static func syncOverlayCanvases(
         coordinator: CanvasCoordinatorBase,
         canvas: PKCanvasView,
@@ -1263,6 +1265,7 @@ enum CanvasViewBuilder {
     }
 
     /// Syncs effects engines with current state.
+    // swiftlint:disable:next function_parameter_count
     static func syncEffects(
         coordinator: CanvasCoordinatorBase,
         layer: CALayer,
