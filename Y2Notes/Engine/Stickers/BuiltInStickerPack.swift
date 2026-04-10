@@ -110,16 +110,22 @@ final class BuiltInStickerPack: StickerPackProviding {
         ),
         // Decorative
         StickerDefinition(
-            id: "deco.washi.pink", category: "Decorative",
-            displayName: "Pink Washi", symbolFallback: "rectangle.fill"
+            id: "deco.washi.pink",
+            category: "Decorative",
+            displayName: "Pink Washi",
+            symbolFallback: "rectangle.fill"
         ),
         StickerDefinition(
-            id: "deco.corner.leaf", category: "Decorative",
-            displayName: "Leaf Corner", symbolFallback: "leaf.fill"
+            id: "deco.corner.leaf",
+            category: "Decorative",
+            displayName: "Leaf Corner",
+            symbolFallback: "leaf.fill"
         ),
         StickerDefinition(
-            id: "deco.flag.tab", category: "Decorative",
-            displayName: "Page Flag", symbolFallback: "flag.fill"
+            id: "deco.flag.tab",
+            category: "Decorative",
+            displayName: "Page Flag",
+            symbolFallback: "flag.fill"
         ),
     ]
 

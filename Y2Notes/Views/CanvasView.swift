@@ -630,6 +630,7 @@ struct CanvasView: UIViewRepresentable {
         return container
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     func updateUIView(_ uiView: UIView, context: Context) {
         guard let canvas = context.coordinator.canvas else { return }
 
