@@ -1544,8 +1544,8 @@ struct CanvasPageView: UIViewRepresentable {
             bg.transform = xform
             pdfBackgroundView?.transform = xform
             // Keep object overlay canvases (shapes, attachments, widgets,
-            // text objects) in sync with the PencilKit canvas zoom/scroll so
-            // objects rendered in page-local coordinates don't drift from ink.
+            // and text objects) in sync with the PencilKit canvas zoom/scroll
+            // so objects rendered in page-local coordinates don't drift from ink.
             shapeCanvas?.transform = xform
             attachmentCanvas?.transform = xform
             widgetCanvas?.transform = xform
