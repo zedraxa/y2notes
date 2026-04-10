@@ -70,12 +70,11 @@ struct NotebookInfoView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
                     // Colour tag badge
-                        Circle()
-                            .fill(liveNotebook.colorTag.color)
-                            .frame(width: 12, height: 12)
-                            .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1.5))
-                            .offset(x: 4, y: -4)
-                    }
+                    Circle()
+                        .fill(liveNotebook.colorTag.color)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1.5))
+                        .offset(x: 4, y: -4)
                     // Pin badge
                     if liveNotebook.isPinned {
                         Image(systemName: "pin.fill")

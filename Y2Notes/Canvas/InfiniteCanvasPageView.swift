@@ -359,7 +359,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
         /// True while the canvas is being expanded.
         private var isExpandingCanvas = false
 
-        init(
+        override init(
             onDrawingChanged: @escaping (Data) -> Void,
             onSaveRequested: @escaping () -> Void
         ) {

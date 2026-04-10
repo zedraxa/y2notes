@@ -939,6 +939,7 @@ extension CanvasCoordinatorBase: PencilActionDelegate {
 /// Helper that creates and wires all the subviews of the canvas container.
 /// Used by both `CanvasView.makeUIView` and `CanvasPageView.makeUIView` to
 /// eliminate the ~200 lines of duplicated overlay setup code.
+@MainActor
 enum CanvasViewBuilder {
 
     /// Builds all overlay subviews (attachment, widget, sticker, text, shape
@@ -947,6 +948,7 @@ enum CanvasViewBuilder {
     ///
     /// Call this from `makeUIView` after the PKCanvasView and shape overlay
     /// have been added to the container.
+    // swiftlint:disable:next function_parameter_count
     static func buildOverlays(
         in container: UIView,
         canvas: PKCanvasView,
@@ -1142,21 +1144,25 @@ enum CanvasViewBuilder {
         // ── Real-time nib tracker for effects ────────────────────────
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [weak coordinator] location in
-            guard let coordinator else { return }
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
-            let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
-            coordinator.effects.dispatch(
-                .strokeBegan(at: location, inkColor: inkColor),
-                inkEffectEngine: coordinator.effectEngine
-            )
+            MainActor.assumeIsolated {
+                guard let coordinator else { return }
+                guard coordinator.canvasRef?.tool is PKInkingTool else { return }
+                let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
+                coordinator.effects.dispatch(
+                    .strokeBegan(at: location, inkColor: inkColor),
+                    inkEffectEngine: coordinator.effectEngine
+                )
+            }
         }
         nibTracker.onNibMoved = { [weak coordinator] location, force, velocity in
-            guard let coordinator else { return }
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
-            coordinator.effects.dispatch(
-                .strokeUpdated(at: location, pressure: force, velocity: velocity),
-                inkEffectEngine: coordinator.effectEngine
-            )
+            MainActor.assumeIsolated {
+                guard let coordinator else { return }
+                guard coordinator.canvasRef?.tool is PKInkingTool else { return }
+                coordinator.effects.dispatch(
+                    .strokeUpdated(at: location, pressure: force, velocity: velocity),
+                    inkEffectEngine: coordinator.effectEngine
+                )
+            }
         }
         canvas.addGestureRecognizer(nibTracker)
         coordinator.nibTracker = nibTracker
@@ -1190,6 +1196,7 @@ enum CanvasViewBuilder {
 
     /// Syncs overlay canvases with the current representable properties.
     /// Used by both `CanvasView.updateUIView` and `CanvasPageView.updateUIView`.
+    // swiftlint:disable:next function_parameter_count
     static func syncOverlayCanvases(
         coordinator: CanvasCoordinatorBase,
         canvas: PKCanvasView,
@@ -1263,6 +1270,7 @@ enum CanvasViewBuilder {
     }
 
     /// Syncs effects engines with current state.
+    // swiftlint:disable:next function_parameter_count
     static func syncEffects(
         coordinator: CanvasCoordinatorBase,
         layer: CALayer,

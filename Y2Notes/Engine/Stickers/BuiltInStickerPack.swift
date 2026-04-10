@@ -43,70 +43,102 @@ final class BuiltInStickerPack: StickerPackProviding {
     private lazy var allDefinitions: [StickerDefinition] = [
         // Academic
         StickerDefinition(
-            id: "academic.arrow.right", category: "Academic",
-            displayName: "Arrow Right", symbolFallback: "arrow.right"
+            id: "academic.arrow.right",
+            category: "Academic",
+            displayName: "Arrow Right",
+            symbolFallback: "arrow.right"
         ),
         StickerDefinition(
-            id: "academic.arrow.up", category: "Academic",
-            displayName: "Arrow Up", symbolFallback: "arrow.up"
+            id: "academic.arrow.up",
+            category: "Academic",
+            displayName: "Arrow Up",
+            symbolFallback: "arrow.up"
         ),
         StickerDefinition(
-            id: "academic.arrow.curved", category: "Academic",
-            displayName: "Curved Arrow", symbolFallback: "arrow.turn.up.right"
+            id: "academic.arrow.curved",
+            category: "Academic",
+            displayName: "Curved Arrow",
+            symbolFallback: "arrow.turn.up.right"
         ),
         StickerDefinition(
-            id: "academic.checkmark", category: "Academic",
-            displayName: "Checkmark", symbolFallback: "checkmark"
+            id: "academic.checkmark",
+            category: "Academic",
+            displayName: "Checkmark",
+            symbolFallback: "checkmark"
         ),
         StickerDefinition(
-            id: "academic.star.filled", category: "Academic",
-            displayName: "Star", symbolFallback: "star.fill"
+            id: "academic.star.filled",
+            category: "Academic",
+            displayName: "Star",
+            symbolFallback: "star.fill"
         ),
         StickerDefinition(
-            id: "academic.bullet.round", category: "Academic",
-            displayName: "Round Bullet", symbolFallback: "circle.fill"
+            id: "academic.bullet.round",
+            category: "Academic",
+            displayName: "Round Bullet",
+            symbolFallback: "circle.fill"
         ),
         StickerDefinition(
-            id: "academic.divider.wavy", category: "Academic",
-            displayName: "Wavy Divider", symbolFallback: "minus"
+            id: "academic.divider.wavy",
+            category: "Academic",
+            displayName: "Wavy Divider",
+            symbolFallback: "minus"
         ),
         StickerDefinition(
-            id: "academic.bracket.left", category: "Academic",
-            displayName: "Left Bracket", symbolFallback: "lessthan"
+            id: "academic.bracket.left",
+            category: "Academic",
+            displayName: "Left Bracket",
+            symbolFallback: "lessthan"
         ),
         // Shapes
         StickerDefinition(
-            id: "shape.speech.bubble", category: "Shapes",
-            displayName: "Speech Bubble", symbolFallback: "bubble.left.fill"
+            id: "shape.speech.bubble",
+            category: "Shapes",
+            displayName: "Speech Bubble",
+            symbolFallback: "bubble.left.fill"
         ),
         StickerDefinition(
-            id: "shape.banner.ribbon", category: "Shapes",
-            displayName: "Banner", symbolFallback: "flag.fill"
+            id: "shape.banner.ribbon",
+            category: "Shapes",
+            displayName: "Banner",
+            symbolFallback: "flag.fill"
         ),
         StickerDefinition(
-            id: "shape.frame.rounded", category: "Shapes",
-            displayName: "Rounded Frame", symbolFallback: "rectangle"
+            id: "shape.frame.rounded",
+            category: "Shapes",
+            displayName: "Rounded Frame",
+            symbolFallback: "rectangle"
         ),
         StickerDefinition(
-            id: "shape.cloud", category: "Shapes",
-            displayName: "Cloud", symbolFallback: "cloud.fill"
+            id: "shape.cloud",
+            category: "Shapes",
+            displayName: "Cloud",
+            symbolFallback: "cloud.fill"
         ),
         // Icons
         StickerDefinition(
-            id: "icon.lightbulb", category: "Icons",
-            displayName: "Lightbulb", symbolFallback: "lightbulb.fill"
+            id: "icon.lightbulb",
+            category: "Icons",
+            displayName: "Lightbulb",
+            symbolFallback: "lightbulb.fill"
         ),
         StickerDefinition(
-            id: "icon.bookmark", category: "Icons",
-            displayName: "Bookmark", symbolFallback: "bookmark.fill"
+            id: "icon.bookmark",
+            category: "Icons",
+            displayName: "Bookmark",
+            symbolFallback: "bookmark.fill"
         ),
         StickerDefinition(
-            id: "icon.exclamation", category: "Icons",
-            displayName: "Exclamation", symbolFallback: "exclamationmark.circle.fill"
+            id: "icon.exclamation",
+            category: "Icons",
+            displayName: "Exclamation",
+            symbolFallback: "exclamationmark.circle.fill"
         ),
         StickerDefinition(
-            id: "icon.question", category: "Icons",
-            displayName: "Question", symbolFallback: "questionmark.circle.fill"
+            id: "icon.question",
+            category: "Icons",
+            displayName: "Question",
+            symbolFallback: "questionmark.circle.fill"
         ),
         // Decorative
         StickerDefinition(
