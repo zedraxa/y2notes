@@ -5,13 +5,13 @@ import UniformTypeIdentifiers
 
 /// The order in which imported documents are displayed in the library.
 enum DocumentSortOrder: String, CaseIterable, Identifiable {
-    case nameAscending    = "name_asc"
-    case nameDescending   = "name_desc"
-    case dateImported     = "date_imported"
-    case lastOpened       = "last_opened"
-    case type             = "type"
-    case sizeDescending   = "size_desc"
-    case favoritesFirst   = "favorites_first"
+    case nameAscending = "name_asc"
+    case nameDescending = "name_desc"
+    case dateImported = "date_imported"
+    case lastOpened = "last_opened"
+    case type = "type"
+    case sizeDescending = "size_desc"
+    case favoritesFirst = "favorites_first"
 
     var id: String { rawValue }
 
@@ -42,17 +42,17 @@ enum DocumentSortOrder: String, CaseIterable, Identifiable {
 
 // MARK: - Supported document types
 
-/// The types of external documents that Y2Notes can import for annotation.
+/// The types of external documents that Y2Notes can import.
 enum ImportedDocumentType: String, Codable, CaseIterable {
-    case pdf   = "pdf"
-    case png   = "png"
-    case jpg   = "jpg"
-    case heic  = "heic"
-    case docx  = "docx"
-    case epub  = "epub"
-    case pptx  = "pptx"
-    case key   = "key"
-    case odp   = "odp"
+    case pdf
+    case png
+    case jpg
+    case heic
+    case docx
+    case epub
+    case pptx
+    case key
+    case odp
 
     var displayName: String {
         switch self {
@@ -85,26 +85,30 @@ enum ImportedDocumentType: String, Codable, CaseIterable {
     /// UTType identifiers recognised for file import.
     var utTypes: [UTType] {
         switch self {
-        case .pdf:
-            return [.pdf]
-        case .png:
-            return [.png]
-        case .jpg:
-            return [.jpeg]
-        case .heic:
-            return [.heic]
+        case .pdf:  return [.pdf]
+        case .png:  return [.png]
+        case .jpg:  return [.jpeg]
+        case .heic: return [.heic]
         case .docx:
-            return [UTType(filenameExtension: "docx") ?? .item,
-                    UTType("com.microsoft.word.docx") ?? .item]
+            return [
+                UTType(filenameExtension: "docx") ?? .item,
+                UTType("com.microsoft.word.docx") ?? .item,
+            ]
         case .epub:
-            return [UTType(filenameExtension: "epub") ?? .item,
-                    UTType("org.idpf.epub-container") ?? .item]
+            return [
+                UTType(filenameExtension: "epub") ?? .item,
+                UTType("org.idpf.epub-container") ?? .item,
+            ]
         case .pptx:
-            return [UTType(filenameExtension: "pptx") ?? .item,
-                    UTType("com.microsoft.powerpoint.pptx") ?? .item]
+            return [
+                UTType(filenameExtension: "pptx") ?? .item,
+                UTType("com.microsoft.powerpoint.pptx") ?? .item,
+            ]
         case .key:
-            return [UTType(filenameExtension: "key") ?? .item,
-                    UTType("com.apple.iwork.keynote.key") ?? .item]
+            return [
+                UTType(filenameExtension: "key") ?? .item,
+                UTType("com.apple.iwork.keynote.key") ?? .item,
+            ]
         case .odp:
             return [UTType(filenameExtension: "odp") ?? .item]
         }
@@ -118,7 +122,7 @@ enum ImportedDocumentType: String, Codable, CaseIterable {
 
 // MARK: - ImportedDocument model
 
-/// A persistent record of a document imported into Y2Notes for annotation.
+/// A persistent record of a document imported into Y2Notes.
 ///
 /// The original file is copied into the app's `Documents/ImportedDocs/` sandbox
 /// directory so it remains accessible even after the source is removed.
@@ -146,17 +150,17 @@ struct ImportedDocument: Identifiable, Codable, Hashable {
         lastOpenedAt: Date? = nil,
         isFavorited: Bool = false
     ) {
-        self.id             = id
-        self.displayName    = displayName
-        self.documentType   = documentType
+        self.id = id
+        self.displayName = displayName
+        self.documentType = documentType
         self.storedFileName = storedFileName
-        self.importedAt     = importedAt
-        self.fileSize       = fileSize
-        self.lastOpenedAt   = lastOpenedAt
-        self.isFavorited    = isFavorited
+        self.importedAt = importedAt
+        self.fileSize = fileSize
+        self.lastOpenedAt = lastOpenedAt
+        self.isFavorited = isFavorited
     }
 
-    // MARK: - Codable — tolerant decoder for legacy records without new fields
+    // MARK: - Codable — tolerant decoder for legacy records
 
     enum CodingKeys: String, CodingKey {
         case id, displayName, importedAt, documentType, storedFileName
@@ -164,20 +168,20 @@ struct ImportedDocument: Identifiable, Codable, Hashable {
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id             = try c.decode(UUID.self,                   forKey: .id)
-        displayName    = try c.decode(String.self,                 forKey: .displayName)
-        importedAt     = try c.decode(Date.self,                   forKey: .importedAt)
-        documentType   = try c.decode(ImportedDocumentType.self,   forKey: .documentType)
-        storedFileName = try c.decode(String.self,                 forKey: .storedFileName)
-        fileSize       = try c.decodeIfPresent(Int64.self,         forKey: .fileSize)       ?? 0
-        lastOpenedAt   = try c.decodeIfPresent(Date.self,          forKey: .lastOpenedAt)
-        isFavorited    = try c.decodeIfPresent(Bool.self,          forKey: .isFavorited)    ?? false
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        importedAt = try container.decode(Date.self, forKey: .importedAt)
+        documentType = try container.decode(ImportedDocumentType.self, forKey: .documentType)
+        storedFileName = try container.decode(String.self, forKey: .storedFileName)
+        fileSize = try container.decodeIfPresent(Int64.self, forKey: .fileSize) ?? 0
+        lastOpenedAt = try container.decodeIfPresent(Date.self, forKey: .lastOpenedAt)
+        isFavorited = try container.decodeIfPresent(Bool.self, forKey: .isFavorited) ?? false
     }
 
     // MARK: - Formatted helpers
 
-    /// A human-readable file size string (e.g. "2.4 MB").  Returns "–" when size is 0.
+    /// A human-readable file size string (e.g. "2.4 MB").
     var formattedFileSize: String {
         guard fileSize > 0 else { return "–" }
         return ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
@@ -185,5 +189,5 @@ struct ImportedDocument: Identifiable, Codable, Hashable {
 
     // MARK: Hashable — identity only
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
-    static func == (lhs: ImportedDocument, rhs: ImportedDocument) -> Bool { lhs.id == rhs.id }
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
 }
