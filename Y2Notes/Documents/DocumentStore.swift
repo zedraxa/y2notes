@@ -41,7 +41,6 @@ final class DocumentStore: ObservableObject {
     /// Detects the document type from a file URL's extension.
     func documentType(for url: URL) -> ImportedDocumentType? {
         let ext = url.pathExtension.lowercased()
-        // Handle common extension aliases (e.g., .jpeg → .jpg)
         switch ext {
         case "jpeg": return .jpg
         case "pdf":  return .pdf
@@ -50,18 +49,14 @@ final class DocumentStore: ObservableObject {
     }
 
     /// Imports a document from the given security-scoped URL.
-    ///
-    /// - Parameter sourceURL: A security-scoped URL obtained from a `UIDocumentPickerViewController`
-    ///   or SwiftUI `.fileImporter`. The store copies the file before the security scope expires.
-    /// - Returns: The newly created `ImportedDocument`, or `nil` on failure.
     @discardableResult
     func importDocument(from sourceURL: URL) -> ImportedDocument? {
         let accessing = sourceURL.startAccessingSecurityScopedResource()
         defer { if accessing { sourceURL.stopAccessingSecurityScopedResource() } }
 
         guard let docType = documentType(for: sourceURL) else { return nil }
-        let fileName      = "\(UUID().uuidString).\(docType.rawValue)"
-        let destination   = docsDir.appendingPathComponent(fileName)
+        let fileName    = "\(UUID().uuidString).\(docType.rawValue)"
+        let destination = docsDir.appendingPathComponent(fileName)
 
         do {
             try FileManager.default.copyItem(at: sourceURL, to: destination)
@@ -69,7 +64,9 @@ final class DocumentStore: ObservableObject {
             return nil
         }
 
-        let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? Int64) ?? 0
+        let size = (try? FileManager.default.attributesOfItem(
+            atPath: destination.path
+        )[.size] as? Int64) ?? 0
         let displayName = sourceURL.deletingPathExtension().lastPathComponent
         let record = ImportedDocument(
             displayName:    displayName,
@@ -83,8 +80,6 @@ final class DocumentStore: ObservableObject {
     }
 
     /// Imports multiple documents from an array of security-scoped URLs.
-    ///
-    /// - Returns: The successfully imported documents (failed imports are silently skipped).
     @discardableResult
     func importDocuments(from urls: [URL]) -> [ImportedDocument] {
         var imported: [ImportedDocument] = []
@@ -136,9 +131,13 @@ final class DocumentStore: ObservableObject {
     func sorted(by order: DocumentSortOrder) -> [ImportedDocument] {
         switch order {
         case .nameAscending:
-            return documents.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+            return documents.sorted {
+                $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+            }
         case .nameDescending:
-            return documents.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedDescending }
+            return documents.sorted {
+                $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedDescending
+            }
         case .dateImported:
             return documents.sorted { $0.importedAt > $1.importedAt }
         case .lastOpened:
@@ -176,12 +175,10 @@ final class DocumentStore: ObservableObject {
 
     // MARK: - Orphan cleanup
 
-    /// Removes stored files that have no matching record and drops records whose
-    /// stored file is missing.  Called once on init to keep the sandbox tidy.
     private func cleanupOrphans() {
         let fm = FileManager.default
 
-        // 1. Remove records whose backing file is gone.
+        // Remove records whose backing file is gone.
         let missing = documents.filter { !fm.fileExists(atPath: storedURL(for: $0).path) }
         if !missing.isEmpty {
             let missingIDs = Set(missing.map(\.id))
@@ -189,7 +186,7 @@ final class DocumentStore: ObservableObject {
             save()
         }
 
-        // 2. Delete stored files that have no record.
+        // Delete stored files that have no record.
         guard let storedFiles = try? fm.contentsOfDirectory(atPath: docsDir.path) else { return }
         let knownFileNames = Set(documents.map(\.storedFileName))
         for file in storedFiles where !knownFileNames.contains(file) {

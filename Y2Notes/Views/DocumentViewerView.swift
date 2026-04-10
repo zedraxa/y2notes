@@ -5,14 +5,8 @@ import QuickLook
 
 /// Full-screen viewer for imported DOCX, EPUB, PPTX, KEY, and ODP files.
 ///
-/// Uses `QLPreviewController` (Quick Look) — the same engine Apple uses in Files app —
-/// so every supported format renders with native fidelity without any third-party library.
-///
-/// Quick Look supports:
-/// - Word (.docx), Excel (.xlsx), PowerPoint (.pptx)
-/// - ePub books
-/// - Keynote (.key), Numbers (.numbers), Pages (.pages)
-/// - Images, PDFs, plain text, and many more
+/// Uses `QLPreviewController` (Quick Look) — the same engine Apple uses in
+/// the Files app — so every supported format renders with native fidelity.
 struct DocumentViewerView: View {
 
     @EnvironmentObject var documentStore: DocumentStore
@@ -21,7 +15,6 @@ struct DocumentViewerView: View {
     let document: ImportedDocument
     let fileURL: URL
 
-    /// Callback invoked with the companion note's ID so the parent can open it in a tab.
     var onOpenCompanionNote: ((UUID) -> Void)?
 
     @State private var showShareSheet = false
@@ -113,8 +106,10 @@ private struct QLPreviewRepresentable: UIViewControllerRepresentable {
 
         func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
 
-        func previewController(_ controller: QLPreviewController,
-                               previewItemAt index: Int) -> QLPreviewItem {
+        func previewController(
+            _ controller: QLPreviewController,
+            previewItemAt index: Int
+        ) -> QLPreviewItem {
             url as QLPreviewItem
         }
     }
@@ -128,7 +123,6 @@ private struct QLPreviewRepresentable: UIViewControllerRepresentable {
 /// - Sort picker (name / date / last opened / type / size / favorites)
 /// - Live search bar that filters by display name
 /// - Grid / list display toggle
-/// - Richer cells showing file type, size, import date, and favourite star
 /// - Context menu with rename, favourite toggle, share, and delete
 /// - Batch multi-file import
 struct DocumentLibraryView: View {
@@ -138,7 +132,6 @@ struct DocumentLibraryView: View {
 
     @Binding var selectedDocumentID: UUID?
 
-    /// Callback invoked with a companion note's ID so the parent can open it in a tab.
     var onOpenCompanionNote: ((UUID) -> Void)?
 
     @State private var showImporter = false
@@ -194,7 +187,8 @@ struct DocumentLibraryView: View {
                 let imported = documentStore.importDocuments(from: urls)
                 if imported.isEmpty {
                     let names = urls.map(\.lastPathComponent).joined(separator: ", ")
-                    importError = "Unable to import \"\(names)\". The file format may not be supported."
+                    importError = "Unable to import \"\(names)\". " +
+                        "The file format may not be supported."
                 } else {
                     selectedDocumentID = imported.first?.id
                 }
@@ -247,7 +241,10 @@ struct DocumentLibraryView: View {
 
     private var documentGrid: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160, maximum: 200))], spacing: 16) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 160, maximum: 200))],
+                spacing: 16
+            ) {
                 ForEach(displayedDocuments) { doc in
                     DocumentGridCell(
                         document: doc,
@@ -398,7 +395,10 @@ struct DocumentLibraryView: View {
                 .foregroundStyle(.secondary)
                 .scaleEffect(emptyAppeared ? 1.0 : 0.5)
                 .opacity(emptyAppeared ? 1 : 0)
-                .animation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.05), value: emptyAppeared)
+                .animation(
+                    .spring(response: 0.45, dampingFraction: 0.7).delay(0.05),
+                    value: emptyAppeared
+                )
             Text("No Documents")
                 .font(.title3.weight(.semibold))
                 .opacity(emptyAppeared ? 1 : 0)
@@ -419,7 +419,10 @@ struct DocumentLibraryView: View {
             .buttonStyle(.bordered)
             .scaleEffect(emptyAppeared ? 1.0 : 0.85)
             .opacity(emptyAppeared ? 1 : 0)
-            .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.35), value: emptyAppeared)
+            .animation(
+                .spring(response: 0.4, dampingFraction: 0.75).delay(0.35),
+                value: emptyAppeared
+            )
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -480,7 +483,9 @@ private struct DocumentGridCell: View {
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .padding(4)
-                                .background(Circle().fill(Self.companionBadgeColor.opacity(0.9)))
+                                .background(
+                                    Circle().fill(Self.companionBadgeColor.opacity(0.9))
+                                )
                         }
                     }
                     .padding(2)

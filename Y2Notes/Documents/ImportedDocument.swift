@@ -42,7 +42,7 @@ enum DocumentSortOrder: String, CaseIterable, Identifiable {
 
 // MARK: - Supported document types
 
-/// The types of external documents that Y2Notes can import for annotation.
+/// The types of external documents that Y2Notes can import.
 enum ImportedDocumentType: String, Codable, CaseIterable {
     case pdf   = "pdf"
     case png   = "png"
@@ -85,26 +85,30 @@ enum ImportedDocumentType: String, Codable, CaseIterable {
     /// UTType identifiers recognised for file import.
     var utTypes: [UTType] {
         switch self {
-        case .pdf:
-            return [.pdf]
-        case .png:
-            return [.png]
-        case .jpg:
-            return [.jpeg]
-        case .heic:
-            return [.heic]
+        case .pdf:  return [.pdf]
+        case .png:  return [.png]
+        case .jpg:  return [.jpeg]
+        case .heic: return [.heic]
         case .docx:
-            return [UTType(filenameExtension: "docx") ?? .item,
-                    UTType("com.microsoft.word.docx") ?? .item]
+            return [
+                UTType(filenameExtension: "docx") ?? .item,
+                UTType("com.microsoft.word.docx") ?? .item,
+            ]
         case .epub:
-            return [UTType(filenameExtension: "epub") ?? .item,
-                    UTType("org.idpf.epub-container") ?? .item]
+            return [
+                UTType(filenameExtension: "epub") ?? .item,
+                UTType("org.idpf.epub-container") ?? .item,
+            ]
         case .pptx:
-            return [UTType(filenameExtension: "pptx") ?? .item,
-                    UTType("com.microsoft.powerpoint.pptx") ?? .item]
+            return [
+                UTType(filenameExtension: "pptx") ?? .item,
+                UTType("com.microsoft.powerpoint.pptx") ?? .item,
+            ]
         case .key:
-            return [UTType(filenameExtension: "key") ?? .item,
-                    UTType("com.apple.iwork.keynote.key") ?? .item]
+            return [
+                UTType(filenameExtension: "key") ?? .item,
+                UTType("com.apple.iwork.keynote.key") ?? .item,
+            ]
         case .odp:
             return [UTType(filenameExtension: "odp") ?? .item]
         }
@@ -118,7 +122,7 @@ enum ImportedDocumentType: String, Codable, CaseIterable {
 
 // MARK: - ImportedDocument model
 
-/// A persistent record of a document imported into Y2Notes for annotation.
+/// A persistent record of a document imported into Y2Notes.
 ///
 /// The original file is copied into the app's `Documents/ImportedDocs/` sandbox
 /// directory so it remains accessible even after the source is removed.
@@ -156,7 +160,7 @@ struct ImportedDocument: Identifiable, Codable, Hashable {
         self.isFavorited    = isFavorited
     }
 
-    // MARK: - Codable — tolerant decoder for legacy records without new fields
+    // MARK: - Codable — tolerant decoder for legacy records
 
     enum CodingKeys: String, CodingKey {
         case id, displayName, importedAt, documentType, storedFileName
@@ -177,7 +181,7 @@ struct ImportedDocument: Identifiable, Codable, Hashable {
 
     // MARK: - Formatted helpers
 
-    /// A human-readable file size string (e.g. "2.4 MB").  Returns "–" when size is 0.
+    /// A human-readable file size string (e.g. "2.4 MB").
     var formattedFileSize: String {
         guard fileSize > 0 else { return "–" }
         return ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)

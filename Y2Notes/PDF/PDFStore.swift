@@ -6,7 +6,7 @@ import UIKit
 // MARK: - PDFStore
 
 /// Manages the collection of imported PDF documents, their on-disk copies,
-/// per-page annotation data, and annotated-PDF export.
+/// per-page annotation / sticker / widget data, and annotated-PDF export.
 @MainActor
 final class PDFStore: ObservableObject {
 
@@ -22,7 +22,7 @@ final class PDFStore: ObservableObject {
 
     init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        metadataURL = docs.appendingPathComponent("y2notes_pdfs.json")
+        metadataURL  = docs.appendingPathComponent("y2notes_pdfs.json")
         pdfDirectory = docs.appendingPathComponent("PDFNotes")
         try? FileManager.default.createDirectory(
             at: pdfDirectory, withIntermediateDirectories: true, attributes: nil
@@ -30,20 +30,19 @@ final class PDFStore: ObservableObject {
         load()
     }
 
-    // MARK: - CRUD
+    // MARK: - Import
 
-    /// Copies the PDF at `sourceURL` into the app's PDFNotes directory, creates a record,
-    /// and returns it.  Returns `nil` when the source is not a valid PDF.
+    /// Copies the PDF at `sourceURL` into the app's PDFNotes directory and
+    /// creates a record.  Returns `nil` when the source is not a valid PDF.
     @discardableResult
     func importPDF(from sourceURL: URL) -> PDFNoteRecord? {
-        // Security-scoped access (file picker results need this).
         let accessed = sourceURL.startAccessingSecurityScopedResource()
         defer { if accessed { sourceURL.stopAccessingSecurityScopedResource() } }
 
         guard let document = PDFDocument(url: sourceURL) else { return nil }
 
         let filename = UUID().uuidString + ".pdf"
-        let destURL = pdfDirectory.appendingPathComponent(filename)
+        let destURL  = pdfDirectory.appendingPathComponent(filename)
         do {
             try FileManager.default.copyItem(at: sourceURL, to: destURL)
         } catch {
@@ -51,16 +50,18 @@ final class PDFStore: ObservableObject {
         }
 
         let rawTitle = sourceURL.deletingPathExtension().lastPathComponent
-        let title = rawTitle.isEmpty ? "Imported PDF" : rawTitle
-        let record = PDFNoteRecord(
-            title: title,
+        let title    = rawTitle.isEmpty ? "Imported PDF" : rawTitle
+        let record   = PDFNoteRecord(
+            title:       title,
             pdfFilename: filename,
-            pageCount: document.pageCount
+            pageCount:   document.pageCount
         )
         records.insert(record, at: 0)
         save()
         return record
     }
+
+    // MARK: - Delete
 
     /// Removes the record and its stored PDF file from disk.
     func deleteRecord(id: UUID) {
@@ -70,10 +71,28 @@ final class PDFStore: ObservableObject {
         save()
     }
 
-    /// Stores or updates the PencilKit annotation for `page` in the given record.
+    // MARK: - Annotation CRUD
+
+    /// Stores or updates the PencilKit annotation for `page`.
     func updateAnnotation(id: UUID, page: Int, data: Data) {
         guard let idx = records.firstIndex(where: { $0.id == id }) else { return }
         records[idx].annotationData[String(page)] = data
+        records[idx].modifiedAt = Date()
+        save()
+    }
+
+    /// Stores or updates the sticker layer for `page`.
+    func updateStickers(id: UUID, page: Int, data: Data) {
+        guard let idx = records.firstIndex(where: { $0.id == id }) else { return }
+        records[idx].stickerData[String(page)] = data
+        records[idx].modifiedAt = Date()
+        save()
+    }
+
+    /// Stores or updates the widget layer for `page`.
+    func updateWidgets(id: UUID, page: Int, data: Data) {
+        guard let idx = records.firstIndex(where: { $0.id == id }) else { return }
+        records[idx].widgetData[String(page)] = data
         records[idx].modifiedAt = Date()
         save()
     }
@@ -85,6 +104,38 @@ final class PDFStore: ObservableObject {
         save()
     }
 
+    // MARK: - Sticker / Widget helpers
+
+    /// Decodes the sticker instances for a given page.
+    func stickers(for recordID: UUID, page: Int) -> [StickerInstance] {
+        guard let record = records.first(where: { $0.id == recordID }),
+              let data = record.stickerData[String(page)],
+              let decoded = try? JSONDecoder().decode([StickerInstance].self, from: data)
+        else { return [] }
+        return decoded
+    }
+
+    /// Decodes the widget instances for a given page.
+    func widgets(for recordID: UUID, page: Int) -> [NoteWidget] {
+        guard let record = records.first(where: { $0.id == recordID }),
+              let data = record.widgetData[String(page)],
+              let decoded = try? JSONDecoder().decode([NoteWidget].self, from: data)
+        else { return [] }
+        return decoded
+    }
+
+    /// Encodes and persists sticker instances for a given page.
+    func saveStickers(_ stickers: [StickerInstance], recordID: UUID, page: Int) {
+        guard let data = try? JSONEncoder().encode(stickers) else { return }
+        updateStickers(id: recordID, page: page, data: data)
+    }
+
+    /// Encodes and persists widget instances for a given page.
+    func saveWidgets(_ widgets: [NoteWidget], recordID: UUID, page: Int) {
+        guard let data = try? JSONEncoder().encode(widgets) else { return }
+        updateWidgets(id: recordID, page: page, data: data)
+    }
+
     // MARK: - URL helpers
 
     /// Absolute URL of the stored PDF file for a record.
@@ -94,13 +145,8 @@ final class PDFStore: ObservableObject {
 
     // MARK: - Export
 
-    /// Composites each PDF page with its annotation drawing and writes the result to a
-    /// temporary file.  Returns the temporary file URL, or `nil` on failure.
-    ///
-    /// **Coordinate note:** Annotations are rendered at the PDF page's native media-box
-    /// size.  If the user annotated at a zoom level other than the default fit-to-width
-    /// zoom, strokes will appear proportionally scaled on export.  A future improvement
-    /// could record the view transform at annotation time and apply the inverse on export.
+    /// Composites each PDF page with its annotation, sticker, and widget
+    /// overlays and writes the result to a temporary file.
     func exportAnnotatedPDF(for record: PDFNoteRecord) -> URL? {
         let srcURL = pdfURL(for: record)
         guard let document = PDFDocument(url: srcURL) else { return nil }
@@ -110,7 +156,6 @@ final class PDFStore: ObservableObject {
             guard let sourcePage = document.page(at: pageIndex) else { continue }
             let mediaBox = sourcePage.bounds(for: .mediaBox)
 
-            // Use 2× scale for print-quality output.
             let format = UIGraphicsImageRendererFormat()
             format.scale = 2.0
             format.opaque = true
@@ -123,7 +168,7 @@ final class PDFStore: ObservableObject {
                 cgCtx.setFillColor(UIColor.white.cgColor)
                 cgCtx.fill(CGRect(origin: .zero, size: mediaBox.size))
 
-                // Draw the PDF page.  PDF origin is bottom-left; flip for UIKit.
+                // Draw the PDF page. PDF origin is bottom-left; flip for UIKit.
                 cgCtx.saveGState()
                 cgCtx.translateBy(x: 0, y: mediaBox.height)
                 cgCtx.scaleBy(x: 1, y: -1)
@@ -133,11 +178,31 @@ final class PDFStore: ObservableObject {
                 // Overlay the PencilKit annotation, if any.
                 if let drawingData = record.annotationData[String(pageIndex)],
                    let drawing = try? PKDrawing(data: drawingData) {
-                    let annotationImage = drawing.image(
+                    let image = drawing.image(
                         from: CGRect(origin: .zero, size: mediaBox.size),
                         scale: 1.0
                     )
-                    annotationImage.draw(in: CGRect(origin: .zero, size: mediaBox.size))
+                    image.draw(in: CGRect(origin: .zero, size: mediaBox.size))
+                }
+
+                // Overlay stickers.
+                if let stickerData = record.stickerData[String(pageIndex)],
+                   let stickers = try? JSONDecoder().decode(
+                       [StickerInstance].self, from: stickerData
+                   ) {
+                    for sticker in stickers.sorted(by: { $0.zIndex < $1.zIndex }) {
+                        renderStickerForExport(sticker, in: mediaBox.size, context: cgCtx)
+                    }
+                }
+
+                // Overlay widgets.
+                if let wData = record.widgetData[String(pageIndex)],
+                   let noteWidgets = try? JSONDecoder().decode(
+                       [NoteWidget].self, from: wData
+                   ) {
+                    for widget in noteWidgets.sorted(by: { $0.zIndex < $1.zIndex }) {
+                        renderWidgetForExport(widget, context: cgCtx)
+                    }
                 }
             }
 
@@ -153,6 +218,44 @@ final class PDFStore: ObservableObject {
             .appendingPathComponent("\(safeName)-annotated.pdf")
         guard newDoc.write(to: tempURL) else { return nil }
         return tempURL
+    }
+
+    // MARK: - Export helpers
+
+    private func renderStickerForExport(
+        _ sticker: StickerInstance,
+        in pageSize: CGSize,
+        context: CGContext
+    ) {
+        // Draw a placeholder rectangle for each sticker in the export
+        // (actual sticker images require StickerStore which is not
+        // available at this layer — a future enhancement).
+        let size: CGFloat = 64 * sticker.scale
+        let rect = CGRect(
+            x: sticker.position.x - size / 2,
+            y: sticker.position.y - size / 2,
+            width: size,
+            height: size
+        )
+        context.saveGState()
+        context.setAlpha(sticker.opacity)
+        context.setFillColor(UIColor.systemYellow.withAlphaComponent(0.3).cgColor)
+        context.fill(rect)
+        context.restoreGState()
+    }
+
+    private func renderWidgetForExport(
+        _ widget: NoteWidget,
+        context: CGContext
+    ) {
+        let rect = widget.frame.boundingRect
+        context.saveGState()
+        context.setFillColor(UIColor.secondarySystemBackground.cgColor)
+        context.fill(rect)
+        context.setStrokeColor(UIColor.separator.cgColor)
+        context.setLineWidth(1)
+        context.stroke(rect)
+        context.restoreGState()
     }
 
     // MARK: - Persistence

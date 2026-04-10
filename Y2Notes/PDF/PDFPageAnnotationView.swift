@@ -5,17 +5,18 @@ import PencilKit
 // MARK: - PDFPageAnnotationView
 
 /// A `UIViewRepresentable` that renders a single PDF page via `PDFView` and layers a
-/// transparent `PKCanvasView` on top for freehand annotation.
+/// transparent `PKCanvasView` on top for freehand annotation, with additional SwiftUI
+/// overlays for stickers and widgets.
 ///
 /// **Annotation mode vs. read mode:**
 /// - When `isAnnotating` is `true` the canvas captures all touches (drawing).
 /// - When `isAnnotating` is `false` the canvas is non-interactive and `PDFView` handles
-///   all touches, enabling built-in hyperlink navigation, text selection, and scroll.
+///   all touches (hyperlink navigation, text selection, scroll).
 ///
 /// **Page navigation:**
 /// - SwiftUI drives the current page via `pageIndex`.
-/// - Internal navigation (e.g. the user taps a hyperlink) fires `onPageChanged`.
-/// - When the page changes (either source), the canvas drawing is swapped automatically.
+/// - Internal navigation (e.g. user taps a hyperlink) fires `onPageChanged`.
+/// - When the page changes the canvas drawing is swapped automatically.
 struct PDFPageAnnotationView: UIViewRepresentable {
 
     let pdfURL: URL
@@ -91,11 +92,11 @@ final class PDFAnnotationContainer: UIView {
     private func setup() {
         backgroundColor = .systemBackground
 
-        // ── PDFView ────────────────────────────────────────────────────────
-        pdfView.displayMode             = .singlePage
-        pdfView.displayDirection        = .vertical
-        pdfView.autoScales              = true
-        pdfView.backgroundColor         = .systemBackground
+        // ── PDFView ────────────────────────────────────────────────────
+        pdfView.displayMode      = .singlePage
+        pdfView.displayDirection = .vertical
+        pdfView.autoScales       = true
+        pdfView.backgroundColor  = .systemBackground
         pdfView.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(pdfView)
@@ -106,14 +107,12 @@ final class PDFAnnotationContainer: UIView {
             pdfView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        // ── PKCanvasView ───────────────────────────────────────────────────
+        // ── PKCanvasView ───────────────────────────────────────────────
         // The canvas must NOT have its own zoom/scroll — PDFView owns zoom.
-        // Setting min/max to 1.0 and disabling scroll ensures the canvas acts
-        // as a fixed overlay on the PDF page.
-        canvas.backgroundColor             = .clear
-        canvas.minimumZoomScale            = 1.0
-        canvas.maximumZoomScale            = 1.0
-        canvas.isScrollEnabled             = false
+        canvas.backgroundColor  = .clear
+        canvas.minimumZoomScale = 1.0
+        canvas.maximumZoomScale = 1.0
+        canvas.isScrollEnabled  = false
         canvas.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(canvas)
@@ -124,7 +123,7 @@ final class PDFAnnotationContainer: UIView {
             canvas.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        // Observe PDFKit page-change notification (fired by hyperlinks, go(to:), etc.).
+        // Observe PDFKit page-change notification (hyperlinks, go(to:), etc.).
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(pdfPageDidChange),
@@ -163,7 +162,7 @@ final class PDFAnnotationContainer: UIView {
         if let document = PDFDocument(url: pdfURL) {
             pdfView.document = document
         }
-        canvas.tool        = tool
+        canvas.tool          = tool
         canvas.drawingPolicy = drawingPolicy
         canvas.isUserInteractionEnabled = isAnnotating
 
@@ -182,15 +181,11 @@ final class PDFAnnotationContainer: UIView {
         canvas.drawingPolicy = drawingPolicy
         canvas.isUserInteractionEnabled = isAnnotating
 
-        // Always keep annotation data current so page-change notifications
-        // can load the right drawing even when SwiftUI hasn't re-rendered yet.
         latestAnnotationData = annotationData
 
         if pageIndex != currentPageIndex {
             goToPage(pageIndex, annotationData: annotationData)
         }
-        // When the same page is shown but annotation data was updated externally,
-        // do NOT overwrite canvas.drawing — the canvas holds the live state.
     }
 
     // MARK: - Internal navigation
@@ -238,11 +233,10 @@ final class PDFAnnotationContainer: UIView {
 extension PDFPageAnnotationView {
 
     final class Coordinator: NSObject, PKCanvasViewDelegate {
-        var onPageChanged:      (Int) -> Void
+        var onPageChanged:       (Int) -> Void
         var onAnnotationChanged: (Int, Data) -> Void
 
         private var debounceTimer: Timer?
-        /// The page index that the debounce timer is pending for.
         private var pendingPage: Int = 0
 
         init(
@@ -257,17 +251,18 @@ extension PDFPageAnnotationView {
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             debounceTimer?.invalidate()
-            // Capture page index and data immediately; fire the callback after 0.8 s.
             guard let container = canvasView.superview as? PDFAnnotationContainer else { return }
             let page = container.currentPageIndex
             let data = canvasView.drawing.dataRepresentation()
             pendingPage = page
-            debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
+            debounceTimer = Timer.scheduledTimer(
+                withTimeInterval: 0.8, repeats: false
+            ) { [weak self] _ in
                 self?.onAnnotationChanged(page, data)
             }
         }
 
-        // MARK: Internal flush (called on page change before loading new drawing)
+        // MARK: Internal flush (called before loading new drawing)
 
         func flushAnnotation(page: Int, data: Data) {
             debounceTimer?.invalidate()
