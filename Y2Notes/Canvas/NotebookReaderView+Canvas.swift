@@ -58,7 +58,8 @@ extension NotebookReaderView {
             pageCount: note.pageCount,
             isNewPage: false,
             zoomResetTrigger: false,
-            initialZoomScale: nil
+            initialZoomScale: nil,
+            isInfiniteCanvas: false
         )
     }
 

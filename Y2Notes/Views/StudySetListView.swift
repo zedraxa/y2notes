@@ -850,12 +850,14 @@ private struct TestFileImportSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("File") {
+                Section {
                     Button {
                         showImporter = true
                     } label: {
                         Label(fileName ?? "Choose JSON File", systemImage: "doc")
                     }
+                } header: {
+                    Text("File")
                 } footer: {
                     Text("Use JSON schema version 1 with set metadata and questions (prompt, options, correctOptionIndex, explanation).")
                 }
