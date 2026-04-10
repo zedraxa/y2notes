@@ -62,8 +62,7 @@ extension NavigationAnchor {
         && lhs.audioSessionID == rhs.audioSessionID
         && lhs.audioOffset == rhs.audioOffset
         && lhs.regionID == rhs.regionID
-        && lhs.canvasPoint?.x == rhs.canvasPoint?.x
-        && lhs.canvasPoint?.y == rhs.canvasPoint?.y
+        && lhs.canvasPoint == rhs.canvasPoint
     }
 }
 
