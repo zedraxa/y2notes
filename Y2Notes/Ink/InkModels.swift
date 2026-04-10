@@ -126,8 +126,8 @@ struct InkMaterialTraits: Codable, Equatable {
     var sheenAmount: Double
     /// Stroke width variation factor — influences the look of fountain-pen ink.
     var viscosity: Double
-    /// Paper texture interaction: 0 = ultra-smooth / 1 = rough.
-    /// Reserved for a future texture-renderer agent.
+    /// Granularity: 0 = ultra-smooth / 1 = rough.
+    /// Affects the visual roughness of strokes.
     var granularity: Double
 
     // MARK: Named presets

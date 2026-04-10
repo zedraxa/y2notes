@@ -37,7 +37,6 @@
 "Settings.DocumentDefaults.PageType"       = "Tipo de Página";
 "Settings.DocumentDefaults.PageSize"       = "Tamaño de Página";
 "Settings.DocumentDefaults.Orientation"    = "Orientación";
-"Settings.DocumentDefaults.PaperMaterial"  = "Material del Papel";
 "Settings.DocumentDefaults.Footer"         = "Estos valores por defecto se aplican al crear nuevos cuadernos. Los cuadernos existentes no se ven afectados.";
 
 "Settings.ToolPreferences"        = "Preferencias de Herramientas";
@@ -130,7 +129,6 @@
 "Notebook.Name"                   = "Nombre del Cuaderno";
 "Notebook.Cover"                  = "Portada";
 "Notebook.PageType"               = "Tipo de Página";
-"Notebook.PaperMaterial"          = "Material del Papel";
 "Notebook.Sections"               = "Secciones";
 "Notebook.ManageSections"         = "Gestionar Secciones";
 "Notebook.NewSection"             = "Nueva Sección";
