@@ -27,11 +27,6 @@ extension CanvasView {
         weak var pdfBackgroundView: UIImageView?
         /// Updated by updateUIView to always hold the freshest closure.
         var onUndoStateChanged: ((Bool, Bool) -> Void)?
-        /// Called once when the canvas undo manager is available, so the parent
-        /// view can call undo/redo directly without relying on the environment.
-        var onCanvasUndoManagerAvailable: ((UndoManager?) -> Void)?
-        /// Guards one-time delivery of the undo manager reference.
-        private var didDeliverUndoManager = false
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
         var lastZoomResetTrigger: Bool = false
         private var debounceTimer: Timer?
@@ -251,13 +246,6 @@ extension CanvasView {
 
         // MARK: - Page gesture handlers
 
-        /// Tuning constants for the pinch-to-overview gesture.
-        private enum PinchOverviewTuning {
-            /// Maximum scale the gesture must reach to be considered a
-            /// deliberate squeeze-in (fingers close together).
-            static let scaleThreshold: CGFloat = 0.35
-        }
-
         /// Tuning constants for the two-finger page-pan gesture recogniser.
         private enum PagePanTuning {
             /// Minimum horizontal-to-vertical ratio required before the gesture
@@ -378,13 +366,9 @@ extension CanvasView {
             case .changed:
                 pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
             case .ended, .cancelled:
-                // Trigger overview only when:
-                // 1. The gesture reached a very small scale (fingers came close together).
-                // 2. The gesture velocity is negative (fingers still moving inward at release).
-                // This prevents normal zoom-out from accidentally triggering the overview.
-                let isDeepPinch = pinchOverviewMinScale < PinchOverviewTuning.scaleThreshold
-                let isClosingAtEnd = gesture.velocity < 0
-                if isDeepPinch && isClosingAtEnd {
+                // Trigger overview when the user performed a clear pinch-in
+                // (fingers came together significantly).
+                if pinchOverviewMinScale < 0.7 {
                     onPinchToOverview?()
                 }
                 pinchOverviewMinScale = 1.0
@@ -832,14 +816,6 @@ extension CanvasView {
             let um = canvasView.undoManager
             onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
 
-            // Deliver the canvas undo manager reference once so the parent view
-            // can call undo/redo directly (the SwiftUI environment undo manager
-            // may differ from the PKCanvasView's responder-chain undo manager).
-            if !didDeliverUndoManager, let um {
-                didDeliverUndoManager = true
-                onCanvasUndoManagerAvailable?(um)
-            }
-
             // Drawing changed — selection was committed (paste, delete, move, etc.)
             // so clear the selection state to collapse the selection toolbar.
             clearSelectionState()
@@ -1002,15 +978,12 @@ extension CanvasView {
             CATransaction.setDisableActions(true)
             bg.transform = xform
             pdfBackgroundView?.transform = xform
-            // Keep object overlay canvases (shapes, attachments, widgets,
-            // stickers, text objects) in sync with the PencilKit canvas
-            // zoom/scroll so objects rendered in page-local coordinates
-            // don't drift from ink.
+            // Keep object overlay canvases (shapes, attachments, widgets)
+            // in sync with the PencilKit canvas zoom/scroll so objects
+            // rendered in page-local coordinates don't drift from ink.
             shapeCanvas?.transform = xform
             attachmentCanvas?.transform = xform
             widgetCanvas?.transform = xform
-            stickerCanvas?.transform = xform
-            textCanvas?.transform = xform
             CATransaction.commit()
         }
 
@@ -1097,29 +1070,11 @@ extension CanvasView.Coordinator: PencilActionDelegate {
               let window = canvas.window else { return }
         // Convert from canvas coordinates to window coordinates.
         let windowPoint = canvas.convert(anchorPoint, to: window)
-        let ts = toolStoreRef
         ContextualPencilPaletteView.show(
             at: windowPoint,
             in: window,
             canvas: canvas,
-            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector,
-            onToolSelected: { [weak ts] pkTool in
-                guard let ts else { return }
-                if pkTool is PKEraserTool {
-                    ts.activeTool = .eraser
-                } else if let ink = pkTool as? PKInkingTool {
-                    // Sync tool type.
-                    switch ink.inkType {
-                    case .pen:         ts.activeTool = .pen
-                    case .pencil:      ts.activeTool = .pencil
-                    case .marker:      ts.activeTool = .highlighter
-                    case .fountainPen: ts.activeTool = .fountainPen
-                    default:           break
-                    }
-                    // Sync color so the floating toolbar reflects the palette's choice.
-                    ts.activeColor = ink.color
-                }
-            }
+            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector
         )
     }
 

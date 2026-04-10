@@ -19,7 +19,6 @@ struct NotebookReaderView: View {
     @EnvironmentObject var themeStore: ThemeStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var inkStore: InkEffectStore
-    @EnvironmentObject var stickerStore: StickerStore
     @EnvironmentObject var navigationStore: NavigationStore
     @Environment(TabWorkspaceStore.self) private var workspace
     let notebook: Notebook
@@ -30,12 +29,6 @@ struct NotebookReaderView: View {
     @State var flatPageIndex = 0
     @State private var didRestorePosition = false
     @State var showPageOverview = false
-    @State var canUndo = false
-    @State var canRedo = false
-    /// Weak reference to the active canvas page's undo manager, captured via
-    /// `onUndoStateChanged`. Using this instead of `@Environment(\.undoManager)`
-    /// ensures undo/redo targets the PKCanvasView directly.
-    @State var canvasUndoManager: UndoManager?
     /// Horizontal drag offset for the page-turn gesture.
     @State private var dragOffset: CGFloat = 0
     /// Direction of the last completed page turn for the slide transition.
@@ -260,12 +253,7 @@ struct NotebookReaderView: View {
                     // Floating toolbar capsule — bottom-center, above page bar
                     FloatingToolbarCapsule(
                         toolStore: toolStore,
-                        inkStore: inkStore,
-                        stickerStore: stickerStore,
-                        canUndo: canUndo,
-                        canRedo: canRedo,
-                        onUndo: { canvasUndoManager?.undo() },
-                        onRedo: { canvasUndoManager?.redo() }
+                        inkStore: inkStore
                     )
                     .opacity(toolStore.toolbarOpacity)
                     .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
@@ -403,17 +391,6 @@ struct NotebookReaderView: View {
         .sheet(isPresented: $showNotebookInfo) {
             NotebookInfoView(notebook: notebook)
                 .presentationDetents([.medium, .large])
-        }
-        .sheet(isPresented: $toolStore.isStickerLibraryPresented) {
-            StickerLibraryView(stickerStore: stickerStore) { asset in
-                placeSticker(asset)
-            }
-        }
-        .sheet(isPresented: $toolStore.isWidgetPickerPresented) {
-            WidgetPickerView { kind in
-                placeWidget(kind)
-            }
-            .presentationDetents([.medium])
         }
         .overlay(alignment: .topTrailing) {
             if showSavedBadge {
@@ -577,7 +554,6 @@ struct NotebookReaderView: View {
                 },
                 onSaveRequested: { noteStore.save() },
                 onUndoStateChanged: nil,
-                onCanvasUndoManagerAvailable: nil,
                 onPageSwipe: { direction in
                     turnPage(direction: direction, totalPages: pages.count)
                 },
@@ -982,103 +958,6 @@ struct NotebookReaderView: View {
     }
 
     // MARK: - Helpers
-
-    /// Places a sticker at the centre of the current page.
-    func placeSticker(_ asset: StickerAsset) {
-        guard let ref = currentPage,
-              var note = noteStore.notes.first(where: { $0.id == ref.noteID }) else { return }
-        let pageIdx = ref.pageIndex
-
-        while note.stickerLayers.count < note.pages.count {
-            note.stickerLayers.append(nil)
-        }
-        var existing = note.stickerLayers[pageIdx] ?? []
-        guard existing.count < StickerConstants.maxStickersPerPage else { return }
-
-        let pageSize = CanvasView.pageSize
-        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
-        let instance = StickerInstance(
-            stickerID: asset.id,
-            position: center,
-            scale: 1.0,
-            rotation: 0,
-            opacity: 1.0,
-            zIndex: (existing.map(\.zIndex).max() ?? 0) + 1,
-            isLocked: false
-        )
-        existing.append(instance)
-        noteStore.updateStickers(for: ref.noteID, pageIndex: pageIdx, stickers: existing)
-    }
-
-    /// Places a new widget on the current page, called from the WidgetPickerView sheet.
-    func placeWidget(_ kind: WidgetKind) {
-        guard let ref = currentPage else { return }
-        let pageIdx = ref.pageIndex
-        var widgets = noteStore.notes.first(where: { $0.id == ref.noteID })?.widgets(forPage: pageIdx) ?? []
-        guard widgets.count < WidgetConstants.maxWidgetsPerPage else { return }
-
-        let maxZ = widgets.map(\.zIndex).max() ?? 0
-        let pageSize = CanvasView.pageSize
-        let center = CGPoint(x: pageSize.width / 2, y: pageSize.height / 2)
-
-        var widget: NoteWidget
-        switch kind {
-        case .checklist:       widget = NoteWidget.makeChecklist(at: center)
-        case .quickTable:      widget = NoteWidget.makeQuickTable(at: center)
-        case .calloutBox:      widget = NoteWidget.makeCalloutBox(at: center)
-        case .referenceCard:   widget = NoteWidget.makeReferenceCard(at: center)
-        case .stickyNote:      widget = NoteWidget.makeStickyNote(at: center)
-        case .flashcard:       widget = NoteWidget.makeFlashcard(at: center)
-        case .progressTracker: widget = NoteWidget.makeProgressTracker(at: center)
-        }
-        widget.zIndex = maxZ + 1
-        widgets.append(widget)
-        noteStore.updateWidgets(for: ref.noteID, pageIndex: pageIdx, widgets: widgets)
-
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-            toolStore.activeWidgetSelection = widget.id
-            toolStore.activeShapeSelection = nil
-            toolStore.activeStickerSelection = nil
-            toolStore.activeAttachmentSelection = nil
-            toolStore.activeTextObjectSelection = nil
-            toolStore.hasActiveSelection = false
-        }
-    }
-
-    /// Places a new text object at the given point, called from the text tool tap callback.
-    func placeTextObject(at tapPoint: CGPoint) {
-        guard let ref = currentPage else { return }
-        let pageIdx = ref.pageIndex
-        var objects = noteStore.notes.first(where: { $0.id == ref.noteID })?.textObjects(forPage: pageIdx) ?? []
-        guard objects.count < TextObjectConstants.maxTextObjectsPerPage else { return }
-
-        let maxZ = objects.map(\.zIndex).max() ?? 0
-        let size = TextObjectConstants.defaultSize
-        let origin = CGPoint(x: tapPoint.x - size.width / 2, y: tapPoint.y - size.height / 2)
-        let frame = CGRect(origin: origin, size: size)
-
-        let obj = TextObject(
-            frame: frame,
-            fontSize: toolStore.activeTextFontSize,
-            fontFamily: toolStore.activeTextFontFamily,
-            isBold: toolStore.activeTextBold,
-            textColor: .label,
-            alignment: toolStore.activeTextAlignment,
-            zIndex: maxZ + 1
-        )
-
-        objects.append(obj)
-        noteStore.updateTextObjects(for: ref.noteID, pageIndex: pageIdx, textObjects: objects)
-
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-            toolStore.activeTextObjectSelection = obj.id
-            toolStore.activeShapeSelection = nil
-            toolStore.activeStickerSelection = nil
-            toolStore.activeAttachmentSelection = nil
-            toolStore.activeWidgetSelection = nil
-            toolStore.hasActiveSelection = false
-        }
-    }
 
     private func blendedBackground(base: UIColor, tint: Color) -> UIColor {
         let isDark = effectiveDefinition.canvasIsDark

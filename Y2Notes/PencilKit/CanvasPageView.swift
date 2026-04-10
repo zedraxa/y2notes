@@ -426,9 +426,8 @@ struct CanvasPageView: UIViewRepresentable {
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [context] location in
             let coordinator = context.coordinator
-            // Don't guard on isDrawing — the nib tracker fires before PencilKit's
-            // canvasViewDidBeginUsingTool delegate so isDrawing is still false.
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.isDrawing,
+                  coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
                 .strokeBegan(at: location, inkColor: inkColor),
@@ -437,7 +436,8 @@ struct CanvasPageView: UIViewRepresentable {
         }
         nibTracker.onNibMoved = { [context] location, force, velocity in
             let coordinator = context.coordinator
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.isDrawing,
+                  coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),
                 inkEffectEngine: coordinator.effectEngine
@@ -1543,13 +1543,12 @@ struct CanvasPageView: UIViewRepresentable {
             CATransaction.setDisableActions(true)
             bg.transform = xform
             pdfBackgroundView?.transform = xform
-            // Keep object overlay canvases (shapes, attachments, widgets,
-            // and text objects) in sync with the PencilKit canvas zoom/scroll
-            // so objects rendered in page-local coordinates don't drift from ink.
+            // Keep object overlay canvases (shapes, attachments, widgets)
+            // in sync with the PencilKit canvas zoom/scroll so objects
+            // rendered in page-local coordinates don't drift from ink.
             shapeCanvas?.transform = xform
             attachmentCanvas?.transform = xform
             widgetCanvas?.transform = xform
-            textCanvas?.transform = xform
             CATransaction.commit()
         }
 
@@ -1645,27 +1644,11 @@ extension CanvasPageView.Coordinator: PencilActionDelegate {
               let window = canvas.window else { return }
         // Convert from canvas coordinates to window coordinates.
         let windowPoint = canvas.convert(anchorPoint, to: window)
-        let ts = toolStoreRef
         ContextualPencilPaletteView.show(
             at: windowPoint,
             in: window,
             canvas: canvas,
-            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector,
-            onToolSelected: { [weak ts] pkTool in
-                guard let ts else { return }
-                if pkTool is PKEraserTool {
-                    ts.activeTool = .eraser
-                } else if let ink = pkTool as? PKInkingTool {
-                    switch ink.inkType {
-                    case .pen:         ts.activeTool = .pen
-                    case .pencil:      ts.activeTool = .pencil
-                    case .marker:      ts.activeTool = .highlighter
-                    case .fountainPen: ts.activeTool = .fountainPen
-                    default:           break
-                    }
-                    ts.activeColor = ink.color
-                }
-            }
+            eraserType: toolStoreRef?.eraserSubType.eraserMode.pkEraserType ?? .vector
         )
     }
 

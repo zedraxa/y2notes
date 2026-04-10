@@ -51,9 +51,8 @@ extension NotebookReaderView {
             attachments: note.attachments(forPage: ref.pageIndex),
             attachmentNoteID: note.id,
             widgets: note.widgets(forPage: ref.pageIndex),
-            stickers: note.stickers(forPage: ref.pageIndex),
             textObjects: note.textObjects(forPage: ref.pageIndex),
-            isTextToolActive: toolStore.activeTool == .text,
+            isTextToolActive: false,
             pdfURL: noteStore.notePDFURL(for: note),
             pageCount: note.pageCount,
             isNewPage: false,
@@ -66,8 +65,10 @@ extension NotebookReaderView {
 
     /// Builds a `CanvasPageCallbacks` for a reader page.
     ///
-    /// Reader callbacks wire undo-state reporting so the FloatingToolbarCapsule
-    /// can enable/disable its undo and redo buttons.
+    /// Reader callbacks are simpler than editor callbacks:
+    /// - No undo state reporting (reader toolbar doesn't show undo/redo).
+    /// - `onPageSwipe` wired to `turnPage(direction:totalPages:)`.
+    /// - `onPinchToOverview` wired to `showPageOverview`.
     func makeReaderPageCallbacks(
         for ref: PageRef,
         totalPages: Int
@@ -78,46 +79,10 @@ extension NotebookReaderView {
             },
             onSaveRequested: { noteStore.save() }
         )
-        callbacks.onUndoStateChanged = { [self] canUndoVal, canRedoVal in
-            canUndo = canUndoVal
-            canRedo = canRedoVal
-        }
-        callbacks.onCanvasUndoManagerAvailable = { [self] um in
-            canvasUndoManager = um
-        }
         callbacks.onPinchToOverview = { showPageOverview = true }
         callbacks.onPageSwipe = { direction in
             turnPage(direction: direction, totalPages: totalPages)
         }
-        // Object layer persistence
-        callbacks.onShapesChanged = { shapes in
-            noteStore.updateShapes(for: ref.noteID, pageIndex: ref.pageIndex, shapes: shapes)
-        }
-        callbacks.onAttachmentsChanged = { atts in
-            noteStore.updateAttachments(for: ref.noteID, pageIndex: ref.pageIndex, attachments: atts)
-        }
-        callbacks.onAttachmentSelectionChanged = CanvasPageCallbacks.selectionCallback(
-            for: \.activeAttachmentSelection, toolStore: toolStore
-        )
-        callbacks.onWidgetsChanged = { widgets in
-            noteStore.updateWidgets(for: ref.noteID, pageIndex: ref.pageIndex, widgets: widgets)
-        }
-        callbacks.onWidgetSelectionChanged = CanvasPageCallbacks.selectionCallback(
-            for: \.activeWidgetSelection, toolStore: toolStore
-        )
-        callbacks.onStickersChanged = { stickers in
-            noteStore.updateStickers(for: ref.noteID, pageIndex: ref.pageIndex, stickers: stickers)
-        }
-        callbacks.onStickerSelectionChanged = CanvasPageCallbacks.selectionCallback(
-            for: \.activeStickerSelection, toolStore: toolStore
-        )
-        callbacks.onTextObjectsChanged = { objs in
-            noteStore.updateTextObjects(for: ref.noteID, pageIndex: ref.pageIndex, textObjects: objs)
-        }
-        callbacks.onTextObjectSelectionChanged = CanvasPageCallbacks.selectionCallback(
-            for: \.activeTextObjectSelection, toolStore: toolStore
-        )
-        callbacks.onPlaceTextObject = { point in placeTextObject(at: point) }
         return callbacks
     }
 
@@ -134,11 +99,7 @@ extension NotebookReaderView {
             ReaderCanvasView(
                 configuration: config,
                 callbacks: callbacks,
-                toolStore: toolStore,
-                stickerImageProvider: { id in
-                    guard let asset = stickerStore.asset(for: id) else { return nil }
-                    return stickerStore.image(for: asset)
-                }
+                toolStore: toolStore
             )
             .equatable()
             .id("\(ref.noteID)-\(ref.pageIndex)")
@@ -162,6 +123,7 @@ extension NotebookReaderView {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
             .padding(.horizontal, 4)
+            .animation(.spring(response: 0.3, dampingFraction: 0.88), value: flatPageIndex)
         }
     }
 }

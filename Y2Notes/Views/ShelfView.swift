@@ -14,7 +14,6 @@ enum LibrarySection: Hashable {
     case documentLibrary
     /// Notes linked to imported PDFs or documents.
     case importNotes
-    case studySets
     case notebook(UUID)
     /// Filter to notes that carry a specific tag.
     case tag(String)
@@ -142,10 +141,6 @@ struct ShelfView: View {
                 DocumentLibraryView(selectedDocumentID: $selectedDocumentID)
             } else if case .importNotes = selectedSection {
                 ImportLinkedNotesView(selectedNoteID: $selectedNoteID)
-            } else if case .studySets = selectedSection {
-                NavigationStack {
-                    StudySetListView()
-                }
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
@@ -181,10 +176,6 @@ struct ShelfView: View {
             case .importNotes:
                 selectedPDFID  = nil
                 selectedDocumentID = nil
-            case .studySets:
-                selectedPDFID  = nil
-                selectedDocumentID = nil
-                selectedNoteID = nil
             case .notebook:
                 // Notebook tabs are already opened in onOpenNotebook
                 selectedPDFID  = nil
@@ -321,9 +312,10 @@ private struct ShelfSidebarView: View {
 
             // ── Study ─────────────────────────────────────────────────────
             Section("Study") {
-                Label("Study Sets", systemImage: "rectangle.on.rectangle.angled")
-                    .tag(LibrarySection.studySets)
-                    .badge(noteStore.studySets.count)
+                NavigationLink(destination: StudySetListView()) {
+                    Label("Study Sets", systemImage: "rectangle.on.rectangle.angled")
+                        .badge(noteStore.studySets.count)
+                }
             }
 
             // ── Notebooks ─────────────────────────────────────────────────
@@ -690,8 +682,6 @@ struct NoteGridView: View {
             return []
         case .documentLibrary:
             return []
-        case .studySets:
-            return []
         }
     }
 
@@ -723,7 +713,6 @@ struct NoteGridView: View {
         case .tag(let tag):       return "#\(tag)"
         case .pdfLibrary:         return "PDF Documents"
         case .documentLibrary:    return "Documents"
-        case .studySets:          return "Study Sets"
         }
     }
 
@@ -858,6 +847,12 @@ struct NoteGridView: View {
                         displayName: record.title,
                         accentColor: [0.8, 0.3, 0.3]
                     )
+                    let note = noteStore.addNote(forPDF: record)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
+                        accentColor: [0.8, 0.3, 0.3]
+                    )
                 }
             }
         }
@@ -872,6 +867,12 @@ struct NoteGridView: View {
                     tabSession.openTab(
                         .document(id: doc.id),
                         displayName: doc.displayName,
+                        accentColor: [0.3, 0.5, 0.7]
+                    )
+                    let note = noteStore.addNote(forDocument: doc)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
                         accentColor: [0.3, 0.5, 0.7]
                     )
                 }
@@ -1520,7 +1521,6 @@ struct NoteGridView: View {
         case .tag:       return "tag"
         case .pdfLibrary: return "doc.richtext"
         case .documentLibrary: return "doc.fill"
-        case .studySets: return "rectangle.on.rectangle.angled"
         }
     }
 
@@ -1534,7 +1534,6 @@ struct NoteGridView: View {
         case .tag(let t): return "No Notes Tagged with \"#\(t)\""
         case .pdfLibrary: return "No PDFs Yet"
         case .documentLibrary: return "No Documents Yet"
-        case .studySets: return "No Study Sets Yet"
         }
     }
 
@@ -1548,7 +1547,6 @@ struct NoteGridView: View {
         case .tag(let t): return "Add the tag \"#\(t)\" to notes from their context menu."
         case .pdfLibrary: return "Import a PDF document to get started."
         case .documentLibrary: return "Import a document to get started."
-        case .studySets: return "Create a study set from a note's context menu."
         }
     }
 }
@@ -2312,6 +2310,12 @@ private struct PDFLibraryView: View {
             if case .success(let urls) = result, let url = urls.first {
                 if let record = pdfStore.importPDF(from: url) {
                     selectedPDFID = record.id
+                    let note = noteStore.addNote(forPDF: record)
+                    tabSession.openTab(
+                        .note(id: note.id),
+                        displayName: note.title,
+                        accentColor: [0.8, 0.3, 0.3]
+                    )
                 }
             }
         }

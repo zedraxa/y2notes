@@ -59,8 +59,6 @@ struct CanvasView: UIViewRepresentable {
     let onSaveRequested: () -> Void
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
     let onUndoStateChanged: ((Bool, Bool) -> Void)?
-    /// Called once when the canvas undo manager is available (after first drawing change).
-    let onCanvasUndoManagerAvailable: ((UndoManager?) -> Void)?
     /// Called when a two-finger swipe gesture requests a page change.
     /// Positive = next page, negative = previous page.
     let onPageSwipe: ((Int) -> Void)?
@@ -481,10 +479,8 @@ struct CanvasView: UIViewRepresentable {
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [context] location in
             let coordinator = context.coordinator
-            // Don't guard on isDrawing — the nib tracker fires before PencilKit's
-            // canvasViewDidBeginUsingTool delegate so isDrawing is still false.
-            // Instead, check only the tool type.
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.isDrawing,
+                  coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
                 .strokeBegan(at: location, inkColor: inkColor),
@@ -493,10 +489,8 @@ struct CanvasView: UIViewRepresentable {
         }
         nibTracker.onNibMoved = { [context] location, force, velocity in
             let coordinator = context.coordinator
-            // Guard on isDrawing to skip stray move events before/after strokes,
-            // but accept the first few moves even when isDrawing hasn't been set
-            // yet by PK delegate — the nib already touched down (onNibBegan fired).
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.isDrawing,
+                  coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),
                 inkEffectEngine: coordinator.effectEngine
@@ -569,7 +563,6 @@ struct CanvasView: UIViewRepresentable {
 
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
-        context.coordinator.onCanvasUndoManagerAvailable = onCanvasUndoManagerAvailable
         context.coordinator.lastZoomResetTrigger = zoomResetTrigger
 
         // Become first responder so Apple Pencil is ready immediately.
@@ -739,7 +732,6 @@ struct CanvasView: UIViewRepresentable {
 
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
-        context.coordinator.onCanvasUndoManagerAvailable = onCanvasUndoManagerAvailable
 
         // Sync page boundary info so the page-pan gesture can reject out-of-range drags.
         context.coordinator.coordinatorPageIndex = pageIndex

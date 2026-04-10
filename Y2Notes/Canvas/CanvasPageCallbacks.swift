@@ -35,12 +35,6 @@ struct CanvasPageCallbacks {
     /// Undo/redo state changed: (canUndo, canRedo).
     var onUndoStateChanged: ((Bool, Bool) -> Void)?
 
-    /// Called with the canvas's UndoManager after the first drawing change.
-    /// The parent view stores this reference to call undo/redo directly on
-    /// the PKCanvasView's undo manager rather than relying on the SwiftUI
-    /// environment undo manager, which may not be the same instance.
-    var onCanvasUndoManagerAvailable: ((UndoManager?) -> Void)?
-
     // MARK: - Shapes
 
     /// Shape objects on this page were modified.

@@ -40,8 +40,7 @@ final class ContextualPencilPaletteView: UIView {
         in window: UIWindow,
         canvas: PKCanvasView,
         eraserType: PKEraserTool.EraserType = .vector,
-        colors: [UIColor] = ContextualPencilPaletteView.defaultColors,
-        onToolSelected: ((PKTool) -> Void)? = nil
+        colors: [UIColor] = ContextualPencilPaletteView.defaultColors
     ) {
         // Dismiss any existing palette.
         existing(in: window)?.dismiss()
@@ -51,8 +50,7 @@ final class ContextualPencilPaletteView: UIView {
             window: window,
             canvas: canvas,
             eraserType: eraserType,
-            colors: colors,
-            onToolSelected: onToolSelected
+            colors: colors
         )
         window.addSubview(palette)
         palette.animateIn()
@@ -67,7 +65,6 @@ final class ContextualPencilPaletteView: UIView {
 
     private weak var canvas: PKCanvasView?
     private var eraserType: PKEraserTool.EraserType = .vector
-    private var onToolSelected: ((PKTool) -> Void)?
     private var dismissTapGesture: UITapGestureRecognizer?
     private var backgroundTapView: UIView?   // full-screen invisible tap-to-dismiss
 
@@ -76,12 +73,10 @@ final class ContextualPencilPaletteView: UIView {
         window: UIWindow,
         canvas: PKCanvasView,
         eraserType: PKEraserTool.EraserType,
-        colors: [UIColor],
-        onToolSelected: ((PKTool) -> Void)?
+        colors: [UIColor]
     ) {
         self.canvas = canvas
         self.eraserType = eraserType
-        self.onToolSelected = onToolSelected
         super.init(frame: .zero)
 
         setupBackground(in: window)
@@ -286,17 +281,13 @@ final class ContextualPencilPaletteView: UIView {
         } else {
             currentColor = .label
         }
-        let tool = PKInkingTool(inkType, color: currentColor, width: 2)
-        canvas.tool = tool
-        onToolSelected?(tool)
+        canvas.tool = PKInkingTool(inkType, color: currentColor, width: 2)
         dismiss()
     }
 
     private func selectEraser() {
         guard let canvas = canvas else { dismiss(); return }
-        let tool = PKEraserTool(eraserType)
-        canvas.tool = tool
-        onToolSelected?(tool)
+        canvas.tool = PKEraserTool(eraserType)
         dismiss()
     }
 
@@ -308,9 +299,7 @@ final class ContextualPencilPaletteView: UIView {
         }
         let tag   = gesture.view?.tag ?? 0
         let color = resolvedColor(forTag: tag)
-        let tool = PKInkingTool(inkTool.inkType, color: color, width: inkTool.width)
-        canvas.tool = tool
-        onToolSelected?(tool)
+        canvas.tool = PKInkingTool(inkTool.inkType, color: color, width: inkTool.width)
         dismiss()
     }
 

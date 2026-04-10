@@ -87,8 +87,6 @@ struct CanvasPageConfiguration: Equatable {
     let attachmentNoteID: UUID
     /// Interactive widget instances for this page.
     let widgets: [NoteWidget]
-    /// Sticker instances for this page.
-    let stickers: [StickerInstance]
     /// Text objects anchored on this page.
     let textObjects: [TextObject]
     /// Whether the text tool is active (text canvas intercepts taps).
@@ -162,7 +160,6 @@ struct CanvasPageConfiguration: Equatable {
               lhs.attachments == rhs.attachments,
               lhs.attachmentNoteID == rhs.attachmentNoteID,
               lhs.widgets == rhs.widgets,
-              lhs.stickers == rhs.stickers,
               lhs.textObjects == rhs.textObjects,
               lhs.isTextToolActive == rhs.isTextToolActive
         else { return false }
@@ -208,7 +205,6 @@ extension CanvasPageConfiguration {
             attachments: attachments,
             attachmentNoteID: attachmentNoteID,
             widgets: widgets,
-            stickers: stickers,
             textObjects: textObjects,
             isTextToolActive: isTextToolActive,
             pdfURL: pdfURL,
@@ -284,7 +280,6 @@ extension CanvasPageConfiguration {
             attachments: note.attachments(forPage: pageIndex),
             attachmentNoteID: note.id,
             widgets: note.widgets(forPage: pageIndex),
-            stickers: note.stickers(forPage: pageIndex),
             textObjects: note.textObjects(forPage: pageIndex),
             isTextToolActive: toolStore.activeTool == .text,
             pdfURL: pdfURL,
