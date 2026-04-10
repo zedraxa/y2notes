@@ -90,8 +90,7 @@ struct NotebookCanvasView: View {
             isAmbientSoundEnabled: configuration.isAmbientSoundEnabled,
             isNewPage: configuration.isNewPage,
             onZoomChanged: callbacks.onZoomChanged,
-            initialZoomScale: configuration.initialZoomScale,
-            isInfiniteCanvas: configuration.isInfiniteCanvas
+            initialZoomScale: configuration.initialZoomScale
         )
     }
 }

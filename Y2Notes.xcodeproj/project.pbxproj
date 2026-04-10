@@ -239,6 +239,8 @@
 		AA0001000000000000000277 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000276 /* HomeView.swift */; };
 		AA0001000000000000000279 /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000278 /* FloatingActionButton.swift */; };
 		AA0001000000000000000281 /* CanvasCoordinatorBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000280 /* CanvasCoordinatorBase.swift */; };
+		AA0001000000000000000283 /* CanvasConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000282 /* CanvasConstants.swift */; };
+		AA0001000000000000000285 /* InfiniteCanvasPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000284 /* InfiniteCanvasPageView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -497,6 +499,8 @@
 		AA000100000000000000026C /* CanvasPageDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageDiff.swift; sourceTree = "<group>"; };
 		AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CanvasCoordinator+DiffUpdate.swift"; sourceTree = "<group>"; };
 		AA0001000000000000000280 /* CanvasCoordinatorBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasCoordinatorBase.swift; sourceTree = "<group>"; };
+		AA0001000000000000000282 /* CanvasConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasConstants.swift; sourceTree = "<group>"; };
+		AA0001000000000000000284 /* InfiniteCanvasPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvasPageView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000270 /* ReaderCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderCanvasView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NotebookReaderView+Canvas.swift"; sourceTree = "<group>"; };
 		AA0001000000000000000276 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -1078,6 +1082,8 @@
 				AA000100000000000000026C /* CanvasPageDiff.swift */,
 				AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */,
 				AA0001000000000000000280 /* CanvasCoordinatorBase.swift */,
+				AA0001000000000000000282 /* CanvasConstants.swift */,
+				AA0001000000000000000284 /* InfiniteCanvasPageView.swift */,
 				AA0001000000000000000265 /* NotebookCanvasView.swift */,
 				AA0001000000000000000274 /* InfiniteCanvasView.swift */,
 				AA0001000000000000000267 /* NotebookCarouselView.swift */,
@@ -1380,6 +1386,8 @@
 				AA000100000000000000026D /* CanvasPageDiff.swift in Sources */,
 				AA000100000000000000026F /* CanvasCoordinator+DiffUpdate.swift in Sources */,
 				AA0001000000000000000281 /* CanvasCoordinatorBase.swift in Sources */,
+				AA0001000000000000000283 /* CanvasConstants.swift in Sources */,
+				AA0001000000000000000285 /* InfiniteCanvasPageView.swift in Sources */,
 				AA0001000000000000000271 /* ReaderCanvasView.swift in Sources */,
 				AA0001000000000000000273 /* NotebookReaderView+Canvas.swift in Sources */,
 				AA00010000000000000001EC /* Y2FloatingToolbar.swift in Sources */,
