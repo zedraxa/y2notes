@@ -73,7 +73,7 @@ struct ReaderCanvasView: View {
             currentPageWidgets: configuration.widgets,
             onWidgetsChanged: callbacks.onWidgetsChanged,
             onWidgetSelectionChanged: callbacks.onWidgetSelectionChanged,
-            currentPageStickers: [],
+            currentPageStickers: configuration.stickers,
             onStickersChanged: callbacks.onStickersChanged,
             onStickerSelectionChanged: callbacks.onStickerSelectionChanged,
             stickerImageProvider: stickerImageProvider,
