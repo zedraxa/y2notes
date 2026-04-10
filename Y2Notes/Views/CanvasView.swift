@@ -47,8 +47,6 @@ struct CanvasView: UIViewRepresentable {
     let zoomResetTrigger: Bool
     /// Page ruling style rendered behind the canvas.
     let pageType: PageType
-    /// Paper material used for background tint and grain texture.
-    let paperMaterial: PaperMaterial
     /// Active writing FX type from the ink-effects system (`.none` = no FX).
     let activeFX: WritingFXType
     /// Ink colour resolved for the active FX preset.
@@ -206,8 +204,6 @@ struct CanvasView: UIViewRepresentable {
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
         pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
-        pageBackground.grainIntensity = paperMaterial.grainIntensity
-        pageBackground.rulingTint   = paperMaterial.rulingTint
         pageBackground.isUserInteractionEnabled = false
 
         // Give the page a soft drop-shadow so it looks like a physical sheet
@@ -653,14 +649,6 @@ struct CanvasView: UIViewRepresentable {
             }
             if bg.pageType != pageType {
                 bg.pageType = pageType
-            }
-            let wantedIntensity = paperMaterial.grainIntensity
-            if bg.grainIntensity != wantedIntensity {
-                bg.grainIntensity = wantedIntensity
-            }
-            let wantedTint = paperMaterial.rulingTint
-            if bg.rulingTint != wantedTint {
-                bg.rulingTint = wantedTint
             }
             // Re-sync position/scale in case SwiftUI re-rendered while
             // the canvas was scrolled or zoomed.

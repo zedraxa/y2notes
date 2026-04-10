@@ -568,7 +568,6 @@ struct NotebookReaderView: View {
                 drawingPolicy: .anyInput,
                 zoomResetTrigger: false,
                 pageType: effectivePageType(for: ref),
-                paperMaterial: effectivePaperMaterial,
                 activeFX: inkStore.resolvedFX,
                 fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
                 pageIndex: ref.pageIndex,

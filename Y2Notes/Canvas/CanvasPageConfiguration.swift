@@ -48,9 +48,6 @@ struct CanvasPageConfiguration: Equatable {
     let defaultInkColor: UIColor
     /// Page ruling style (blank, lined, grid, dotted, cornell, music).
     let pageType: PageType
-    /// Paper material (standard, premium, craft, …) for grain and tint.
-    let paperMaterial: PaperMaterial
-
     // MARK: - Shape Tool
 
     /// Whether the shape tool is active (disables PKCanvasView interaction).
@@ -146,8 +143,7 @@ struct CanvasPageConfiguration: Equatable {
         // Appearance
         guard lhs.backgroundColor.cgColor == rhs.backgroundColor.cgColor,
               lhs.defaultInkColor.cgColor == rhs.defaultInkColor.cgColor,
-              lhs.pageType == rhs.pageType,
-              lhs.paperMaterial == rhs.paperMaterial
+              lhs.pageType == rhs.pageType
         else { return false }
 
         // Shape tool
@@ -206,7 +202,6 @@ extension CanvasPageConfiguration {
             backgroundColor: backgroundColor,
             defaultInkColor: defaultInkColor,
             pageType: pageType,
-            paperMaterial: paperMaterial,
             isShapeToolActive: isShapeToolActive,
             activeShapeType: activeShapeType,
             shapeColor: shapeColor,
@@ -252,7 +247,6 @@ extension CanvasPageConfiguration {
     ///   - backgroundColor: Pre-computed canvas background colour.
     ///   - defaultInkColor: Contrasting ink colour from the theme.
     ///   - drawingPolicy: Finger vs. pencil drawing mode.
-    ///   - paperMaterial: Resolved paper material for this note.
     ///   - pageTypeForIndex: Closure that resolves the page ruling per page.
     ///   - pdfURL: Optional backing PDF URL.
     ///   - zoomResetTrigger: Current zoom-reset trigger value.
@@ -267,7 +261,6 @@ extension CanvasPageConfiguration {
         backgroundColor: UIColor,
         defaultInkColor: UIColor,
         drawingPolicy: PKCanvasViewDrawingPolicy,
-        paperMaterial: PaperMaterial,
         pageTypeForIndex: (Int) -> PageType,
         pdfURL: URL?,
         zoomResetTrigger: Bool,
@@ -284,7 +277,6 @@ extension CanvasPageConfiguration {
             backgroundColor: backgroundColor,
             defaultInkColor: defaultInkColor,
             pageType: pageTypeForIndex(pageIndex),
-            paperMaterial: paperMaterial,
             isShapeToolActive: toolStore.activeTool == .shape,
             activeShapeType: toolStore.activeShapeType,
             shapeColor: toolStore.activeColor,

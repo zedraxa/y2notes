@@ -123,14 +123,6 @@ extension CanvasPageView.Coordinator {
             if bg.pageType != config.pageType {
                 bg.pageType = config.pageType
             }
-            let wantedIntensity = config.paperMaterial.grainIntensity
-            if bg.grainIntensity != wantedIntensity {
-                bg.grainIntensity = wantedIntensity
-            }
-            let wantedTint = config.paperMaterial.rulingTint
-            if bg.rulingTint != wantedTint {
-                bg.rulingTint = wantedTint
-            }
             syncBackgroundWithCanvas(canvas)
         }
     }
