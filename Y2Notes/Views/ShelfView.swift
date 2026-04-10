@@ -564,7 +564,10 @@ private struct ShelfSidebarView: View {
             onCycleTheme: { themeStore.cycleToNext() },
             onShowInsights: { showWritingInsights = true },
             recentNotes: noteStore.recentNotes.prefix(5).map { (id: $0.id, title: $0.title) },
-            recentNotebooks: noteStore.notebooks.prefix(3).map { (id: $0.id, name: $0.name) },
+            recentNotebooks: noteStore.notebooks
+                .sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+                .prefix(3)
+                .map { (id: $0.id, name: $0.name) },
             onOpenNote: { noteID in
                 onSelectNote(noteID)
             },

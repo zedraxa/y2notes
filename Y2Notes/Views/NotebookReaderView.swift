@@ -874,6 +874,24 @@ struct NotebookReaderView: View {
 
     // MARK: - Page navigation bar
 
+    // MARK: - Page Navigation Helpers
+
+    /// Navigate to the previous page with slide animation.
+    private func goToPreviousPage() {
+        slideDirection = .leading
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            flatPageIndex = max(0, flatPageIndex - 1)
+        }
+    }
+
+    /// Navigate to the next page with slide animation.
+    private func goToNextPage(totalPages: Int) {
+        slideDirection = .trailing
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
+        }
+    }
+
     private func notebookPageBar(totalPages: Int) -> some View {
         HStack(spacing: 12) {
             // Left: Back / Forward arrows
@@ -909,10 +927,7 @@ struct NotebookReaderView: View {
                 HStack(spacing: 6) {
                     // Previous page chevron
                     Button {
-                        slideDirection = .leading
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                            flatPageIndex = max(0, flatPageIndex - 1)
-                        }
+                        goToPreviousPage()
                     } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 11, weight: .semibold))
@@ -926,10 +941,7 @@ struct NotebookReaderView: View {
 
                     // Next page chevron
                     Button {
-                        slideDirection = .trailing
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                            flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
-                        }
+                        goToNextPage(totalPages: totalPages)
                     } label: {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
