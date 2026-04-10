@@ -91,6 +91,44 @@ Y2Notes/
 └── en.lproj/         Localizable.strings (335 keys)
 ```
 
+## AI-Generated Multiple-Choice Test Import (JSON)
+
+Study sets now support importing versioned multiple-choice test files (`.json`).
+
+Schema (v1):
+
+```json
+{
+  "version": 1,
+  "set": {
+    "title": "Biology Chapter 3",
+    "description": "Cell structure and transport"
+  },
+  "questions": [
+    {
+      "prompt": "Which organelle is responsible for ATP production?",
+      "options": ["Nucleus", "Mitochondrion", "Golgi apparatus", "Lysosome"],
+      "correctOptionIndex": 1,
+      "explanation": "Mitochondria generate ATP via cellular respiration.",
+      "tags": ["biology", "cells"],
+      "source": "chapter-3-notes"
+    }
+  ]
+}
+```
+
+Validation requirements:
+- `version` must be `1`
+- each `prompt` must be non-empty
+- each question must have at least 2 non-empty `options`
+- `correctOptionIndex` must be a valid index in `options`
+
+In-app path:
+- Open a study set
+- Tap `…` menu
+- Choose **Import Test File**
+- Preview and import
+
 ## Documentation
 
 | Document | Description |

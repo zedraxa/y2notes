@@ -16,6 +16,9 @@ struct StudyStatsView: View {
                 overviewCards
                 masteryDistribution
                 weeklyActivity
+                testOverview
+                weakQuestionSection
+                testWeeklyTrend
                 if studySetID == nil {
                     perSetBreakdown
                 }
@@ -44,6 +47,18 @@ struct StudyStatsView: View {
     private var relevantHistory: [StudyReviewEntry] {
         let cardIDs = Set(relevantCards.map(\.id))
         return noteStore.reviewHistory.filter { cardIDs.contains($0.cardID) }
+    }
+
+    private var relevantTestQuestions: [StudyTestQuestion] {
+        if let setID = studySetID {
+            return noteStore.studyTestQuestions.filter { $0.setID == setID }
+        }
+        return noteStore.studyTestQuestions
+    }
+
+    private var relevantTestAttempts: [StudyTestAttempt] {
+        let questionIDs = Set(relevantTestQuestions.map(\.id))
+        return noteStore.studyTestAttempts.filter { questionIDs.contains($0.questionID) }
     }
 
     // MARK: - Overview cards
@@ -77,8 +92,33 @@ struct StudyStatsView: View {
                 icon: "flame.fill",
                 color: .red
             )
+            statCard(
+                title: "Test Accuracy",
+                value: testAccuracyPercentText,
+                icon: "checklist",
+                color: .blue
+            )
+            statCard(
+                title: "Test Attempts",
+                value: "\(relevantTestAttempts.count)",
+                icon: "checkmark.circle.badge.questionmark",
+                color: .indigo
+            )
         }
     }
+
+    private var testAccuracyPercentText: String {
+        guard testTotalAttempts > 0 else { return "—" }
+        String(format: "%.0f%%", testAccuracyRatio * 100)
+    }
+
+    private var testAccuracyRatio: Double {
+        accuracyRatio(correct: testCorrectAttempts, total: testTotalAttempts)
+    }
+
+    private var testTotalAttempts: Int { relevantTestAttempts.count }
+    private var testCorrectAttempts: Int { relevantTestAttempts.filter(\.isCorrect).count }
+    private var testIncorrectAttempts: Int { testTotalAttempts - testCorrectAttempts }
 
     private func statCard(title: String, value: String, icon: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -295,6 +335,146 @@ struct StudyStatsView: View {
         .padding()
         .background(Color(uiColor: .secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    // MARK: - Test analytics
+
+    private var testOverview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Multiple-Choice Tests")
+                .font(.headline)
+
+            if relevantTestQuestions.isEmpty {
+                Text("No test questions imported yet.")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+            } else {
+                let accuracy = testAccuracyRatio * 100
+
+                HStack(spacing: 12) {
+                    testBadge(title: "Questions", value: "\(relevantTestQuestions.count)", color: .blue)
+                    testBadge(title: "Correct", value: "\(testCorrectAttempts)", color: .green)
+                    testBadge(title: "Wrong", value: "\(testIncorrectAttempts)", color: .red)
+                    testBadge(title: "Accuracy", value: String(format: "%.0f%%", accuracy), color: .indigo)
+                }
+            }
+        }
+        .padding()
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func testBadge(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.headline.monospacedDigit())
+                .foregroundStyle(color)
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var weakQuestionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Weak Questions")
+                .font(.headline)
+
+            let weak = weakQuestions
+            if weak.isEmpty {
+                Text("No weak questions yet. Complete more test attempts to populate this section.")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+            } else {
+                ForEach(weak) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.prompt)
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(2)
+                        Text("Accuracy \(Int(item.accuracy * 100))% · \(item.attempts) attempt\(item.attempts == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .padding()
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var weakQuestions: [StudyTestWeakQuestion] {
+        let grouped = Dictionary(grouping: relevantTestAttempts, by: \.questionID)
+        return relevantTestQuestions.compactMap { question in
+            guard let attempts = grouped[question.id], !attempts.isEmpty else { return nil }
+            let total = attempts.count
+            let accuracy = Double(attempts.filter(\.isCorrect).count) / Double(total)
+            return StudyTestWeakQuestion(id: question.id, prompt: question.prompt, accuracy: accuracy, attempts: total)
+        }
+        .sorted {
+            StudyTestWeakQuestion.ranksWeaker($0, than: $1)
+        }
+        .prefix(5)
+        .map { $0 }
+    }
+
+    private func accuracyRatio(correct: Int, total: Int) -> Double {
+        guard total > 0 else { return 0 }
+        return Double(correct) / Double(total)
+    }
+
+    private var testWeeklyTrend: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Test Accuracy (Last 7 Days)")
+                .font(.headline)
+
+            let points = testTrendPoints
+            HStack(spacing: 6) {
+                ForEach(points, id: \.date) { point in
+                    VStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(point.attempts == 0 ? Color(uiColor: .secondaryLabel).opacity(0.08) : .blue.opacity(max(0.2, point.accuracy)))
+                            .frame(height: 34)
+                            .overlay(
+                                Text(point.attempts == 0 ? "—" : "\(Int(point.accuracy * 100))")
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(point.attempts == 0 ? .secondary : .white)
+                            )
+                        Text(shortDayLabel(from: point.date))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding()
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var testTrendPoints: [StudyTestDailyAccuracyPoint] {
+        let calendar = Calendar.current
+        let now = Date()
+        return (0..<7).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: now) else { return nil }
+            let dayStart = calendar.startOfDay(for: date)
+            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return nil }
+            let attempts = relevantTestAttempts.filter { $0.answeredAt >= dayStart && $0.answeredAt < dayEnd }
+            let total = attempts.count
+            let accuracy = total > 0 ? Double(attempts.filter(\.isCorrect).count) / Double(total) : 0
+            return StudyTestDailyAccuracyPoint(date: dayStart, attempts: total, accuracy: accuracy)
+        }
+    }
+
+    private func shortDayLabel(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E"
+        return formatter.string(from: date)
     }
 
     // MARK: - Streak calculation
