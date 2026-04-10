@@ -57,6 +57,7 @@ struct ReaderCanvasView: View {
             onDrawingChanged: callbacks.onDrawingChanged,
             onSaveRequested: callbacks.onSaveRequested,
             onUndoStateChanged: callbacks.onUndoStateChanged,
+            onCanvasUndoManagerAvailable: callbacks.onCanvasUndoManagerAvailable,
             onPageSwipe: callbacks.onPageSwipe,
             onPinchToOverview: callbacks.onPinchToOverview,
             pdfURL: configuration.pdfURL,

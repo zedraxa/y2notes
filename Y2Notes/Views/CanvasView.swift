@@ -59,6 +59,8 @@ struct CanvasView: UIViewRepresentable {
     let onSaveRequested: () -> Void
     /// Called after each stroke with updated (canUndo, canRedo) from the canvas undo manager.
     let onUndoStateChanged: ((Bool, Bool) -> Void)?
+    /// Called once when the canvas undo manager is available (after first drawing change).
+    let onCanvasUndoManagerAvailable: ((UndoManager?) -> Void)?
     /// Called when a two-finger swipe gesture requests a page change.
     /// Positive = next page, negative = previous page.
     let onPageSwipe: ((Int) -> Void)?
@@ -563,6 +565,7 @@ struct CanvasView: UIViewRepresentable {
 
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
+        context.coordinator.onCanvasUndoManagerAvailable = onCanvasUndoManagerAvailable
         context.coordinator.lastZoomResetTrigger = zoomResetTrigger
 
         // Become first responder so Apple Pencil is ready immediately.
@@ -732,6 +735,7 @@ struct CanvasView: UIViewRepresentable {
 
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
+        context.coordinator.onCanvasUndoManagerAvailable = onCanvasUndoManagerAvailable
 
         // Sync page boundary info so the page-pan gesture can reject out-of-range drags.
         context.coordinator.coordinatorPageIndex = pageIndex

@@ -27,6 +27,11 @@ extension CanvasView {
         weak var pdfBackgroundView: UIImageView?
         /// Updated by updateUIView to always hold the freshest closure.
         var onUndoStateChanged: ((Bool, Bool) -> Void)?
+        /// Called once when the canvas undo manager is available, so the parent
+        /// view can call undo/redo directly without relying on the environment.
+        var onCanvasUndoManagerAvailable: ((UndoManager?) -> Void)?
+        /// Guards one-time delivery of the undo manager reference.
+        private var didDeliverUndoManager = false
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
         var lastZoomResetTrigger: Bool = false
         private var debounceTimer: Timer?
@@ -819,6 +824,14 @@ extension CanvasView {
             // chain — the same manager PencilKit registers stroke actions against.
             let um = canvasView.undoManager
             onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
+
+            // Deliver the canvas undo manager reference once so the parent view
+            // can call undo/redo directly (the SwiftUI environment undo manager
+            // may differ from the PKCanvasView's responder-chain undo manager).
+            if !didDeliverUndoManager, let um {
+                didDeliverUndoManager = true
+                onCanvasUndoManagerAvailable?(um)
+            }
 
             // Drawing changed — selection was committed (paste, delete, move, etc.)
             // so clear the selection state to collapse the selection toolbar.

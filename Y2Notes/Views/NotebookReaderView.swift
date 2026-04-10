@@ -22,7 +22,6 @@ struct NotebookReaderView: View {
     @EnvironmentObject var stickerStore: StickerStore
     @EnvironmentObject var navigationStore: NavigationStore
     @Environment(TabWorkspaceStore.self) private var workspace
-    @Environment(\.undoManager) private var undoManager
     let notebook: Notebook
     /// The tab ID for state sync. `nil` when the reader is not hosted inside
     /// the tab workspace (e.g. launched directly from a shortcut or widget).
@@ -33,6 +32,10 @@ struct NotebookReaderView: View {
     @State var showPageOverview = false
     @State var canUndo = false
     @State var canRedo = false
+    /// Weak reference to the active canvas page's undo manager, captured via
+    /// `onUndoStateChanged`. Using this instead of `@Environment(\.undoManager)`
+    /// ensures undo/redo targets the PKCanvasView directly.
+    @State private var canvasUndoManager: UndoManager?
     /// Horizontal drag offset for the page-turn gesture.
     @State private var dragOffset: CGFloat = 0
     /// Direction of the last completed page turn for the slide transition.
@@ -261,8 +264,8 @@ struct NotebookReaderView: View {
                         stickerStore: stickerStore,
                         canUndo: canUndo,
                         canRedo: canRedo,
-                        onUndo: { undoManager?.undo() },
-                        onRedo: { undoManager?.redo() }
+                        onUndo: { canvasUndoManager?.undo() },
+                        onRedo: { canvasUndoManager?.redo() }
                     )
                     .opacity(toolStore.toolbarOpacity)
                     .animation(.easeInOut(duration: 0.3), value: toolStore.toolbarOpacity)
@@ -568,6 +571,7 @@ struct NotebookReaderView: View {
                 },
                 onSaveRequested: { noteStore.save() },
                 onUndoStateChanged: nil,
+                onCanvasUndoManagerAvailable: nil,
                 onPageSwipe: { direction in
                     turnPage(direction: direction, totalPages: pages.count)
                 },

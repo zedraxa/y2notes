@@ -81,6 +81,9 @@ extension NotebookReaderView {
             canUndo = canUndoVal
             canRedo = canRedoVal
         }
+        callbacks.onCanvasUndoManagerAvailable = { [self] um in
+            canvasUndoManager = um
+        }
         callbacks.onPinchToOverview = { showPageOverview = true }
         callbacks.onPageSwipe = { direction in
             turnPage(direction: direction, totalPages: totalPages)
