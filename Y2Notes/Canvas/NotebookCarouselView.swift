@@ -37,6 +37,8 @@ struct NotebookCarouselView: View {
     /// Factory that builds a `CanvasPageCallbacks` for the given page index.
     let callbacksForPage: (Int) -> CanvasPageCallbacks
 
+    /// Called when the user taps the "add page" slot at the end of the carousel.
+    var onAddPage: (() -> Void)?
     /// Reference to the drawing tool store for toolbar auto-fade.
     var toolStore: DrawingToolStore?
     /// Image provider for rendering sticker assets.
@@ -189,5 +191,7 @@ struct NotebookCarouselView: View {
             }
         }
         .padding(.horizontal, 16)
+        .contentShape(Rectangle())
+        .onTapGesture { onAddPage?() }
     }
 }

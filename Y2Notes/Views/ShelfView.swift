@@ -176,10 +176,20 @@ struct ShelfView: View {
             case .importNotes:
                 selectedPDFID  = nil
                 selectedDocumentID = nil
-            case .notebook:
-                // Notebook tabs are already opened in onOpenNotebook
+            case .notebook(let nbID):
+                // Clear stale note selection and open the notebook reader
+                // in the detail column — consistent with the shelf-row
+                // `onOpenNotebook` flow.
+                selectedNoteID = nil
                 selectedPDFID  = nil
                 selectedDocumentID = nil
+                if let nb = noteStore.notebooks.first(where: { $0.id == nbID }) {
+                    tabSession.openNotebook(
+                        id: nbID,
+                        displayName: nb.name,
+                        coverColor: nb.cover.rgbComponents
+                    )
+                }
             case .tag:
                 selectedPDFID  = nil
                 selectedDocumentID = nil
@@ -1028,7 +1038,7 @@ struct NoteGridView: View {
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
                         NoteCardView(note: note, isSelected: selectedNoteID == note.id)
-                            .onTapGesture { selectedNoteID = note.id }
+                            .onTapGesture { selectNote(note) }
                             .contextMenu { noteContextMenu(for: note) }
                             .opacity(gridAppeared ? 1 : 0)
                             .offset(y: gridAppeared ? 0 : 14)
@@ -1228,7 +1238,7 @@ struct NoteGridView: View {
                         LazyVGrid(columns: columns, spacing: 16) {
                             ForEach(unsectionedNotes) { note in
                                 NoteCardView(note: note, isSelected: selectedNoteID == note.id)
-                                    .onTapGesture { selectedNoteID = note.id }
+                                    .onTapGesture { selectNote(note) }
                                     .contextMenu { noteContextMenu(for: note) }
                             }
                         }
@@ -1310,7 +1320,7 @@ struct NoteGridView: View {
                                 LazyVGrid(columns: columns, spacing: 16) {
                                     ForEach(sectionNotes) { note in
                                         NoteCardView(note: note, isSelected: selectedNoteID == note.id)
-                                            .onTapGesture { selectedNoteID = note.id }
+                                            .onTapGesture { selectNote(note) }
                                             .contextMenu { noteContextMenu(for: note) }
                                     }
                                 }
@@ -1483,6 +1493,19 @@ struct NoteGridView: View {
     private var notebookIDForSection: UUID? {
         if case .notebook(let id) = section { return id }
         return nil
+    }
+
+    /// Selects a note in the grid and ensures its tab is activated in the
+    /// workspace.  When the note is already selected, the binding doesn't
+    /// change so `onChange(of: selectedNoteID)` won't fire.  Calling
+    /// `openTab` directly guarantees the tab is reactivated regardless.
+    private func selectNote(_ note: Note) {
+        selectedNoteID = note.id
+        tabSession.openTab(
+            .note(id: note.id),
+            displayName: note.title.isEmpty ? "Untitled Note" : note.title,
+            accentColor: [0.45, 0.45, 0.5]
+        )
     }
 
     // MARK: Empty state
@@ -2039,6 +2062,7 @@ private struct NoteCardView: View {
 /// Used when the user selects the "Import Notes" section in the sidebar.
 private struct ImportLinkedNotesView: View {
     @EnvironmentObject var noteStore: NoteStore
+    @Environment(TabWorkspaceStore.self) private var tabSession
     @Binding var selectedNoteID: UUID?
 
     var body: some View {
@@ -2057,7 +2081,16 @@ private struct ImportLinkedNotesView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 220))], spacing: 16) {
                 ForEach(noteStore.importLinkedNotes) { note in
                     NoteCardView(note: note, isSelected: selectedNoteID == note.id)
-                        .onTapGesture { selectedNoteID = note.id }
+                        .onTapGesture {
+                            selectedNoteID = note.id
+                            tabSession.openTab(
+                                .note(id: note.id),
+                                displayName: note.title.isEmpty
+                                    ? "Untitled Note"
+                                    : note.title,
+                                accentColor: [0.45, 0.45, 0.5]
+                            )
+                        }
                 }
             }
             .padding()

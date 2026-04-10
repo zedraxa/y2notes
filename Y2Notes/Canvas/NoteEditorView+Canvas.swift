@@ -83,6 +83,14 @@ extension NoteEditorView {
                 currentPageIndex: $currentPageIndex,
                 configurationForPage: { idx in makePageConfiguration(for: idx) },
                 callbacksForPage: { idx in makePageCallbacks(for: idx) },
+                onAddPage: {
+                    guard let newIdx = noteStore.addPage(to: note.id) else { return }
+                    currentPageIndex = newIdx
+                    isNewPageJustAdded = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + NoteEditorView.newPageFlagResetDelay) {
+                        isNewPageJustAdded = false
+                    }
+                },
                 toolStore: toolStore,
                 stickerImageProvider: { id in
                     guard let asset = stickerStore.asset(for: id) else { return nil }
