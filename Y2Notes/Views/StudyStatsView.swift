@@ -435,13 +435,13 @@ struct StudyStatsView: View {
             let points = testTrendPoints
             HStack(spacing: 6) {
                 ForEach(points, id: \.date) { point in
-                    let hasAttempts = point.attempts > 0
-                    let fillColor: Color = hasAttempts
-                        ? .blue.opacity(max(0.2, point.accuracy))
-                        : Color(uiColor: .secondaryLabel).opacity(0.08)
-                    let label = hasAttempts ? "\(Int(point.accuracy * 100))" : "—"
-                    let labelColor: Color = hasAttempts ? .white : .secondary
                     VStack(spacing: 4) {
+                        let hasAttempts = point.attempts > 0
+                        let fillColor: Color = hasAttempts
+                            ? .blue.opacity(max(0.2, point.accuracy))
+                            : Color(uiColor: .secondaryLabel).opacity(0.08)
+                        let label = hasAttempts ? "\(Int(point.accuracy * 100))" : "—"
+                        let labelColor: Color = hasAttempts ? .white : .secondary
                         RoundedRectangle(cornerRadius: 4)
                             .fill(fillColor)
                             .frame(height: 34)
