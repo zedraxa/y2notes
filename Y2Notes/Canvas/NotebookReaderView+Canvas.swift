@@ -138,7 +138,6 @@ extension NotebookReaderView {
                 }
             )
             .equatable()
-            .id("\(ref.noteID)-\(ref.pageIndex)")
             .overlay(alignment: .bottom) {
                 pageNumberWatermark(flatIndex: flatPageIndex, totalPages: pages.count)
             }
@@ -152,10 +151,6 @@ extension NotebookReaderView {
                         .allowsHitTesting(false)
                 }
             }
-            .transition(.asymmetric(
-                insertion: .move(edge: slideDirection),
-                removal: .move(edge: slideDirection == .trailing ? .leading : .trailing)
-            ))
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
             .padding(.horizontal, 4)

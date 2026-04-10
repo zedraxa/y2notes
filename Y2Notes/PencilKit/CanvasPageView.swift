@@ -129,7 +129,8 @@ struct CanvasPageView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(
             onDrawingChanged: onDrawingChanged,
-            onSaveRequested: onSaveRequested
+            onSaveRequested: onSaveRequested,
+            onPinchToOverview: onPinchToOverview
         )
     }
 
@@ -510,6 +511,16 @@ struct CanvasPageView: UIViewRepresentable {
             color: toolStoreForFade?.activeColor ?? .black
         )
 
+        // Pinch-in opens page overview (strict threshold to avoid accidental opens
+        // during normal zoom interactions).
+        let pinchOverview = UIPinchGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handlePinchToOverview(_:))
+        )
+        pinchOverview.delegate = context.coordinator
+        container.addGestureRecognizer(pinchOverview)
+        context.coordinator.pinchOverviewGesture = pinchOverview
+
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
         context.coordinator.lastZoomResetTrigger = zoomResetTrigger
@@ -580,6 +591,7 @@ struct CanvasPageView: UIViewRepresentable {
 
         // Keep the zoom-changed callback current.
         context.coordinator.onZoomChanged = onZoomChanged
+        context.coordinator.onPinchToOverview = onPinchToOverview
     }
 
     // MARK: - updateUIView helpers
@@ -805,6 +817,7 @@ struct CanvasPageView: UIViewRepresentable {
     final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         let onDrawingChanged: (Data) -> Void
         let onSaveRequested: () -> Void
+        var onPinchToOverview: (() -> Void)?
         weak var canvas: PKCanvasView?
         weak var shapeOverlay: ShapeOverlayView?
         /// Page ruling / background view placed behind the canvas.
@@ -917,6 +930,12 @@ struct CanvasPageView: UIViewRepresentable {
 
         /// Task that schedules the toolbar fade after a delay of active drawing.
         private var fadeTask: Task<Void, Never>?
+        /// Pinch gesture recognizer for page overview.
+        var pinchOverviewGesture: UIPinchGestureRecognizer?
+        /// Minimum scale observed during the current pinch gesture.
+        private var pinchOverviewMinScale: CGFloat = 1.0
+        /// True when pinch started near baseline zoom.
+        private var pinchOverviewStartedNearBaseZoom = false
 
         /// Current zero-based page index, kept in sync by `updateUIView`.
         var coordinatorPageIndex: Int = 0
@@ -989,10 +1008,12 @@ struct CanvasPageView: UIViewRepresentable {
 
         init(
             onDrawingChanged: @escaping (Data) -> Void,
-            onSaveRequested: @escaping () -> Void
+            onSaveRequested: @escaping () -> Void,
+            onPinchToOverview: (() -> Void)? = nil
         ) {
             self.onDrawingChanged = onDrawingChanged
             self.onSaveRequested  = onSaveRequested
+            self.onPinchToOverview = onPinchToOverview
         }
 
         deinit {
@@ -1015,7 +1036,34 @@ struct CanvasPageView: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            false
+            gestureRecognizer === pinchOverviewGesture
+        }
+
+        /// Tuning constants for pinch-to-overview gesture detection.
+        private enum PinchOverviewTuning {
+            static let maxStartZoomScale: CGFloat = 1.08
+            static let triggerScale: CGFloat = 0.58
+        }
+
+        /// Pinch-in handler for page overview.
+        @objc func handlePinchToOverview(_ gesture: UIPinchGestureRecognizer) {
+            switch gesture.state {
+            case .began:
+                pinchOverviewMinScale = gesture.scale
+                pinchOverviewStartedNearBaseZoom =
+                    (canvas?.zoomScale ?? 1.0) <= PinchOverviewTuning.maxStartZoomScale
+            case .changed:
+                pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
+            case .ended, .cancelled:
+                if pinchOverviewStartedNearBaseZoom,
+                   pinchOverviewMinScale < PinchOverviewTuning.triggerScale {
+                    onPinchToOverview?()
+                }
+                pinchOverviewMinScale = 1.0
+                pinchOverviewStartedNearBaseZoom = false
+            default:
+                break
+            }
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)

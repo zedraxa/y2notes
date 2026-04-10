@@ -143,6 +143,14 @@ extension CanvasView {
         /// Minimum scale observed during the current pinch-to-overview gesture.
         /// Tracked during `.changed` because `numberOfTouches` is zero at `.ended`.
         private var pinchOverviewMinScale: CGFloat = 1.0
+        /// Whether the pinch began near baseline zoom, used to prevent
+        /// accidental overview opens while the user is already zoomed in.
+        private var pinchOverviewStartedNearBaseZoom = false
+
+        /// Identity token for the currently bound page content.
+        var boundPageToken: String?
+        /// Signature of the currently rendered PDF background layer.
+        var pdfBackgroundToken: String?
 
         // ── Interactive page-drag state ──────────────────────────────────────────
         /// True while a two-finger horizontal pan is being tracked for page navigation.
@@ -263,6 +271,14 @@ extension CanvasView {
             static let reducedMotionCommitVelocity: CGFloat = 400
         }
 
+        /// Tuning constants for pinch-to-overview gesture detection.
+        private enum PinchOverviewTuning {
+            /// Require pinch start near baseline zoom.
+            static let maxStartZoomScale: CGFloat = 1.08
+            /// Minimum pinch-in scale to count as an intentional overview request.
+            static let triggerScale: CGFloat = 0.58
+        }
+
         /// Two-finger pan handler for interactive page navigation.
         ///
         /// The page follows the finger in real-time.  Direction is determined on
@@ -367,15 +383,19 @@ extension CanvasView {
             switch gesture.state {
             case .began:
                 pinchOverviewMinScale = gesture.scale
+                pinchOverviewStartedNearBaseZoom =
+                    (canvas?.zoomScale ?? 1.0) <= PinchOverviewTuning.maxStartZoomScale
             case .changed:
                 pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
             case .ended, .cancelled:
                 // Trigger overview when the user performed a clear pinch-in
                 // (fingers came together significantly).
-                if pinchOverviewMinScale < 0.7 {
+                if pinchOverviewStartedNearBaseZoom,
+                   pinchOverviewMinScale < PinchOverviewTuning.triggerScale {
                     onPinchToOverview?()
                 }
                 pinchOverviewMinScale = 1.0
+                pinchOverviewStartedNearBaseZoom = false
             default:
                 break
             }
@@ -871,6 +891,33 @@ extension CanvasView {
             debounceTimer?.invalidate()
             debounceTimer = nil
             onSaveRequested()
+        }
+
+        /// Rebinds the coordinator/canvas to a new logical page without
+        /// recreating `PKCanvasView`.
+        ///
+        /// Used by reader-mode page turns to keep canvas identity stable while
+        /// swapping page content.
+        func bindPageIfNeeded(
+            noteID: UUID,
+            pageIndex: Int,
+            drawingData: Data,
+            canvas: PKCanvasView
+        ) {
+            let token = "\(noteID.uuidString)-\(pageIndex)"
+            guard boundPageToken != token else { return }
+
+            flushPendingSave()
+            boundPageToken = token
+
+            let drawing = (try? PKDrawing(data: drawingData)) ?? PKDrawing()
+            // Prevent a feedback loop when programmatically swapping page content.
+            lastPropagatedDrawingData = drawing.dataRepresentation()
+            canvas.drawing = drawing
+
+            let um = canvas.undoManager
+            onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
+            clearSelectionState()
         }
 
         // MARK: - Canvas scroll / zoom → background sync

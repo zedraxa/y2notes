@@ -221,6 +221,7 @@ struct CanvasView: UIViewRepresentable {
             pdfImageView.isUserInteractionEnabled = false
             container.addSubview(pdfImageView)
             context.coordinator.pdfBackgroundView = pdfImageView
+            context.coordinator.pdfBackgroundToken = "\(pdfURL.absoluteString)::\(pageIndex)::\(backgroundColor.description)"
         }
 
         // ── PencilKit canvas ─────────────────────────────────────────────────
@@ -274,6 +275,7 @@ struct CanvasView: UIViewRepresentable {
             canvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         context.coordinator.canvas = canvas
+        context.coordinator.boundPageToken = "\(noteID.uuidString)-\(pageIndex)"
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
         // Begin observing scroll/zoom so the page background tracks the canvas
@@ -594,6 +596,15 @@ struct CanvasView: UIViewRepresentable {
         // Wire up toolbar store reference for auto-fade (idempotent).
         context.coordinator.toolStoreRef = toolStoreForFade
 
+        // Keep a stable PKCanvasView instance and rebind page content when the
+        // logical page changes.
+        context.coordinator.bindPageIfNeeded(
+            noteID: noteID,
+            pageIndex: pageIndex,
+            drawingData: drawingData,
+            canvas: canvas
+        )
+
         // Sync page background (ruling view).
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
@@ -615,6 +626,8 @@ struct CanvasView: UIViewRepresentable {
             // the canvas was scrolled or zoomed.
             context.coordinator.syncBackgroundWithCanvas(canvas)
         }
+
+        syncPDFBackground(in: uiView, coordinator: context.coordinator)
 
         // Sync drawing policy when the user toggles the finger/pencil preference.
         if canvas.drawingPolicy != drawingPolicy {
@@ -783,6 +796,52 @@ struct CanvasView: UIViewRepresentable {
             config: toolStoreForFade?.writingEffectConfig ?? .default,
             color: toolStoreForFade?.activeColor ?? .black
         )
+    }
+
+    /// Ensures exactly one PDF background layer is bound for the current page.
+    /// Removes stale page/template layers before binding the new one.
+    private func syncPDFBackground(in container: UIView, coordinator: Coordinator) {
+        let desiredToken = "\(pdfURL?.absoluteString ?? "nil")::\(pageIndex)::\(backgroundColor.description)"
+        guard coordinator.pdfBackgroundToken != desiredToken else { return }
+        coordinator.pdfBackgroundToken = desiredToken
+
+        coordinator.pdfBackgroundView?.removeFromSuperview()
+        coordinator.pdfBackgroundView = nil
+
+        guard let pdfURL,
+              let pdfDoc = PDFDocument(url: pdfURL),
+              let pdfPage = pdfDoc.page(at: pageIndex),
+              let pageBackground = coordinator.pageBackground else { return }
+
+        let ps = Self.pageSize
+        let mediaBox = pdfPage.bounds(for: .mediaBox)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: ps, format: format)
+        let pageImage = renderer.image { ctx in
+            let cgCtx = ctx.cgContext
+            cgCtx.setFillColor(backgroundColor.cgColor)
+            cgCtx.fill(CGRect(origin: .zero, size: ps))
+            let sx = ps.width / mediaBox.width
+            let sy = ps.height / mediaBox.height
+            let scale = min(sx, sy)
+            cgCtx.saveGState()
+            cgCtx.scaleBy(x: scale, y: -scale)
+            cgCtx.translateBy(x: 0, y: -mediaBox.height)
+            pdfPage.draw(with: .mediaBox, to: cgCtx)
+            cgCtx.restoreGState()
+        }
+
+        let pdfImageView = UIImageView(image: pageImage)
+        pdfImageView.frame = CGRect(origin: .zero, size: ps)
+        pdfImageView.contentMode = .scaleToFill
+        pdfImageView.isUserInteractionEnabled = false
+        container.insertSubview(pdfImageView, aboveSubview: pageBackground)
+        coordinator.pdfBackgroundView = pdfImageView
+        if let canvas = coordinator.canvas {
+            coordinator.syncBackgroundWithCanvas(canvas)
+        }
     }
 
     // MARK: - Ruling line color helper
