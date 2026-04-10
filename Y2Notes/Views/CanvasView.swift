@@ -160,6 +160,8 @@ struct CanvasView: UIViewRepresentable {
         var blue: CGFloat = 0
         var alpha: CGFloat = 0
         if color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            // 5 decimals gives a stable token while tolerating tiny floating-point
+            // conversion noise across equivalent UIColor representations.
             return String(
                 format: "%.5f-%.5f-%.5f-%.5f",
                 red, green, blue, alpha
@@ -169,7 +171,7 @@ struct CanvasView: UIViewRepresentable {
         if color.getWhite(&white, alpha: &alpha) {
             return String(format: "w%.5f-a%.5f", white, alpha)
         }
-        return "unknown"
+        return "unknown-\(String(describing: color))"
     }
 
     func makeCoordinator() -> Coordinator {
