@@ -148,7 +148,10 @@ struct CanvasView: UIViewRepresentable {
     }
 
     static func pdfBackgroundToken(pdfURL: URL?, pageIndex: Int, backgroundColor: UIColor) -> String {
-        "\(pdfURL?.absoluteString ?? "nil")::\(pageIndex)::\(stableColorToken(backgroundColor))"
+        let url = pdfURL?.absoluteString ?? ""
+        let color = stableColorToken(backgroundColor)
+        // Length-prefixed encoding avoids delimiter-collision issues.
+        return "\(url.count)#\(url)|\(pageIndex)|\(color.count)#\(color)"
     }
 
     private static func stableColorToken(_ color: UIColor) -> String {

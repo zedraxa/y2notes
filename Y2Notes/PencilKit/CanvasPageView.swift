@@ -1037,7 +1037,9 @@ struct CanvasPageView: UIViewRepresentable {
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
             // Only allow simultaneous recognition for the overview pinch and
-            // only with the canvas zoom/pan recognizers.
+            // only with the canvas zoom/pan recognizers. Other gesture pairs
+            // (e.g. shape/text overlays) are intentionally excluded so page
+            // overview does not interfere with object-edit interaction models.
             guard gestureRecognizer === pinchOverviewGesture,
                   let canvas else { return false }
             return otherGestureRecognizer === canvas.pinchGestureRecognizer
