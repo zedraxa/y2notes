@@ -496,6 +496,7 @@
 		AA0001000000000000000269 /* NoteEditorView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Canvas.swift"; sourceTree = "<group>"; };
 		AA000100000000000000026C /* CanvasPageDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageDiff.swift; sourceTree = "<group>"; };
 		AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CanvasCoordinator+DiffUpdate.swift"; sourceTree = "<group>"; };
+		AA0001000000000000000280 /* CanvasCoordinatorBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasCoordinatorBase.swift; sourceTree = "<group>"; };
 		AA0001000000000000000270 /* ReaderCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderCanvasView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NotebookReaderView+Canvas.swift"; sourceTree = "<group>"; };
 		AA0001000000000000000276 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -1076,6 +1077,7 @@
 				AA0001000000000000000263 /* CanvasPageCallbacks.swift */,
 				AA000100000000000000026C /* CanvasPageDiff.swift */,
 				AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */,
+				AA0001000000000000000280 /* CanvasCoordinatorBase.swift */,
 				AA0001000000000000000265 /* NotebookCanvasView.swift */,
 				AA0001000000000000000274 /* InfiniteCanvasView.swift */,
 				AA0001000000000000000267 /* NotebookCarouselView.swift */,
@@ -1377,6 +1379,7 @@
 				AA000100000000000000026A /* NoteEditorView+Canvas.swift in Sources */,
 				AA000100000000000000026D /* CanvasPageDiff.swift in Sources */,
 				AA000100000000000000026F /* CanvasCoordinator+DiffUpdate.swift in Sources */,
+				AA0001000000000000000281 /* CanvasCoordinatorBase.swift in Sources */,
 				AA0001000000000000000271 /* ReaderCanvasView.swift in Sources */,
 				AA0001000000000000000273 /* NotebookReaderView+Canvas.swift in Sources */,
 				AA00010000000000000001EC /* Y2FloatingToolbar.swift in Sources */,
