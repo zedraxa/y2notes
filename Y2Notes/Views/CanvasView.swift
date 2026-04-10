@@ -148,7 +148,25 @@ struct CanvasView: UIViewRepresentable {
     }
 
     static func pdfBackgroundToken(pdfURL: URL?, pageIndex: Int, backgroundColor: UIColor) -> String {
-        "\(pdfURL?.absoluteString ?? "nil")::\(pageIndex)::\(backgroundColor.description)"
+        "\(pdfURL?.absoluteString ?? "nil")::\(pageIndex)::\(stableColorToken(backgroundColor))"
+    }
+
+    private static func stableColorToken(_ color: UIColor) -> String {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        if color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            return String(
+                format: "%.5f-%.5f-%.5f-%.5f",
+                red, green, blue, alpha
+            )
+        }
+        var white: CGFloat = 0
+        if color.getWhite(&white, alpha: &alpha) {
+            return String(format: "w%.5f-a%.5f", white, alpha)
+        }
+        return "unknown"
     }
 
     func makeCoordinator() -> Coordinator {
@@ -825,8 +843,7 @@ struct CanvasView: UIViewRepresentable {
 
         guard let pdfURL,
               let pdfDoc = PDFDocument(url: pdfURL),
-              let pdfPage = pdfDoc.page(at: pageIndex),
-              let pageBackground = coordinator.pageBackground else { return }
+              let pdfPage = pdfDoc.page(at: pageIndex) else { return }
 
         let ps = Self.pageSize
         let mediaBox = pdfPage.bounds(for: .mediaBox)
@@ -852,7 +869,15 @@ struct CanvasView: UIViewRepresentable {
         pdfImageView.frame = CGRect(origin: .zero, size: ps)
         pdfImageView.contentMode = .scaleToFill
         pdfImageView.isUserInteractionEnabled = false
-        container.insertSubview(pdfImageView, aboveSubview: pageBackground)
+        if let pageBackground = coordinator.pageBackground,
+           pageBackground.superview === container {
+            container.insertSubview(pdfImageView, aboveSubview: pageBackground)
+        } else if let canvas = coordinator.canvas,
+                  canvas.superview === container {
+            container.insertSubview(pdfImageView, belowSubview: canvas)
+        } else {
+            container.addSubview(pdfImageView)
+        }
         coordinator.pdfBackgroundView = pdfImageView
         if let canvas = coordinator.canvas {
             coordinator.syncBackgroundWithCanvas(canvas)
