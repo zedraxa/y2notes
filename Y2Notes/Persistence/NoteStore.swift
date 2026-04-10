@@ -36,6 +36,8 @@ final class NoteStore: ObservableObject {
     @Published private(set) var studyCards: [StudyCard] = []
     @Published private(set) var cardProgress: [StudyCardProgress] = []
     @Published private(set) var reviewHistory: [StudyReviewEntry] = []
+    @Published private(set) var studyTestQuestions: [StudyTestQuestion] = []
+    @Published private(set) var studyTestAttempts: [StudyTestAttempt] = []
     /// Current disk-write state. Observe this to drive saving / saved / error UI.
     @Published private(set) var saveState: SaveState = .idle
 
@@ -1640,6 +1642,9 @@ extension NoteStore {
         cardProgress.removeAll { cardIDs.contains($0.cardID) }
         reviewHistory.removeAll { cardIDs.contains($0.cardID) }
         studyCards.removeAll { $0.setID == id }
+        let questionIDs = studyTestQuestions.filter { $0.setID == id }.map(\.id)
+        studyTestAttempts.removeAll { questionIDs.contains($0.questionID) || $0.setID == id }
+        studyTestQuestions.removeAll { $0.setID == id }
         studySets.removeAll { $0.id == id }
         saveStudy()
     }
@@ -1698,6 +1703,209 @@ extension NoteStore {
         }
         if imported > 0 { saveStudy() }
         return imported
+    }
+
+    // MARK: Study tests (multiple choice)
+
+    func testQuestions(inSet setID: UUID) -> [StudyTestQuestion] {
+        studyTestQuestions
+            .filter { $0.setID == setID }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    @discardableResult
+    func addTestQuestion(
+        toSet setID: UUID,
+        prompt: String,
+        options: [String],
+        correctOptionIndex: Int,
+        explanation: String? = nil,
+        noteID: UUID? = nil,
+        tags: [String] = [],
+        source: String? = nil
+    ) -> StudyTestQuestion? {
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedOptions = options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard !trimmedPrompt.isEmpty else { return nil }
+        guard normalizedOptions.count >= 2 else { return nil }
+        guard normalizedOptions.allSatisfy({ !$0.isEmpty }) else { return nil }
+        guard normalizedOptions.indices.contains(correctOptionIndex) else { return nil }
+
+        let question = StudyTestQuestion(
+            setID: setID,
+            noteID: noteID,
+            prompt: trimmedPrompt,
+            options: normalizedOptions,
+            correctOptionIndex: correctOptionIndex,
+            explanation: explanation?.trimmingCharacters(in: .whitespacesAndNewlines),
+            tags: tags,
+            source: source?.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        studyTestQuestions.append(question)
+        saveStudy()
+        return question
+    }
+
+    @discardableResult
+    func importTestQuestions(toSet setID: UUID, jsonData: Data) -> StudyTestImportSummary {
+        let decoder = JSONDecoder()
+        do {
+            let payload = try decoder.decode(StudyTestImportPayload.self, from: jsonData)
+            let validated = try payload.validatedQuestions()
+
+            var addedCount = 0
+            var skippedCount = 0
+            var messages: [String] = []
+            let existing = testQuestions(inSet: setID)
+
+            for question in validated {
+                let trimmedPrompt = question.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+                let normalizedOptions = question.options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                let duplicate = existing.contains {
+                    $0.prompt.caseInsensitiveCompare(trimmedPrompt) == .orderedSame &&
+                    $0.options.map { $0.lowercased() } == normalizedOptions.map { $0.lowercased() }
+                } || studyTestQuestions.contains {
+                    $0.setID == setID &&
+                    $0.prompt.caseInsensitiveCompare(trimmedPrompt) == .orderedSame &&
+                    $0.options.map { $0.lowercased() } == normalizedOptions.map { $0.lowercased() }
+                }
+
+                if duplicate {
+                    skippedCount += 1
+                    continue
+                }
+
+                let saved = addTestQuestion(
+                    toSet: setID,
+                    prompt: trimmedPrompt,
+                    options: normalizedOptions,
+                    correctOptionIndex: question.correctOptionIndex,
+                    explanation: question.explanation,
+                    noteID: question.noteID,
+                    tags: question.tags ?? [],
+                    source: question.source
+                )
+                if saved != nil {
+                    addedCount += 1
+                }
+            }
+
+            if skippedCount > 0 {
+                messages.append("Skipped \(skippedCount) duplicate question\(skippedCount == 1 ? "" : "s").")
+            }
+            return StudyTestImportSummary(
+                addedCount: addedCount,
+                skippedCount: skippedCount,
+                invalidCount: 0,
+                messages: messages
+            )
+        } catch {
+            return StudyTestImportSummary(
+                addedCount: 0,
+                skippedCount: 0,
+                invalidCount: 1,
+                messages: [error.localizedDescription]
+            )
+        }
+    }
+
+    func testImportPreview(from jsonData: Data) -> Result<StudyTestImportPayload, Error> {
+        let decoder = JSONDecoder()
+        do {
+            let payload = try decoder.decode(StudyTestImportPayload.self, from: jsonData)
+            _ = try payload.validatedQuestions()
+            return .success(payload)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    func recordTestAttempt(
+        questionID: UUID,
+        selectedOptionIndex: Int?,
+        durationSeconds: TimeInterval? = nil,
+        answeredAt: Date = Date()
+    ) {
+        guard let question = studyTestQuestions.first(where: { $0.id == questionID }) else { return }
+        let isCorrect = selectedOptionIndex == question.correctOptionIndex
+        let attempt = StudyTestAttempt(
+            questionID: question.id,
+            setID: question.setID,
+            selectedOptionIndex: selectedOptionIndex,
+            isCorrect: isCorrect,
+            answeredAt: answeredAt,
+            durationSeconds: durationSeconds
+        )
+        studyTestAttempts.append(attempt)
+        saveStudy()
+    }
+
+    func testStats(forQuestion questionID: UUID) -> StudyTestQuestionStats {
+        let attempts = studyTestAttempts.filter { $0.questionID == questionID }
+        let total = attempts.count
+        let correct = attempts.filter(\.isCorrect).count
+        let incorrect = total - correct
+        let accuracy = total > 0 ? Double(correct) / Double(total) : 0
+        return StudyTestQuestionStats(
+            questionID: questionID,
+            attempts: total,
+            correctAttempts: correct,
+            incorrectAttempts: incorrect,
+            accuracy: accuracy,
+            lastAttemptedAt: attempts.map(\.answeredAt).max()
+        )
+    }
+
+    func testStats(forSet setID: UUID) -> StudyTestSetStats {
+        let questions = testQuestions(inSet: setID)
+        let questionIDs = Set(questions.map(\.id))
+        let attempts = studyTestAttempts
+            .filter { $0.setID == setID && questionIDs.contains($0.questionID) }
+            .sorted { $0.answeredAt < $1.answeredAt }
+        let total = attempts.count
+        let correct = attempts.filter(\.isCorrect).count
+        let incorrect = total - correct
+        let accuracy = total > 0 ? Double(correct) / Double(total) : 0
+
+        let weakQuestions = questions
+            .map { question -> StudyTestWeakQuestion in
+                let stats = testStats(forQuestion: question.id)
+                return StudyTestWeakQuestion(
+                    id: question.id,
+                    prompt: question.prompt,
+                    accuracy: stats.accuracy,
+                    attempts: stats.attempts
+                )
+            }
+            .filter { $0.attempts > 0 }
+            .sorted {
+                if $0.accuracy == $1.accuracy { return $0.attempts > $1.attempts }
+                return $0.accuracy < $1.accuracy
+            }
+            .prefix(5)
+
+        let calendar = Calendar.current
+        let now = Date()
+        let points: [StudyTestDailyAccuracyPoint] = (0..<7).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: now) else { return nil }
+            let dayStart = calendar.startOfDay(for: date)
+            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return nil }
+            let dayAttempts = attempts.filter { $0.answeredAt >= dayStart && $0.answeredAt < dayEnd }
+            let dayTotal = dayAttempts.count
+            let dayAccuracy = dayTotal > 0 ? Double(dayAttempts.filter(\.isCorrect).count) / Double(dayTotal) : 0
+            return StudyTestDailyAccuracyPoint(date: dayStart, attempts: dayTotal, accuracy: dayAccuracy)
+        }
+
+        return StudyTestSetStats(
+            setID: setID,
+            questionCount: questions.count,
+            totalAttempts: total,
+            correctAttempts: correct,
+            incorrectAttempts: incorrect,
+            accuracy: accuracy,
+            weakQuestions: Array(weakQuestions),
+            dailyTrend: points
+        )
     }
 
     // MARK: Spaced repetition
@@ -1759,7 +1967,9 @@ extension NoteStore {
             studySets: studySets,
             studyCards: studyCards,
             cardProgress: cardProgress,
-            reviewHistory: reviewHistory
+            reviewHistory: reviewHistory,
+            studyTestQuestions: studyTestQuestions,
+            studyTestAttempts: studyTestAttempts
         )
         if let data = try? JSONEncoder().encode(payload) {
             try? writeAtomically(data, to: studyURL)
@@ -1773,6 +1983,8 @@ extension NoteStore {
         studyCards     = payload.studyCards
         cardProgress   = payload.cardProgress
         reviewHistory  = payload.reviewHistory
+        studyTestQuestions = payload.studyTestQuestions
+        studyTestAttempts = payload.studyTestAttempts
     }
 
     /// Private container used for encoding/decoding study data as a single JSON file.
@@ -1781,17 +1993,29 @@ extension NoteStore {
         var studyCards:    [StudyCard]
         var cardProgress:  [StudyCardProgress]
         var reviewHistory: [StudyReviewEntry]
+        var studyTestQuestions: [StudyTestQuestion]
+        var studyTestAttempts: [StudyTestAttempt]
 
         // Backward-compatible: old data may not have reviewHistory
         enum CodingKeys: String, CodingKey {
             case studySets, studyCards, cardProgress, reviewHistory
+            case studyTestQuestions, studyTestAttempts
         }
 
-        init(studySets: [StudySet], studyCards: [StudyCard], cardProgress: [StudyCardProgress], reviewHistory: [StudyReviewEntry]) {
+        init(
+            studySets: [StudySet],
+            studyCards: [StudyCard],
+            cardProgress: [StudyCardProgress],
+            reviewHistory: [StudyReviewEntry],
+            studyTestQuestions: [StudyTestQuestion],
+            studyTestAttempts: [StudyTestAttempt]
+        ) {
             self.studySets = studySets
             self.studyCards = studyCards
             self.cardProgress = cardProgress
             self.reviewHistory = reviewHistory
+            self.studyTestQuestions = studyTestQuestions
+            self.studyTestAttempts = studyTestAttempts
         }
 
         init(from decoder: Decoder) throws {
@@ -1800,6 +2024,8 @@ extension NoteStore {
             studyCards    = try c.decode([StudyCard].self, forKey: .studyCards)
             cardProgress  = try c.decode([StudyCardProgress].self, forKey: .cardProgress)
             reviewHistory = try c.decodeIfPresent([StudyReviewEntry].self, forKey: .reviewHistory) ?? []
+            studyTestQuestions = try c.decodeIfPresent([StudyTestQuestion].self, forKey: .studyTestQuestions) ?? []
+            studyTestAttempts = try c.decodeIfPresent([StudyTestAttempt].self, forKey: .studyTestAttempts) ?? []
         }
     }
 }

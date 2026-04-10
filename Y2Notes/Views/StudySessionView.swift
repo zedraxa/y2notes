@@ -451,3 +451,256 @@ private struct RatingButtonStyle: ButtonStyle {
             .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
+
+// MARK: - Multiple-choice test session
+
+struct StudyTestSessionView: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @Environment(\.dismiss) private var dismiss
+
+    let studySet: StudySet
+
+    @State private var questions: [StudyTestQuestion] = []
+    @State private var index = 0
+    @State private var selectedOptionIndex: Int?
+    @State private var revealed = false
+    @State private var correctAnswers = 0
+    @State private var answeredTotal = 0
+    @State private var sessionStart = Date()
+    @State private var questionStart = Date()
+    @State private var showSummary = false
+    @State private var immediateFeedback = true
+
+    private var currentQuestion: StudyTestQuestion? {
+        guard questions.indices.contains(index) else { return nil }
+        return questions[index]
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if showSummary {
+                    summaryView
+                } else if let question = currentQuestion {
+                    questionView(question)
+                } else {
+                    emptyView
+                }
+            }
+            .navigationTitle("\(studySet.title) Test")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .onAppear {
+            questions = noteStore.testQuestions(inSet: studySet.id)
+            questions.shuffle()
+            sessionStart = Date()
+            questionStart = Date()
+        }
+    }
+
+    private func questionView(_ question: StudyTestQuestion) -> some View {
+        VStack(spacing: 16) {
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Question \(index + 1) of \(questions.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Toggle("Immediate Feedback", isOn: $immediateFeedback)
+                        .labelsHidden()
+                }
+                .padding(.horizontal)
+
+                Text(question.prompt)
+                    .font(.title3.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+            }
+
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(Array(question.options.enumerated()), id: \.offset) { optionIndex, option in
+                        Button {
+                            choose(optionIndex, for: question)
+                        } label: {
+                            HStack(spacing: 10) {
+                                Text(letter(for: optionIndex))
+                                    .font(.subheadline.weight(.bold))
+                                    .frame(width: 24, height: 24)
+                                    .background(optionBadgeBackground(optionIndex, question: question), in: Circle())
+                                Text(option)
+                                    .font(.body)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                if revealed && optionIndex == question.correctOptionIndex {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.green)
+                                } else if revealed && selectedOptionIndex == optionIndex && optionIndex != question.correctOptionIndex {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                            .padding()
+                            .background(optionRowBackground(optionIndex, question: question), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(revealed)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 20)
+            }
+
+            if revealed {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(selectedOptionIndex == question.correctOptionIndex ? "Correct" : "Incorrect")
+                        .font(.headline)
+                        .foregroundStyle(selectedOptionIndex == question.correctOptionIndex ? .green : .red)
+                    if let explanation = question.explanation, !explanation.isEmpty {
+                        Text(explanation)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal)
+            }
+
+            Button(index == questions.count - 1 ? "Finish Test" : "Next Question") {
+                advance()
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedOptionIndex == nil || (!revealed && immediateFeedback))
+            .padding()
+        }
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checklist")
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(.tertiary)
+            Text("No Test Questions Yet")
+                .font(.title3.weight(.medium))
+            Text("Import a test file from the study set menu to start multiple-choice sessions.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 280)
+            Button("Done") { dismiss() }
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var summaryView: some View {
+        let duration = Int(Date().timeIntervalSince(sessionStart))
+        let accuracy = answeredTotal > 0 ? Double(correctAnswers) / Double(answeredTotal) * 100 : 0
+        return VStack(spacing: 18) {
+            Image(systemName: "rosette")
+                .font(.system(size: 56))
+                .foregroundStyle(.blue)
+            Text("Test Complete")
+                .font(.title.weight(.bold))
+            Text("You answered \(correctAnswers) of \(answeredTotal) correctly.")
+                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                summaryStat(title: "Accuracy", value: String(format: "%.0f%%", accuracy))
+                summaryStat(title: "Duration", value: "\(duration)s")
+            }
+            .padding(.horizontal)
+            Button("Done") { dismiss() }
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+    }
+
+    private func summaryStat(title: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title2.weight(.bold).monospacedDigit())
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func choose(_ optionIndex: Int, for question: StudyTestQuestion) {
+        guard !revealed else { return }
+        selectedOptionIndex = optionIndex
+
+        let elapsed = Date().timeIntervalSince(questionStart)
+        noteStore.recordTestAttempt(
+            questionID: question.id,
+            selectedOptionIndex: optionIndex,
+            durationSeconds: elapsed
+        )
+        answeredTotal += 1
+        if optionIndex == question.correctOptionIndex {
+            correctAnswers += 1
+        }
+        if immediateFeedback {
+            revealed = true
+        } else {
+            advance()
+        }
+    }
+
+    private func advance() {
+        if index >= questions.count - 1 {
+            showSummary = true
+            return
+        }
+        index += 1
+        selectedOptionIndex = nil
+        revealed = false
+        questionStart = Date()
+    }
+
+    private func letter(for index: Int) -> String {
+        let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        guard index < letters.count else { return "\(index + 1)" }
+        return String(Array(letters)[index])
+    }
+
+    private func optionRowBackground(_ optionIndex: Int, question: StudyTestQuestion) -> Color {
+        if revealed {
+            if optionIndex == question.correctOptionIndex {
+                return .green.opacity(0.16)
+            }
+            if optionIndex == selectedOptionIndex {
+                return .red.opacity(0.16)
+            }
+        }
+        if optionIndex == selectedOptionIndex {
+            return .blue.opacity(0.16)
+        }
+        return Color(uiColor: .secondarySystemGroupedBackground)
+    }
+
+    private func optionBadgeBackground(_ optionIndex: Int, question: StudyTestQuestion) -> Color {
+        if revealed {
+            if optionIndex == question.correctOptionIndex { return .green.opacity(0.2) }
+            if optionIndex == selectedOptionIndex { return .red.opacity(0.2) }
+        }
+        if optionIndex == selectedOptionIndex { return .blue.opacity(0.2) }
+        return Color(uiColor: .tertiarySystemFill)
+    }
+}

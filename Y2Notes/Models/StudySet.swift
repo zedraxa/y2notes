@@ -354,3 +354,217 @@ struct StudyCardProgress: Identifiable, Codable {
         dueDate <= Date()
     }
 }
+
+// MARK: - Study test (multiple choice)
+
+/// A multiple-choice question that belongs to a study set.
+struct StudyTestQuestion: Identifiable, Codable, Hashable {
+    let id: UUID
+    var setID: UUID
+    var noteID: UUID?
+    var prompt: String
+    var options: [String]
+    var correctOptionIndex: Int
+    var explanation: String?
+    var tags: [String]
+    var source: String?
+    var createdAt: Date
+    var modifiedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        setID: UUID,
+        noteID: UUID? = nil,
+        prompt: String,
+        options: [String],
+        correctOptionIndex: Int,
+        explanation: String? = nil,
+        tags: [String] = [],
+        source: String? = nil,
+        createdAt: Date = Date(),
+        modifiedAt: Date = Date()
+    ) {
+        self.id = id
+        self.setID = setID
+        self.noteID = noteID
+        self.prompt = prompt
+        self.options = options
+        self.correctOptionIndex = correctOptionIndex
+        self.explanation = explanation
+        self.tags = tags
+        self.source = source
+        self.createdAt = createdAt
+        self.modifiedAt = modifiedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, setID, noteID, prompt, options, correctOptionIndex, explanation
+        case tags, source, createdAt, modifiedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        setID = try c.decode(UUID.self, forKey: .setID)
+        noteID = try c.decodeIfPresent(UUID.self, forKey: .noteID)
+        prompt = try c.decode(String.self, forKey: .prompt)
+        options = try c.decode([String].self, forKey: .options)
+        correctOptionIndex = try c.decode(Int.self, forKey: .correctOptionIndex)
+        explanation = try c.decodeIfPresent(String.self, forKey: .explanation)
+        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        source = try c.decodeIfPresent(String.self, forKey: .source)
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        modifiedAt = try c.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
+    }
+}
+
+/// A single answer attempt for a multiple-choice question.
+struct StudyTestAttempt: Identifiable, Codable, Hashable {
+    let id: UUID
+    let questionID: UUID
+    let setID: UUID
+    let selectedOptionIndex: Int?
+    let isCorrect: Bool
+    let answeredAt: Date
+    let durationSeconds: TimeInterval?
+
+    init(
+        id: UUID = UUID(),
+        questionID: UUID,
+        setID: UUID,
+        selectedOptionIndex: Int?,
+        isCorrect: Bool,
+        answeredAt: Date = Date(),
+        durationSeconds: TimeInterval? = nil
+    ) {
+        self.id = id
+        self.questionID = questionID
+        self.setID = setID
+        self.selectedOptionIndex = selectedOptionIndex
+        self.isCorrect = isCorrect
+        self.answeredAt = answeredAt
+        self.durationSeconds = durationSeconds
+    }
+}
+
+struct StudyTestQuestionStats: Equatable {
+    let questionID: UUID
+    let attempts: Int
+    let correctAttempts: Int
+    let incorrectAttempts: Int
+    let accuracy: Double
+    let lastAttemptedAt: Date?
+}
+
+struct StudyTestWeakQuestion: Identifiable, Equatable {
+    let id: UUID
+    let prompt: String
+    let accuracy: Double
+    let attempts: Int
+}
+
+struct StudyTestDailyAccuracyPoint: Equatable {
+    let date: Date
+    let attempts: Int
+    let accuracy: Double
+}
+
+struct StudyTestSetStats: Equatable {
+    let setID: UUID
+    let questionCount: Int
+    let totalAttempts: Int
+    let correctAttempts: Int
+    let incorrectAttempts: Int
+    let accuracy: Double
+    let weakQuestions: [StudyTestWeakQuestion]
+    let dailyTrend: [StudyTestDailyAccuracyPoint]
+}
+
+enum StudyTestImportValidationError: LocalizedError, Equatable {
+    case unsupportedVersion(Int)
+    case emptyQuestions
+    case emptyPrompt(question: Int)
+    case insufficientOptions(question: Int)
+    case emptyOption(question: Int, option: Int)
+    case invalidCorrectOptionIndex(question: Int)
+
+    var errorDescription: String? {
+        switch self {
+        case let .unsupportedVersion(version):
+            return "Unsupported import version \(version)."
+        case .emptyQuestions:
+            return "Import file has no questions."
+        case let .emptyPrompt(question):
+            return "Question \(question) is missing a prompt."
+        case let .insufficientOptions(question):
+            return "Question \(question) must have at least 2 options."
+        case let .emptyOption(question, option):
+            return "Question \(question) option \(option) is empty."
+        case let .invalidCorrectOptionIndex(question):
+            return "Question \(question) has an invalid answer key index."
+        }
+    }
+}
+
+/// Versioned, AI-friendly JSON schema for importing multiple-choice tests.
+struct StudyTestImportPayload: Codable {
+    struct SetMetadata: Codable {
+        var title: String
+        var description: String?
+    }
+
+    struct Question: Codable {
+        var prompt: String
+        var options: [String]
+        var correctOptionIndex: Int
+        var explanation: String?
+        var tags: [String]?
+        var source: String?
+        var noteID: UUID?
+    }
+
+    var version: Int
+    var set: SetMetadata
+    var questions: [Question]
+
+    init(version: Int = 1, set: SetMetadata, questions: [Question]) {
+        self.version = version
+        self.set = set
+        self.questions = questions
+    }
+
+    func validatedQuestions() throws -> [Question] {
+        guard version == 1 else {
+            throw StudyTestImportValidationError.unsupportedVersion(version)
+        }
+        guard !questions.isEmpty else {
+            throw StudyTestImportValidationError.emptyQuestions
+        }
+
+        for (questionIndex, question) in questions.enumerated() {
+            let row = questionIndex + 1
+            if question.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw StudyTestImportValidationError.emptyPrompt(question: row)
+            }
+            if question.options.count < 2 {
+                throw StudyTestImportValidationError.insufficientOptions(question: row)
+            }
+            for (optionIndex, option) in question.options.enumerated() {
+                if option.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw StudyTestImportValidationError.emptyOption(question: row, option: optionIndex + 1)
+                }
+            }
+            if question.correctOptionIndex < 0 || question.correctOptionIndex >= question.options.count {
+                throw StudyTestImportValidationError.invalidCorrectOptionIndex(question: row)
+            }
+        }
+        return questions
+    }
+}
+
+struct StudyTestImportSummary: Equatable {
+    let addedCount: Int
+    let skippedCount: Int
+    let invalidCount: Int
+    let messages: [String]
+}

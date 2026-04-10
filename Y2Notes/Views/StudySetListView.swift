@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Study set list
 
@@ -247,7 +248,9 @@ struct StudyCardListView: View {
     @State private var showAddCard = false
     @State private var showBulkImport = false
     @State private var showStudySession = false
+    @State private var showTestSession = false
     @State private var showSetStats = false
+    @State private var showTestFileImport = false
     @State private var cardToEdit: StudyCard?
     @State private var filterTag: String?
 
@@ -261,6 +264,10 @@ struct StudyCardListView: View {
 
     private var dueCount: Int {
         noteStore.dueCards(inSet: studySet.id).count
+    }
+
+    private var testQuestionCount: Int {
+        noteStore.testQuestions(inSet: studySet.id).count
     }
 
     /// All unique tags across cards in this set.
@@ -291,6 +298,14 @@ struct StudyCardListView: View {
                     .disabled(dueCount == 0)
                     .accessibilityLabel(dueCount == 0 ? "No cards due" : "Start study session")
                 }
+                if testQuestionCount > 0 {
+                    Button {
+                        showTestSession = true
+                    } label: {
+                        Label("Test", systemImage: "checklist")
+                    }
+                    .accessibilityLabel("Start multiple-choice test")
+                }
 
                 Menu {
                     Button {
@@ -302,6 +317,11 @@ struct StudyCardListView: View {
                         showBulkImport = true
                     } label: {
                         Label("Bulk Import", systemImage: "doc.text")
+                    }
+                    Button {
+                        showTestFileImport = true
+                    } label: {
+                        Label("Import Test File", systemImage: "doc.badge.plus")
                     }
                     Divider()
                     Button {
@@ -322,6 +342,9 @@ struct StudyCardListView: View {
         .sheet(isPresented: $showBulkImport) {
             BulkImportSheet(setID: studySet.id)
         }
+        .sheet(isPresented: $showTestFileImport) {
+            TestFileImportSheet(setID: studySet.id)
+        }
         .sheet(item: $cardToEdit) { card in
             EditCardSheet(card: card)
         }
@@ -337,6 +360,9 @@ struct StudyCardListView: View {
         }
         .fullScreenCover(isPresented: $showStudySession) {
             StudySessionView(studySet: studySet)
+        }
+        .fullScreenCover(isPresented: $showTestSession) {
+            StudyTestSessionView(studySet: studySet)
         }
     }
 
@@ -359,6 +385,28 @@ struct StudyCardListView: View {
                                     .font(.body.weight(.medium))
                                     .foregroundStyle(Color(uiColor: .label))
                                 Text("\(dueCount) card\(dueCount == 1 ? "" : "s") due today")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            if testQuestionCount > 0 {
+                Section {
+                    Button {
+                        showTestSession = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "checklist")
+                                .foregroundStyle(.white)
+                                .frame(width: 32, height: 32)
+                                .background(.blue, in: Circle())
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Start Multiple-Choice Test")
+                                    .font(.body.weight(.medium))
+                                    .foregroundStyle(Color(uiColor: .label))
+                                Text("\(testQuestionCount) question\(testQuestionCount == 1 ? "" : "s") available")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -461,6 +509,18 @@ struct StudyCardListView: View {
                         .padding(.vertical, 10)
                         .background(Color(uiColor: .secondaryLabel).opacity(0.12), in: Capsule())
                         .foregroundStyle(Color(uiColor: .label))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    showTestFileImport = true
+                } label: {
+                    Label("Import Test File", systemImage: "doc.badge.plus")
+                        .font(.body.weight(.medium))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Color.blue.opacity(0.12), in: Capsule())
+                        .foregroundStyle(.blue)
                 }
                 .buttonStyle(.plain)
             }
@@ -764,6 +824,135 @@ private struct BulkImportSheet: View {
                         }
                     }
                     .disabled(previewLines.isEmpty)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Test file import sheet
+
+private struct TestFileImportSheet: View {
+    @EnvironmentObject var noteStore: NoteStore
+    @Environment(\.dismiss) private var dismiss
+
+    let setID: UUID
+
+    @State private var showImporter = false
+    @State private var fileName: String?
+    @State private var importData: Data?
+    @State private var payloadPreview: StudyTestImportPayload?
+    @State private var errorMessage: String?
+    @State private var importSummary: StudyTestImportSummary?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("File") {
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Label(fileName ?? "Choose JSON File", systemImage: "doc")
+                    }
+                } footer: {
+                    Text("Use JSON schema version 1 with set metadata and questions (prompt, options, correctOptionIndex, explanation).")
+                }
+
+                if let errorMessage {
+                    Section("Validation Error") {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                if let payloadPreview {
+                    Section("Preview") {
+                        LabeledContent("Title", value: payloadPreview.set.title)
+                        if let description = payloadPreview.set.description, !description.isEmpty {
+                            Text(description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        LabeledContent("Questions", value: "\(payloadPreview.questions.count)")
+                    }
+
+                    Section("Sample Questions") {
+                        ForEach(Array(payloadPreview.questions.prefix(3).enumerated()), id: \.offset) { _, question in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(question.prompt)
+                                    .font(.subheadline.weight(.medium))
+                                Text("Options: \(question.options.count)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                if let summary = importSummary {
+                    Section("Import Result") {
+                        Text("Added: \(summary.addedCount)")
+                        Text("Skipped: \(summary.skippedCount)")
+                        Text("Invalid: \(summary.invalidCount)")
+                        ForEach(summary.messages, id: \.self) { message in
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Import Test File")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Import") {
+                        guard let importData else { return }
+                        let summary = noteStore.importTestQuestions(toSet: setID, jsonData: importData)
+                        importSummary = summary
+                        if summary.invalidCount == 0 && summary.addedCount > 0 {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { dismiss() }
+                        }
+                    }
+                    .disabled(importData == nil || payloadPreview == nil)
+                }
+            }
+            .fileImporter(
+                isPresented: $showImporter,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case let .success(urls):
+                    guard let url = urls.first else { return }
+                    do {
+                        let didAccess = url.startAccessingSecurityScopedResource()
+                        defer {
+                            if didAccess {
+                                url.stopAccessingSecurityScopedResource()
+                            }
+                        }
+                        let data = try Data(contentsOf: url)
+                        fileName = url.lastPathComponent
+                        importData = data
+                        switch noteStore.testImportPreview(from: data) {
+                        case let .success(payload):
+                            payloadPreview = payload
+                            errorMessage = nil
+                        case let .failure(error):
+                            payloadPreview = nil
+                            errorMessage = error.localizedDescription
+                        }
+                    } catch {
+                        payloadPreview = nil
+                        errorMessage = error.localizedDescription
+                    }
+                case let .failure(error):
+                    payloadPreview = nil
+                    errorMessage = error.localizedDescription
                 }
             }
         }
