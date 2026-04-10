@@ -448,3 +448,26 @@
 
 // MARK: - Editor Actions
 "Editor.StraightenLine"           = "Enderezar línea";
+
+/* ── Home View ────────────────────────────────────────────────── */
+
+"Home.QuickNote"                  = "Nota rápida";
+"Home.NewNote"                    = "Nueva nota…";
+"Home.NewNotebook"                = "Nuevo cuaderno…";
+"Home.ImportPDF"                  = "Importar PDF";
+"Home.Continue"                   = "Continúa donde lo dejaste";
+"Home.PinnedNotebooks"            = "Cuadernos fijados";
+"Home.StudyDue"                   = "Estudio";
+"Home.CardsDue"                   = "%d tarjetas pendientes de repaso";
+"Home.CardsDueSubtitle"           = "¡Mantén tu racha!";
+"Home.StartReview"                = "Empezar repaso";
+"Home.RecentActivity"             = "Actividad reciente";
+
+/* ── Floating Action Button ───────────────────────────────────── */
+
+"FAB.QuickNote"                   = "Nota rápida";
+"FAB.NewNote"                     = "Nueva nota…";
+"FAB.NewNotebook"                 = "Nuevo cuaderno…";
+"FAB.ImportPDF"                   = "Importar PDF";
+"FAB.Close"                       = "Cerrar menú de creación";
+"FAB.Create"                      = "Crear nuevo";

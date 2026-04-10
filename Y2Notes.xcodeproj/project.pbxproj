@@ -236,6 +236,8 @@
 		AA000100000000000000026F /* CanvasCoordinator+DiffUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */; };
 		AA0001000000000000000271 /* ReaderCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000270 /* ReaderCanvasView.swift */; };
 		AA0001000000000000000273 /* NotebookReaderView+Canvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */; };
+		AA0001000000000000000277 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000276 /* HomeView.swift */; };
+		AA0001000000000000000279 /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000278 /* FloatingActionButton.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -495,6 +497,8 @@
 		AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CanvasCoordinator+DiffUpdate.swift"; sourceTree = "<group>"; };
 		AA0001000000000000000270 /* ReaderCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderCanvasView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NotebookReaderView+Canvas.swift"; sourceTree = "<group>"; };
+		AA0001000000000000000276 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000278 /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -612,6 +616,8 @@
 				AA00010000000000000001A8 /* PageOverviewGrid.swift */,
 				AA0001000000000000000186 /* NotePageCarouselView.swift */,
 				AA0001000000000000000024 /* ShelfView.swift */,
+				AA0001000000000000000276 /* HomeView.swift */,
+				AA0001000000000000000278 /* FloatingActionButton.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
 				AA0001000000000000000082 /* DrawingToolbarView.swift */,
 				AA00010000000000000000DC /* FloatingToolbarCapsule.swift */,
@@ -1202,6 +1208,8 @@
 				AA000100000000000000001E /* NoteStore.swift in Sources */,
 				AA0001000000000000000023 /* Notebook.swift in Sources */,
 				AA0001000000000000000025 /* ShelfView.swift in Sources */,
+				AA0001000000000000000277 /* HomeView.swift in Sources */,
+				AA0001000000000000000279 /* FloatingActionButton.swift in Sources */,
 				AA0001000000000000000040 /* AppTheme.swift in Sources */,
 				AA0001000000000000000041 /* ThemeStore.swift in Sources */,
 				AA0001000000000000000042 /* ThemePickerView.swift in Sources */,

@@ -124,12 +124,23 @@ struct CommandPaletteView: View {
             }
         } label: {
             Label {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(action.title)
-                        .font(.body)
-                    Text(action.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(action.title)
+                            .font(.body)
+                        Text(action.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if let hint = action.shortcutHint {
+                        Text(hint)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 4))
+                    }
                 }
             } icon: {
                 Image(systemName: action.systemImage)

@@ -449,3 +449,26 @@
 
 // MARK: - Editor Actions
 "Editor.StraightenLine"           = "Straighten Line";
+
+/* ── Home View ────────────────────────────────────────────────── */
+
+"Home.QuickNote"                  = "Quick Note";
+"Home.NewNote"                    = "New Note…";
+"Home.NewNotebook"                = "New Notebook…";
+"Home.ImportPDF"                  = "Import PDF";
+"Home.Continue"                   = "Continue where you left off";
+"Home.PinnedNotebooks"            = "Pinned Notebooks";
+"Home.StudyDue"                   = "Study";
+"Home.CardsDue"                   = "%d cards due for review";
+"Home.CardsDueSubtitle"           = "Keep your streak going!";
+"Home.StartReview"                = "Start Review";
+"Home.RecentActivity"             = "Recent Activity";
+
+/* ── Floating Action Button ───────────────────────────────────── */
+
+"FAB.QuickNote"                   = "Quick Note";
+"FAB.NewNote"                     = "New Note…";
+"FAB.NewNotebook"                 = "New Notebook…";
+"FAB.ImportPDF"                   = "Import PDF";
+"FAB.Close"                       = "Close creation menu";
+"FAB.Create"                      = "Create new";
