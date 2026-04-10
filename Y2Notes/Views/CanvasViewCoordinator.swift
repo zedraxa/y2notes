@@ -10,8 +10,12 @@ private let editorSignposter = OSSignposter(subsystem: "com.y2notes.app", catego
 
 enum PinchOverviewGestureTuning {
     /// Require pinch start near baseline zoom.
+    /// 1.08 allows minor gesture jitter/zoom drift while still distinguishing
+    /// an intentional "overview pinch" from normal zoomed-in navigation.
     static let maxStartZoomScale: CGFloat = 1.08
     /// Minimum pinch-in scale to count as an intentional overview request.
+    /// 0.58 was chosen to require a decisive pinch-in and reduce accidental
+    /// overview opens during routine zoom adjustments.
     static let triggerScale: CGFloat = 0.58
 }
 

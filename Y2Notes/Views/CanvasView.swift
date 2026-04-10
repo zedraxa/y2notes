@@ -656,7 +656,18 @@ struct CanvasView: UIViewRepresentable {
             context.coordinator.syncBackgroundWithCanvas(canvas)
         }
 
-        syncPDFBackground(in: uiView, coordinator: context.coordinator)
+        let desiredPDFToken = Self.pdfBackgroundToken(
+            pdfURL: pdfURL,
+            pageIndex: pageIndex,
+            backgroundColor: backgroundColor
+        )
+        if context.coordinator.pdfBackgroundToken != desiredPDFToken {
+            syncPDFBackground(
+                in: uiView,
+                coordinator: context.coordinator,
+                desiredToken: desiredPDFToken
+            )
+        }
 
         // Sync drawing policy when the user toggles the finger/pencil preference.
         if canvas.drawingPolicy != drawingPolicy {
@@ -829,13 +840,11 @@ struct CanvasView: UIViewRepresentable {
 
     /// Ensures exactly one PDF background layer is bound for the current page.
     /// Removes stale page/template layers before binding the new one.
-    private func syncPDFBackground(in container: UIView, coordinator: Coordinator) {
-        let desiredToken = Self.pdfBackgroundToken(
-            pdfURL: pdfURL,
-            pageIndex: pageIndex,
-            backgroundColor: backgroundColor
-        )
-        guard coordinator.pdfBackgroundToken != desiredToken else { return }
+    private func syncPDFBackground(
+        in container: UIView,
+        coordinator: Coordinator,
+        desiredToken: String
+    ) {
         coordinator.pdfBackgroundToken = desiredToken
 
         coordinator.pdfBackgroundView?.removeFromSuperview()
