@@ -426,8 +426,9 @@ struct CanvasPageView: UIViewRepresentable {
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [context] location in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            // Don't guard on isDrawing — the nib tracker fires before PencilKit's
+            // canvasViewDidBeginUsingTool delegate so isDrawing is still false.
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
                 .strokeBegan(at: location, inkColor: inkColor),
@@ -436,8 +437,7 @@ struct CanvasPageView: UIViewRepresentable {
         }
         nibTracker.onNibMoved = { [context] location, force, velocity in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),
                 inkEffectEngine: coordinator.effectEngine
@@ -1543,12 +1543,13 @@ struct CanvasPageView: UIViewRepresentable {
             CATransaction.setDisableActions(true)
             bg.transform = xform
             pdfBackgroundView?.transform = xform
-            // Keep object overlay canvases (shapes, attachments, widgets)
-            // in sync with the PencilKit canvas zoom/scroll so objects
-            // rendered in page-local coordinates don't drift from ink.
+            // Keep object overlay canvases (shapes, attachments, widgets,
+            // text objects) in sync with the PencilKit canvas zoom/scroll so
+            // objects rendered in page-local coordinates don't drift from ink.
             shapeCanvas?.transform = xform
             attachmentCanvas?.transform = xform
             widgetCanvas?.transform = xform
+            textCanvas?.transform = xform
             CATransaction.commit()
         }
 

@@ -108,9 +108,13 @@ final class PDFAnnotationContainer: UIView {
 
         // ── PKCanvasView ───────────────────────────────────────────────────
         canvas.backgroundColor             = .clear
-        canvas.minimumZoomScale            = 0.25
-        canvas.maximumZoomScale            = 5.0
-        canvas.bouncesZoom                 = true
+        // Disable independent zoom on the annotation canvas — PDFView owns
+        // zoom/scroll. The canvas only captures drawing input; scrolling and
+        // pinch-to-zoom pass through to the underlying PDFView.
+        canvas.minimumZoomScale            = 1.0
+        canvas.maximumZoomScale            = 1.0
+        canvas.bouncesZoom                 = false
+        canvas.isScrollEnabled             = false
         canvas.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(canvas)
@@ -128,6 +132,15 @@ final class PDFAnnotationContainer: UIView {
             name: .PDFViewPageChanged,
             object: pdfView
         )
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Keep the annotation canvas content size matching the view bounds so
+        // PKCanvasView has a valid drawing area covering the entire PDF page.
+        if canvas.contentSize != bounds.size, bounds.size.width > 0, bounds.size.height > 0 {
+            canvas.contentSize = bounds.size
+        }
     }
 
     deinit {

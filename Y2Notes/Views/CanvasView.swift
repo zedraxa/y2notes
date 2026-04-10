@@ -481,8 +481,10 @@ struct CanvasView: UIViewRepresentable {
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [context] location in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            // Don't guard on isDrawing — the nib tracker fires before PencilKit's
+            // canvasViewDidBeginUsingTool delegate so isDrawing is still false.
+            // Instead, check only the tool type.
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
                 .strokeBegan(at: location, inkColor: inkColor),
@@ -491,8 +493,10 @@ struct CanvasView: UIViewRepresentable {
         }
         nibTracker.onNibMoved = { [context] location, force, velocity in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            // Guard on isDrawing to skip stray move events before/after strokes,
+            // but accept the first few moves even when isDrawing hasn't been set
+            // yet by PK delegate — the nib already touched down (onNibBegan fired).
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),
                 inkEffectEngine: coordinator.effectEngine
