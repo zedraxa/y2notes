@@ -109,7 +109,7 @@ struct StudyStatsView: View {
 
     private var testAccuracyPercentText: String {
         guard testTotalAttempts > 0 else { return "—" }
-        String(format: "%.0f%%", testAccuracyRatio * 100)
+        return String(format: "%.0f%%", testAccuracyRatio * 100)
     }
 
     private var testAccuracyRatio: Double {
