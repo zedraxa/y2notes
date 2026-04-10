@@ -76,12 +76,6 @@ final class DrawingToolStore: ObservableObject {
         didSet { persistPresets() }
     }
 
-    /// The paper material of the note currently open in the editor.
-    /// Set by `NoteEditorView` on `.onAppear` and when the note changes.
-    /// **Not persisted** — it is always derived from the active notebook's
-    /// `paperMaterial` property and reset to `.standard` when no note is open.
-    @Published var currentPaperMaterial: PaperMaterial = .standard
-
     // MARK: - Floating Toolbar State
 
     /// Opacity of the floating toolbar capsule. Animated down to 0.3 during
@@ -259,11 +253,6 @@ final class DrawingToolStore: ObservableObject {
     /// The PencilKit tool corresponding to the current state.
     /// Shape tool returns a standard pen so the canvas behaves normally while
     /// the shape overlay captures the gesture.
-    ///
-    /// When `currentPaperMaterial.inkAlphaMultiplier` is below 1.0 the active
-    /// ink color's alpha is scaled down accordingly — this produces a subtle
-    /// "absorption" effect that makes ink look slightly less sharp on textured
-    /// or matte paper surfaces, matching the feel of real paper tooth.
     var pkTool: PKTool {
         switch activeTool {
         case .pen:
@@ -299,14 +288,10 @@ final class DrawingToolStore: ObservableObject {
         }
     }
 
-    /// Active ink color adjusted for the current paper material's absorption.
+    /// Active ink color.
     /// Eraser and lasso tools are not affected.
     private var inkColor: UIColor {
-        let multiplier = currentPaperMaterial.inkAlphaMultiplier
-        guard multiplier < 1.0 else { return activeColor }
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        activeColor.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return UIColor(red: r, green: g, blue: b, alpha: a * CGFloat(multiplier))
+        return activeColor
     }
 
     /// Constructs the `PKEraserTool` for the current sub-type and width.

@@ -36,7 +36,6 @@ extension NotebookReaderView {
             backgroundColor: canvasBackground(for: ref),
             defaultInkColor: effectiveDefinition.contrastingInkColor,
             pageType: effectivePageType(for: ref),
-            paperMaterial: effectivePaperMaterial,
             isShapeToolActive: toolStore.activeTool == .shape,
             activeShapeType: toolStore.activeShapeType,
             shapeColor: toolStore.activeColor,

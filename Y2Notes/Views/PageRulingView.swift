@@ -4,10 +4,9 @@ import UIKit
 
 /// A non-interactive `UIView` that renders the page background for a note canvas:
 ///
-/// - Fills with the notebook's paper material tint colour.
+/// - Fills with the page background colour.
 /// - Draws the page type ruling (ruled lines, dot grid, square grid, Cornell,
 ///   hexagonal grid, or music staves) on top.
-/// - Optionally renders multi-octave noise grain for textured paper materials.
 /// - Always draws a subtle edge-vignette shadow to suggest physical page depth.
 ///
 /// This view is inserted **behind** `PKCanvasView` inside the canvas container
@@ -16,9 +15,7 @@ import UIKit
 ///
 /// Performance notes:
 /// - `draw(_:)` is called once during layout; `setNeedsDisplay()` is triggered
-///   only when properties change (background color, page type, or grain).
-/// - Grain is rendered via two cached `CGImage`s (coarse + fine octave) tiled
-///   across the surface using the deterministic xorshift PRNG.
+///   only when properties change (background color or page type).
 /// - All drawing uses `CGContext` primitives — no CALayer animations or
 ///   UIKit-hierarchy overhead.
 final class PageBackgroundView: UIView {
@@ -38,35 +35,6 @@ final class PageBackgroundView: UIView {
     /// Colour used for ruling lines and dots.
     var lineColor: UIColor = UIColor.label.withAlphaComponent(0.10) {
         didSet { if lineColor != oldValue { setNeedsDisplay() } }
-    }
-
-    /// Optional tint applied to accent ruling elements (margin lines, Cornell
-    /// separators).  When `nil` the standard red-tinted accent is used with a
-    /// subtle alpha so accents remain visible but understated.
-    var rulingTint: UIColor? {
-        didSet { if rulingTint != oldValue { setNeedsDisplay() } }
-    }
-
-    /// Graduated grain intensity in [0, 1].  0 = no grain; 1 = full two-octave
-    /// noise overlay.  Replaces the former Boolean `showGrain`.
-    var grainIntensity: Double = 0 {
-        didSet {
-            if grainIntensity != oldValue {
-                grainImage = nil
-                fineGrainImage = nil
-                setNeedsDisplay()
-            }
-        }
-    }
-
-    /// Convenience Bool wrapper kept for call-site backward compatibility.
-    ///
-    /// - `get`: returns `true` when `grainIntensity > 0`.
-    /// - `set`: maps `true` → full intensity (`1.0`) and `false` → no grain (`0.0`).
-    ///   Use `grainIntensity` directly when a graduated value is needed.
-    var showGrain: Bool {
-        get { grainIntensity > 0 }
-        set { grainIntensity = newValue ? 1.0 : 0.0 }
     }
 
     // MARK: - Geometry constants
@@ -91,13 +59,6 @@ final class PageBackgroundView: UIView {
     private let staffLineSpacing:   CGFloat = 8     // points between adjacent staff lines
     private let staffGroupGap:      CGFloat = 32    // gap between staff groups
     private let staffLinesCount:    Int     = 5     // lines per staff group
-
-    // MARK: - Grain cache
-
-    /// Coarse (64×64) noise image for the first grain octave.
-    private var grainImage: CGImage?
-    /// Fine (32×32) noise image for the second (higher-frequency) grain octave.
-    private var fineGrainImage: CGImage?
 
     // MARK: - Init
 
@@ -142,12 +103,7 @@ final class PageBackgroundView: UIView {
             drawMusicStaff(in: ctx, rect: rect)
         }
 
-        // 3. Overlay multi-octave grain if requested.
-        if grainIntensity > 0 {
-            drawGrain(in: ctx, rect: rect)
-        }
-
-        // 4. Draw a very subtle border so the page edge is perceptible on
+        // 3. Draw a very subtle border so the page edge is perceptible on
         //    the desk surface, especially when zoomed out.
         ctx.saveGState()
         ctx.setStrokeColor(UIColor.label.withAlphaComponent(0.07).cgColor)
@@ -356,82 +312,11 @@ final class PageBackgroundView: UIView {
         ctx.restoreGState()
     }
 
-    // MARK: - Multi-octave grain overlay
-
-    /// Composites two noise-tile octaves scaled by `grainIntensity`:
-    /// - **Coarse** 64×64 tile: dominant low-frequency paper tooth.
-    /// - **Fine**   32×32 tile: high-frequency overlay at ~55 % of coarse alpha.
-    private func drawGrain(in ctx: CGContext, rect: CGRect) {
-        let baseAlpha = CGFloat(grainIntensity) * 0.045
-
-        let coarse = grainStamp(side: 64, seed: 0xDEAD_BEEF, cache: &grainImage)
-        ctx.saveGState()
-        ctx.setAlpha(baseAlpha)
-        tile(image: coarse, tileSize: 64, in: ctx, rect: rect)
-        ctx.restoreGState()
-
-        let fine = grainStamp(side: 32, seed: 0xCAFE_BABE, cache: &fineGrainImage)
-        ctx.saveGState()
-        ctx.setAlpha(baseAlpha * 0.55)
-        tile(image: fine, tileSize: 32, in: ctx, rect: rect)
-        ctx.restoreGState()
-    }
-
-    private func tile(image: CGImage, tileSize: CGFloat, in ctx: CGContext, rect: CGRect) {
-        let cols = Int(ceil(rect.width  / tileSize)) + 1
-        let rows = Int(ceil(rect.height / tileSize)) + 1
-        for row in 0..<rows {
-            for col in 0..<cols {
-                ctx.draw(image, in: CGRect(
-                    x: rect.minX + CGFloat(col) * tileSize,
-                    y: rect.minY + CGFloat(row) * tileSize,
-                    width: tileSize, height: tileSize
-                ))
-            }
-        }
-    }
-
-    /// Returns (and caches) a monochrome noise image via a deterministic
-    /// xorshift PRNG — same `seed` produces identical pixels every launch.
-    private func grainStamp(side: Int, seed: UInt32, cache: inout CGImage?) -> CGImage {
-        if let cached = cache { return cached }
-
-        var pixels = [UInt8](repeating: 0, count: side * side)
-        var s: UInt32 = seed
-        for i in pixels.indices {
-            s ^= s << 13
-            s ^= s >> 17
-            s ^= s << 5
-            pixels[i] = UInt8(s & 0xFF)
-        }
-        let colorSpace = CGColorSpaceCreateDeviceGray()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
-        let provider = CGDataProvider(data: Data(pixels) as CFData)!
-        let image = CGImage(
-            width: side, height: side,
-            bitsPerComponent: 8, bitsPerPixel: 8,
-            bytesPerRow: side,
-            space: colorSpace,
-            bitmapInfo: bitmapInfo,
-            provider: provider,
-            decode: nil,
-            shouldInterpolate: false,
-            intent: .defaultIntent
-        )!
-        cache = image
-        return image
-    }
-
     // MARK: - Accent colour helper
 
     /// Returns the colour used for accent ruling elements (margin lines, Cornell
     /// separators) at the requested `alpha`.
-    ///
-    /// Priority: `rulingTint` → material-neutral warm red (adapts to background brightness).
     private func accentLineColor(alpha: CGFloat) -> UIColor {
-        if let tint = rulingTint {
-            return tint.withAlphaComponent(alpha)
-        }
         var white: CGFloat = 0
         pageColor.getWhite(&white, alpha: nil)
         return white < 0.5

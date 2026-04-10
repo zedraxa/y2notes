@@ -25,7 +25,7 @@ pub enum NoteColorLabel {
 }
 
 // ---------------------------------------------------------------------------
-// PageType / PaperMaterial
+// PageType
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,21 +41,6 @@ pub enum PageType {
 impl Default for PageType {
     fn default() -> Self {
         Self::Blank
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum PaperMaterial {
-    Standard,
-    Parchment,
-    Dark,
-    Kraft,
-}
-
-impl Default for PaperMaterial {
-    fn default() -> Self {
-        Self::Standard
     }
 }
 
@@ -101,8 +86,6 @@ pub struct Note {
     pub page_type: PageType,
     #[serde(default)]
     pub page_types: Vec<Option<PageType>>,
-    #[serde(default)]
-    pub paper_material: PaperMaterial,
     #[serde(default)]
     pub page_colors: Vec<Option<String>>,
 
@@ -159,7 +142,6 @@ impl Note {
             theme_override: None,
             page_type: PageType::default(),
             page_types: Vec::new(),
-            paper_material: PaperMaterial::default(),
             page_colors: Vec::new(),
             sticker_layers: Vec::new(),
             shape_layers: Vec::new(),

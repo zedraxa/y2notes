@@ -53,7 +53,6 @@ struct ReaderCanvasView: View {
             drawingPolicy: configuration.drawingPolicy,
             zoomResetTrigger: configuration.zoomResetTrigger,
             pageType: configuration.pageType,
-            paperMaterial: configuration.paperMaterial,
             activeFX: configuration.activeFX,
             fxColor: configuration.fxColor,
             pageIndex: configuration.pageIndex,

@@ -66,17 +66,10 @@ struct NotebookInfoView: View {
                             liveNotebook.cover.gradient
                                 .frame(width: 56, height: 80)
                         }
-
-                        CoverTextureOverlay(
-                            texture: liveNotebook.coverTexture,
-                            size: CGSize(width: 56, height: 80),
-                            intensity: 0.6
-                        )
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
                     // Colour tag badge
-                    if liveNotebook.colorTag != .none {
                         Circle()
                             .fill(liveNotebook.colorTag.color)
                             .frame(width: 12, height: 12)
@@ -183,16 +176,6 @@ struct NotebookInfoView: View {
                 icon: liveNotebook.orientation.systemImage,
                 label: NSLocalizedString("NotebookInfo.Orientation", comment: ""),
                 value: liveNotebook.orientation.displayName
-            )
-            infoRow(
-                icon: liveNotebook.paperMaterial.systemImage,
-                label: NSLocalizedString("NotebookInfo.Material", comment: ""),
-                value: liveNotebook.paperMaterial.displayName
-            )
-            infoRow(
-                icon: liveNotebook.coverTexture.systemImage,
-                label: NSLocalizedString("NotebookInfo.Texture", comment: ""),
-                value: liveNotebook.coverTexture.displayName
             )
             if let theme = liveNotebook.defaultTheme {
                 infoRow(

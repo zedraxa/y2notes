@@ -24,8 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PDF Annotation**: Import PDFs, annotate pages with PencilKit, save per-page drawings
 - **Google Drive Sync**: Cloud backup with offline queue and conflict resolution
 - **6 Themes**: System, Light, Dark, Sepia, Midnight, Ocean — per-note or per-notebook overrides
-- **7 Paper Materials**: Standard, Premium, Craft, Recycled, Matte, Glossy, Textured
-  with ink-response alpha adjustments
 - **12 Notebook Covers**: Ocean, Forest, Sunset, Lavender, Slate, Sand, Ruby, Midnight,
   Jade, Coral, Copper, Nebula — plus custom photo covers
 - **6 Page Templates**: Blank, Lined, Grid, Dotted, Cornell, Music Staff

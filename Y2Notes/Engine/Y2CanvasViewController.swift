@@ -21,7 +21,6 @@ struct CanvasConfiguration {
     let shapeWidth: Double
     let drawingPolicy: PKCanvasViewDrawingPolicy
     let pageType: PageType
-    let paperMaterial: PaperMaterial
     let activeFX: WritingFXType
     let fxColor: UIColor
     let pageIndex: Int
@@ -52,7 +51,7 @@ struct CanvasConfiguration {
 /// ## View Hierarchy
 /// ```
 /// self.view (container)
-/// ├── PageBackgroundView (ruling lines, paper material)
+/// ├── PageBackgroundView (ruling lines)
 /// ├── PKCanvasView (drawing input + native stroke rendering)
 /// ├── ShapeOverlayView / StickerCanvasView / ... (object layers)
 /// └── EffectOverlayLayer.overlayView (particle & animation effects)

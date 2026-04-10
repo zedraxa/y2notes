@@ -49,13 +49,6 @@ final class CoreSettingsService: SettingsProvider {
         }
     }
 
-    var defaultPaperMaterial: PaperMaterial {
-        didSet {
-            UserDefaults.standard.set(defaultPaperMaterial.rawValue, forKey: Keys.defaultPaperMaterial)
-            _settingsDidChange.send()
-        }
-    }
-
     var reduceMotion: Bool {
         didSet {
             UserDefaults.standard.set(reduceMotion, forKey: Keys.reduceMotion)
@@ -107,10 +100,6 @@ final class CoreSettingsService: SettingsProvider {
             defaultOrientation = v
         } else { defaultOrientation = .portrait }
 
-        if let raw = ud.string(forKey: Keys.defaultPaperMaterial), let v = PaperMaterial(rawValue: raw) {
-            defaultPaperMaterial = v
-        } else { defaultPaperMaterial = .standard }
-
         reduceMotion = ud.bool(forKey: Keys.reduceMotion)
         highContrastMode = ud.bool(forKey: Keys.highContrastMode)
         pencilOnlyDrawing = ud.bool(forKey: Keys.pencilOnlyDrawing)
@@ -125,7 +114,6 @@ final class CoreSettingsService: SettingsProvider {
         defaultPageType = .blank
         defaultPageSize = .letter
         defaultOrientation = .portrait
-        defaultPaperMaterial = .standard
         reduceMotion = false
         highContrastMode = false
         pencilOnlyDrawing = false
@@ -139,7 +127,6 @@ final class CoreSettingsService: SettingsProvider {
         static let defaultPageType        = "y2notes.defaultPageType"
         static let defaultPageSize        = "y2notes.defaultPageSize"
         static let defaultOrientation     = "y2notes.defaultOrientation"
-        static let defaultPaperMaterial   = "y2notes.defaultPaperMaterial"
         static let reduceMotion           = "y2notes.reduceMotion"
         static let highContrastMode       = "y2notes.highContrastMode"
         static let pencilOnlyDrawing      = "y2notes.pencilOnlyDrawing"

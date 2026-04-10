@@ -134,11 +134,6 @@ struct NoteEditorView: View {
         note.pageType(forPage: index) ?? notebook?.pageType ?? .blank
     }
 
-    /// Paper material: note-level override → notebook setting → `.standard` fallback.
-    var effectivePaperMaterial: PaperMaterial {
-        note.paperMaterial ?? notebook?.paperMaterial ?? .standard
-    }
-
     // MARK: - Effective theme
 
     var effectiveTheme: AppTheme {
@@ -149,16 +144,13 @@ struct NoteEditorView: View {
         effectiveTheme.definition
     }
 
-    /// Canvas background: per-page colour → theme base blended with paper material tint.
+    /// Canvas background: per-page colour → theme base.
     var canvasBackgroundColor: UIColor {
         // Per-page colour takes absolute precedence when set.
         if let explicit = note.pageColor(forPage: safePageIndex) {
             return explicit
         }
-        return blendedBackground(
-            base: effectiveDefinition.canvasBackground,
-            tint: effectivePaperMaterial.pageTint
-        )
+        return effectiveDefinition.canvasBackground
     }
 
     /// Clamped page index that never exceeds valid bounds.
@@ -250,10 +242,8 @@ struct NoteEditorView: View {
         editorWithPresentations
             .onAppear {
                 refreshUndoRedoState()
-                toolStore.currentPaperMaterial = effectivePaperMaterial
             }
             .onDisappear {
-                toolStore.currentPaperMaterial = .standard
             }
             // Sync tab navigation state and handle carousel swiping to the "add page" slot.
             // Infinite canvas notes are single-page and never add new pages.
@@ -332,7 +322,6 @@ struct NoteEditorView: View {
             }
             .onDisappear {
                 flushTextNow()
-                toolStore.currentPaperMaterial = .standard
                 // Persist tab state when leaving this editor tab.
                 if let id = tabID {
                     workspace.updateTabState(id, pageIndex: currentPageIndex, showAdvancedPanel: showAdvancedPanel)

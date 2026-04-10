@@ -158,73 +158,14 @@ extension NoteEditorView {
 
     // MARK: - Trailing Toolbar Content
 
-    /// Trailing navigation bar toolbar items.
+    /// Trailing navigation bar toolbar items — streamlined to 3 primary buttons.
     @ViewBuilder
     var trailingToolbarContent: some View {
-        noteThemeMenu
-
-        // Page setup menu — GoodNotes-style per-page paper type & material picker.
-        pageSetupMenu
-
-        // Create flashcard from this note.
-        Button {
-            showCreateFlashcard = true
-        } label: {
-            Image(systemName: "rectangle.on.rectangle.angled")
-        }
-        .accessibilityLabel("Create Flashcard")
-
-        // Export menu — PDF (single page), PDF (all pages), PNG image.
+        // Share/Export button
         exportMenu
 
-        // Version history browser.
-        Button {
-            showVersionHistory = true
-        } label: {
-            Image(systemName: "clock.arrow.circlepath")
-        }
-        .accessibilityLabel("Version History")
-
-        // Import document into the library.
-        Button {
-            showDocumentImporter = true
-        } label: {
-            Image(systemName: "square.and.arrow.down")
-        }
-        .accessibilityLabel("Import document")
-
-        // Open the PDF or document that this note was created for, if any.
-        if note.linkedPDFID != nil || note.linkedDocumentID != nil {
-            Button {
-                openLinkedImport()
-            } label: {
-                Image(systemName: "doc.viewfinder")
-            }
-            .accessibilityLabel("Open linked document")
-        }
-
-        // Draw ↔ Type mode toggle.
-        // "keyboard" switches to text mode; "pencil" returns to drawing mode.
-        Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            flushTextNow()
-            isTextMode.toggle()
-        } label: {
-            Image(systemName: isTextMode ? "pencil" : "keyboard")
-        }
-        .accessibilityLabel(isTextMode ? "Switch to drawing mode" : "Switch to text mode")
-
-        // In-document find bar toggle.
-        Button {
-            showFindBar.toggle()
-            if !showFindBar {
-                findQuery = ""
-                findMatches = []
-            }
-        } label: {
-            Image(systemName: showFindBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
-        }
-        .accessibilityLabel(showFindBar ? "Hide find bar" : "Find in note")
+        // Overflow menu — consolidates secondary actions
+        overflowMenu
 
         if !isTextMode {
             // Finger / Pencil drawing policy toggle.
@@ -236,14 +177,6 @@ extension NoteEditorView {
             .accessibilityLabel(
                 pencilOnlyDrawing ? "Enable finger drawing" : "Enable Pencil-only drawing"
             )
-
-            // Zoom reset — animates the canvas back to 1× scale.
-            Button {
-                zoomResetTrigger.toggle()
-            } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-            }
-            .accessibilityLabel("Fit page to screen")
 
             Button {
                 undoManager?.undo()
@@ -261,6 +194,108 @@ extension NoteEditorView {
             .disabled(!canRedo)
             .accessibilityLabel("Redo")
         }
+    }
+
+    // MARK: - Overflow Menu
+
+    /// Consolidated overflow menu that holds secondary editor actions
+    /// previously spread across 5+ individual toolbar buttons.
+    var overflowMenu: some View {
+        Menu {
+            // Theme picker
+            noteThemeMenu
+
+            Divider()
+
+            // Page setup (submenu)
+            pageSetupSubmenu
+
+            // Draw ↔ Type mode toggle
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                flushTextNow()
+                isTextMode.toggle()
+            } label: {
+                Label(
+                    isTextMode ? "Switch to Drawing" : "Switch to Typing",
+                    systemImage: isTextMode ? "pencil" : "keyboard"
+                )
+            }
+
+            Divider()
+
+            // Create flashcard from this note
+            Button {
+                showCreateFlashcard = true
+            } label: {
+                Label("Create Flashcard", systemImage: "rectangle.on.rectangle.angled")
+            }
+
+            // Version history
+            Button {
+                showVersionHistory = true
+            } label: {
+                Label("Version History", systemImage: "clock.arrow.circlepath")
+            }
+
+            Divider()
+
+            // Import document
+            Button {
+                showDocumentImporter = true
+            } label: {
+                Label("Import Document", systemImage: "square.and.arrow.down")
+            }
+
+            // Open linked PDF/document (if any)
+            if note.linkedPDFID != nil || note.linkedDocumentID != nil {
+                Button {
+                    openLinkedImport()
+                } label: {
+                    Label("Open Linked Document", systemImage: "doc.viewfinder")
+                }
+            }
+
+            Divider()
+
+            // In-document find bar toggle
+            Button {
+                showFindBar.toggle()
+                if !showFindBar {
+                    findQuery = ""
+                    findMatches = []
+                }
+            } label: {
+                Label(
+                    showFindBar ? "Hide Find Bar" : "Find in Note",
+                    systemImage: showFindBar ? "magnifyingglass.circle.fill" : "magnifyingglass"
+                )
+            }
+
+            if !isTextMode {
+                // Zoom reset
+                Button {
+                    zoomResetTrigger.toggle()
+                } label: {
+                    Label("Fit Page to Screen", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
+            }
+
+            // Inspector toggle
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    showAdvancedPanel.toggle()
+                }
+            } label: {
+                Label(
+                    showAdvancedPanel ? "Hide Inspector" : "Show Inspector",
+                    systemImage: showAdvancedPanel ? "sidebar.trailing" : "slider.horizontal.3"
+                )
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("More actions")
     }
 
     // MARK: - Note Theme Menu
@@ -297,7 +332,7 @@ extension NoteEditorView {
 
     // MARK: - Page Setup Menu
 
-    /// GoodNotes-style page setup menu — lets users change the page ruling and paper material
+    /// GoodNotes-style page setup menu — lets users change the page ruling
     /// for the current note without leaving the editor.
     var pageSetupMenu: some View {
         let currentPagePT = effectivePageType(forPage: safePageIndex)
@@ -329,23 +364,6 @@ extension NoteEditorView {
                             Label(pt.displayName, systemImage: "checkmark")
                         } else {
                             Label(pt.displayName, systemImage: pt.systemImage)
-                        }
-                    }
-                }
-            }
-
-            Divider()
-
-            // Paper material section
-            Section("Paper Material") {
-                ForEach(PaperMaterial.allCases) { pm in
-                    Button {
-                        noteStore.updatePaperMaterial(for: note.id, paperMaterial: pm)
-                    } label: {
-                        if effectivePaperMaterial == pm {
-                            Label(pm.displayName, systemImage: "checkmark")
-                        } else {
-                            Label(pm.displayName, systemImage: pm.systemImage)
                         }
                     }
                 }
@@ -389,6 +407,64 @@ extension NoteEditorView {
             ("Dark Grey",    UIColor(red: 0.20, green: 0.20, blue: 0.22, alpha: 1)),
             ("Black",        UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1)),
         ]
+    }
+
+    /// Page setup as a submenu (for embedding inside the overflow menu).
+    @ViewBuilder
+    var pageSetupSubmenu: some View {
+        let currentPagePT = effectivePageType(forPage: safePageIndex)
+        Menu {
+            Section("This Page") {
+                ForEach(PageType.allCases) { pt in
+                    Button {
+                        noteStore.updatePageType(for: note.id, pageIndex: safePageIndex, pageType: pt)
+                    } label: {
+                        if currentPagePT == pt {
+                            Label(pt.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pt.displayName, systemImage: pt.systemImage)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            Section("All Pages") {
+                ForEach(PageType.allCases) { pt in
+                    Button {
+                        noteStore.updatePageType(for: note.id, pageType: pt)
+                    } label: {
+                        if effectivePageType == pt {
+                            Label(pt.displayName, systemImage: "checkmark")
+                        } else {
+                            Label(pt.displayName, systemImage: pt.systemImage)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            Section("Page Colour") {
+                Button {
+                    noteStore.updatePageColor(for: note.id, pageIndex: safePageIndex, color: nil)
+                } label: {
+                    Label("Theme Default", systemImage: note.pageColor(forPage: safePageIndex) == nil
+                          ? "checkmark" : "paintbrush")
+                }
+                ForEach(pageColorPresets, id: \.name) { preset in
+                    Button {
+                        noteStore.updatePageColor(
+                            for: note.id, pageIndex: safePageIndex, color: preset.color)
+                    } label: {
+                        Label(preset.name, systemImage: "circle.fill")
+                    }
+                }
+            }
+        } label: {
+            Label("Page Setup", systemImage: "doc.richtext")
+        }
     }
 
     // MARK: - Export Menu

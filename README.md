@@ -16,7 +16,6 @@ A premium iPad note-taking app built with SwiftUI and PencilKit — designed for
 | **PDF Annotation** | Import PDFs, annotate pages with PencilKit, save per-page drawings |
 | **Cloud Sync** | Google Drive backup with offline queue and conflict resolution |
 | **Themes** | System, Light, Dark, Sepia, Midnight, Ocean — per-note or per-notebook overrides |
-| **Paper Materials** | 7 paper textures (Standard, Premium, Craft, Recycled, Matte, Glossy, Textured) with ink-response hooks |
 | **Page Templates** | Blank, Lined, Grid, Dotted, Cornell, Music Staff — extensible via template packs |
 | **Search** | Full-text search across note titles, typed text, and handwriting OCR |
 | **Accessibility** | Reduced motion, high contrast, VoiceOver labels, autosave controls |

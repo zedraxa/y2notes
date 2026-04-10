@@ -14,7 +14,7 @@ The app is fully functional with:
 - ✅ **On-device handwriting OCR** via Vision framework — auto-runs after drawing, feeds search
 - ✅ SM-2 spaced-repetition flashcard study system
 - ✅ Google Drive cloud sync with offline queue
-- ✅ 6 themes, 7 paper materials, 12 notebook covers
+- ✅ 6 themes, 12 notebook covers
 - ✅ Page templates (blank, lined, grid, dotted, Cornell, music staff)
 - ✅ **Per-page ruling**: each page in a note can individually use blank/lined/grid/dotted
 - ✅ Full-text search (title + typed text + handwriting OCR)
