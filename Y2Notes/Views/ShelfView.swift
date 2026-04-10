@@ -897,6 +897,12 @@ struct NoteGridView: View {
                 Label("New Note…", systemImage: "doc.badge.plus")
             }
 
+            Button {
+                createInfiniteCanvas()
+            } label: {
+                Label("Infinite Canvas", systemImage: "arrow.up.left.and.arrow.down.right")
+            }
+
             Divider()
 
             if notebookIDForSection != nil {
@@ -1460,6 +1466,16 @@ struct NoteGridView: View {
             inNotebook: nbID,
             pageType: nb?.pageType,
             paperMaterial: nb?.paperMaterial
+        )
+        selectedNoteID = note.id
+    }
+
+    private func createInfiniteCanvas() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let note = noteStore.addNote(
+            inNotebook: notebookIDForSection,
+            pageType: .blank,
+            canvasMode: .infinite
         )
         selectedNoteID = note.id
     }

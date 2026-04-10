@@ -382,7 +382,9 @@ struct NoteEditorView: View {
                 textLayer
             } else {
                 notebookCanvasSection
-                pageNavigationBar
+                if !note.isInfiniteCanvas {
+                    pageNavigationBar
+                }
             }
         }
     }

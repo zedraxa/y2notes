@@ -200,7 +200,8 @@ final class NoteStore: ObservableObject {
     func addNote(
         inNotebook notebookID: UUID? = nil,
         pageType: PageType? = nil,
-        paperMaterial: PaperMaterial? = nil
+        paperMaterial: PaperMaterial? = nil,
+        canvasMode: CanvasMode? = nil
     ) -> Note {
         // Generate the template PDF before creating the note so `pdfFilename` is set immediately.
         let effectiveType = pageType
@@ -216,6 +217,7 @@ final class NoteStore: ObservableObject {
             notebookID: notebookID,
             pageType: pageType,
             paperMaterial: paperMaterial,
+            canvasMode: canvasMode,
             pdfFilename: pdfFilename
         )
         notes.insert(note, at: 0)
