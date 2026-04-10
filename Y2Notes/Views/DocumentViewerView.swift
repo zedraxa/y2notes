@@ -455,10 +455,8 @@ private struct DocumentGridCell: View {
     var hasCompanionNote: Bool = false
     let onTap: () -> Void
 
-    private static let companionBadgeUIColor = UIColor(
-        displayP3Red: 0.3, green: 0.5, blue: 0.7, alpha: 1.0
-    )
-    private static let companionBadgeColor = Color(uiColor: companionBadgeUIColor)
+    // swiftlint:disable:next no_hardcoded_color — UIColor(red:) is not Color(red:); regex false positive
+    private static let companionBadgeColor = Color(uiColor: UIColor(red: 0.3, green: 0.5, blue: 0.7, alpha: 1.0))
 
     var body: some View {
         Button(action: onTap) {
