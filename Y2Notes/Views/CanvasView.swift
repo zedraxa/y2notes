@@ -143,6 +143,42 @@ struct CanvasView: UIViewRepresentable {
         return CGSize(width: w, height: ceil(w * a4AspectRatio))
     }()
 
+    static func pageToken(noteID: UUID, pageIndex: Int) -> String {
+        "\(noteID.uuidString)-\(pageIndex)"
+    }
+
+    static func pdfBackgroundToken(pdfURL: URL?, pageIndex: Int, backgroundColor: UIColor) -> String {
+        let url = pdfURL?.absoluteString ?? ""
+        let color = stableColorToken(backgroundColor)
+        // Length-prefixing makes parsing unambiguous even when URL/color strings
+        // themselves contain '#', '|' or other delimiter-like characters.
+        return "\(url.count)#\(url)|\(pageIndex)|\(color.count)#\(color)"
+    }
+
+    private static func stableColorToken(_ color: UIColor) -> String {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        if color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            // 5 decimals gives a stable token while tolerating tiny floating-point
+            // conversion noise across equivalent UIColor representations.
+            return String(
+                format: "%.5f-%.5f-%.5f-%.5f",
+                red, green, blue, alpha
+            )
+        }
+        var white: CGFloat = 0
+        if color.getWhite(&white, alpha: &alpha) {
+            return String(format: "w%.5f-a%.5f", white, alpha)
+        }
+        if let components = color.cgColor.components {
+            let values = components.map { String(format: "%.5f", $0) }.joined(separator: "-")
+            return "cg-\(values)"
+        }
+        return "unknown"
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(
             onDrawingChanged: onDrawingChanged,
@@ -221,6 +257,11 @@ struct CanvasView: UIViewRepresentable {
             pdfImageView.isUserInteractionEnabled = false
             container.addSubview(pdfImageView)
             context.coordinator.pdfBackgroundView = pdfImageView
+            context.coordinator.pdfBackgroundToken = Self.pdfBackgroundToken(
+                pdfURL: pdfURL,
+                pageIndex: pageIndex,
+                backgroundColor: backgroundColor
+            )
         }
 
         // ── PencilKit canvas ─────────────────────────────────────────────────
@@ -274,6 +315,7 @@ struct CanvasView: UIViewRepresentable {
             canvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         context.coordinator.canvas = canvas
+        context.coordinator.boundPageToken = Self.pageToken(noteID: noteID, pageIndex: pageIndex)
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
         // Begin observing scroll/zoom so the page background tracks the canvas
@@ -479,8 +521,7 @@ struct CanvasView: UIViewRepresentable {
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [context] location in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
                 .strokeBegan(at: location, inkColor: inkColor),
@@ -489,8 +530,7 @@ struct CanvasView: UIViewRepresentable {
         }
         nibTracker.onNibMoved = { [context] location, force, velocity in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),
                 inkEffectEngine: coordinator.effectEngine
@@ -596,6 +636,14 @@ struct CanvasView: UIViewRepresentable {
         // Wire up toolbar store reference for auto-fade (idempotent).
         context.coordinator.toolStoreRef = toolStoreForFade
 
+        // Keep a stable PKCanvasView instance and rebind page content when the
+        // logical page changes.
+        context.coordinator.bindPageIfNeeded(
+            pageToken: Self.pageToken(noteID: noteID, pageIndex: pageIndex),
+            drawingData: drawingData,
+            canvas: canvas
+        )
+
         // Sync page background (ruling view).
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
@@ -616,6 +664,19 @@ struct CanvasView: UIViewRepresentable {
             // Re-sync position/scale in case SwiftUI re-rendered while
             // the canvas was scrolled or zoomed.
             context.coordinator.syncBackgroundWithCanvas(canvas)
+        }
+
+        let desiredPDFToken = Self.pdfBackgroundToken(
+            pdfURL: pdfURL,
+            pageIndex: pageIndex,
+            backgroundColor: backgroundColor
+        )
+        if context.coordinator.pdfBackgroundToken != desiredPDFToken {
+            syncPDFBackground(
+                in: uiView,
+                coordinator: context.coordinator,
+                desiredToken: desiredPDFToken
+            )
         }
 
         // Sync drawing policy when the user toggles the finger/pencil preference.
@@ -785,6 +846,61 @@ struct CanvasView: UIViewRepresentable {
             config: toolStoreForFade?.writingEffectConfig ?? .default,
             color: toolStoreForFade?.activeColor ?? .black
         )
+    }
+
+    /// Ensures exactly one PDF background layer is bound for the current page.
+    /// Removes stale page/template layers before binding the new one.
+    private func syncPDFBackground(
+        in container: UIView,
+        coordinator: Coordinator,
+        desiredToken: String
+    ) {
+        coordinator.pdfBackgroundToken = desiredToken
+
+        coordinator.pdfBackgroundView?.removeFromSuperview()
+        coordinator.pdfBackgroundView = nil
+
+        guard let pdfURL,
+              let pdfDoc = PDFDocument(url: pdfURL),
+              let pdfPage = pdfDoc.page(at: pageIndex) else { return }
+
+        let ps = Self.pageSize
+        let mediaBox = pdfPage.bounds(for: .mediaBox)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: ps, format: format)
+        let pageImage = renderer.image { ctx in
+            let cgCtx = ctx.cgContext
+            cgCtx.setFillColor(backgroundColor.cgColor)
+            cgCtx.fill(CGRect(origin: .zero, size: ps))
+            let sx = ps.width / mediaBox.width
+            let sy = ps.height / mediaBox.height
+            let scale = min(sx, sy)
+            cgCtx.saveGState()
+            cgCtx.scaleBy(x: scale, y: -scale)
+            cgCtx.translateBy(x: 0, y: -mediaBox.height)
+            pdfPage.draw(with: .mediaBox, to: cgCtx)
+            cgCtx.restoreGState()
+        }
+
+        let pdfImageView = UIImageView(image: pageImage)
+        pdfImageView.frame = CGRect(origin: .zero, size: ps)
+        pdfImageView.contentMode = .scaleToFill
+        pdfImageView.isUserInteractionEnabled = false
+        if let pageBackground = coordinator.pageBackground,
+           pageBackground.superview === container {
+            container.insertSubview(pdfImageView, aboveSubview: pageBackground)
+        } else if let canvas = coordinator.canvas,
+                  canvas.superview === container {
+            container.insertSubview(pdfImageView, belowSubview: canvas)
+        } else {
+            container.addSubview(pdfImageView)
+        }
+        coordinator.pdfBackgroundView = pdfImageView
+        if let canvas = coordinator.canvas {
+            coordinator.syncBackgroundWithCanvas(canvas)
+        }
     }
 
     // MARK: - Ruling line color helper

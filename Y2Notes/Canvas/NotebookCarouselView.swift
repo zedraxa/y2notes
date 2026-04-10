@@ -54,13 +54,33 @@ struct NotebookCarouselView: View {
     /// Pre-prepared haptic generator for page-turn feedback.
     @State private var pageTurnHaptic = UIImpactFeedbackGenerator(style: .light)
 
+    /// True when the current page zoom exceeds the threshold that disables page swiping.
+    private var isZoomLockingSwipe: Bool {
+        pageZooms[currentPageIndex, default: 1.0] > Self.minZoomForScrollDisable
+    }
+
     // MARK: - Body
 
     var body: some View {
         ZStack(alignment: .bottom) {
             carouselScrollView
             pageIndicator
+            // Show a hint when zoom disables page swiping, so the user
+            // understands why horizontal swipe doesn't change pages.
+            if note.pageCount > 1, isZoomLockingSwipe {
+                Text(NSLocalizedString("Pages.ZoomOutToSwipe",
+                                       comment: "Hint shown when zoom disables page swiping"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.bottom, 44)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: isZoomLockingSwipe)
         .onChange(of: currentPageIndex) { oldVal, newVal in
             guard oldVal != newVal else { return }
             pageTurnHaptic.impactOccurred(intensity: 0.5)
@@ -92,7 +112,7 @@ struct NotebookCarouselView: View {
             get: { currentPageIndex },
             set: { if let v = $0 { currentPageIndex = v } }
         ))
-        .scrollDisabled(pageZooms[currentPageIndex, default: 1.0] > Self.minZoomForScrollDisable)
+        .scrollDisabled(isZoomLockingSwipe)
     }
 
     // MARK: - Page Indicator
@@ -113,8 +133,8 @@ struct NotebookCarouselView: View {
                 .padding(.horizontal, 12)
                 .background(.ultraThinMaterial, in: Capsule())
                 .padding(.bottom, 8)
-                .opacity(pageZooms[currentPageIndex, default: 1.0] > Self.minZoomForScrollDisable ? 0 : 1)
-                .animation(.easeInOut(duration: 0.15), value: pageZooms[currentPageIndex, default: 1.0])
+                .opacity(isZoomLockingSwipe ? 0 : 1)
+                .animation(.easeInOut(duration: 0.15), value: isZoomLockingSwipe)
                 .allowsHitTesting(false)
             }
         }

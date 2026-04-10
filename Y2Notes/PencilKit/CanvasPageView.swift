@@ -67,6 +67,15 @@ struct CanvasPageView: UIViewRepresentable {
     /// Callback when widget selection changes.
     var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+    /// Sticker instances for the current page.
+    var currentPageStickers: [StickerInstance] = []
+    /// Callback to persist sticker changes.
+    var onStickersChanged: (([StickerInstance]) -> Void)?
+    /// Callback when sticker selection changes.
+    var onStickerSelectionChanged: ((UUID?) -> Void)?
+    /// Image provider for rendering sticker assets.
+    var stickerImageProvider: ((String) -> UIImage?)?
+
     /// Whether the text tool is active (text canvas overlay intercepts touches).
     var isTextToolActive: Bool = false
     /// Text objects for the current page.
@@ -129,7 +138,8 @@ struct CanvasPageView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(
             onDrawingChanged: onDrawingChanged,
-            onSaveRequested: onSaveRequested
+            onSaveRequested: onSaveRequested,
+            onPinchToOverview: onPinchToOverview
         )
     }
 
@@ -368,6 +378,31 @@ struct CanvasPageView: UIViewRepresentable {
         ])
         context.coordinator.widgetCanvas = widgetCanvas
 
+        // ── Sticker canvas (draggable sticker overlays) ──────────────────────
+        let stickerCanvas = StickerCanvasView(frame: .zero)
+        stickerCanvas.translatesAutoresizingMaskIntoConstraints = false
+        stickerCanvas.stickers = currentPageStickers
+        stickerCanvas.imageProvider = stickerImageProvider
+        stickerCanvas.onStickerTransformed = { sticker in
+            context.coordinator.handleStickerTransformed(sticker)
+        }
+        stickerCanvas.onStickerDeleted = { stickerID in
+            context.coordinator.handleStickerDeleted(stickerID)
+        }
+        stickerCanvas.onSelectionChanged = { stickerID in
+            context.coordinator.handleStickerSelectionChanged(stickerID)
+        }
+        context.coordinator.onStickersChanged = onStickersChanged
+        context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
+        container.addSubview(stickerCanvas)
+        NSLayoutConstraint.activate([
+            stickerCanvas.topAnchor.constraint(equalTo: container.topAnchor),
+            stickerCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stickerCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stickerCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        context.coordinator.stickerCanvas = stickerCanvas
+
         // ── Text object canvas (anchored text boxes layer) ───────────────────
         let textCanvas = TextCanvasView(frame: .zero)
         textCanvas.translatesAutoresizingMaskIntoConstraints = false
@@ -462,8 +497,7 @@ struct CanvasPageView: UIViewRepresentable {
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [context] location in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
             coordinator.effects.dispatch(
                 .strokeBegan(at: location, inkColor: inkColor),
@@ -472,8 +506,7 @@ struct CanvasPageView: UIViewRepresentable {
         }
         nibTracker.onNibMoved = { [context] location, force, velocity in
             let coordinator = context.coordinator
-            guard coordinator.isDrawing,
-                  coordinator.canvasRef?.tool is PKInkingTool else { return }
+            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
             coordinator.effects.dispatch(
                 .strokeUpdated(at: location, pressure: force, velocity: velocity),
                 inkEffectEngine: coordinator.effectEngine
@@ -513,6 +546,16 @@ struct CanvasPageView: UIViewRepresentable {
             config: toolStoreForFade?.writingEffectConfig ?? .default,
             color: toolStoreForFade?.activeColor ?? .black
         )
+
+        // Pinch-in opens page overview (strict threshold to avoid accidental opens
+        // during normal zoom interactions).
+        let pinchOverview = UIPinchGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handlePinchToOverview(_:))
+        )
+        pinchOverview.delegate = context.coordinator
+        container.addGestureRecognizer(pinchOverview)
+        context.coordinator.pinchOverviewGesture = pinchOverview
 
         // Seed coordinator state so the first updateUIView call does not misfire.
         context.coordinator.onUndoStateChanged = onUndoStateChanged
@@ -595,6 +638,7 @@ struct CanvasPageView: UIViewRepresentable {
 
         // Keep the zoom-changed callback current.
         context.coordinator.onZoomChanged = onZoomChanged
+        context.coordinator.onPinchToOverview = onPinchToOverview
     }
 
     // MARK: - updateUIView helpers
@@ -698,6 +742,15 @@ struct CanvasPageView: UIViewRepresentable {
         coordinator.onWidgetsChanged = onWidgetsChanged
         coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
 
+        // Sync sticker canvas.
+        if let stickerCanvas = coordinator.stickerCanvas {
+            stickerCanvas.stickers = currentPageStickers
+            stickerCanvas.imageProvider = stickerImageProvider
+            stickerCanvas.selectedStickerID = toolStoreForFade?.activeStickerSelection
+        }
+        coordinator.onStickersChanged = onStickersChanged
+        coordinator.onStickerSelectionChanged = onStickerSelectionChanged
+
         // Sync text object canvas.
         if let textCanvas = coordinator.textCanvas {
             textCanvas.isTextToolActive = isTextToolActive
@@ -723,7 +776,8 @@ struct CanvasPageView: UIViewRepresentable {
             intensity: intensity,
             shapeCanvas: coordinator.shapeCanvas,
             attachmentCanvas: coordinator.attachmentCanvas,
-            widgetCanvas: coordinator.widgetCanvas
+            widgetCanvas: coordinator.widgetCanvas,
+            stickerCanvas: coordinator.stickerCanvas
         )
 
         // Sync magic mode engine — activate/deactivate when toggle changes.
@@ -810,6 +864,7 @@ struct CanvasPageView: UIViewRepresentable {
     final class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         let onDrawingChanged: (Data) -> Void
         let onSaveRequested: () -> Void
+        var onPinchToOverview: (() -> Void)?
         weak var canvas: PKCanvasView?
         weak var shapeOverlay: ShapeOverlayView?
         /// Page ruling / background view placed behind the canvas.
@@ -821,7 +876,10 @@ struct CanvasPageView: UIViewRepresentable {
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
         var lastZoomResetTrigger: Bool = false
         private var debounceTimer: Timer?
-
+        /// Tracks the last drawing data that was propagated to the store.
+        /// Prevents the feedback loop: stroke → onDrawingChanged → noteStore
+        /// → SwiftUI re-eval → canvasViewDrawingDidChange → duplicate dispatch.
+        private var lastPropagatedDrawingData: Data?
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
         /// Passive gesture recognizer that feeds real-time pencil positions
@@ -884,6 +942,18 @@ struct CanvasPageView: UIViewRepresentable {
         /// Callback when widget selection changes.
         var onWidgetSelectionChanged: ((UUID?) -> Void)?
 
+        /// Sticker canvas overlay for the current page.
+        weak var stickerCanvas: StickerCanvasView?
+
+        /// Debounce timer for persisting sticker changes.
+        private var stickerDebounceTimer: Timer?
+
+        /// Callback to persist sticker changes.
+        var onStickersChanged: (([StickerInstance]) -> Void)?
+
+        /// Callback when sticker selection changes.
+        var onStickerSelectionChanged: ((UUID?) -> Void)?
+
         /// Text object canvas overlay for the current page.
         weak var textCanvas: TextCanvasView?
 
@@ -907,6 +977,12 @@ struct CanvasPageView: UIViewRepresentable {
 
         /// Task that schedules the toolbar fade after a delay of active drawing.
         private var fadeTask: Task<Void, Never>?
+        /// Pinch gesture recognizer for page overview.
+        var pinchOverviewGesture: UIPinchGestureRecognizer?
+        /// Minimum scale observed during the current pinch gesture.
+        private var pinchOverviewMinScale: CGFloat = 1.0
+        /// True when pinch started near baseline zoom.
+        private var pinchOverviewStartedNearBaseZoom = false
 
         /// Current zero-based page index, kept in sync by `updateUIView`.
         var coordinatorPageIndex: Int = 0
@@ -979,10 +1055,12 @@ struct CanvasPageView: UIViewRepresentable {
 
         init(
             onDrawingChanged: @escaping (Data) -> Void,
-            onSaveRequested: @escaping () -> Void
+            onSaveRequested: @escaping () -> Void,
+            onPinchToOverview: (() -> Void)? = nil
         ) {
             self.onDrawingChanged = onDrawingChanged
             self.onSaveRequested  = onSaveRequested
+            self.onPinchToOverview = onPinchToOverview
         }
 
         deinit {
@@ -1005,7 +1083,35 @@ struct CanvasPageView: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            false
+            // Only allow simultaneous recognition for the overview pinch and
+            // only with the canvas zoom/pan recognizers. Other gesture pairs
+            // (e.g. shape/text overlays) are intentionally excluded so page
+            // overview does not interfere with object-edit interaction models.
+            guard gestureRecognizer === pinchOverviewGesture,
+                  let canvas else { return false }
+            return otherGestureRecognizer === canvas.pinchGestureRecognizer
+                || otherGestureRecognizer === canvas.panGestureRecognizer
+        }
+
+        /// Pinch-in handler for page overview.
+        @objc func handlePinchToOverview(_ gesture: UIPinchGestureRecognizer) {
+            switch gesture.state {
+            case .began:
+                pinchOverviewMinScale = gesture.scale
+                pinchOverviewStartedNearBaseZoom =
+                    (canvas?.zoomScale ?? 1.0) <= PinchOverviewGestureTuning.maxStartZoomScale
+            case .changed:
+                pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
+            case .ended, .cancelled:
+                if pinchOverviewStartedNearBaseZoom,
+                   pinchOverviewMinScale < PinchOverviewGestureTuning.triggerScale {
+                    onPinchToOverview?()
+                }
+                pinchOverviewMinScale = 1.0
+                pinchOverviewStartedNearBaseZoom = false
+            default:
+                break
+            }
         }
 
         // MARK: - Drawing lifecycle (protects pressure/tilt pipeline)
@@ -1280,6 +1386,40 @@ struct CanvasPageView: UIViewRepresentable {
             }
         }
 
+        // MARK: - Sticker Coordinator
+
+        /// Called when a sticker is moved, scaled, or rotated.
+        func handleStickerTransformed(_ sticker: StickerInstance) {
+            guard let stickerCanvas = stickerCanvas else { return }
+            if let idx = stickerCanvas.stickers.firstIndex(where: { $0.id == sticker.id }) {
+                stickerCanvas.stickers[idx] = sticker
+            }
+            handleStickersChanged(stickerCanvas.stickers)
+        }
+
+        /// Called when a sticker is deleted.
+        func handleStickerDeleted(_ stickerID: UUID) {
+            guard let stickerCanvas = stickerCanvas else { return }
+            stickerCanvas.stickers.removeAll(where: { $0.id == stickerID })
+            handleStickersChanged(stickerCanvas.stickers)
+        }
+
+        /// Called when sticker selection changes.
+        func handleStickerSelectionChanged(_ stickerID: UUID?) {
+            onStickerSelectionChanged?(stickerID)
+        }
+
+        /// Debounced persistence for sticker changes.
+        func handleStickersChanged(_ stickers: [StickerInstance]) {
+            stickerDebounceTimer?.invalidate()
+            stickerDebounceTimer = Timer.scheduledTimer(
+                withTimeInterval: 0.3,
+                repeats: false
+            ) { [weak self] _ in
+                self?.onStickersChanged?(stickers)
+            }
+        }
+
         // MARK: - Text Object Coordinator
 
         /// Called when a text object is moved, resized, or rotated.
@@ -1410,6 +1550,13 @@ struct CanvasPageView: UIViewRepresentable {
             canvasPageSignposter.emitEvent("DrawingChanged")
 
             let data = canvasView.drawing.dataRepresentation()
+
+            // Guard against feedback loops: if the data matches what we last
+            // propagated, this change was caused by SwiftUI re-applying state
+            // (e.g. view recreation by LazyHStack) — skip the round-trip.
+            guard data != lastPropagatedDrawingData else { return }
+            lastPropagatedDrawingData = data
+
             onDrawingChanged(data)
 
             // NOTE: effect position updates are driven by PencilNibTrackerGestureRecognizer
@@ -1590,12 +1737,14 @@ struct CanvasPageView: UIViewRepresentable {
             CATransaction.setDisableActions(true)
             bg.transform = xform
             pdfBackgroundView?.transform = xform
-            // Keep object overlay canvases (shapes, attachments, widgets)
-            // in sync with the PencilKit canvas zoom/scroll so objects
-            // rendered in page-local coordinates don't drift from ink.
+            // Keep object overlay canvases in sync with the PencilKit canvas
+            // zoom/scroll so objects rendered in page-local coordinates
+            // don't drift from ink.
             shapeCanvas?.transform = xform
             attachmentCanvas?.transform = xform
             widgetCanvas?.transform = xform
+            stickerCanvas?.transform = xform
+            textCanvas?.transform = xform
             CATransaction.commit()
         }
 

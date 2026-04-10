@@ -87,6 +87,8 @@ struct CanvasPageConfiguration: Equatable {
     let attachmentNoteID: UUID
     /// Interactive widget instances for this page.
     let widgets: [NoteWidget]
+    /// Sticker instances for this page.
+    let stickers: [StickerInstance]
     /// Text objects anchored on this page.
     let textObjects: [TextObject]
     /// Whether the text tool is active (text canvas intercepts taps).
@@ -132,8 +134,12 @@ struct CanvasPageConfiguration: Equatable {
         else { return false }
 
         // Drawing state
-        guard lhs.drawingData == rhs.drawingData,
-              ToolSnapshot(lhs.currentTool) == ToolSnapshot(rhs.currentTool),
+        // NOTE: `drawingData` is intentionally EXCLUDED from equality.
+        // PKCanvasView owns the drawing after makeUIView sets it once.
+        // Including drawingData here causes a feedback loop:
+        //   stroke → onDrawingChanged → noteStore @Published → SwiftUI re-eval
+        //   → config inequality → updateUIView / view recreation → double writing.
+        guard ToolSnapshot(lhs.currentTool) == ToolSnapshot(rhs.currentTool),
               lhs.drawingPolicy == rhs.drawingPolicy
         else { return false }
 
@@ -165,6 +171,7 @@ struct CanvasPageConfiguration: Equatable {
               lhs.attachments == rhs.attachments,
               lhs.attachmentNoteID == rhs.attachmentNoteID,
               lhs.widgets == rhs.widgets,
+              lhs.stickers == rhs.stickers,
               lhs.textObjects == rhs.textObjects,
               lhs.isTextToolActive == rhs.isTextToolActive
         else { return false }
@@ -214,6 +221,7 @@ extension CanvasPageConfiguration {
             attachments: attachments,
             attachmentNoteID: attachmentNoteID,
             widgets: widgets,
+            stickers: stickers,
             textObjects: textObjects,
             isTextToolActive: isTextToolActive,
             pdfURL: pdfURL,
@@ -291,6 +299,7 @@ extension CanvasPageConfiguration {
             attachments: note.attachments(forPage: pageIndex),
             attachmentNoteID: note.id,
             widgets: note.widgets(forPage: pageIndex),
+            stickers: note.stickers(forPage: pageIndex),
             textObjects: note.textObjects(forPage: pageIndex),
             isTextToolActive: toolStore.activeTool == .text,
             pdfURL: pdfURL,

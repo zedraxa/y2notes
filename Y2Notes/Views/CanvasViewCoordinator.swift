@@ -8,6 +8,17 @@ import SwiftUI
 private let editorLogger = Logger(subsystem: "com.y2notes.app", category: "editor")
 private let editorSignposter = OSSignposter(subsystem: "com.y2notes.app", category: "editor.perf")
 
+enum PinchOverviewGestureTuning {
+    /// Require pinch start near baseline zoom.
+    /// 1.08 allows minor gesture jitter/zoom drift while still distinguishing
+    /// an intentional "overview pinch" from normal zoomed-in navigation.
+    static let maxStartZoomScale: CGFloat = 1.08
+    /// Minimum pinch-in scale to count as an intentional overview request.
+    /// 0.58 was chosen to require a decisive pinch-in and reduce accidental
+    /// overview opens during routine zoom adjustments.
+    static let triggerScale: CGFloat = 0.58
+}
+
 // MARK: - CanvasView.Coordinator
 
 extension CanvasView {
@@ -30,6 +41,10 @@ extension CanvasView {
         /// Tracks the last zoom-reset trigger seen so we only react to flips.
         var lastZoomResetTrigger: Bool = false
         private var debounceTimer: Timer?
+        /// Tracks the last drawing data that was propagated to the store.
+        /// Prevents the feedback loop: stroke → onDrawingChanged → noteStore
+        /// → SwiftUI re-eval → canvasViewDrawingDidChange → duplicate dispatch.
+        private var lastPropagatedDrawingData: Data?
 
         // Apple Pencil support
         var pencilCoordinator: PencilInteractionCoordinator?
@@ -139,6 +154,14 @@ extension CanvasView {
         /// Minimum scale observed during the current pinch-to-overview gesture.
         /// Tracked during `.changed` because `numberOfTouches` is zero at `.ended`.
         private var pinchOverviewMinScale: CGFloat = 1.0
+        /// Whether the pinch began near baseline zoom, used to prevent
+        /// accidental overview opens while the user is already zoomed in.
+        private var pinchOverviewStartedNearBaseZoom = false
+
+        /// Identity token for the currently bound page content.
+        var boundPageToken: String?
+        /// Signature of the currently rendered PDF background layer.
+        var pdfBackgroundToken: String?
 
         // ── Interactive page-drag state ──────────────────────────────────────────
         /// True while a two-finger horizontal pan is being tracked for page navigation.
@@ -363,15 +386,19 @@ extension CanvasView {
             switch gesture.state {
             case .began:
                 pinchOverviewMinScale = gesture.scale
+                pinchOverviewStartedNearBaseZoom =
+                    (canvas?.zoomScale ?? 1.0) <= PinchOverviewGestureTuning.maxStartZoomScale
             case .changed:
                 pinchOverviewMinScale = min(pinchOverviewMinScale, gesture.scale)
             case .ended, .cancelled:
                 // Trigger overview when the user performed a clear pinch-in
                 // (fingers came together significantly).
-                if pinchOverviewMinScale < 0.7 {
+                if pinchOverviewStartedNearBaseZoom,
+                   pinchOverviewMinScale < PinchOverviewGestureTuning.triggerScale {
                     onPinchToOverview?()
                 }
                 pinchOverviewMinScale = 1.0
+                pinchOverviewStartedNearBaseZoom = false
             default:
                 break
             }
@@ -805,6 +832,13 @@ extension CanvasView {
             editorSignposter.emitEvent("DrawingChanged")
 
             let data = canvasView.drawing.dataRepresentation()
+
+            // Guard against feedback loops: if the data matches what we last
+            // propagated, this change was caused by SwiftUI re-applying state
+            // (e.g. view recreation by LazyHStack) — skip the round-trip.
+            guard data != lastPropagatedDrawingData else { return }
+            lastPropagatedDrawingData = data
+
             onDrawingChanged(data)
 
             // NOTE: effect position updates are driven by PencilNibTrackerGestureRecognizer
@@ -860,6 +894,31 @@ extension CanvasView {
             debounceTimer?.invalidate()
             debounceTimer = nil
             onSaveRequested()
+        }
+
+        /// Rebinds the coordinator/canvas to a new logical page without
+        /// recreating `PKCanvasView`.
+        ///
+        /// Used by reader-mode page turns to keep canvas identity stable while
+        /// swapping page content.
+        func bindPageIfNeeded(
+            pageToken: String,
+            drawingData: Data,
+            canvas: PKCanvasView
+        ) {
+            guard boundPageToken != pageToken else { return }
+
+            flushPendingSave()
+            boundPageToken = pageToken
+
+            let drawing = (try? PKDrawing(data: drawingData)) ?? PKDrawing()
+            // Prevent a feedback loop when programmatically swapping page content.
+            lastPropagatedDrawingData = drawing.dataRepresentation()
+            canvas.drawing = drawing
+
+            let um = canvas.undoManager
+            onUndoStateChanged?(um?.canUndo ?? false, um?.canRedo ?? false)
+            clearSelectionState()
         }
 
         // MARK: - Canvas scroll / zoom → background sync
@@ -978,12 +1037,14 @@ extension CanvasView {
             CATransaction.setDisableActions(true)
             bg.transform = xform
             pdfBackgroundView?.transform = xform
-            // Keep object overlay canvases (shapes, attachments, widgets)
-            // in sync with the PencilKit canvas zoom/scroll so objects
-            // rendered in page-local coordinates don't drift from ink.
+            // Keep object overlay canvases in sync with the PencilKit canvas
+            // zoom/scroll so objects rendered in page-local coordinates
+            // don't drift from ink.
             shapeCanvas?.transform = xform
             attachmentCanvas?.transform = xform
             widgetCanvas?.transform = xform
+            stickerCanvas?.transform = xform
+            textCanvas?.transform = xform
             CATransaction.commit()
         }
 
