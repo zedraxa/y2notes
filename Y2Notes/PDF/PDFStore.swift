@@ -22,7 +22,7 @@ final class PDFStore: ObservableObject {
 
     init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        metadataURL  = docs.appendingPathComponent("y2notes_pdfs.json")
+        metadataURL = docs.appendingPathComponent("y2notes_pdfs.json")
         pdfDirectory = docs.appendingPathComponent("PDFNotes")
         try? FileManager.default.createDirectory(
             at: pdfDirectory, withIntermediateDirectories: true, attributes: nil
@@ -42,7 +42,7 @@ final class PDFStore: ObservableObject {
         guard let document = PDFDocument(url: sourceURL) else { return nil }
 
         let filename = UUID().uuidString + ".pdf"
-        let destURL  = pdfDirectory.appendingPathComponent(filename)
+        let destURL = pdfDirectory.appendingPathComponent(filename)
         do {
             try FileManager.default.copyItem(at: sourceURL, to: destURL)
         } catch {
@@ -50,11 +50,11 @@ final class PDFStore: ObservableObject {
         }
 
         let rawTitle = sourceURL.deletingPathExtension().lastPathComponent
-        let title    = rawTitle.isEmpty ? "Imported PDF" : rawTitle
-        let record   = PDFNoteRecord(
-            title:       title,
+        let title = rawTitle.isEmpty ? "Imported PDF" : rawTitle
+        let record = PDFNoteRecord(
+            title: title,
             pdfFilename: filename,
-            pageCount:   document.pageCount
+            pageCount: document.pageCount
         )
         records.insert(record, at: 0)
         save()

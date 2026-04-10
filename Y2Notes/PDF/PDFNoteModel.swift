@@ -51,17 +51,17 @@ struct PDFNoteRecord: Identifiable, Codable, Hashable {
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id             = try c.decode(UUID.self,   forKey: .id)
-        title          = try c.decode(String.self, forKey: .title)
-        pdfFilename    = try c.decode(String.self, forKey: .pdfFilename)
-        pageCount      = try c.decode(Int.self,    forKey: .pageCount)
-        annotationData = try c.decodeIfPresent([String: Data].self, forKey: .annotationData) ?? [:]
-        stickerData    = try c.decodeIfPresent([String: Data].self, forKey: .stickerData)    ?? [:]
-        widgetData     = try c.decodeIfPresent([String: Data].self, forKey: .widgetData)     ?? [:]
-        currentPage    = try c.decodeIfPresent(Int.self,  forKey: .currentPage)  ?? 0
-        createdAt      = try c.decode(Date.self,          forKey: .createdAt)
-        modifiedAt     = try c.decode(Date.self,          forKey: .modifiedAt)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        pdfFilename = try container.decode(String.self, forKey: .pdfFilename)
+        pageCount = try container.decode(Int.self, forKey: .pageCount)
+        annotationData = try container.decodeIfPresent([String: Data].self, forKey: .annotationData) ?? [:]
+        stickerData = try container.decodeIfPresent([String: Data].self, forKey: .stickerData) ?? [:]
+        widgetData = try container.decodeIfPresent([String: Data].self, forKey: .widgetData) ?? [:]
+        currentPage = try container.decodeIfPresent(Int.self, forKey: .currentPage) ?? 0
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        modifiedAt = try container.decode(Date.self, forKey: .modifiedAt)
     }
 
     // MARK: Hashable — identity only

@@ -151,8 +151,8 @@ struct DocumentLibraryView: View {
     private var displayedDocuments: [ImportedDocument] {
         let sorted = documentStore.sorted(by: sortOrder)
         guard !searchQuery.isEmpty else { return sorted }
-        let q = searchQuery.lowercased()
-        return sorted.filter { $0.displayName.lowercased().contains(q) }
+        let query = searchQuery.lowercased()
+        return sorted.filter { $0.displayName.lowercased().contains(query) }
     }
 
     private var selectedDocument: ImportedDocument? {
@@ -249,9 +249,10 @@ struct DocumentLibraryView: View {
                     DocumentGridCell(
                         document: doc,
                         isSelected: doc.id == selectedDocumentID,
-                        hasCompanionNote: noteStore.hasCompanionNote(forDocument: doc.id),
-                        onTap: { selectedDocumentID = doc.id }
-                    )
+                        hasCompanionNote: noteStore.hasCompanionNote(forDocument: doc.id)
+                    ) {
+                        selectedDocumentID = doc.id
+                    }
                     .contextMenu { contextMenu(for: doc) }
                 }
             }
@@ -266,9 +267,10 @@ struct DocumentLibraryView: View {
             ForEach(displayedDocuments) { doc in
                 DocumentListRow(
                     document: doc,
-                    isSelected: doc.id == selectedDocumentID,
-                    onTap: { selectedDocumentID = doc.id }
-                )
+                    isSelected: doc.id == selectedDocumentID
+                ) {
+                    selectedDocumentID = doc.id
+                }
                 .contextMenu { contextMenu(for: doc) }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
@@ -453,7 +455,7 @@ private struct DocumentGridCell: View {
     var hasCompanionNote: Bool = false
     let onTap: () -> Void
 
-    private static let companionBadgeColor = Color(red: 0.3, green: 0.5, blue: 0.7)
+    private static let companionBadgeColor = Color(uiColor: UIColor(red: 0.3, green: 0.5, blue: 0.7, alpha: 1.0))
 
     var body: some View {
         Button(action: onTap) {
@@ -525,10 +527,10 @@ private struct DocumentListRow: View {
     let onTap: () -> Void
 
     private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .none
-        return f
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
     }()
 
     var body: some View {

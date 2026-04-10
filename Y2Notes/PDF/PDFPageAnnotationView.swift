@@ -53,7 +53,7 @@ struct PDFPageAnnotationView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: PDFAnnotationContainer, context: Context) {
-        context.coordinator.onPageChanged      = onPageChanged
+        context.coordinator.onPageChanged = onPageChanged
         context.coordinator.onAnnotationChanged = onAnnotationChanged
         uiView.update(
             pageIndex: pageIndex,
@@ -70,8 +70,8 @@ struct PDFPageAnnotationView: UIViewRepresentable {
 /// The `UIView` that hosts `PDFView` (bottom) and `PKCanvasView` (top).
 final class PDFAnnotationContainer: UIView {
 
-    private(set) var pdfView: PDFView = PDFView()
-    private(set) var canvas: PKCanvasView = PKCanvasView()
+    private(set) var pdfView = PDFView()
+    private(set) var canvas = PKCanvasView()
 
     /// The page index currently displayed, tracked to detect navigation changes.
     private(set) var currentPageIndex: Int = 0
@@ -93,10 +93,10 @@ final class PDFAnnotationContainer: UIView {
         backgroundColor = .systemBackground
 
         // ── PDFView ────────────────────────────────────────────────────
-        pdfView.displayMode      = .singlePage
+        pdfView.displayMode = .singlePage
         pdfView.displayDirection = .vertical
-        pdfView.autoScales       = true
-        pdfView.backgroundColor  = .systemBackground
+        pdfView.autoScales = true
+        pdfView.backgroundColor = .systemBackground
         pdfView.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(pdfView)
@@ -109,10 +109,10 @@ final class PDFAnnotationContainer: UIView {
 
         // ── PKCanvasView ───────────────────────────────────────────────
         // The canvas must NOT have its own zoom/scroll — PDFView owns zoom.
-        canvas.backgroundColor  = .clear
+        canvas.backgroundColor = .clear
         canvas.minimumZoomScale = 1.0
         canvas.maximumZoomScale = 1.0
-        canvas.isScrollEnabled  = false
+        canvas.isScrollEnabled = false
         canvas.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(canvas)
@@ -156,13 +156,13 @@ final class PDFAnnotationContainer: UIView {
         coordinator: PDFPageAnnotationView.Coordinator
     ) {
         self.coordinator = coordinator
-        canvas.delegate  = coordinator
+        canvas.delegate = coordinator
         latestAnnotationData = annotationData
 
         if let document = PDFDocument(url: pdfURL) {
             pdfView.document = document
         }
-        canvas.tool          = tool
+        canvas.tool = tool
         canvas.drawingPolicy = drawingPolicy
         canvas.isUserInteractionEnabled = isAnnotating
 
@@ -177,7 +177,7 @@ final class PDFAnnotationContainer: UIView {
         drawingPolicy: PKCanvasViewDrawingPolicy,
         isAnnotating: Bool
     ) {
-        canvas.tool          = tool
+        canvas.tool = tool
         canvas.drawingPolicy = drawingPolicy
         canvas.isUserInteractionEnabled = isAnnotating
 
@@ -211,7 +211,7 @@ final class PDFAnnotationContainer: UIView {
 
     @objc private func pdfPageDidChange() {
         guard let page = pdfView.currentPage,
-              let doc  = pdfView.document else { return }
+              let doc = pdfView.document else { return }
         let newIndex = doc.index(for: page)
         guard newIndex != NSNotFound, newIndex != currentPageIndex else { return }
 
@@ -233,7 +233,7 @@ final class PDFAnnotationContainer: UIView {
 extension PDFPageAnnotationView {
 
     final class Coordinator: NSObject, PKCanvasViewDelegate {
-        var onPageChanged:       (Int) -> Void
+        var onPageChanged: (Int) -> Void
         var onAnnotationChanged: (Int, Data) -> Void
 
         private var debounceTimer: Timer?
@@ -243,7 +243,7 @@ extension PDFPageAnnotationView {
             onPageChanged: @escaping (Int) -> Void,
             onAnnotationChanged: @escaping (Int, Data) -> Void
         ) {
-            self.onPageChanged       = onPageChanged
+            self.onPageChanged = onPageChanged
             self.onAnnotationChanged = onAnnotationChanged
         }
 

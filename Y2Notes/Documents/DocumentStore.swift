@@ -29,7 +29,7 @@ final class DocumentStore: ObservableObject {
 
     init() {
         let appDocs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        docsDir  = appDocs.appendingPathComponent("ImportedDocs", isDirectory: true)
+        docsDir = appDocs.appendingPathComponent("ImportedDocs", isDirectory: true)
         indexURL = appDocs.appendingPathComponent("imported_documents.json")
         try? FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)
         load()
@@ -55,7 +55,7 @@ final class DocumentStore: ObservableObject {
         defer { if accessing { sourceURL.stopAccessingSecurityScopedResource() } }
 
         guard let docType = documentType(for: sourceURL) else { return nil }
-        let fileName    = "\(UUID().uuidString).\(docType.rawValue)"
+        let fileName = "\(UUID().uuidString).\(docType.rawValue)"
         let destination = docsDir.appendingPathComponent(fileName)
 
         do {
@@ -69,10 +69,10 @@ final class DocumentStore: ObservableObject {
         )[.size] as? Int64) ?? 0
         let displayName = sourceURL.deletingPathExtension().lastPathComponent
         let record = ImportedDocument(
-            displayName:    displayName,
-            documentType:   docType,
+            displayName: displayName,
+            documentType: docType,
             storedFileName: fileName,
-            fileSize:       size
+            fileSize: size
         )
         documents.insert(record, at: 0)
         save()

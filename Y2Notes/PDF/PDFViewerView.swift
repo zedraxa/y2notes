@@ -11,7 +11,7 @@ import UIKit
 /// - PDF text search with result strip.
 /// - Share original, export annotated PDF, and Open In… workflows.
 struct PDFViewerView: View {
-    @EnvironmentObject var pdfStore:  PDFStore
+    @EnvironmentObject var pdfStore: PDFStore
     @EnvironmentObject var noteStore: NoteStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @Environment(TabWorkspaceStore.self) private var workspace
@@ -46,7 +46,7 @@ struct PDFViewerView: View {
         onOpenCompanionNote: ((UUID) -> Void)? = nil
     ) {
         self.record = record
-        self.tabID  = tab?.id
+        self.tabID = tab?.id
         self.onOpenCompanionNote = onOpenCompanionNote
         _currentPage = State(initialValue: tab?.pageIndex ?? record.currentPage)
     }
@@ -224,7 +224,7 @@ struct PDFViewerView: View {
 
     private func loadOverlays(for page: Int) {
         pageStickers = pdfStore.stickers(for: record.id, page: page)
-        pageWidgets  = pdfStore.widgets(for: record.id, page: page)
+        pageWidgets = pdfStore.widgets(for: record.id, page: page)
     }
 
     private func saveCurrentPageOverlays() {
@@ -311,10 +311,15 @@ struct PDFViewerView: View {
         case .progressTracker: return "chart.bar.fill"
         }
     }
+}
+
+// MARK: - PDFViewerView + Toolbar & Navigation
+
+extension PDFViewerView {
 
     // MARK: - Toolbar buttons
 
-    private var companionNoteButton: some View {
+    var companionNoteButton: some View {
         Button {
             if let existing = noteStore.notes(forPDF: record.id).first {
                 workspace.openTab(
@@ -338,7 +343,7 @@ struct PDFViewerView: View {
                             ? "Open companion note" : "Create companion note")
     }
 
-    private var stickerButton: some View {
+    var stickerButton: some View {
         Button { showStickerPicker = true } label: {
             Image(systemName: "star.square")
         }
@@ -346,7 +351,7 @@ struct PDFViewerView: View {
         .accessibilityLabel("Add sticker")
     }
 
-    private var widgetButton: some View {
+    var widgetButton: some View {
         Button { showWidgetPicker = true } label: {
             Image(systemName: "widget.small")
         }
@@ -354,7 +359,7 @@ struct PDFViewerView: View {
         .accessibilityLabel("Add widget")
     }
 
-    private var annotateToggleButton: some View {
+    var annotateToggleButton: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { isAnnotating.toggle() }
         } label: {
@@ -363,7 +368,7 @@ struct PDFViewerView: View {
         .accessibilityLabel(isAnnotating ? "Switch to read mode" : "Switch to annotate mode")
     }
 
-    private var pencilPolicyButton: some View {
+    var pencilPolicyButton: some View {
         Button {
             pencilOnlyDrawing.toggle()
         } label: {
@@ -375,13 +380,13 @@ struct PDFViewerView: View {
         )
     }
 
-    private var searchButton: some View {
+    var searchButton: some View {
         Button {
             withAnimation {
                 isSearching.toggle()
                 if !isSearching {
                     searchResults = []
-                    searchQuery   = ""
+                    searchQuery = ""
                 }
             }
         } label: {
@@ -391,7 +396,7 @@ struct PDFViewerView: View {
         .accessibilityLabel(isSearching ? "Close search" : "Search PDF text")
     }
 
-    private var shareMenu: some View {
+    var shareMenu: some View {
         Menu {
             Button {
                 shareOriginal()
@@ -416,7 +421,7 @@ struct PDFViewerView: View {
 
     // MARK: - Page navigation bar
 
-    private var pageNavigationBar: some View {
+    var pageNavigationBar: some View {
         HStack(spacing: 20) {
             Button {
                 guard currentPage > 0 else { return }
@@ -457,7 +462,7 @@ struct PDFViewerView: View {
 
     // MARK: - Search bar
 
-    private var searchBar: some View {
+    var searchBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
@@ -468,7 +473,7 @@ struct PDFViewerView: View {
                     .autocorrectionDisabled()
                 if !searchQuery.isEmpty {
                     Button {
-                        searchQuery   = ""
+                        searchQuery = ""
                         searchResults = []
                     } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -534,7 +539,7 @@ struct PDFViewerView: View {
 
     // MARK: - Search logic
 
-    private func performSearch() {
+    func performSearch() {
         guard !searchQuery.isEmpty else { searchResults = []; return }
         let url = pdfStore.pdfURL(for: record)
         guard let document = PDFDocument(url: url) else { return }
@@ -559,19 +564,19 @@ struct PDFViewerView: View {
 
     // MARK: - Share / Export / Open-In
 
-    private func shareOriginal() {
-        shareItems     = [pdfStore.pdfURL(for: record)]
+    func shareOriginal() {
+        shareItems = [pdfStore.pdfURL(for: record)]
         showShareSheet = true
     }
 
-    private func exportAndShare() {
+    func exportAndShare() {
         saveCurrentPageOverlays()
         guard let url = pdfStore.exportAnnotatedPDF(for: liveRecord) else { return }
-        shareItems     = [url]
+        shareItems = [url]
         showShareSheet = true
     }
 
-    private func openIn() {
+    func openIn() {
         saveCurrentPageOverlays()
         guard let url = pdfStore.exportAnnotatedPDF(for: liveRecord) else { return }
         let controller = UIDocumentInteractionController(url: url)
@@ -591,7 +596,7 @@ struct PDFViewerView: View {
 // MARK: - PDFPageSearchResult
 
 struct PDFPageSearchResult: Identifiable {
-    let id      = UUID()
+    let id = UUID()
     let pageIndex: Int
     let snippet: String
 }
