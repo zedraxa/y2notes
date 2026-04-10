@@ -70,13 +70,17 @@ struct InfiniteCanvasView: View {
 
     // MARK: - Zoom Indicator
 
-    /// Floating zoom-level badge (e.g. "50%", "100%", "200%") in the bottom-right
-    /// corner. Hidden at 1× so it only appears when the user zooms in or out.
+    /// Current zoom as a percentage string (e.g. "50%", "200%").
+    private var zoomPercentage: Int {
+        Int(round(currentZoom * 100))
+    }
+
+    /// Floating zoom-level badge in the bottom-right corner.
+    /// Hidden at 1× so it only appears when the user zooms in or out.
     private var zoomIndicator: some View {
-        let pct = Int(round(currentZoom * 100))
-        return Group {
+        Group {
             if currentZoom < 0.98 || currentZoom > 1.02 {
-                Text("\(pct)%")
+                Text("\(zoomPercentage)%")
                     .font(.caption2.monospacedDigit())
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
