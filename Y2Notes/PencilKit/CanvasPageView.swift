@@ -447,14 +447,6 @@ struct CanvasPageView: UIViewRepresentable {
         }
     }
 
-    // MARK: - Forwarding helpers
-
-    /// Forwarded from `CanvasConstants` for call-site compatibility
-    /// (used by `CanvasCoordinator+DiffUpdate`).
-    static func rulingLineColor(for background: UIColor) -> UIColor {
-        CanvasConstants.rulingLineColor(for: background)
-    }
-
     // MARK: - Coordinator
 
     /// Editor-mode coordinator.
