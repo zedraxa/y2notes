@@ -355,18 +355,6 @@ private struct ShelfSidebarView: View {
                             Label("Change Cover", systemImage: "paintpalette")
                         }
 
-                        Menu {
-                            ForEach(CoverTexture.allCases) { tex in
-                                Button {
-                                    noteStore.updateNotebookTexture(id: notebook.id, texture: tex)
-                                } label: {
-                                    Label(tex.displayName, systemImage: tex.systemImage)
-                                }
-                            }
-                        } label: {
-                            Label("Cover Texture", systemImage: "rectangle.pattern.checkered")
-                        }
-
                         Button {
                             sidebarManageSectionsNotebook = notebook
                         } label: {
@@ -549,12 +537,6 @@ private struct NotebookSidebarRow: View {
                 } else {
                     notebook.cover.gradient
                 }
-
-                CoverTextureOverlay(
-                    texture: notebook.coverTexture,
-                    size: CGSize(width: 28, height: 36),
-                    intensity: 0.7
-                )
 
                 Image(systemName: "book.closed.fill")
                     .font(.system(size: 11))
@@ -758,8 +740,7 @@ struct NoteGridView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NotebookCoverBadge(
                         cover: nb.cover,
-                        customCoverData: nb.customCoverData,
-                        coverTexture: nb.coverTexture
+                        customCoverData: nb.customCoverData
                     )
                 }
             }
@@ -1474,8 +1455,7 @@ struct NoteGridView: View {
         let nb = nbID.flatMap { id in noteStore.notebooks.first { $0.id == id } }
         let note = noteStore.addNote(
             inNotebook: nbID,
-            pageType: nb?.pageType,
-            paperMaterial: nb?.paperMaterial
+            pageType: nb?.pageType
         )
         selectedNoteID = note.id
     }
@@ -1854,7 +1834,6 @@ private struct ManageSectionsSheet: View {
 private struct NotebookCoverBadge: View {
     let cover: NotebookCover
     var customCoverData: Data?
-    var coverTexture: CoverTexture = .smooth
 
     var body: some View {
         ZStack {
@@ -1868,12 +1847,6 @@ private struct NotebookCoverBadge: View {
             } else {
                 cover.gradient
             }
-
-            CoverTextureOverlay(
-                texture: coverTexture,
-                size: CGSize(width: 22, height: 28),
-                intensity: 0.7
-            )
 
             Image(systemName: "book.closed.fill")
                 .font(.system(size: 10))
@@ -2179,20 +2152,6 @@ private struct NotebookCoverCard: View {
                                 topTrailingRadius: 10
                             )
                         )
-
-                    // Texture overlay
-                    CoverTextureOverlay(
-                        texture: notebook.coverTexture,
-                        size: CGSize(width: coverWidth, height: coverHeight)
-                    )
-                    .clipShape(
-                        .rect(
-                            topLeadingRadius: 4,
-                            bottomLeadingRadius: 4,
-                            bottomTrailingRadius: 10,
-                            topTrailingRadius: 10
-                        )
-                    )
 
                     // Spine with stitching
                     ZStack {

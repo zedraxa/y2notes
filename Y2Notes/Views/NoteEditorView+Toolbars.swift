@@ -297,7 +297,7 @@ extension NoteEditorView {
 
     // MARK: - Page Setup Menu
 
-    /// GoodNotes-style page setup menu — lets users change the page ruling and paper material
+    /// GoodNotes-style page setup menu — lets users change the page ruling
     /// for the current note without leaving the editor.
     var pageSetupMenu: some View {
         let currentPagePT = effectivePageType(forPage: safePageIndex)
@@ -329,23 +329,6 @@ extension NoteEditorView {
                             Label(pt.displayName, systemImage: "checkmark")
                         } else {
                             Label(pt.displayName, systemImage: pt.systemImage)
-                        }
-                    }
-                }
-            }
-
-            Divider()
-
-            // Paper material section
-            Section("Paper Material") {
-                ForEach(PaperMaterial.allCases) { pm in
-                    Button {
-                        noteStore.updatePaperMaterial(for: note.id, paperMaterial: pm)
-                    } label: {
-                        if effectivePaperMaterial == pm {
-                            Label(pm.displayName, systemImage: "checkmark")
-                        } else {
-                            Label(pm.displayName, systemImage: pm.systemImage)
                         }
                     }
                 }

@@ -374,27 +374,6 @@ extension NoteEditorView {
         noteStore.updateTextObjects(for: note.id, pageIndex: pageIdx, textObjects: textObjects)
     }
 
-    // MARK: - Background blend helper
-
-    /// Blends the theme's canvas background colour with the paper material's
-    /// `pageTint` by applying the tint as a very light overlay (15 % opacity).
-    /// In dark themes the tint contribution is halved to avoid washing out the
-    /// dark canvas.
-    func blendedBackground(base: UIColor, tint: Color) -> UIColor {
-        let isDark = effectiveDefinition.canvasIsDark
-        let fraction: CGFloat = isDark ? 0.07 : 0.15
-        let uiTint = UIColor(tint)
-        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
-        var tr: CGFloat = 0, tg: CGFloat = 0, tb: CGFloat = 0
-        base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
-        uiTint.getRed(&tr, green: &tg, blue: &tb, alpha: nil)
-        return UIColor(
-            red:   br + (tr - br) * fraction,
-            green: bg + (tg - bg) * fraction,
-            blue:  bb + (tb - bb) * fraction,
-            alpha: ba
-        )
-    }
 
     // MARK: - Undo/Redo State
 

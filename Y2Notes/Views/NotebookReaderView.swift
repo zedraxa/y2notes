@@ -158,10 +158,6 @@ struct NotebookReaderView: View {
         effectiveTheme.definition
     }
 
-    var effectivePaperMaterial: PaperMaterial {
-        currentNote?.paperMaterial ?? notebook.paperMaterial
-    }
-
     /// Per-page ruling: pageTypes[pageIndex] → note.pageType → section.defaultPageType → notebook.pageType → .blank
     func effectivePageType(for ref: PageRef) -> PageType {
         guard let note = noteStore.notes.first(where: { $0.id == ref.noteID }) else {
@@ -179,16 +175,13 @@ struct NotebookReaderView: View {
         return notebook.pageType
     }
 
-    /// Canvas background: per-page colour → theme + material blend.
+    /// Canvas background: per-page colour → theme base.
     func canvasBackground(for ref: PageRef) -> UIColor {
         if let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
            let explicit = note.pageColor(forPage: ref.pageIndex) {
             return explicit
         }
-        return blendedBackground(
-            base: effectiveDefinition.canvasBackground,
-            tint: effectivePaperMaterial.pageTint
-        )
+        return effectiveDefinition.canvasBackground
     }
 
     // MARK: - Body
@@ -196,14 +189,9 @@ struct NotebookReaderView: View {
     var body: some View {
         let pages = allPages
         VStack(spacing: 0) {
-            // Notebook identity bar — gradient strip with texture hint
+            // Notebook identity bar — gradient strip
             ZStack {
                 notebook.cover.gradient
-                CoverTextureOverlay(
-                    texture: notebook.coverTexture,
-                    size: CGSize(width: 600, height: 4),
-                    intensity: 0.6
-                )
             }
             .frame(height: 4)
             .opacity(0.85)
@@ -1026,24 +1014,6 @@ struct NotebookReaderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
-    }
-
-    // MARK: - Helpers
-
-    private func blendedBackground(base: UIColor, tint: Color) -> UIColor {
-        let isDark = effectiveDefinition.canvasIsDark
-        let fraction: CGFloat = isDark ? 0.07 : 0.15
-        let uiTint = UIColor(tint)
-        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
-        var tr: CGFloat = 0, tg: CGFloat = 0, tb: CGFloat = 0
-        base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
-        uiTint.getRed(&tr, green: &tg, blue: &tb, alpha: nil)
-        return UIColor(
-            red: br + (tr - br) * fraction,
-            green: bg + (tg - bg) * fraction,
-            blue: bb + (tb - bb) * fraction,
-            alpha: ba
-        )
     }
 
     // MARK: - Notebook cover page
