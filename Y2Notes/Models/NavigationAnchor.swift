@@ -55,6 +55,35 @@ struct NavigationAnchor: Identifiable, Codable, Hashable {
     }
 }
 
+// MARK: - Hashable (CGPoint is not Hashable)
+
+extension NavigationAnchor {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(notebookID)
+        hasher.combine(noteID)
+        hasher.combine(pageIndex)
+        hasher.combine(objectID)
+        hasher.combine(audioSessionID)
+        hasher.combine(audioOffset)
+        hasher.combine(regionID)
+        hasher.combine(canvasPoint?.x)
+        hasher.combine(canvasPoint?.y)
+    }
+
+    static func == (lhs: NavigationAnchor, rhs: NavigationAnchor) -> Bool {
+        lhs.id == rhs.id
+        && lhs.notebookID == rhs.notebookID
+        && lhs.noteID == rhs.noteID
+        && lhs.pageIndex == rhs.pageIndex
+        && lhs.objectID == rhs.objectID
+        && lhs.audioSessionID == rhs.audioSessionID
+        && lhs.audioOffset == rhs.audioOffset
+        && lhs.regionID == rhs.regionID
+        && lhs.canvasPoint == rhs.canvasPoint
+    }
+}
+
 // MARK: - Custom Codable for CGPoint support
 
 extension NavigationAnchor {
