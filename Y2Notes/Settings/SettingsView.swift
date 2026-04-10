@@ -186,13 +186,6 @@ struct SettingsView: View {
             }
             .accessibilityLabel("Default page orientation for new notebooks")
 
-            Picker("Paper Material", selection: $settingsStore.defaultPaperMaterial) {
-                ForEach(PaperMaterial.allCases) { material in
-                    Text(material.displayName).tag(material)
-                }
-            }
-            .accessibilityLabel("Default paper material for new notebooks")
-
             sliderRow(
                 title: "Autosave Interval",
                 valueLabel: "\(Int(settingsStore.autosaveInterval)) s",

@@ -37,7 +37,6 @@ protocol NoteRepository: AnyObject {
         pageType: PageType?,
         pageSize: PageSize?,
         orientation: PageOrientation?,
-        paperMaterial: PaperMaterial?,
         templateID: String?
     ) -> Note
 
@@ -68,7 +67,6 @@ protocol NoteRepository: AnyObject {
     func updateTextObjects(for noteID: UUID, pageIndex: Int, textObjects: [TextObject])
     func updatePageType(for noteID: UUID, pageType: PageType?)
     func updatePageType(for noteID: UUID, pageIndex: Int, pageType: PageType?)
-    func updatePaperMaterial(for noteID: UUID, paperMaterial: PaperMaterial?)
     func updatePageColor(for noteID: UUID, pageIndex: Int, color: UIColor?)
     func updateThemeOverride(for noteID: UUID, theme: AppTheme?)
 
@@ -87,7 +85,6 @@ protocol NoteRepository: AnyObject {
         defaultPageType: PageType,
         defaultPageSize: PageSize,
         defaultOrientation: PageOrientation,
-        defaultPaperMaterial: PaperMaterial,
         colorTag: NotebookColorTag
     ) -> Notebook
 
@@ -98,7 +95,6 @@ protocol NoteRepository: AnyObject {
     // MARK: - Notebook settings
 
     func updateNotebookCover(id: UUID, cover: NotebookCover)
-    func updateNotebookTexture(id: UUID, texture: CoverTexture)
     func toggleNotebookPin(id: UUID)
     func toggleNotebookLock(id: UUID)
     func updateNotebookColorTag(id: UUID, colorTag: NotebookColorTag)

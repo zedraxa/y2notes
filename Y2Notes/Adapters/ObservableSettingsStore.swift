@@ -44,11 +44,6 @@ final class ObservableSettingsStore: ObservableObject {
         set { provider.defaultOrientation = newValue }
     }
 
-    var defaultPaperMaterial: PaperMaterial {
-        get { provider.defaultPaperMaterial }
-        set { provider.defaultPaperMaterial = newValue }
-    }
-
     var reduceMotion: Bool {
         get { provider.reduceMotion }
         set { provider.reduceMotion = newValue }

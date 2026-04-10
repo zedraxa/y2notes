@@ -27,7 +27,6 @@ protocol ToolStateProvider: AnyObject {
     var eraserSubType: EraserSubType { get set }
     var activeShapeType: ShapeType { get set }
     var activePenSubType: PenSubType { get set }
-    var currentPaperMaterial: PaperMaterial { get set }
     var recentColors: [UIColor] { get }
     var presets: [ToolPreset] { get }
 
