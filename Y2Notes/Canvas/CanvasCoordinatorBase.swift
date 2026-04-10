@@ -939,6 +939,7 @@ extension CanvasCoordinatorBase: PencilActionDelegate {
 /// Helper that creates and wires all the subviews of the canvas container.
 /// Used by both `CanvasView.makeUIView` and `CanvasPageView.makeUIView` to
 /// eliminate the ~200 lines of duplicated overlay setup code.
+@MainActor
 enum CanvasViewBuilder {
 
     /// Builds all overlay subviews (attachment, widget, sticker, text, shape
@@ -1143,21 +1144,25 @@ enum CanvasViewBuilder {
         // ── Real-time nib tracker for effects ────────────────────────
         let nibTracker = PencilNibTrackerGestureRecognizer()
         nibTracker.onNibBegan = { [weak coordinator] location in
-            guard let coordinator else { return }
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
-            let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
-            coordinator.effects.dispatch(
-                .strokeBegan(at: location, inkColor: inkColor),
-                inkEffectEngine: coordinator.effectEngine
-            )
+            MainActor.assumeIsolated {
+                guard let coordinator else { return }
+                guard coordinator.canvasRef?.tool is PKInkingTool else { return }
+                let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
+                coordinator.effects.dispatch(
+                    .strokeBegan(at: location, inkColor: inkColor),
+                    inkEffectEngine: coordinator.effectEngine
+                )
+            }
         }
         nibTracker.onNibMoved = { [weak coordinator] location, force, velocity in
-            guard let coordinator else { return }
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
-            coordinator.effects.dispatch(
-                .strokeUpdated(at: location, pressure: force, velocity: velocity),
-                inkEffectEngine: coordinator.effectEngine
-            )
+            MainActor.assumeIsolated {
+                guard let coordinator else { return }
+                guard coordinator.canvasRef?.tool is PKInkingTool else { return }
+                coordinator.effects.dispatch(
+                    .strokeUpdated(at: location, pressure: force, velocity: velocity),
+                    inkEffectEngine: coordinator.effectEngine
+                )
+            }
         }
         canvas.addGestureRecognizer(nibTracker)
         coordinator.nibTracker = nibTracker
