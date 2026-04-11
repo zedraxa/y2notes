@@ -28,6 +28,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
     let drawingData: Data
     let backgroundColor: UIColor
     let defaultInkColor: UIColor
+    let pageType: PageType
     let currentTool: PKTool
     let isShapeToolActive: Bool
     let activeShapeType: ShapeType
@@ -93,7 +94,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
         let container = UIView()
         container.backgroundColor = CanvasConstants.deskSurfaceColor
 
-        // ── Page background (blank, no ruling — whiteboard feel) ─────────
+        // ── Page background (configurable ruling — whiteboard feel) ─────────
         let ps = CanvasConstants.pageSize
         let multiplier = CanvasConstants.infiniteCanvasMultiplier
         let bgSize = CGSize(
@@ -102,7 +103,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
         )
         let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: bgSize))
         pageBackground.pageColor = backgroundColor
-        pageBackground.pageType = .blank
+        pageBackground.pageType = pageType
         pageBackground.lineColor = CanvasConstants.rulingLineColor(for: backgroundColor)
         pageBackground.isUserInteractionEnabled = false
         // No shadow for infinite canvas — whiteboard feel.
@@ -262,6 +263,9 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
             if bg.pageColor != backgroundColor {
                 bg.pageColor = backgroundColor
                 bg.lineColor = CanvasConstants.rulingLineColor(for: backgroundColor)
+            }
+            if bg.pageType != pageType {
+                bg.pageType = pageType
             }
             context.coordinator.syncBackgroundWithCanvas(canvas)
         }
