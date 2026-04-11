@@ -12,14 +12,12 @@ enum PageDirection {
 
 // MARK: - CanvasDelegate
 
-/// Communication protocol from `Y2CanvasViewController` back to its host (SwiftUI or UIKit).
+/// Communication protocol from the canvas layer back to its host (SwiftUI or UIKit).
 ///
 /// All methods are called on the main thread.  The delegate should *not* perform
 /// expensive work synchronously — queue persistence or analytics off-main.
 ///
-/// This protocol decouples the canvas engine from the hosting layer so that the
-/// same `Y2CanvasViewController` can be embedded in SwiftUI (via `Y2CanvasHostingView`)
-/// or in a pure UIKit container without any code changes.
+/// This protocol decouples the canvas engine from the hosting layer.
 protocol CanvasDelegate: AnyObject {
 
     // MARK: - Drawing State

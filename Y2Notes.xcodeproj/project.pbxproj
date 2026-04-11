@@ -220,10 +220,7 @@
 		AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D5 /* ObservableInkEffectStore.swift */; };
 		AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D7 /* ObservableSettingsStore.swift */; };
 		AA00010000000000000001DB /* CanvasDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DA /* CanvasDelegate.swift */; };
-		AA00010000000000000001DD /* StrokeRenderingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DC /* StrokeRenderingPipeline.swift */; };
 		AA00010000000000000001DF /* EffectOverlayLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DE /* EffectOverlayLayer.swift */; };
-		AA00010000000000000001E1 /* Y2CanvasViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E0 /* Y2CanvasViewController.swift */; };
-		AA00010000000000000001E3 /* Y2CanvasHostingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E2 /* Y2CanvasHostingView.swift */; };
 		AA0001000000000000000262 /* CanvasPageConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000261 /* CanvasPageConfiguration.swift */; };
 		AA0001000000000000000264 /* CanvasPageCallbacks.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000263 /* CanvasPageCallbacks.swift */; };
 		AA0001000000000000000266 /* NotebookCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000265 /* NotebookCanvasView.swift */; };
@@ -440,14 +437,11 @@
 		AA0001000000000000000249 /* StickerPackProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerPackProviding.swift; sourceTree = "<group>"; };
 		AA000100000000000000024B /* Y2LinkInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkInsertionController.swift; sourceTree = "<group>"; };
 		AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkMetadataFetcher.swift; sourceTree = "<group>"; };
-		AA000100000000000000024F /* Metal */ = {isa = PBXGroup; children = (AA0001000000000000000250 /* Y2ParticleSystem.metal */, AA0001000000000000000252 /* MetalParticleRenderer.swift */,); name = Metal; path = Metal; sourceTree = "<group>"; };
+		AA000100000000000000024F /* Metal */ = {isa = PBXGroup; children = (AA0001000000000000000250 /* Y2ParticleSystem.metal */,); name = Metal; path = Metal; sourceTree = "<group>"; };
 		AA0001000000000000000250 /* Y2ParticleSystem.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Y2ParticleSystem.metal; sourceTree = "<group>"; };
 		AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000250 /* Y2ParticleSystem.metal */; };
-		AA0001000000000000000252 /* MetalParticleRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalParticleRenderer.swift; sourceTree = "<group>"; };
 		AA0001000000000000000254 /* Y2TextBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TextBlockView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TextBlockInsertionController.swift; sourceTree = "<group>"; };
-
-		AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000252 /* MetalParticleRenderer.swift */; };
 		AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000254 /* Y2TextBlockView.swift */; };
 		AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */; };
 
@@ -482,10 +476,7 @@
 		AA00010000000000000001D5 /* ObservableInkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableInkEffectStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000001D7 /* ObservableSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000001DA /* CanvasDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasDelegate.swift; sourceTree = "<group>"; };
-		AA00010000000000000001DC /* StrokeRenderingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrokeRenderingPipeline.swift; sourceTree = "<group>"; };
 		AA00010000000000000001DE /* EffectOverlayLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectOverlayLayer.swift; sourceTree = "<group>"; };
-		AA00010000000000000001E0 /* Y2CanvasViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2CanvasViewController.swift; sourceTree = "<group>"; };
-		AA00010000000000000001E2 /* Y2CanvasHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2CanvasHostingView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000261 /* CanvasPageConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageConfiguration.swift; sourceTree = "<group>"; };
 		AA0001000000000000000263 /* CanvasPageCallbacks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageCallbacks.swift; sourceTree = "<group>"; };
 		AA0001000000000000000265 /* NotebookCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCanvasView.swift; sourceTree = "<group>"; };
@@ -897,10 +888,7 @@
 			isa = PBXGroup;
 			children = (
 				AA00010000000000000001DA /* CanvasDelegate.swift */,
-				AA00010000000000000001DC /* StrokeRenderingPipeline.swift */,
 				AA00010000000000000001DE /* EffectOverlayLayer.swift */,
-				AA00010000000000000001E0 /* Y2CanvasViewController.swift */,
-				AA00010000000000000001E2 /* Y2CanvasHostingView.swift */,
 				AA00010000000000000001FE /* Pages */,
 				AA00010000000000000001FF /* Tabs */,
 				AA0001000000000000000219 /* Objects */,
@@ -1248,7 +1236,6 @@
 				AA0001000000000000000187 /* NotePageCarouselView.swift in Sources */,
 				AA000100000000000000018B /* y2_perlin.c in Sources */,
 				AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */,
-				AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */,
 				AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */,
 				AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */,
 
@@ -1365,10 +1352,7 @@
 				AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */,
 				AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */,
 				AA00010000000000000001DB /* CanvasDelegate.swift in Sources */,
-				AA00010000000000000001DD /* StrokeRenderingPipeline.swift in Sources */,
 				AA00010000000000000001DF /* EffectOverlayLayer.swift in Sources */,
-				AA00010000000000000001E1 /* Y2CanvasViewController.swift in Sources */,
-				AA00010000000000000001E3 /* Y2CanvasHostingView.swift in Sources */,
 				AA0001000000000000000262 /* CanvasPageConfiguration.swift in Sources */,
 				AA0001000000000000000264 /* CanvasPageCallbacks.swift in Sources */,
 				AA0001000000000000000266 /* NotebookCanvasView.swift in Sources */,
