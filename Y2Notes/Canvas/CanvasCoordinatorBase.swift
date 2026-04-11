@@ -70,7 +70,6 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
 
     // Convenience accessors forwarded to the coordinator.
     var pageTransitionEngine: PageTransitionEngine { effects.pageTransitionEngine }
-    var adaptiveEffectsEngine: AdaptiveEffectsEngine { effects.adaptiveEngine }
     var writingPipeline: WritingEffectsPipeline    { effects.writingEffectsPipeline }
     var microInteractionEngine: MicroInteractionEngine { effects.microInteractionEngine }
     var snapAlignEffectEngine: SnapAlignEffectEngine { effects.snapAlignEffectEngine }
@@ -1273,10 +1272,7 @@ enum CanvasViewBuilder {
         coordinator.coordinatorPageIndex = pageIndex
         coordinator.coordinatorPageCount = pageCount
 
-        coordinator.adaptiveEffectsEngine.pageCount = pageCount
-        let intensity = coordinator.adaptiveEffectsEngine.intensity
         coordinator.effects.distribute(
-            intensity: intensity,
             shapeCanvas: coordinator.shapeCanvas,
             attachmentCanvas: coordinator.attachmentCanvas,
             widgetCanvas: coordinator.widgetCanvas,

@@ -2,62 +2,6 @@ import Foundation
 import UIKit
 import PencilKit
 
-// MARK: - Device Capability Tier
-
-/// Classifies the iPad's processing capability to set appropriate FX budgets.
-///
-/// Detection uses `ProcessInfo` memory and processor count as a conservative
-/// proxy for GPU generation.  When in doubt the tier is rounded *down* so FX
-/// are never forced on devices that cannot sustain them at 60 fps.
-///
-/// **Graceful degradation contract**
-/// - `.basic`    → no overlay FX created at all (zero cost)
-/// - `.standard` → sparkle + ripple only (lightweight CAEmitter / CAShape)
-/// - `.pro`      → fire + glitch + all standard FX
-/// - `.ultra`    → all FX at full particle budget
-enum DeviceCapabilityTier: Int, Codable, Comparable {
-    case basic    = 0   // A10 / iPad 7th gen and earlier
-    case standard = 1   // A12 / iPad 8–9, mini 5
-    case pro      = 2   // A14+ / iPad Air 4–5, iPad Pro (A12X–M1)
-    case ultra    = 3   // M2+ / iPad Pro 12.9 5th gen and later
-
-    static func < (lhs: DeviceCapabilityTier, rhs: DeviceCapabilityTier) -> Bool {
-        lhs.rawValue < rhs.rawValue
-    }
-
-    /// Detects the tier from available memory and processor count.
-    ///
-    /// Thresholds are set generously so that fire / glitch / blood effects are
-    /// available on all iPads from ~2018 onward (A12+).  Devices with less than
-    /// 2 GB RAM (iPad 6th gen / A10) are the only ones held to `.basic`.
-    static var current: DeviceCapabilityTier {
-        let memory = ProcessInfo.processInfo.physicalMemory
-        let cores  = ProcessInfo.processInfo.processorCount
-        if memory >= 8_589_934_592 && cores >= 8 { return .ultra    }  // 8 GB+ / 8+ cores  (M2+ iPad Pro)
-        if memory >= 3_221_225_472              { return .pro       }  // 3 GB+              (A12+, iPad Air 3+, mini 5+)
-        if memory >= 2_147_483_648              { return .standard  }  // 2 GB+              (A10, iPad 7th gen)
-        return .basic
-    }
-
-    /// Hard cap on simultaneous emitter particles.  The engine clamps birth rates
-    /// to this value at runtime so the GPU stays within budget.
-    var maxParticles: Int {
-        switch self {
-        case .basic:    return 0
-        case .standard: return 30
-        case .pro:      return 50
-        case .ultra:    return 80
-        }
-    }
-
-    /// Fire and glitch require real-time additive blending that older GPUs cannot
-    /// sustain without dropping below 60 fps.
-    var supportsRealtimeFX: Bool { self >= .pro }
-
-    /// Whether *any* overlay FX should be created (avoids even allocating layers on .basic).
-    var supportsAnyFX: Bool { self >= .standard }
-}
-
 // MARK: - Ink Family
 
 /// High-level character families.  Each maps to a curated set of built-in
