@@ -192,6 +192,10 @@ final class NoteStore: ObservableObject {
         // Previous session did not exit cleanly. Data is safe due to atomic writes
         // and rolling backups. Log for diagnostics.
         storeLogger.warning("Crash detected — previous session did not exit cleanly. Data recovered from last save.")
+        // Notify PerformanceMonitor to update crash-free rate
+        Task { @MainActor in
+            PerformanceMonitor.shared.recordCrashDetected()
+        }
     }
 
     // MARK: - Note CRUD

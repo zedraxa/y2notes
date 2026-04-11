@@ -146,6 +146,11 @@ final class PerformanceMonitor: ObservableObject {
         logger.error("Crash recorded. Crash-free rate: \(self.crashFreeRate, format: .fixed(precision: 2))%")
     }
 
+    /// Alias for recordCrash() - called when crash flag is detected on startup
+    func recordCrashDetected() {
+        recordCrash()
+    }
+
     private func updateCrashFreeRate() {
         guard sessionCount > 0 else {
             crashFreeRate = 100.0
