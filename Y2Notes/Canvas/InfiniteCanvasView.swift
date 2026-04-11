@@ -69,13 +69,50 @@ struct InfiniteCanvasView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: task)
         }
 
-        return NotebookCanvasView(
-            configuration: config,
-            callbacks: callbacks,
-            toolStore: toolStore,
-            stickerImageProvider: stickerImageProvider
+        return InfiniteCanvasPageView(
+            noteID: config.noteID,
+            drawingData: config.drawingData,
+            backgroundColor: config.backgroundColor,
+            defaultInkColor: config.defaultInkColor,
+            pageType: config.pageType,
+            currentTool: config.currentTool,
+            isShapeToolActive: config.isShapeToolActive,
+            activeShapeType: config.activeShapeType,
+            shapeColor: config.shapeColor,
+            shapeWidth: config.shapeWidth,
+            drawingPolicy: config.drawingPolicy,
+            zoomResetTrigger: config.zoomResetTrigger,
+            activeFX: config.activeFX,
+            fxColor: config.fxColor,
+            onDrawingChanged: callbacks.onDrawingChanged,
+            onSaveRequested: callbacks.onSaveRequested,
+            onUndoStateChanged: callbacks.onUndoStateChanged,
+            pdfURL: config.pdfURL,
+            toolStoreForFade: toolStore,
+            currentPageShapes: config.shapes,
+            onShapesChanged: callbacks.onShapesChanged,
+            currentPageAttachments: config.attachments,
+            attachmentNoteID: config.attachmentNoteID,
+            onAttachmentsChanged: callbacks.onAttachmentsChanged,
+            onAttachmentSelectionChanged: callbacks.onAttachmentSelectionChanged,
+            currentPageWidgets: config.widgets,
+            onWidgetsChanged: callbacks.onWidgetsChanged,
+            onWidgetSelectionChanged: callbacks.onWidgetSelectionChanged,
+            currentPageStickers: config.stickers,
+            onStickersChanged: callbacks.onStickersChanged,
+            onStickerSelectionChanged: callbacks.onStickerSelectionChanged,
+            stickerImageProvider: stickerImageProvider,
+            isTextToolActive: config.isTextToolActive,
+            currentPageTextObjects: config.textObjects,
+            onTextObjectsChanged: callbacks.onTextObjectsChanged,
+            onTextObjectSelectionChanged: callbacks.onTextObjectSelectionChanged,
+            onPlaceTextObject: callbacks.onPlaceTextObject,
+            isMagicModeActive: config.isMagicModeActive,
+            isStudyModeActive: config.isStudyModeActive,
+            activeAmbientScene: config.activeAmbientScene,
+            isAmbientSoundEnabled: config.isAmbientSoundEnabled,
+            onZoomChanged: callbacks.onZoomChanged
         )
-        .equatable()
     }
 
     // MARK: - Zoom Indicator

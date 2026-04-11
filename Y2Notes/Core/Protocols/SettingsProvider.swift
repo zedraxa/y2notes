@@ -23,8 +23,6 @@ protocol SettingsProvider: AnyObject {
     var defaultPageType: PageType { get set }
     var defaultPageSize: PageSize { get set }
     var defaultOrientation: PageOrientation { get set }
-    var defaultPaperMaterial: PaperMaterial { get set }
-
     // MARK: - Accessibility
 
     var reduceMotion: Bool { get set }

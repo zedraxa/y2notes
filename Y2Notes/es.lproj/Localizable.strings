@@ -37,7 +37,6 @@
 "Settings.DocumentDefaults.PageType"       = "Tipo de Página";
 "Settings.DocumentDefaults.PageSize"       = "Tamaño de Página";
 "Settings.DocumentDefaults.Orientation"    = "Orientación";
-"Settings.DocumentDefaults.PaperMaterial"  = "Material del Papel";
 "Settings.DocumentDefaults.Footer"         = "Estos valores por defecto se aplican al crear nuevos cuadernos. Los cuadernos existentes no se ven afectados.";
 
 "Settings.ToolPreferences"        = "Preferencias de Herramientas";
@@ -130,7 +129,6 @@
 "Notebook.Name"                   = "Nombre del Cuaderno";
 "Notebook.Cover"                  = "Portada";
 "Notebook.PageType"               = "Tipo de Página";
-"Notebook.PaperMaterial"          = "Material del Papel";
 "Notebook.Sections"               = "Secciones";
 "Notebook.ManageSections"         = "Gestionar Secciones";
 "Notebook.NewSection"             = "Nueva Sección";
@@ -450,3 +448,26 @@
 
 // MARK: - Editor Actions
 "Editor.StraightenLine"           = "Enderezar línea";
+
+/* ── Home View ────────────────────────────────────────────────── */
+
+"Home.QuickNote"                  = "Nota rápida";
+"Home.NewNote"                    = "Nueva nota…";
+"Home.NewNotebook"                = "Nuevo cuaderno…";
+"Home.ImportPDF"                  = "Importar PDF";
+"Home.Continue"                   = "Continúa donde lo dejaste";
+"Home.PinnedNotebooks"            = "Cuadernos fijados";
+"Home.StudyDue"                   = "Estudio";
+"Home.CardsDue"                   = "%d tarjetas pendientes de repaso";
+"Home.CardsDueSubtitle"           = "¡Mantén tu racha!";
+"Home.StartReview"                = "Empezar repaso";
+"Home.RecentActivity"             = "Actividad reciente";
+
+/* ── Floating Action Button ───────────────────────────────────── */
+
+"FAB.QuickNote"                   = "Nota rápida";
+"FAB.NewNote"                     = "Nueva nota…";
+"FAB.NewNotebook"                 = "Nuevo cuaderno…";
+"FAB.ImportPDF"                   = "Importar PDF";
+"FAB.Close"                       = "Cerrar menú de creación";
+"FAB.Create"                      = "Crear nuevo";

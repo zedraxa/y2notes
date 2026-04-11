@@ -36,9 +36,6 @@ final class ServiceContainer {
     /// Active drawing tool, colour, width, and presets.
     let toolStateProvider: ToolStateProvider
 
-    /// Premium ink presets and writing FX.
-    let inkEffectProvider: InkEffectProvider
-
     /// App-wide preferences (page defaults, accessibility, etc.).
     let settingsProvider: SettingsProvider
 
@@ -86,9 +83,6 @@ final class ServiceContainer {
 
         let settings = CoreSettingsService()
         settingsProvider = settings
-
-        let ink = CoreInkEffectService()
-        inkEffectProvider = ink
 
         // --- Existing stores bridged to protocols ---
 

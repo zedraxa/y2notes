@@ -5,8 +5,7 @@
 The app is fully functional with:
 - ✅ PencilKit drawing with full Apple Pencil support
 - ✅ Multi-page notes with page navigation
-- ✅ Ink effects (fire, sparkle, glitch, ripple, rainbow, snow, lightning, dissolve, glow) with device-tier budgeting
-- ✅ **New interactive inks**: Sheen (holographic shimmer), Shadow (dark smoke), Blood (crimson drips)
+- ✅ Ink effects (fire, sparkle) for expressive note-taking
 - ✅ Notebooks with sections, reordering, and management
 - ✅ PDF import and per-page annotation
 - ✅ Document import (DOCX, EPUB, PPTX, Keynote, ODP) with Quick Look viewer
@@ -14,7 +13,7 @@ The app is fully functional with:
 - ✅ **On-device handwriting OCR** via Vision framework — auto-runs after drawing, feeds search
 - ✅ SM-2 spaced-repetition flashcard study system
 - ✅ Google Drive cloud sync with offline queue
-- ✅ 6 themes, 7 paper materials, 12 notebook covers
+- ✅ 6 themes, 12 notebook covers
 - ✅ Page templates (blank, lined, grid, dotted, Cornell, music staff)
 - ✅ **Per-page ruling**: each page in a note can individually use blank/lined/grid/dotted
 - ✅ Full-text search (title + typed text + handwriting OCR)
@@ -23,14 +22,6 @@ The app is fully functional with:
 ---
 
 ## Known Issues
-
-### Effects System
-
-| Issue | Severity | Details |
-|-------|----------|---------|
-| Glitch layer frame drift | Low | On device rotation, the glitch layer frame may not update until the next `configure()` call. Could add `layoutSubviews` override. |
-| Fire particles clip at overlay edge | Low | When drawing near the screen edge, particles that fly beyond the overlay bounds are clipped. Could extend overlay frame with padding. |
-| No per-page FX persistence | Medium | If you set Fire on page 1 and switch to page 2, the effect is still active. FX should reset or persist per-page. |
 
 ### Multi-Page
 
@@ -45,7 +36,7 @@ The app is fully functional with:
 | Issue | Severity | Details |
 |-------|----------|---------|
 | No unit tests | High | Zero test coverage. JSON encoding/decoding, multi-page migration, and coordinate conversion should have tests. |
-| No UI tests | Medium | Critical flows (create note, draw, switch page, select effect) should have XCUITest coverage. |
+| No UI tests | Medium | Critical flows (create note, draw, switch page) should have XCUITest coverage. |
 | Shallow clone only | Low | Git repo is a shallow clone — full history not available for blame/bisect. |
 | No error UI | Medium | Persistence errors are only logged via `assertionFailure`. Users don't see save failures. |
 
@@ -63,13 +54,11 @@ Add a test target to `Y2Notes.xcodeproj`:
   - Note encoding/decoding (single-page, multi-page, legacy format migration)
   - InkEffectStore (preset selection, resolvedFX computation, persistence round-trip)
   - NoteStore (updateDrawing, addPage, removePage, duplicateNote)
-  - DeviceCapabilityTier detection edge cases
   - Coordinate conversion (viewportPoint calculation at various zoom/scroll states)
 
 - **UI tests**:
   - Create a note and draw a stroke → verify it persists
   - Switch between pages → verify correct drawing loads
-  - Select an ink effect → verify engine configures
   - Create a notebook with sections → verify note organization
 
 ### 2. Page Transition Animations
@@ -145,22 +134,7 @@ in the navigation bar.
 | Image (PNG) | ✅ Done | `NoteExporter.exportPageAsImage` exports current page as UIImage |
 | Notebook export | Not yet | Export entire notebook (all its notes) as one large PDF |
 
-### 8. New Effects
-
-**Status**: ✅ Implemented (all five, plus three new interactive ink families)
-
-| Effect | Description | Tier | Status |
-|--------|-------------|------|--------|
-| **Rainbow** | Hue-cycling stroke trail | Standard+ | ✅ Done |
-| **Snow** | Falling particle overlay | Standard+ | ✅ Done |
-| **Lightning** | Brief flash lines at stroke end | Pro+ | ✅ Done |
-| **Dissolve** | Particles scatter from old strokes | Pro+ | ✅ Done |
-| **Glow** | Bloom/blur around stroke path | Ultra | ✅ Done |
-| **Sheen** | Iridescent holographic shimmer (hue cycles while you write) | Standard+ | ✅ Done |
-| **Shadow** | Dark cinematic smoke trailing behind strokes | Standard+ | ✅ Done |
-| **Blood** | Viscous crimson drips that fall from the nib | Pro+ | ✅ Done |
-
-### 9. Handwriting-to-Text Conversion
+### 8. Handwriting-to-Text Conversion
 
 **Status**: ✅ Implemented
 

@@ -17,7 +17,6 @@ struct NoteCreationSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedPageType: PageType = .ruled
-    @State private var selectedMaterial: PaperMaterial = .standard
     @State private var selectedCanvasMode: CanvasMode = .paginated
     @State private var gridAppeared = false
 
@@ -96,43 +95,6 @@ struct NoteCreationSheet: View {
                         }
                     }
 
-                    // ── Paper material ─────────────────────────────
-                    // Hidden for infinite canvas — whiteboard has no paper texture.
-                    if selectedCanvasMode != .infinite {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Paper Material")
-                                .font(.headline)
-                                .padding(.horizontal, 4)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(Array(PaperMaterial.allCases.enumerated()), id: \.element) { index, pm in
-                                        MaterialChip(
-                                            material: pm,
-                                            isSelected: selectedMaterial == pm
-                                        )
-                                        .onTapGesture {
-                                            if selectedMaterial != pm {
-                                                selectionFeedback.impactOccurred(intensity: 0.6)
-                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                                    selectedMaterial = pm
-                                                }
-                                            }
-                                        }
-                                        .opacity(gridAppeared ? 1 : 0)
-                                        .offset(y: gridAppeared ? 0 : 8)
-                                        .animation(
-                                            .spring(response: 0.35, dampingFraction: 0.8)
-                                                .delay(Double(index) * 0.04),
-                                            value: gridAppeared
-                                        )
-                                    }
-                                }
-                                .padding(.horizontal, 4)
-                            }
-                        }
-                    }
-
                     // ── Live preview ──────────────────────────────
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Preview")
@@ -159,7 +121,7 @@ struct NoteCreationSheet: View {
                                     .stroke(Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: 1)
                             )
                         } else {
-                            PaperPreview(pageType: selectedPageType, material: selectedMaterial)
+                            PaperPreview(pageType: selectedPageType)
                                 .frame(height: 180)
                                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                                 .overlay(
@@ -170,9 +132,8 @@ struct NoteCreationSheet: View {
                                     insertion: .opacity.combined(with: .scale(scale: 0.97)),
                                     removal: .opacity
                                 ))
-                                .id("\(selectedPageType.rawValue)-\(selectedMaterial.rawValue)")
+                                .id(selectedPageType.rawValue)
                                 .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedPageType)
-                                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedMaterial)
                         }
                     }
                 }
@@ -204,7 +165,6 @@ struct NoteCreationSheet: View {
         let note = noteStore.addNote(
             inNotebook: notebookID,
             pageType: selectedCanvasMode == .infinite ? .blank : selectedPageType,
-            paperMaterial: selectedMaterial,
             canvasMode: selectedCanvasMode
         )
         onCreated(note.id)
@@ -388,49 +348,6 @@ private struct PaperTypeCard: View {
     }
 }
 
-// MARK: - Material chip
-
-/// Horizontally scrollable chip for paper material selection.
-private struct MaterialChip: View {
-    let material: PaperMaterial
-    let isSelected: Bool
-
-    @GestureState private var isPressed = false
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Circle()
-                .fill(material.pageTint)
-                .frame(width: 36, height: 36)
-                .overlay(
-                    Circle()
-                        .stroke(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel).opacity(0.2), lineWidth: isSelected ? 2.5 : 1)
-                )
-                .overlay(
-                    Image(systemName: material.systemImage)
-                        .font(.system(size: 14))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
-                )
-                .shadow(color: isSelected ? Color.accentColor.opacity(0.25) : .clear, radius: 3, y: 1)
-
-            Text(material.displayName)
-                .font(.caption2)
-                .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
-        }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 2)
-        .scaleEffect(isPressed ? 0.88 : (isSelected ? 1.06 : 1.0))
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
-        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .updating($isPressed) { _, state, _ in state = true }
-        )
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityLabel("\(material.displayName) paper")
-    }
-}
-
 // MARK: - Canvas mode chip
 
 /// Compact selectable chip for choosing between paginated and infinite canvas modes.
@@ -480,15 +397,14 @@ private struct CanvasModeChip: View {
 
 // MARK: - Paper preview
 
-/// Renders a larger preview of the selected paper type + material combination.
+/// Renders a larger preview of the selected paper type.
 private struct PaperPreview: View {
     let pageType: PageType
-    let material: PaperMaterial
 
     var body: some View {
         Canvas { ctx, size in
-            // Background fill with material tint
-            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(material.pageTint))
+            // Background fill
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(uiColor: .systemBackground)))
 
             let lineColor = Color(uiColor: .secondaryLabel).opacity(0.15)
 

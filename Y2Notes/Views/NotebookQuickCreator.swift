@@ -15,11 +15,9 @@ struct NotebookQuickCreator: View {
     @State private var cover: NotebookCover = .ocean
     @State private var useCustomCover: Bool = false
     @State private var customCoverData: Data?
-    @State private var coverTexture: CoverTexture = .smooth
     @State private var pageType: PageType = .blank
     @State private var pageSize: PageSize = .a4
     @State private var orientation: PageOrientation = .portrait
-    @State private var paperMaterial: PaperMaterial = .standard
     @State private var defaultTheme: AppTheme?
 
     @State private var pickerItem: PhotosPickerItem?
@@ -44,8 +42,6 @@ struct NotebookQuickCreator: View {
                 descriptionField
 
                 coverStrip
-
-                textureStrip
 
                 quickSettings
 
@@ -126,9 +122,7 @@ struct NotebookQuickCreator: View {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             selectedTemplate = tmpl
             pageType = tmpl.pageType
-            paperMaterial = tmpl.paperMaterial
             cover = tmpl.suggestedCover
-            coverTexture = tmpl.suggestedTexture
             useCustomCover = false
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -158,46 +152,22 @@ struct NotebookQuickCreator: View {
             .frame(width: 140, height: 196)
             .clipShape(RoundedRectangle(cornerRadius: 14))
 
-            // Texture overlay
-            CoverTextureOverlay(
-                texture: coverTexture,
-                size: CGSize(width: 140, height: 196)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-
-            // Spine highlight with stitching
-            ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(
-                        LinearGradient(
-                            colors: [.white.opacity(0.28), .black.opacity(0.04), .clear],
-                            startPoint: .leading,
-                            endPoint: .init(x: 0.14, y: 0)
-                        )
+            // Spine highlight
+            RoundedRectangle(cornerRadius: 14)
+                .fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.28), .black.opacity(0.04), .clear],
+                        startPoint: .leading,
+                        endPoint: .init(x: 0.14, y: 0)
                     )
-                    .frame(width: 140, height: 196)
-
-                CoverSpineStitching(height: 196, dotCount: 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 2)
-                    .frame(width: 140, height: 196)
-            }
+                )
+                .frame(width: 140, height: 196)
 
             // Book icon
             Image(systemName: "book.closed.fill")
                 .font(.system(size: 32))
                 .foregroundStyle(.white.opacity(0.50))
                 .frame(width: 140, height: 196)
-
-            // Embossed title (top center)
-            if !name.isEmpty {
-                VStack {
-                    CoverEmbossedTitle(text: name, maxWidth: 116)
-                        .padding(.top, 24)
-                    Spacer()
-                }
-                .frame(width: 140, height: 196)
-            }
 
             // Live title (bottom)
             if !name.isEmpty {
@@ -213,7 +183,6 @@ struct NotebookQuickCreator: View {
         .shadow(color: .black.opacity(0.28), radius: 18, x: -3, y: 8)
         .scaleEffect(isCreating ? 0.95 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: cover)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: coverTexture)
         .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isCreating)
     }
 
@@ -358,63 +327,6 @@ struct NotebookQuickCreator: View {
         .accessibilityLabel("Custom photo cover")
     }
 
-    // MARK: - Zone 3b: Texture Strip
-
-    private var textureStrip: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Texture")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.leading, 2)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Array(CoverTexture.allCases.enumerated()), id: \.element) { index, tex in
-                        textureChip(tex)
-                            .opacity(creatorAppeared ? 1 : 0)
-                            .offset(x: creatorAppeared ? 0 : -8)
-                            .animation(
-                                .spring(response: 0.3, dampingFraction: 0.8)
-                                    .delay(Double(index) * 0.04),
-                                value: creatorAppeared
-                            )
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-
-    private func textureChip(_ tex: CoverTexture) -> some View {
-        let selected = coverTexture == tex
-        return Button {
-            coverTexture = tex
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: tex.systemImage)
-                    .font(.caption)
-                Text(tex.displayName)
-                    .font(.caption.weight(selected ? .semibold : .regular))
-            }
-            .padding(.vertical, 7)
-            .padding(.horizontal, 12)
-            .background(
-                Capsule()
-                    .fill(selected
-                          ? Color.accentColor.opacity(0.12)
-                          : Color(.secondarySystemGroupedBackground))
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5)
-                    )
-            )
-            .foregroundStyle(selected ? Color.accentColor : .primary)
-        }
-        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: selected)
-        .accessibilityLabel(tex.displayName)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-
     // MARK: - Zone 4: Quick Settings
 
     private var quickSettings: some View {
@@ -507,8 +419,6 @@ struct NotebookQuickCreator: View {
 
                 orientationPicker
 
-                materialStrip
-
                 themePicker
             }
             .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -560,55 +470,6 @@ struct NotebookQuickCreator: View {
         }
     }
 
-    private var materialStrip: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Paper Material")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(PaperMaterial.allCases) { m in
-                        materialChip(m)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-
-    private func materialChip(_ m: PaperMaterial) -> some View {
-        let selected = paperMaterial == m
-        return Button {
-            paperMaterial = m
-        } label: {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(m.pageTint)
-                    .frame(width: 18, height: 18)
-                    .overlay(
-                        Circle().strokeBorder(Color(uiColor: .separator).opacity(0.4), lineWidth: 0.5)
-                    )
-                Text(m.displayName)
-                    .font(.caption.weight(selected ? .semibold : .regular))
-            }
-            .padding(.vertical, 7)
-            .padding(.horizontal, 12)
-            .background(
-                Capsule()
-                    .fill(selected
-                          ? Color.accentColor.opacity(0.12)
-                          : Color(.secondarySystemGroupedBackground))
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5)
-                    )
-            )
-            .foregroundStyle(selected ? Color.accentColor : .primary)
-        }
-        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: selected)
-    }
-
     private var themePicker: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Default Theme")
@@ -650,16 +511,13 @@ struct NotebookQuickCreator: View {
             pageSize: pageSize,
             orientation: orientation,
             defaultTheme: defaultTheme,
-            paperMaterial: paperMaterial,
-            customCoverData: useCustomCover ? customCoverData : nil,
-            coverTexture: coverTexture
+            customCoverData: useCustomCover ? customCoverData : nil
         )
 
         // Auto-create the first page so the notebook opens ready to write
         noteStore.addNote(
             inNotebook: nb.id,
-            pageType: pageType,
-            paperMaterial: paperMaterial
+            pageType: pageType
         )
 
         // Brief delay to show checkmark then dismiss

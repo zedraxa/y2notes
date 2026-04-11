@@ -30,7 +30,6 @@ struct NotePageCarouselView: View {
     let drawingPolicy: PKCanvasViewDrawingPolicy
     let zoomResetTrigger: Bool
     let pageTypeForIndex: (Int) -> PageType
-    let paperMaterial: PaperMaterial
     let activeFX: WritingFXType
     let fxColor: UIColor
     let onDrawingChanged: (Data, Int) -> Void
@@ -164,7 +163,6 @@ struct NotePageCarouselView: View {
             drawingPolicy: drawingPolicy,
             zoomResetTrigger: zoomResetTrigger,
             pageType: pageTypeForIndex(idx),
-            paperMaterial: paperMaterial,
             activeFX: activeFX,
             fxColor: fxColor,
             pageIndex: idx,

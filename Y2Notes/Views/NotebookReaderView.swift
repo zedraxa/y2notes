@@ -158,10 +158,6 @@ struct NotebookReaderView: View {
         effectiveTheme.definition
     }
 
-    var effectivePaperMaterial: PaperMaterial {
-        currentNote?.paperMaterial ?? notebook.paperMaterial
-    }
-
     /// Per-page ruling: pageTypes[pageIndex] → note.pageType → section.defaultPageType → notebook.pageType → .blank
     func effectivePageType(for ref: PageRef) -> PageType {
         guard let note = noteStore.notes.first(where: { $0.id == ref.noteID }) else {
@@ -179,16 +175,13 @@ struct NotebookReaderView: View {
         return notebook.pageType
     }
 
-    /// Canvas background: per-page colour → theme + material blend.
+    /// Canvas background: per-page colour → theme base.
     func canvasBackground(for ref: PageRef) -> UIColor {
         if let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
            let explicit = note.pageColor(forPage: ref.pageIndex) {
             return explicit
         }
-        return blendedBackground(
-            base: effectiveDefinition.canvasBackground,
-            tint: effectivePaperMaterial.pageTint
-        )
+        return effectiveDefinition.canvasBackground
     }
 
     // MARK: - Body
@@ -196,14 +189,9 @@ struct NotebookReaderView: View {
     var body: some View {
         let pages = allPages
         VStack(spacing: 0) {
-            // Notebook identity bar — gradient strip with texture hint
+            // Notebook identity bar — gradient strip
             ZStack {
                 notebook.cover.gradient
-                CoverTextureOverlay(
-                    texture: notebook.coverTexture,
-                    size: CGSize(width: 600, height: 4),
-                    intensity: 0.6
-                )
             }
             .frame(height: 4)
             .opacity(0.85)
@@ -568,7 +556,6 @@ struct NotebookReaderView: View {
                 drawingPolicy: .anyInput,
                 zoomResetTrigger: false,
                 pageType: effectivePageType(for: ref),
-                paperMaterial: effectivePaperMaterial,
                 activeFX: inkStore.resolvedFX,
                 fxColor: inkStore.activePreset?.uiColor ?? toolStore.activeColor,
                 pageIndex: ref.pageIndex,
@@ -887,38 +874,80 @@ struct NotebookReaderView: View {
 
     // MARK: - Page navigation bar
 
+    // MARK: - Page Navigation Helpers
+
+    /// Navigate to the previous page with slide animation.
+    private func goToPreviousPage() {
+        slideDirection = .leading
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            flatPageIndex = max(0, flatPageIndex - 1)
+        }
+    }
+
+    /// Navigate to the next page with slide animation.
+    private func goToNextPage(totalPages: Int) {
+        slideDirection = .trailing
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
+        }
+    }
+
     private func notebookPageBar(totalPages: Int) -> some View {
-        HStack(spacing: 16) {
-            // Previous page
-            Button {
-                slideDirection = .leading
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                    flatPageIndex = max(0, flatPageIndex - 1)
+        HStack(spacing: 12) {
+            // Left: Back / Forward arrows
+            HStack(spacing: 4) {
+                Button {
+                    navigateBack()
+                } label: {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 32, height: 32)
                 }
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 32, height: 32)
+                .disabled(!navigationStore.canGoBack)
+                .accessibilityLabel("Go back")
+
+                Button {
+                    navigateForward()
+                } label: {
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 32, height: 32)
+                }
+                .disabled(!navigationStore.canGoForward)
+                .accessibilityLabel("Go forward")
             }
-            .disabled(flatPageIndex <= 0)
-            .accessibilityLabel("Previous page")
 
             Spacer()
 
-            // Page info — section + absolute page number (tap to jump)
+            // Center: Page indicator (tappable → page overview)
             Button {
                 jumpPageText = "\(flatPageIndex + 1)"
                 showJumpToPage = true
             } label: {
-                VStack(spacing: 1) {
-                    if let sName = currentPage?.sectionName {
-                        Text(sName)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(Color.accentColor)
+                HStack(spacing: 6) {
+                    // Previous page chevron
+                    Button {
+                        goToPreviousPage()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
+                    .disabled(flatPageIndex <= 0)
+
                     Text("Page \(flatPageIndex + 1) of \(totalPages)")
-                        .font(.subheadline.monospacedDigit())
+                        .font(.caption.weight(.medium).monospacedDigit())
                         .foregroundStyle(.secondary)
+
+                    // Next page chevron
+                    Button {
+                        goToNextPage(totalPages: totalPages)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .disabled(flatPageIndex >= totalPages - 1)
                 }
             }
             .buttonStyle(.plain)
@@ -929,71 +958,44 @@ struct NotebookReaderView: View {
 
             Spacer()
 
-            // Add page to the current note
-            Button {
-                if let ref = currentPage,
-                   let newIdx = noteStore.addPage(to: ref.noteID) {
-                    let updatedPages = allPages
-                    if let newFlat = updatedPages.firstIndex(where: {
-                        $0.noteID == ref.noteID && $0.pageIndex == newIdx
-                    }) {
-                        slideDirection = .trailing
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                            flatPageIndex = newFlat
-                        }
-                    } else {
-                        slideDirection = .trailing
-                        flatPageIndex = min(flatPageIndex + 1, allPages.count - 1)
+            // Right: Bookmark toggle + Search
+            HStack(spacing: 4) {
+                Button {
+                    if let ref = currentPage {
+                        navigationStore.toggleBookmark(
+                            notebookID: notebook.id,
+                            noteID: ref.noteID,
+                            pageIndex: ref.pageIndex
+                        )
                     }
+                } label: {
+                    let isMarked = currentPage.map {
+                        navigationStore.isBookmarked(
+                            notebookID: notebook.id,
+                            noteID: $0.noteID,
+                            pageIndex: $0.pageIndex
+                        )
+                    } ?? false
+                    Image(systemName: isMarked ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(isMarked ? .red : .primary)
+                        .frame(width: 32, height: 32)
                 }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 32, height: 32)
-            }
-            .accessibilityLabel("Add page")
+                .accessibilityLabel("Toggle bookmark")
 
-            // Bookmark toggle for current page
-            Button {
-                if let ref = currentPage {
-                    navigationStore.toggleBookmark(
-                        notebookID: notebook.id,
-                        noteID: ref.noteID,
-                        pageIndex: ref.pageIndex
-                    )
+                Button {
+                    showUniversalSearch = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 32, height: 32)
                 }
-            } label: {
-                let isMarked = currentPage.map {
-                    navigationStore.isBookmarked(
-                        notebookID: notebook.id,
-                        noteID: $0.noteID,
-                        pageIndex: $0.pageIndex
-                    )
-                } ?? false
-                Image(systemName: isMarked ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isMarked ? .red : .primary)
-                    .frame(width: 32, height: 32)
+                .accessibilityLabel("Search in notebook")
             }
-            .accessibilityLabel("Toggle bookmark")
-
-            // Next page
-            Button {
-                slideDirection = .trailing
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                    flatPageIndex = min(totalPages - 1, flatPageIndex + 1)
-                }
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 32, height: 32)
-            }
-            .disabled(flatPageIndex >= totalPages - 1)
-            .accessibilityLabel("Next page")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .background(Color(uiColor: .secondarySystemBackground).opacity(0.85))
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Empty state
@@ -1027,24 +1029,6 @@ struct NotebookReaderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
-    }
-
-    // MARK: - Helpers
-
-    private func blendedBackground(base: UIColor, tint: Color) -> UIColor {
-        let isDark = effectiveDefinition.canvasIsDark
-        let fraction: CGFloat = isDark ? 0.07 : 0.15
-        let uiTint = UIColor(tint)
-        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
-        var tr: CGFloat = 0, tg: CGFloat = 0, tb: CGFloat = 0
-        base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
-        uiTint.getRed(&tr, green: &tg, blue: &tb, alpha: nil)
-        return UIColor(
-            red: br + (tr - br) * fraction,
-            green: bg + (tg - bg) * fraction,
-            blue: bb + (tb - bb) * fraction,
-            alpha: ba
-        )
     }
 
     // MARK: - Notebook cover page

@@ -40,8 +40,6 @@ struct CanvasPageDiff: OptionSet {
     static let defaultInkColor   = CanvasPageDiff(rawValue: 1 << 4)
     /// Page ruling style changed.
     static let pageType          = CanvasPageDiff(rawValue: 1 << 5)
-    /// Paper material changed.
-    static let paperMaterial     = CanvasPageDiff(rawValue: 1 << 6)
     /// Shape tool state changed (active, type, colour, or width).
     static let shapeTool         = CanvasPageDiff(rawValue: 1 << 7)
     /// Ink effect type or colour changed.
@@ -74,7 +72,7 @@ struct CanvasPageDiff: OptionSet {
     // MARK: - Compound sets
 
     /// All appearance-related changes (background, ruling, material).
-    static let appearance: CanvasPageDiff = [.backgroundColor, .pageType, .paperMaterial]
+    static let appearance: CanvasPageDiff = [.backgroundColor, .pageType]
     /// All effect-related changes.
     static let effects: CanvasPageDiff    = [.inkEffect, .magicMode, .studyMode, .ambientScene, .ambientSound]
     /// All object-layer changes.
@@ -107,7 +105,6 @@ struct CanvasPageDiff: OptionSet {
         if old.backgroundColor.cgColor != new.backgroundColor.cgColor { diff.insert(.backgroundColor) }
         if old.defaultInkColor.cgColor != new.defaultInkColor.cgColor { diff.insert(.defaultInkColor) }
         if old.pageType != new.pageType                              { diff.insert(.pageType) }
-        if old.paperMaterial != new.paperMaterial                    { diff.insert(.paperMaterial) }
 
         // Shape tool
         if old.isShapeToolActive != new.isShapeToolActive

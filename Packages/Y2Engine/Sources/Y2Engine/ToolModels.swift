@@ -68,10 +68,10 @@ public enum DrawingTool: String, CaseIterable, Codable, Identifiable {
 /// Defines the physical character of the pen tool, tuning pressure response,
 /// velocity sensitivity, ink flow, and texture for six distinct pen feels.
 ///
-/// Each sub-type maps to a preset `WritingEffectConfig` (pressure curve, ink
-/// flow params, stroke taper) that is automatically applied when the user
-/// selects it.  The underlying `PKInkingTool` remains `.pen` in all cases —
-/// the differences are expressed through overlay physics, not PencilKit ink types.
+/// Each sub-type has distinct physics properties (width multiplier, velocity
+/// ceiling, texture, opacity variance) tuned for its specific character.
+/// The underlying `PKInkingTool` remains `.pen` in all cases —
+/// the differences are expressed through these property variations.
 public enum PenSubType: String, CaseIterable, Codable, Identifiable {
     /// Everyday ballpoint: crisp, consistent, moderate pressure response.
     case ballpoint
@@ -137,18 +137,6 @@ public enum PenSubType: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    /// Pressure response preset for this sub-type.
-    public var pressureCurvePreset: PressureCurvePreset {
-        switch self {
-        case .ballpoint:    return .balanced
-        case .gel:          return .firm
-        case .feltTip:      return .light
-        case .rollerball:   return .balanced
-        case .technicalPen: return .flat
-        case .sketchy:      return .light
-        }
-    }
-
     /// Velocity ceiling override (pts/s). Lower = more taper at speed.
     public var velocityCeiling: CGFloat {
         switch self {
@@ -182,31 +170,6 @@ public enum PenSubType: String, CaseIterable, Codable, Identifiable {
         case .rollerball:   return 0.7
         case .technicalPen: return 0.0
         case .sketchy:      return 3.0
-        }
-    }
-
-    /// Whether the stroke start/end should fade in/out (taper simulation).
-    public var strokeTaperEnabled: Bool {
-        switch self {
-        case .ballpoint, .gel, .feltTip, .technicalPen: return false
-        case .rollerball, .sketchy:                      return true
-        }
-    }
-
-    /// Whether ink should visually pool (glow expands) when the nib slows.
-    public var inkPoolingEnabled: Bool {
-        switch self {
-        case .gel, .feltTip:                                         return true
-        case .ballpoint, .rollerball, .technicalPen, .sketchy:       return false
-        }
-    }
-
-    /// Pooling glow expansion factor (0 = none, 1 = large pool).
-    public var poolingStrength: CGFloat {
-        switch self {
-        case .gel:     return 0.55
-        case .feltTip: return 0.80
-        default:       return 0.0
         }
     }
 }
@@ -477,33 +440,5 @@ public struct ToolPreset: Identifiable, Codable, Equatable {
         try c.encode(opacity,         forKey: .opacity)
         try c.encode(isFavorite,      forKey: .isFavorite)
         try c.encodeIfPresent(penSubType, forKey: .penSubType)
-    }
-}
-
-// MARK: - PenSubType → WritingEffectConfig
-
-extension PenSubType {
-
-    /// Builds a `WritingEffectConfig` that reflects the physical character of
-    /// this pen sub-type.
-    ///
-    /// User-toggled advanced effects (`glowPenEnabled`, `neonInkEnabled`, etc.)
-    /// are copied from `base` unchanged — the sub-type only overrides the physics
-    /// parameters (pressure curve, ink flow, taper, pooling).
-    ///
-    /// - Parameter base: The existing config to preserve advanced-effect toggles from.
-    ///                   Defaults to `.default` (all advanced effects off).
-    public func makeWritingEffectConfig(preservingUserToggles base: WritingEffectConfig = .default) -> WritingEffectConfig {
-        var c = base
-        c.pressureCurve    = pressureCurvePreset
-        c.strokeTaperEnabled = strokeTaperEnabled
-        c.inkPoolingEnabled  = inkPoolingEnabled
-        c.inkFlow = InkFlowParams(
-            microTextureMultiplier:    microTextureMultiplier,
-            opacityVarianceMultiplier: opacityVarianceMultiplier,
-            velocityCeiling:           velocityCeiling,
-            poolingStrength:           poolingStrength
-        )
-        return c
     }
 }

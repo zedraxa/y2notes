@@ -89,7 +89,6 @@ public struct Note: Identifiable, Codable, Hashable {
         return pageTypes[index] ?? pageType
     }
 
-    public var paperMaterial: PaperMaterial?
     public var pageColors: [[Double]?]
     public var stickerLayers: [[StickerInstance]?]
     public var shapeLayers: [[ShapeInstance]?]
@@ -166,7 +165,6 @@ public struct Note: Identifiable, Codable, Hashable {
         themeOverride: AppTheme? = nil,
         pageType: PageType? = nil,
         pageTypes: [PageType?] = [],
-        paperMaterial: PaperMaterial? = nil,
         pageColors: [[Double]?] = [],
         stickerLayers: [[StickerInstance]?] = [],
         shapeLayers: [[ShapeInstance]?] = [],
@@ -195,7 +193,6 @@ public struct Note: Identifiable, Codable, Hashable {
         self.themeOverride = themeOverride
         self.pageType = pageType
         self.pageTypes = pageTypes
-        self.paperMaterial = paperMaterial
         self.pageColors = pageColors
         self.stickerLayers = stickerLayers
         self.shapeLayers = shapeLayers
@@ -216,7 +213,7 @@ public struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, textLayers, expansionRegions, pdfFilename
+        case pageType, pageTypes, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, textLayers, expansionRegions, pdfFilename
         case linkedPDFID, linkedDocumentID
         case typedText, ocrText, tags, colorLabel
     }
@@ -243,7 +240,6 @@ public struct Note: Identifiable, Codable, Hashable {
         themeOverride = try c.decodeIfPresent(AppTheme.self, forKey: .themeOverride)
         pageType      = try c.decodeIfPresent(PageType.self,      forKey: .pageType)
         pageTypes     = try c.decodeIfPresent([PageType?].self,   forKey: .pageTypes)   ?? []
-        paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
         pageColors    = try c.decodeIfPresent([[Double]?].self,    forKey: .pageColors)  ?? []
         stickerLayers = try c.decodeIfPresent([[StickerInstance]?].self, forKey: .stickerLayers) ?? []
         shapeLayers   = try c.decodeIfPresent([[ShapeInstance]?].self,   forKey: .shapeLayers)   ?? []
@@ -276,7 +272,6 @@ public struct Note: Identifiable, Codable, Hashable {
         try c.encodeIfPresent(themeOverride, forKey: .themeOverride)
         try c.encodeIfPresent(pageType,      forKey: .pageType)
         try c.encode(pageTypes,              forKey: .pageTypes)
-        try c.encodeIfPresent(paperMaterial, forKey: .paperMaterial)
         try c.encode(pageColors,              forKey: .pageColors)
         try c.encode(stickerLayers,            forKey: .stickerLayers)
         try c.encode(shapeLayers,              forKey: .shapeLayers)
