@@ -48,5 +48,4 @@ protocol ToolStateProvider: AnyObject {
 
     var widthRange: ClosedRange<CGFloat> { get }
     func clampWidthToPersonality()
-    var writingEffectConfig: WritingEffectConfig { get }
 }

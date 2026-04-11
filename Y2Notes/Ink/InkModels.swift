@@ -93,31 +93,15 @@ struct InkMaterialTraits: Codable, Equatable {
 /// Optional real-time writing effect rendered in a non-interactive overlay above
 /// the PKCanvasView.
 ///
-/// **`.none` has zero runtime cost** — no overlay view or CALayer is created when
-/// the active FX is `.none`.  This means the base note-taking path is completely
-/// unaffected by the FX system.
+/// Simplified for product readiness — only `.none` is supported.
 enum WritingFXType: String, CaseIterable, Codable, Identifiable {
-    case none      // no effect; always available on all devices
-    case sparkle   // brief bright sparks on stroke (standard+ tier)
-    case fire      // flame particles trailing the nib (pro+ tier)
+    case none      // no effect
 
     var id: String { rawValue }
 
-    var displayName: String {
-        switch self {
-        case .none:      return "None"
-        case .sparkle:   return "Sparkle"
-        case .fire:      return "Fire"
-        }
-    }
+    var displayName: String { "None" }
 
-    var systemImage: String {
-        switch self {
-        case .none:      return "slash.circle"
-        case .sparkle:   return "sparkles"
-        case .fire:      return "flame.fill"
-        }
-    }
+    var systemImage: String { "slash.circle" }
 }
 
 // MARK: - Particle Physics

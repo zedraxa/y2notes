@@ -478,31 +478,3 @@ struct ToolPreset: Identifiable, Codable, Equatable {
         try c.encodeIfPresent(penSubType, forKey: .penSubType)
     }
 }
-
-// MARK: - PenSubType → WritingEffectConfig
-
-extension PenSubType {
-
-    /// Builds a `WritingEffectConfig` that reflects the physical character of
-    /// this pen sub-type.
-    ///
-    /// User-toggled advanced effects (`glowPenEnabled`, `neonInkEnabled`, etc.)
-    /// are copied from `base` unchanged — the sub-type only overrides the physics
-    /// parameters (pressure curve, ink flow, taper, pooling).
-    ///
-    /// - Parameter base: The existing config to preserve advanced-effect toggles from.
-    ///                   Defaults to `.default` (all advanced effects off).
-    func makeWritingEffectConfig(preservingUserToggles base: WritingEffectConfig = .default) -> WritingEffectConfig {
-        var c = base
-        c.pressureCurve    = pressureCurvePreset
-        c.strokeTaperEnabled = strokeTaperEnabled
-        c.inkPoolingEnabled  = inkPoolingEnabled
-        c.inkFlow = InkFlowParams(
-            microTextureMultiplier:    microTextureMultiplier,
-            opacityVarianceMultiplier: opacityVarianceMultiplier,
-            velocityCeiling:           velocityCeiling,
-            poolingStrength:           poolingStrength
-        )
-        return c
-    }
-}
