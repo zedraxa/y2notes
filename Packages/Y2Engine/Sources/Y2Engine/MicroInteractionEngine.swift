@@ -216,9 +216,9 @@ public final class MicroInteractionEngine {
 
     private var activeAnimationCount: Int = 0
 
-    /// Current adaptive effect intensity.  Updated by the owning view
-    /// whenever `AdaptiveEffectsEngine.intensity` changes.  Defaults to
-    /// `.full` so existing callers that don't set it get original behaviour.
+    /// Current adaptive effect intensity.  Updated by the owning view.
+    /// Defaults to `.full` so existing callers that don't set it get
+    /// original behaviour.
     public var effectIntensity: EffectIntensity = .full
 
     /// Convenience guard: returns `true` when the animation should be skipped

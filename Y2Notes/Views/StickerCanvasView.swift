@@ -45,8 +45,7 @@ final class StickerCanvasView: UIView, EffectIntensityReceiver {
     private let microEngine = MicroInteractionEngine()
     private let interactionLayer = CALayer()
 
-    /// Current adaptive effect intensity.  Set by the editor coordinator
-    /// whenever `AdaptiveEffectsEngine.intensity` changes.
+    /// Current adaptive effect intensity.  Set by the editor coordinator.
     var effectIntensity: EffectIntensity = .full {
         didSet {
             microEngine.effectIntensity = effectIntensity

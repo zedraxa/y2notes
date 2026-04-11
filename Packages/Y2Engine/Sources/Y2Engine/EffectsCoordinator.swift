@@ -1,5 +1,4 @@
 import UIKit
-import Combine
 import Y2Core
 
 // MARK: - Canvas Event
@@ -25,9 +24,7 @@ public enum CanvasEvent {
     case strokeUpdated(at: CGPoint, pressure: CGFloat, velocity: CGFloat)
 
     /// The pencil lifted.  The last committed stroke's geometry is provided.
-    /// `headingBounds` is the stroke's `renderBounds` converted to viewport
-    /// space; used by `StudyModeEngine` for heading-glow detection.
-    case strokeEnded(at: CGPoint, start: CGPoint, inkColor: UIColor, headingBounds: CGRect)
+    case strokeEnded(at: CGPoint, start: CGPoint, inkColor: UIColor)
 }
 
 // MARK: - Sensory Context
@@ -92,15 +89,12 @@ public struct SensoryContext {
 
 /// Central mediator that owns all effect engines and dispatches canvas events.
 ///
-/// `EffectsCoordinator` provides two services:
+/// `EffectsCoordinator` provides centralized event dispatch:
 ///
-/// 1. **Intensity distribution** — `AdaptiveEffectsEngine.intensity` is
-///    propagated to every sub-engine automatically via Combine.
-///
-/// 2. **Event dispatch** — `dispatch(_:inkEffectEngine:)` accepts a typed
-///    `CanvasEvent` and routes it to every engine that cares, replacing the
-///    previous pattern of making three separate engine calls from
-///    `NoteEditorView.Coordinator` for every stroke lifecycle event.
+/// `dispatch(_:inkEffectEngine:)` accepts a typed `CanvasEvent` and routes
+/// it to every engine that cares, replacing the previous pattern of making
+/// multiple separate engine calls from `NoteEditorView.Coordinator` for
+/// every stroke lifecycle event.
 ///
 /// **Usage:**
 /// ```swift
@@ -124,9 +118,6 @@ public struct SensoryContext {
 public final class EffectsCoordinator {
 
     // MARK: - Engines
-
-    /// Evaluates context signals and publishes the current `EffectIntensity`.
-    public let adaptiveEngine = AdaptiveEffectsEngine()
 
     /// Physical page-turn effects.
     public let pageTransitionEngine = PageTransitionEngine()
