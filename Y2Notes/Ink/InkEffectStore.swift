@@ -111,11 +111,6 @@ final class InkEffectStore: ObservableObject {
         // Simplified: just return all built-in presets
         return InkFamilyRegistry.shared.allBuiltIn
     }
-            return builtIn.filter { $0.family == .standard || $0.family == .metallic }
-        case .paper:
-            return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
-        }
-    }
 
     // MARK: - Persistence
 
