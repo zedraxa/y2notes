@@ -70,10 +70,6 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
 
     // Convenience accessors forwarded to the coordinator.
     var pageTransitionEngine: PageTransitionEngine { effects.pageTransitionEngine }
-    var focusModeEngine: FocusModeEngine           { effects.focusModeEngine }
-    var ambientEngine: AmbientEnvironmentEngine    { effects.ambientEngine }
-    var magicModeEngine: MagicModeEngine           { effects.magicModeEngine }
-    var studyModeEngine: StudyModeEngine           { effects.studyModeEngine }
     var adaptiveEffectsEngine: AdaptiveEffectsEngine { effects.adaptiveEngine }
     var writingPipeline: WritingEffectsPipeline    { effects.writingEffectsPipeline }
     var microInteractionEngine: MicroInteractionEngine { effects.microInteractionEngine }
@@ -1014,12 +1010,6 @@ enum CanvasViewBuilder {
         widgetCanvas.onWidgetsChanged = { widgets in
             coordinator.handleWidgetsChanged(widgets)
         }
-        widgetCanvas.onChecklistCompleted = { _, center in
-            coordinator.studyModeEngine.checklistComplete(at: center)
-        }
-        widgetCanvas.onTimerCompleted = { _, _ in
-            coordinator.studyModeEngine.timerComplete()
-        }
         coordinator.onWidgetsChanged = onWidgetsChanged
         coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
         container.addSubview(widgetCanvas)
@@ -1270,17 +1260,12 @@ enum CanvasViewBuilder {
     }
 
     /// Syncs effects engines with current state.
-    // swiftlint:disable:next function_parameter_count
     static func syncEffects(
         coordinator: CanvasCoordinatorBase,
         layer: CALayer,
         bounds: CGRect,
         pageIndex: Int,
         pageCount: Int,
-        isMagicModeActive: Bool,
-        isStudyModeActive: Bool,
-        activeAmbientScene: AmbientScene?,
-        isAmbientSoundEnabled: Bool,
         activeFX: WritingFXType,
         fxColor: UIColor,
         toolStore: DrawingToolStore?
@@ -1298,32 +1283,7 @@ enum CanvasViewBuilder {
             stickerCanvas: coordinator.stickerCanvas
         )
 
-        coordinator.effects.setMagicMode(active: isMagicModeActive, on: layer)
-        coordinator.effects.setStudyMode(active: isStudyModeActive, on: layer)
         coordinator.effects.updateLayout(containerBounds: bounds)
-
-        let ambientEngine = coordinator.ambientEngine
-        ambientEngine.soundEnabled = isAmbientSoundEnabled
-        switch (activeAmbientScene, ambientEngine.activeScene) {
-        case let (scene?, current) where current != scene:
-            // New scene requested — activate it (requires toolStore for fade control)
-            if let ts = toolStore {
-                ambientEngine.activate(scene, on: layer, toolStore: ts)
-            }
-        case (nil, .some):
-            // Scene should be deactivated
-            if let ts = toolStore {
-                ambientEngine.deactivate(toolStore: ts)
-            } else {
-                // Fallback: deactivate immediately if toolStore unavailable
-                ambientEngine.deactivateImmediately()
-            }
-        default:
-            break
-        }
-        if ambientEngine.activeScene != nil {
-            ambientEngine.updateLayout(containerBounds: bounds)
-        }
 
         if let engine = coordinator.effectEngine {
             engine.syncLayerFrames()
