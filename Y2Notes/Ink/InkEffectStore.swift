@@ -1,31 +1,12 @@
 import Foundation
 import UIKit
 
-/// Observable store that manages the active `InkPreset` and writing-FX selection.
+/// Simplified store that manages the active writing FX (fire or sparkle).
 ///
-/// **Device compatibility**
-/// `deviceTier` is detected once at init from `DeviceCapabilityTier.current` and
-/// is read-only for the lifetime of the store.  Any FX that the device cannot
-/// support will be silently downgraded to `.none` by `InkEffectEngine.configure`.
-///
-/// **Theme hook** — `presetsForTheme(_:)` returns theme-curated preset suggestions.
-/// Future agents can consume this to auto-switch ink packs when the user changes
-/// the app theme.  The hook is intentionally simple so it can be expanded without
-/// touching the store's core state management.
-///
-/// **Base writing path** — when `activePreset` is `nil` (the default) the ink
-/// system is entirely transparent: `DrawingToolStore` drives the PKCanvasView tool
-/// exactly as before, and no `InkEffectEngine` overlay is rendered.
+/// With only two effects available, this store is now minimal and focused
+/// on basic FX selection and persistence.
 @MainActor
 final class InkEffectStore: ObservableObject {
-
-    // MARK: - Device capability (immutable after init)
-
-    /// The detected device capability tier.  Read-only; never changes at runtime.
-    let deviceTier: DeviceCapabilityTier = .current
-
-    /// Whether the device supports *any* overlay FX at all.
-    var isEffectsSupported: Bool { deviceTier.supportsAnyFX }
 
     // MARK: - Published state
 
@@ -48,11 +29,10 @@ final class InkEffectStore: ObservableObject {
     // MARK: - Computed
 
     /// The resolved FX that should actually be rendered — `.none` when FX is
-    /// disabled, the device can't support it, or no preset is active.
+    /// disabled or no preset is active.
     var resolvedFX: WritingFXType {
-        guard fxEnabled, isEffectsSupported, let preset = activePreset else { return .none }
-        let fx = preset.writingFX
-        return fx.isSupported(on: deviceTier) ? fx : .none
+        guard fxEnabled, let preset = activePreset else { return .none }
+        return preset.writingFX
     }
 
     /// All available presets: built-in (from registry) followed by user-created.
@@ -127,27 +107,10 @@ final class InkEffectStore: ObservableObject {
     // MARK: - Theme hook
 
     /// Returns built-in preset suggestions that pair well with the given theme.
-    ///
-    /// Future agents can extend this to include theme-specific ink packs loaded
-    /// from a bundle or remote resource.
     func presetsForTheme(_ theme: AppTheme) -> [InkPreset] {
-        let builtIn = InkFamilyRegistry.shared.allBuiltIn
-        switch theme {
-        case .system, .light:
-            return builtIn.filter { $0.family == .standard || $0.family == .metallic }
-        case .sepia:
-            return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
-        case .dark:
-            return builtIn.filter { $0.family == .neon || $0.family == .metallic }
-        case .midnight:
-            return builtIn.filter { $0.family == .glitch || $0.family == .phantom || $0.family == .neon }
-        case .ocean:
-            return builtIn.filter { $0.family == .watercolor || $0.family == .neon }
-        case .rose, .lavender:
-            return builtIn.filter { $0.family == .watercolor || $0.family == .standard }
-        case .forest:
-            return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
-        case .slate, .ember:
+        // Simplified: just return all built-in presets
+        return InkFamilyRegistry.shared.allBuiltIn
+    }
             return builtIn.filter { $0.family == .standard || $0.family == .metallic }
         case .paper:
             return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
