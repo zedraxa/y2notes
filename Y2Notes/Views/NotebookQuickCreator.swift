@@ -152,39 +152,22 @@ struct NotebookQuickCreator: View {
             .frame(width: 140, height: 196)
             .clipShape(RoundedRectangle(cornerRadius: 14))
 
-            // Spine highlight with stitching
-            ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(
-                        LinearGradient(
-                            colors: [.white.opacity(0.28), .black.opacity(0.04), .clear],
-                            startPoint: .leading,
-                            endPoint: .init(x: 0.14, y: 0)
-                        )
+            // Spine highlight
+            RoundedRectangle(cornerRadius: 14)
+                .fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.28), .black.opacity(0.04), .clear],
+                        startPoint: .leading,
+                        endPoint: .init(x: 0.14, y: 0)
                     )
-                    .frame(width: 140, height: 196)
-
-                CoverSpineStitching(height: 196, dotCount: 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 2)
-                    .frame(width: 140, height: 196)
-            }
+                )
+                .frame(width: 140, height: 196)
 
             // Book icon
             Image(systemName: "book.closed.fill")
                 .font(.system(size: 32))
                 .foregroundStyle(.white.opacity(0.50))
                 .frame(width: 140, height: 196)
-
-            // Embossed title (top center)
-            if !name.isEmpty {
-                VStack {
-                    CoverEmbossedTitle(text: name, maxWidth: 116)
-                        .padding(.top, 24)
-                    Spacer()
-                }
-                .frame(width: 140, height: 196)
-            }
 
             // Live title (bottom)
             if !name.isEmpty {

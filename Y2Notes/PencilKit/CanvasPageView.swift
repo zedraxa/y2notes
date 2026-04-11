@@ -272,10 +272,7 @@ struct CanvasPageView: UIViewRepresentable {
             onTextObjectsChanged: onTextObjectsChanged,
             onTextObjectSelectionChanged: onTextObjectSelectionChanged,
             onPlaceTextObject: onPlaceTextObject,
-            onShapesChanged: onShapesChanged,
-            activeFX: activeFX,
-            fxColor: fxColor,
-            toolStoreForFade: toolStoreForFade
+            onShapesChanged: onShapesChanged
         )
 
         // Pinch-in opens page overview.
@@ -381,21 +378,7 @@ struct CanvasPageView: UIViewRepresentable {
         // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
-        // Sync effects via shared helper.
-        CanvasViewBuilder.syncEffects(
-            coordinator: context.coordinator,
-            layer: uiView.layer,
-            bounds: uiView.bounds,
-            pageIndex: pageIndex,
-            pageCount: pageCount,
-            isMagicModeActive: isMagicModeActive,
-            isStudyModeActive: isStudyModeActive,
-            activeAmbientScene: activeAmbientScene,
-            isAmbientSoundEnabled: isAmbientSoundEnabled,
-            activeFX: activeFX,
-            fxColor: fxColor,
-            toolStore: toolStoreForFade
-        )
+        // Effects sync removed
 
         // Keep the zoom-changed callback current.
         context.coordinator.onZoomChanged = onZoomChanged

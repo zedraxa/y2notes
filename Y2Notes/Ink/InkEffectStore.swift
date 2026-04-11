@@ -1,43 +1,18 @@
 import Foundation
 import UIKit
 
-/// Observable store that manages the active `InkPreset` and writing-FX selection.
+/// Simplified ink preset store for basic color and width selection.
 ///
-/// **Device compatibility**
-/// `deviceTier` is detected once at init from `DeviceCapabilityTier.current` and
-/// is read-only for the lifetime of the store.  Any FX that the device cannot
-/// support will be silently downgraded to `.none` by `InkEffectEngine.configure`.
-///
-/// **Theme hook** — `presetsForTheme(_:)` returns theme-curated preset suggestions.
-/// Future agents can consume this to auto-switch ink packs when the user changes
-/// the app theme.  The hook is intentionally simple so it can be expanded without
-/// touching the store's core state management.
-///
-/// **Base writing path** — when `activePreset` is `nil` (the default) the ink
-/// system is entirely transparent: `DrawingToolStore` drives the PKCanvasView tool
-/// exactly as before, and no `InkEffectEngine` overlay is rendered.
+/// Manages user-created ink presets with color, width, and opacity settings.
+/// No particle effects or overlay FX — just clean, simple ink management.
 @MainActor
 final class InkEffectStore: ObservableObject {
 
-    // MARK: - Device capability (immutable after init)
-
-    /// The detected device capability tier.  Read-only; never changes at runtime.
-    let deviceTier: DeviceCapabilityTier = .current
-
-    /// Whether the device supports *any* overlay FX at all.
-    var isEffectsSupported: Bool { deviceTier.supportsAnyFX }
-
     // MARK: - Published state
 
-    /// The currently active premium ink preset.  `nil` means no premium ink is
-    /// selected — base `DrawingToolStore` behaviour is used unchanged.
+    /// The currently active ink preset. `nil` means use base DrawingToolStore defaults.
     @Published var activePreset: InkPreset? {
         didSet { persistActivePresetID() }
-    }
-
-    /// Master on/off switch for overlay FX.  Persisted to UserDefaults.
-    @Published var fxEnabled: Bool = true {
-        didSet { UserDefaults.standard.set(fxEnabled, forKey: Keys.fxEnabled) }
     }
 
     /// User-created presets (built-ins live in `InkFamilyRegistry`).
@@ -46,14 +21,6 @@ final class InkEffectStore: ObservableObject {
     }
 
     // MARK: - Computed
-
-    /// The resolved FX that should actually be rendered — `.none` when FX is
-    /// disabled, the device can't support it, or no preset is active.
-    var resolvedFX: WritingFXType {
-        guard fxEnabled, isEffectsSupported, let preset = activePreset else { return .none }
-        let fx = preset.writingFX
-        return fx.isSupported(on: deviceTier) ? fx : .none
-    }
 
     /// All available presets: built-in (from registry) followed by user-created.
     var allPresets: [InkPreset] {
@@ -71,7 +38,6 @@ final class InkEffectStore: ObservableObject {
     // MARK: - Init
 
     init() {
-        fxEnabled = UserDefaults.standard.object(forKey: Keys.fxEnabled) as? Bool ?? true
         loadUserPresets()
         restoreActivePreset()
     }
@@ -95,7 +61,6 @@ final class InkEffectStore: ObservableObject {
         name: String,
         family: InkFamily,
         traits: InkMaterialTraits,
-        fx: WritingFXType,
         color: UIColor,
         width: Double
     ) {
@@ -103,7 +68,7 @@ final class InkEffectStore: ObservableObject {
             name: name.trimmingCharacters(in: .whitespaces).isEmpty ? family.displayName : name,
             family: family,
             traits: traits,
-            writingFX: fx,
+            writingFX: .none,  // No effects in simplified version
             color: color,
             baseWidth: width,
             isFavorite: false,
@@ -127,37 +92,14 @@ final class InkEffectStore: ObservableObject {
     // MARK: - Theme hook
 
     /// Returns built-in preset suggestions that pair well with the given theme.
-    ///
-    /// Future agents can extend this to include theme-specific ink packs loaded
-    /// from a bundle or remote resource.
     func presetsForTheme(_ theme: AppTheme) -> [InkPreset] {
-        let builtIn = InkFamilyRegistry.shared.allBuiltIn
-        switch theme {
-        case .system, .light:
-            return builtIn.filter { $0.family == .standard || $0.family == .metallic }
-        case .sepia:
-            return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
-        case .dark:
-            return builtIn.filter { $0.family == .neon || $0.family == .metallic }
-        case .midnight:
-            return builtIn.filter { $0.family == .glitch || $0.family == .phantom || $0.family == .neon }
-        case .ocean:
-            return builtIn.filter { $0.family == .watercolor || $0.family == .neon }
-        case .rose, .lavender:
-            return builtIn.filter { $0.family == .watercolor || $0.family == .standard }
-        case .forest:
-            return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
-        case .slate, .ember:
-            return builtIn.filter { $0.family == .standard || $0.family == .metallic }
-        case .paper:
-            return builtIn.filter { $0.family == .standard || $0.family == .watercolor }
-        }
+        // Return all built-in presets
+        return InkFamilyRegistry.shared.allBuiltIn
     }
 
     // MARK: - Persistence
 
     private enum Keys {
-        static let fxEnabled         = "y2notes.ink.fxEnabled"
         static let userPresets       = "y2notes.ink.userPresets"
         static let activePresetID    = "y2notes.ink.activePresetID"
     }

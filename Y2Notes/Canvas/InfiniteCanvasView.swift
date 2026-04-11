@@ -74,6 +74,7 @@ struct InfiniteCanvasView: View {
             drawingData: config.drawingData,
             backgroundColor: config.backgroundColor,
             defaultInkColor: config.defaultInkColor,
+            pageType: config.pageType,
             currentTool: config.currentTool,
             isShapeToolActive: config.isShapeToolActive,
             activeShapeType: config.activeShapeType,

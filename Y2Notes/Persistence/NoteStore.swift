@@ -192,6 +192,10 @@ final class NoteStore: ObservableObject {
         // Previous session did not exit cleanly. Data is safe due to atomic writes
         // and rolling backups. Log for diagnostics.
         storeLogger.warning("Crash detected — previous session did not exit cleanly. Data recovered from last save.")
+        // Notify PerformanceMonitor to update crash-free rate
+        Task { @MainActor in
+            PerformanceMonitor.shared.recordCrashDetected()
+        }
     }
 
     // MARK: - Note CRUD
@@ -1106,6 +1110,13 @@ final class NoteStore: ObservableObject {
         save()
     }
 
+    func updateNotebookCustomCover(id: UUID, customCoverData: Data?) {
+        guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
+        notebooks[idx].customCoverData = customCoverData
+        notebooks[idx].modifiedAt = Date()
+        save()
+    }
+
     func updateNotebookLastOpened(id: UUID) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
         notebooks[idx].lastOpenedAt = Date()
@@ -1180,6 +1191,7 @@ final class NoteStore: ObservableObject {
     /// Writes all data files atomically and updates `saveState`.
     /// Optionally creates a snapshot for notes with dirty pages.
     private func flushToDisk(trigger: SnapshotTrigger = .autosave) {
+        let saveStart = Date()
         saveState = .saving
         var firstError: Error?
 
@@ -1218,6 +1230,10 @@ final class NoteStore: ObservableObject {
             assertionFailure("Y2Notes: save failed — \(error)")
         } else {
             saveState = .saved
+            let saveDuration = Date().timeIntervalSince(saveStart) * 1000
+            Task { @MainActor in
+                PerformanceMonitor.shared.recordSaveOperation(durationMs: saveDuration)
+            }
         }
 
         // Create snapshots for notes with dirty pages (background queue).

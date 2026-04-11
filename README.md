@@ -9,7 +9,7 @@ A premium iPad note-taking app built with SwiftUI and PencilKit — designed for
 | Feature | Description |
 |---------|-------------|
 | **PencilKit Canvas** | Full Apple Pencil support: pressure, tilt, barrel-roll (Pencil Pro), hover preview (M2+ iPad Pro) |
-| **Ink Effects** | Fire 🔥, sparkle ✨, glitch 🌀, ripple 💧 — real-time particle overlays with per-device performance budgets |
+| **Ink Effects** | Fire 🔥, sparkle ✨ — real-time particle overlays for expressive note-taking |
 | **Multi-Page Notes** | Book-like experience: add/remove/navigate pages within a single note |
 | **Notebooks & Sections** | Organise notes into notebooks with collapsible sections, reorder/rename/delete |
 | **Study System** | SM-2 spaced repetition flashcards with mastery tracking, bulk import, and study stats |
@@ -40,10 +40,10 @@ Y2NotesApp (@main)
 │  └─ GoogleDriveSyncEngine — cloud backup
 │
 ├─ Ink Effect Pipeline
-│  ├─ InkModels          — DeviceCapabilityTier, InkFamily, InkPreset, WritingFXType
-│  ├─ InkFamilyRegistry  — 20 built-in presets across 7 families
+│  ├─ InkModels          — InkFamily, InkPreset, WritingFXType
+│  ├─ InkFamilyRegistry  — Built-in presets across multiple families
 │  ├─ InkEffectStore     — preset selection, user presets, persistence
-│  └─ InkEffectEngine    — CAEmitterLayer / CAShapeLayer overlay rendering
+│  └─ InkEffectEngine    — CAEmitterLayer overlay rendering
 │
 └─ Persistence
    ├─ y2notes_notes.json      (Note array — multi-page drawing data)

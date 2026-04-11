@@ -28,6 +28,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
     let drawingData: Data
     let backgroundColor: UIColor
     let defaultInkColor: UIColor
+    let pageType: PageType
     let currentTool: PKTool
     let isShapeToolActive: Bool
     let activeShapeType: ShapeType
@@ -93,7 +94,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
         let container = UIView()
         container.backgroundColor = CanvasConstants.deskSurfaceColor
 
-        // ── Page background (blank, no ruling — whiteboard feel) ─────────
+        // ── Page background (configurable ruling — whiteboard feel) ─────────
         let ps = CanvasConstants.pageSize
         let multiplier = CanvasConstants.infiniteCanvasMultiplier
         let bgSize = CGSize(
@@ -102,7 +103,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
         )
         let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: bgSize))
         pageBackground.pageColor = backgroundColor
-        pageBackground.pageType = .blank
+        pageBackground.pageType = pageType
         pageBackground.lineColor = CanvasConstants.rulingLineColor(for: backgroundColor)
         pageBackground.isUserInteractionEnabled = false
         // No shadow for infinite canvas — whiteboard feel.
@@ -203,10 +204,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
             onTextObjectsChanged: onTextObjectsChanged,
             onTextObjectSelectionChanged: onTextObjectSelectionChanged,
             onPlaceTextObject: onPlaceTextObject,
-            onShapesChanged: onShapesChanged,
-            activeFX: activeFX,
-            fxColor: fxColor,
-            toolStoreForFade: toolStoreForFade
+            onShapesChanged: onShapesChanged
         )
 
         // Seed coordinator state.
@@ -243,11 +241,31 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
 
         context.coordinator.toolStoreRef = toolStoreForFade
 
+        // Sync drawing data if it changed externally (e.g., page navigated away and back).
+        let currentDrawingData = canvas.drawing.dataRepresentation()
+        if currentDrawingData != drawingData {
+            context.coordinator.suppressDrawingChangeHandler = true
+            if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
+                canvas.drawing = drawing
+                // Re-expand canvas if needed after restoring drawing
+                context.coordinator.expandCanvasIfNeeded(in: canvas)
+            } else {
+                canvas.drawing = PKDrawing()
+            }
+            context.coordinator.lastPropagatedDrawingData = canvas.drawing.dataRepresentation()
+            context.coordinator.suppressDrawingChangeHandler = false
+            // Explicitly sync background after drawing restoration
+            context.coordinator.syncBackgroundWithCanvas(canvas)
+        }
+
         // Sync page background.
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
                 bg.pageColor = backgroundColor
                 bg.lineColor = CanvasConstants.rulingLineColor(for: backgroundColor)
+            }
+            if bg.pageType != pageType {
+                bg.pageType = pageType
             }
             context.coordinator.syncBackgroundWithCanvas(canvas)
         }
@@ -329,21 +347,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
 
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
-        // Sync effects via shared helper.
-        CanvasViewBuilder.syncEffects(
-            coordinator: context.coordinator,
-            layer: uiView.layer,
-            bounds: uiView.bounds,
-            pageIndex: 0,
-            pageCount: 1,
-            isMagicModeActive: isMagicModeActive,
-            isStudyModeActive: isStudyModeActive,
-            activeAmbientScene: activeAmbientScene,
-            isAmbientSoundEnabled: isAmbientSoundEnabled,
-            activeFX: activeFX,
-            fxColor: fxColor,
-            toolStore: toolStoreForFade
-        )
+        // Effects sync removed
 
         context.coordinator.onZoomChanged = onZoomChanged
     }

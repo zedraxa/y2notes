@@ -224,30 +224,6 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts false (normal UI).
     @Published var isFocusModeActive: Bool = false
 
-    /// The currently active ambient environment scene (rain, lo-fi, night).
-    /// `nil` means no ambient scene is active.
-    /// **Not persisted** — always starts nil.
-    @Published var activeAmbientScene: AmbientScene?
-
-    /// Whether ambient soundscapes are enabled.
-    /// When `false` the `AmbientEnvironmentEngine` plays no audio even if a
-    /// scene is active.  **Not persisted** — defaults to `true`.
-    @Published var isAmbientSoundEnabled: Bool = true
-
-    /// Whether "Magic Mode" is active — writing particles, keyword glow,
-    /// underline highlight animation.
-    /// Persisted in UserDefaults — default off.
-    @Published var isMagicModeActive: Bool = false {
-        didSet { UserDefaults.standard.set(isMagicModeActive, forKey: Keys.magicModeActive) }
-    }
-
-    /// Whether "Study Mode" is active — heading glow, checklist completion
-    /// animation, timer completion pulse.
-    /// Persisted in UserDefaults — default off.
-    @Published var isStudyModeActive: Bool = false {
-        didSet { UserDefaults.standard.set(isStudyModeActive, forKey: Keys.studyModeActive) }
-    }
-
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.
@@ -327,19 +303,6 @@ final class DrawingToolStore: ObservableObject {
         guard let p = activePersonality else { return }
         let clamped = min(max(activeWidth, Double(p.minWidth)), Double(p.maxWidth))
         if clamped != activeWidth { activeWidth = clamped }
-    }
-
-    /// The `WritingEffectConfig` for the current pen state.
-    ///
-    /// When the active tool is `.pen` the config is derived from `activePenSubType`
-    /// (pressure curve, ink flow, taper, pooling).  For all other tools the
-    /// default config is returned so the pipeline stays dormant.
-    ///
-    /// Pass this to `WritingEffectsPipeline.configure(config:color:)` whenever
-    /// the tool or sub-type changes.
-    var writingEffectConfig: WritingEffectConfig {
-        guard activeTool == .pen else { return .default }
-        return activePenSubType.makeWritingEffectConfig()
     }
 
     // MARK: - Recent Colors
@@ -445,8 +408,6 @@ final class DrawingToolStore: ObservableObject {
         static let opacity    = "y2notes.tool.opacity"
         static let toolbarMinimized = "y2notes.tool.toolbarMinimized"
         static let penSubType = "y2notes.tool.penSubType"
-        static let magicModeActive  = "y2notes.tool.magicModeActive"
-        static let studyModeActive  = "y2notes.tool.studyModeActive"
         static let textFontSize     = "y2notes.tool.textFontSize"
         static let textAlignment    = "y2notes.tool.textAlignment"
         static let textFontFamily   = "y2notes.tool.textFontFamily"
@@ -567,10 +528,6 @@ final class DrawingToolStore: ObservableObject {
         if let raw = ud.string(forKey: Keys.penSubType), let sub = PenSubType(rawValue: raw) {
             activePenSubType = sub
         }
-
-        // Magic & Study mode (default off — bool(forKey:) returns false for missing keys).
-        isMagicModeActive = ud.bool(forKey: Keys.magicModeActive)
-        isStudyModeActive = ud.bool(forKey: Keys.studyModeActive)
 
         // Text tool defaults.
         let tf = ud.double(forKey: Keys.textFontSize)

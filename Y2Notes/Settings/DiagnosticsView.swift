@@ -13,6 +13,7 @@ struct DiagnosticsView: View {
     @EnvironmentObject var settingsStore: AppSettingsStore
 
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var performanceMonitor = PerformanceMonitor.shared
 
     @State private var diagnosticText: String = ""
     @State private var showShareSheet = false
@@ -21,6 +22,7 @@ struct DiagnosticsView: View {
     var body: some View {
         NavigationStack {
             List {
+                performanceSection
                 storageSection
                 contrastValidationSection
                 dataIntegritySection
@@ -45,6 +47,77 @@ struct DiagnosticsView: View {
                 Text("The onboarding flow will appear again the next time you open Y2Notes.")
             }
         }
+    }
+
+    // MARK: - Performance (Phase 5)
+
+    private var performanceSection: some View {
+        Section {
+            performanceRow(
+                "Launch Time",
+                value: String(format: "%.1f ms", performanceMonitor.launchTimeMs),
+                target: "< 500ms",
+                passes: performanceMonitor.launchTimeMs < 500
+            )
+            performanceRow(
+                "Page Switch (avg)",
+                value: String(format: "%.1f ms", performanceMonitor.averagePageSwitchMs),
+                target: "< 100ms",
+                passes: performanceMonitor.averagePageSwitchMs < 100
+            )
+            performanceRow(
+                "Save Latency (avg)",
+                value: String(format: "%.1f ms", performanceMonitor.averageSaveLatencyMs),
+                target: "< 50ms",
+                passes: performanceMonitor.averageSaveLatencyMs < 50
+            )
+            performanceRow(
+                "Memory Usage",
+                value: String(format: "%.1f MB", performanceMonitor.currentMemoryMB),
+                target: "< 50MB",
+                passes: performanceMonitor.currentMemoryMB < 50
+            )
+            performanceRow(
+                "Crash-Free Rate",
+                value: String(format: "%.2f%%", performanceMonitor.crashFreeRate),
+                target: "> 99.5%",
+                passes: performanceMonitor.crashFreeRate >= 99.5
+            )
+
+            if performanceMonitor.meetsAllTargets {
+                HStack {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                    Text("All Phase 5 targets met")
+                        .foregroundStyle(.green)
+                        .fontWeight(.medium)
+                }
+            }
+        } header: {
+            Text("Performance Metrics (Phase 5)")
+        } footer: {
+            Text("Quality targets for launch readiness. All metrics should be in green for optimal performance.")
+        }
+    }
+
+    private func performanceRow(_ title: String, value: String, target: String, passes: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text("Target: \(target)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            HStack(spacing: 4) {
+                Text(value)
+                    .foregroundStyle(passes ? .green : .red)
+                    .fontWeight(.medium)
+                Image(systemName: passes ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundStyle(passes ? .green : .red)
+            }
+        }
+        .accessibilityLabel("\(title): \(value). Target: \(target). \(passes ? "Passes" : "Fails")")
     }
 
     // MARK: - Storage
@@ -206,6 +279,8 @@ struct DiagnosticsView: View {
         lines.append("Date: \(ISO8601DateFormatter().string(from: Date()))")
         lines.append("Device: \(UIDevice.current.model)")
         lines.append("System: \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
+        lines.append("")
+        lines.append(performanceMonitor.generateReport())
         lines.append("")
         lines.append("Storage:")
         lines.append("  Notes: \(noteStore.notes.count)")

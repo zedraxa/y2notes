@@ -119,10 +119,15 @@ extension CanvasView {
             case .ended:
                 if pageIsDragging {
                     pageIsDragging = false
+                    let pageSwitchStart = Date()
                     pageTransitionEngine.finishInteractiveDrag(
                         on: view, velocityX: velocity.x, pageWidth: pageWidth
                     ) { [weak self] committed in
                         guard let self, committed else { return }
+                        let pageSwitchDuration = Date().timeIntervalSince(pageSwitchStart) * 1000
+                        Task { @MainActor in
+                            PerformanceMonitor.shared.recordPageSwitch(durationMs: pageSwitchDuration)
+                        }
                         self.flushPendingSave()
                         self.pageTurnImpact.impactOccurred()
                         self.pageTurnImpact.prepare()
@@ -134,7 +139,12 @@ extension CanvasView {
                     else { return }
                     let dir: PageTransitionDirection = velocity.x < 0 ? .forward : .backward
                     guard !(dir == .backward && coordinatorPageIndex == 0) else { return }
+                    let pageSwitchStart = Date()
                     flushPendingSave()
+                    let pageSwitchDuration = Date().timeIntervalSince(pageSwitchStart) * 1000
+                    Task { @MainActor in
+                        PerformanceMonitor.shared.recordPageSwitch(durationMs: pageSwitchDuration)
+                    }
                     onPageSwipe?(dir == .forward ? 1 : -1)
                 }
 

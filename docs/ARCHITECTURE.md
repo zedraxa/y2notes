@@ -266,8 +266,8 @@ Three coordinate spaces are relevant to the canvas:
 │  ┌──────────────────────────────────────────────┐   │
 │  │  InkEffectEngine.overlayView                  │   │
 │  │  (same frame as container, non-interactive)   │   │
-│  │  Emitter positions, ripple centers are in     │   │
-│  │  THIS coordinate space.                       │   │
+│  │  Emitter positions are in THIS coordinate     │   │
+│  │  space.                                       │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                      │
 │  ┌──────────────────────────────────────────────┐   │
@@ -421,68 +421,85 @@ This ensures tools only update between strokes, never during.
 
 ## Canvas Rendering Engine (ARCH-01)
 
-The `Y2Notes/Engine/` module provides a UIKit-native canvas controller that
-decouples rendering from SwiftUI's view lifecycle.  The engine can be embedded
-in SwiftUI via the thin `Y2CanvasHostingView` wrapper or used directly in UIKit.
+The canvas rendering system is built using UIViewRepresentable wrappers around PKCanvasView,
+with three specialized implementations:
+
+1. **CanvasView** - Reader mode with page-swipe gestures
+2. **CanvasPageView** - Editor mode with paginated navigation
+3. **InfiniteCanvasPageView** - Whiteboard mode with dynamic expansion
+
+All three share a common **CanvasCoordinatorBase** that handles:
+- Drawing lifecycle (stroke capture, undo/redo)
+- Object overlays (shapes, attachments, widgets, stickers, text)
+- Apple Pencil interactions (hover, barrel-roll, squeeze)
+- Background/ruling synchronization
+- Effects coordination
 
 ### Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                  SwiftUI Host                                        │
-│  NoteEditorView → Y2CanvasHostingView (UIViewControllerRepresentable)│
-│                   (<50 lines — pure bridge)                          │
+│                  SwiftUI Host Layer                                  │
+│  NoteEditorView / NotebookReaderView                                 │
+│       ↓                                                              │
+│  CanvasPageView / CanvasView / InfiniteCanvasPageView                │
+│  (UIViewRepresentable)                                               │
 └──────────┬──────────────────────────────────────────────────────────┘
-           │  embeds
+           │  creates Coordinator
            ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│           Y2CanvasViewController  (pure UIKit, NO SwiftUI)           │
+│           CanvasCoordinatorBase (shared base class)                  │
 │                                                                      │
 │  ┌──────────────────┐  ┌───────────────────────────┐                │
-│  │  PKCanvasView    │  │  StrokeRenderingPipeline   │                │
-│  │  (input capture) │  │  ├─EffectsCoordinator      │                │
-│  │                  │  │  ├─Coordinate mapping       │                │
-│  │                  │  │  └─Effect activation        │                │
+│  │  PKCanvasView    │  │  Overlay Canvases          │                │
+│  │  (input capture) │  │  ├─ShapeCanvasView         │                │
+│  │                  │  │  ├─AttachmentCanvasView     │                │
+│  │                  │  │  ├─WidgetCanvasView         │                │
+│  │                  │  │  ├─StickerCanvasView        │                │
+│  │                  │  │  └─TextCanvasView           │                │
 │  └──────────────────┘  └───────────────────────────┘                │
 │                                                                      │
 │  ┌──────────────────┐  ┌───────────────────────────┐                │
-│  │  EffectOverlay   │  │  PencilInteraction         │                │
-│  │  Layer           │  │  Coordinator               │                │
-│  │  (CAEmitter/     │  │  (hover, barrel-roll,      │                │
-│  │   CAShapeLayer)  │  │   double-tap, squeeze)     │                │
+│  │  Background/     │  │  PencilInteraction         │                │
+│  │  Ruling Layer    │  │  Coordinator               │                │
+│  │  (CALayer based) │  │  (hover, barrel-roll,      │                │
+│  │                  │  │   double-tap, squeeze)     │                │
 │  └──────────────────┘  └───────────────────────────┘                │
 │                                                                      │
-│  Output → CanvasDelegate protocol                                    │
-│    ├─ canvasDidUpdateDrawing(data:)                                  │
-│    ├─ canvasDidChangeUndoState(canUndo:canRedo:)                     │
-│    ├─ canvasRequestsPageChange(direction:)                           │
-│    └─ canvasDidUpdateShapes/Attachments/Widgets/Stickers/TextObjects │
+│  Output → Callbacks to SwiftUI                                       │
+│    ├─ onDrawingChanged: (PKDrawing) -> Void                          │
+│    ├─ onShapesChanged: ([ShapeInstance]) -> Void                     │
+│    ├─ onAttachmentsChanged: ([AttachmentObject]) -> Void             │
+│    └─ onWidgets/Stickers/TextObjects changed callbacks               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Engine Files
+### Core Canvas Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
+| `CanvasCoordinatorBase.swift` | ~1150 | Shared coordinator handling all canvas logic |
+| `CanvasPageConfiguration.swift` | ~300 | Configuration value type for canvas state |
+| `CanvasPageCallbacks.swift` | ~100 | Callback definitions for object changes |
+| `CanvasView.swift` | ~800 | Reader canvas with page-swipe |
+| `CanvasPageView.swift` | ~1100 | Editor canvas with pagination |
+| `InfiniteCanvasPageView.swift` | ~450 | Whiteboard canvas with expansion |
 | `CanvasDelegate.swift` | ~80 | Protocol for canvas → host communication |
-| `StrokeRenderingPipeline.swift` | ~160 | Stroke lifecycle dispatch + coordinate mapping |
 | `EffectOverlayLayer.swift` | ~120 | Non-interactive overlay view for effect sublayers |
-| `Y2CanvasViewController.swift` | ~290 | UIKit canvas controller (owns PKCanvasView) |
-| `Y2CanvasHostingView.swift` | ~39 | UIViewControllerRepresentable bridge |
 
 ### Key Design Decisions
 
-1. **PKCanvasView as input layer only**: PencilKit captures Apple Pencil input with
-   full pressure/tilt fidelity. Custom rendering happens in the effect overlay layer.
+1. **PKCanvasView as input layer**: PencilKit captures Apple Pencil input with
+   full pressure/tilt fidelity. Custom rendering happens in overlay canvases.
 
-2. **CanvasConfiguration value type**: All canvas state is expressed as a `CanvasConfiguration`
-   struct. `apply(_:)` diffs old vs new to minimise UIKit mutations.
+2. **Shared coordinator pattern**: CanvasCoordinatorBase contains all common logic,
+   with subclass-specific behavior via didProcessDrawingChange() hook.
 
-3. **Delegate-based output**: `CanvasDelegate` replaces closure-based callbacks.
-   The host (SwiftUI or UIKit) implements the delegate to receive drawing changes.
+3. **CanvasViewBuilder helpers**: Static methods (buildOverlays, syncOverlayCanvases)
+   ensure consistent overlay setup across all three canvas types.
 
-4. **Tool-safe updates**: Tools are never set mid-stroke to preserve PencilKit's
-   pressure/tilt pipeline.
+4. **Configuration-driven updates**: CanvasPageConfiguration is diffed to minimize
+   UIKit mutations during SwiftUI update cycles.
 
 ---
 
@@ -799,7 +816,7 @@ Every object operation (insert, move, resize, delete) registers with `UndoManage
 
 ### Document Scanner Integration (ARCH-11)
 
-`Y2CanvasViewController.insertScannedDocument(mode:)` presents the VisionKit document camera via `Y2DocumentScannerBridge`. Scanned pages are processed on a background queue, saved via `MediaFileManager`, and inserted as `.scannedDocument()` embedded objects. The bridge is retained on the controller during the scan session and released on completion/cancellation.
+The document scanner is integrated through `Y2DocumentScannerBridge`. Scanned pages are processed on a background queue, saved via `MediaFileManager`, and inserted as `.scannedDocument()` embedded objects. The bridge is retained during the scan session and released on completion/cancellation.
 
 ### SQLite Persistence (ARCH-13)
 

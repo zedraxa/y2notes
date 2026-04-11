@@ -1,16 +1,16 @@
 /// Y2ParticleSystem.metal
 /// GPU compute kernel (particle physics) and render shaders (point sprites)
-/// for ARCH-08: Metal-driven ink particle effects.
+/// for Metal-driven ink particle effects.
 ///
 /// Data-layout contract: the `MetalParticle` struct below must stay byte-for-byte
-/// identical to the `MetalParticle` struct in MetalParticleRenderer.swift.
+/// identical to the particle struct used by the renderer.
 
 #include <metal_stdlib>
 using namespace metal;
 
 // MARK: - Shared data types
 
-/// One particle in the pool.  48 bytes — must match MetalParticleRenderer.swift layout.
+/// One particle in the pool.  48 bytes — must match renderer layout.
 struct MetalParticle {
     float2 position;  //  8: UIKit screen-space (pts, top-left origin, y-down)
     float2 velocity;  //  8: points per second
