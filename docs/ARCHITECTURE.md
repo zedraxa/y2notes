@@ -266,8 +266,8 @@ Three coordinate spaces are relevant to the canvas:
 │  ┌──────────────────────────────────────────────┐   │
 │  │  InkEffectEngine.overlayView                  │   │
 │  │  (same frame as container, non-interactive)   │   │
-│  │  Emitter positions, ripple centers are in     │   │
-│  │  THIS coordinate space.                       │   │
+│  │  Emitter positions are in THIS coordinate     │   │
+│  │  space.                                       │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                      │
 │  ┌──────────────────────────────────────────────┐   │
