@@ -305,19 +305,6 @@ final class DrawingToolStore: ObservableObject {
         if clamped != activeWidth { activeWidth = clamped }
     }
 
-    /// The `WritingEffectConfig` for the current pen state.
-    ///
-    /// When the active tool is `.pen` the config is derived from `activePenSubType`
-    /// (pressure curve, ink flow, taper, pooling).  For all other tools the
-    /// default config is returned so the pipeline stays dormant.
-    ///
-    /// Pass this to `WritingEffectsPipeline.configure(config:color:)` whenever
-    /// the tool or sub-type changes.
-    var writingEffectConfig: WritingEffectConfig {
-        guard activeTool == .pen else { return .default }
-        return activePenSubType.makeWritingEffectConfig()
-    }
-
     // MARK: - Recent Colors
 
     /// Maximum number of recent colours to keep.

@@ -60,21 +60,6 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
     var scratchDeleteRecognizer: ScribbleDeleteRecognizer?
     weak var canvasRef: PKCanvasView?
 
-    // MARK: - Effects
-
-    /// Ink effect engine that renders fire/sparkle/glitch/ripple overlays.
-    var effectEngine: InkEffectEngine?
-
-    /// Central coordinator that owns and wires all effect sub-engines.
-    let effects = EffectsCoordinator()
-
-    // Convenience accessors forwarded to the coordinator.
-    var pageTransitionEngine: PageTransitionEngine { effects.pageTransitionEngine }
-    var writingPipeline: WritingEffectsPipeline    { effects.writingEffectsPipeline }
-    var microInteractionEngine: MicroInteractionEngine { effects.microInteractionEngine }
-    var snapAlignEffectEngine: SnapAlignEffectEngine { effects.snapAlignEffectEngine }
-    var interactionFeedback: InteractionFeedbackEngine { effects.interactionFeedbackEngine }
-
     // MARK: - Object Layer Overlays
 
     /// Shape objects canvas for the current page.
@@ -175,9 +160,6 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
     // scroll offset and zoom scale.
     private var contentOffsetObservation: NSKeyValueObservation?
     private var zoomScaleObservation: NSKeyValueObservation?
-
-    /// Tracks whether the last zoom update landed on a detent.
-    private var wasOnZoomDetent: Bool = false
 
     // Pre-prepared haptic generator for double-tap pencil delete feedback.
     private let deletionImpactGenerator: UIImpactFeedbackGenerator = {
@@ -331,41 +313,6 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
         }
 
         palmGuard.pencilStrokeEnded()
-
-        Task { @MainActor [weak self] in
-            self?.adaptiveEffectsEngine.reportStrokePause()
-        }
-
-        // Dispatch stroke-ended through the effects coordinator.
-        let fallbackPt = CGPoint(x: canvasView.bounds.midX, y: canvasView.bounds.midY)
-        if let lastStroke = canvasView.drawing.strokes.last {
-            let path = lastStroke.path
-            let endPt = path.last.map {
-                viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
-            } ?? fallbackPt
-            let startPt = path.first.map {
-                viewportPoint(from: CGPoint(x: $0.location.x, y: $0.location.y), in: canvasView)
-            } ?? endPt
-            let bbox = lastStroke.renderBounds
-            let vpOrigin = viewportPoint(from: bbox.origin, in: canvasView)
-            let vpMax = viewportPoint(from: CGPoint(x: bbox.maxX, y: bbox.maxY), in: canvasView)
-            let headingBounds = CGRect(
-                x: vpOrigin.x, y: vpOrigin.y,
-                width: vpMax.x - vpOrigin.x, height: vpMax.y - vpOrigin.y
-            )
-            let strokeEndColor = (canvasView.tool as? PKInkingTool)?.color ?? .label
-            effects.dispatch(
-                .strokeEnded(at: endPt, start: startPt,
-                             inkColor: strokeEndColor, headingBounds: headingBounds),
-                inkEffectEngine: effectEngine
-            )
-        } else {
-            effects.dispatch(
-                .strokeEnded(at: fallbackPt, start: fallbackPt,
-                             inkColor: .label, headingBounds: .zero),
-                inkEffectEngine: effectEngine
-            )
-        }
 
         fadeTask?.cancel()
         Task { @MainActor [weak self] in
@@ -627,8 +574,6 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
         let strokeCount = canvasView.drawing.strokes.count
         Task { @MainActor [weak self] in
             self?.strokeMonitor.update(strokeCount: strokeCount, dataSize: data.count)
-            self?.adaptiveEffectsEngine.currentPageStrokeCount = strokeCount
-            self?.adaptiveEffectsEngine.reportStrokeChange()
         }
 
         if isDrawing, !isStraightening, canvasView.tool is PKInkingTool {
@@ -788,15 +733,6 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         centerContentDuringZoom(scrollView)
-        adaptiveEffectsEngine.zoomScale = scrollView.zoomScale
-        interactionFeedback.updateZoom(scrollView.zoomScale, on: scrollView.layer)
-        let onDetent = InteractionFeedbackEngine.zoomDetents.first(where: {
-            abs(scrollView.zoomScale - $0) < InteractionFeedbackEngine.detentTolerance
-        }) != nil
-        if onDetent && !wasOnZoomDetent {
-            microInteractionEngine.playZoomDetentTick(on: scrollView.layer)
-        }
-        wasOnZoomDetent = onDetent
         onZoomChanged?(scrollView.zoomScale)
     }
 
@@ -836,7 +772,6 @@ extension CanvasCoordinatorBase: PencilActionDelegate {
             }
             return PKEraserTool(.bitmap)
         }()
-        interactionFeedback.play(.eraserEngage, on: canvas.layer)
     }
 
     func pencilDidRequestSwitchToPreviousTool() {
@@ -847,7 +782,6 @@ extension CanvasCoordinatorBase: PencilActionDelegate {
         } else {
             canvas.tool = PKInkingTool(.pen, color: .label, width: 2)
         }
-        interactionFeedback.play(.eraserDisengage, on: canvas.layer)
     }
 
     func pencilDidRequestContextualPalette(at anchorPoint: CGPoint) {
@@ -864,18 +798,10 @@ extension CanvasCoordinatorBase: PencilActionDelegate {
 
     func pencilDidRequestUndo() {
         canvasRef?.undoManager?.undo()
-        if let layer = canvasRef?.layer {
-            interactionFeedback.play(.undo, on: layer)
-            microInteractionEngine.playUndoFlash(in: layer, isUndo: true)
-        }
     }
 
     func pencilDidRequestRedo() {
         canvasRef?.undoManager?.redo()
-        if let layer = canvasRef?.layer {
-            interactionFeedback.play(.redo, on: layer)
-            microInteractionEngine.playUndoFlash(in: layer, isUndo: false)
-        }
     }
 
     func pencilDidRequestDeleteLastStroke() {
@@ -1130,29 +1056,9 @@ enum CanvasViewBuilder {
         coordinator.pencilCoordinator = pencilCoordinator
         coordinator.canvasRef = canvas
 
-        // ── Real-time nib tracker for effects ────────────────────────
+        // ── Real-time nib tracker ────────────────────────────────────
         let nibTracker = PencilNibTrackerGestureRecognizer()
-        nibTracker.onNibBegan = { [weak coordinator] location in
-            MainActor.assumeIsolated {
-                guard let coordinator else { return }
-                guard coordinator.canvasRef?.tool is PKInkingTool else { return }
-                let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
-                coordinator.effects.dispatch(
-                    .strokeBegan(at: location, inkColor: inkColor),
-                    inkEffectEngine: coordinator.effectEngine
-                )
-            }
-        }
-        nibTracker.onNibMoved = { [weak coordinator] location, force, velocity in
-            MainActor.assumeIsolated {
-                guard let coordinator else { return }
-                guard coordinator.canvasRef?.tool is PKInkingTool else { return }
-                coordinator.effects.dispatch(
-                    .strokeUpdated(at: location, pressure: force, velocity: velocity),
-                    inkEffectEngine: coordinator.effectEngine
-                )
-            }
-        }
+        // Callbacks removed - no longer used for effects
         canvas.addGestureRecognizer(nibTracker)
         coordinator.nibTracker = nibTracker
 
@@ -1166,21 +1072,7 @@ enum CanvasViewBuilder {
         canvas.addGestureRecognizer(scratchRecognizer)
         coordinator.scratchDeleteRecognizer = scratchRecognizer
 
-        // Pre-warm haptic generators.
-        coordinator.interactionFeedback.prepareAll()
-
-        // ── Ink effect engine ────────────────────────────────────────
-        let engine = InkEffectEngine()
-        engine.configure(fx: activeFX, color: fxColor)
-        engine.attach(to: container)
-        coordinator.effectEngine = engine
-
-        // ── Writing Effects Pipeline ─────────────────────────────────
-        coordinator.writingPipeline.attach(to: container)
-        coordinator.writingPipeline.configure(
-            config: toolStoreForFade?.writingEffectConfig ?? .default,
-            color: toolStoreForFade?.activeColor ?? .black
-        )
+        // Effects initialization removed
     }
 
     /// Syncs overlay canvases with the current representable properties.
@@ -1272,24 +1164,7 @@ enum CanvasViewBuilder {
         coordinator.coordinatorPageIndex = pageIndex
         coordinator.coordinatorPageCount = pageCount
 
-        coordinator.effects.distribute(
-            shapeCanvas: coordinator.shapeCanvas,
-            attachmentCanvas: coordinator.attachmentCanvas,
-            widgetCanvas: coordinator.widgetCanvas,
-            stickerCanvas: coordinator.stickerCanvas
-        )
-
-        coordinator.effects.updateLayout(containerBounds: bounds)
-
-        if let engine = coordinator.effectEngine {
-            engine.syncLayerFrames()
-            engine.configure(fx: activeFX, color: fxColor)
-        }
-
-        coordinator.writingPipeline.configure(
-            config: toolStore?.writingEffectConfig ?? .default,
-            color: toolStore?.activeColor ?? .black
-        )
+        // Effects sync removed
     }
 }
 // swiftlint:enable file_length type_body_length
