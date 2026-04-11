@@ -1,24 +1,18 @@
 import Foundation
 import UIKit
 
-/// Simplified store that manages the active writing FX (fire or sparkle).
+/// Simplified ink preset store for basic color and width selection.
 ///
-/// With only two effects available, this store is now minimal and focused
-/// on basic FX selection and persistence.
+/// Manages user-created ink presets with color, width, and opacity settings.
+/// No particle effects or overlay FX — just clean, simple ink management.
 @MainActor
 final class InkEffectStore: ObservableObject {
 
     // MARK: - Published state
 
-    /// The currently active premium ink preset.  `nil` means no premium ink is
-    /// selected — base `DrawingToolStore` behaviour is used unchanged.
+    /// The currently active ink preset. `nil` means use base DrawingToolStore defaults.
     @Published var activePreset: InkPreset? {
         didSet { persistActivePresetID() }
-    }
-
-    /// Master on/off switch for overlay FX.  Persisted to UserDefaults.
-    @Published var fxEnabled: Bool = true {
-        didSet { UserDefaults.standard.set(fxEnabled, forKey: Keys.fxEnabled) }
     }
 
     /// User-created presets (built-ins live in `InkFamilyRegistry`).
@@ -27,13 +21,6 @@ final class InkEffectStore: ObservableObject {
     }
 
     // MARK: - Computed
-
-    /// The resolved FX that should actually be rendered — `.none` when FX is
-    /// disabled or no preset is active.
-    var resolvedFX: WritingFXType {
-        guard fxEnabled, let preset = activePreset else { return .none }
-        return preset.writingFX
-    }
 
     /// All available presets: built-in (from registry) followed by user-created.
     var allPresets: [InkPreset] {
@@ -51,7 +38,6 @@ final class InkEffectStore: ObservableObject {
     // MARK: - Init
 
     init() {
-        fxEnabled = UserDefaults.standard.object(forKey: Keys.fxEnabled) as? Bool ?? true
         loadUserPresets()
         restoreActivePreset()
     }
@@ -75,7 +61,6 @@ final class InkEffectStore: ObservableObject {
         name: String,
         family: InkFamily,
         traits: InkMaterialTraits,
-        fx: WritingFXType,
         color: UIColor,
         width: Double
     ) {
@@ -83,7 +68,7 @@ final class InkEffectStore: ObservableObject {
             name: name.trimmingCharacters(in: .whitespaces).isEmpty ? family.displayName : name,
             family: family,
             traits: traits,
-            writingFX: fx,
+            writingFX: .none,  // No effects in simplified version
             color: color,
             baseWidth: width,
             isFavorite: false,
@@ -108,14 +93,13 @@ final class InkEffectStore: ObservableObject {
 
     /// Returns built-in preset suggestions that pair well with the given theme.
     func presetsForTheme(_ theme: AppTheme) -> [InkPreset] {
-        // Simplified: just return all built-in presets
+        // Return all built-in presets
         return InkFamilyRegistry.shared.allBuiltIn
     }
 
     // MARK: - Persistence
 
     private enum Keys {
-        static let fxEnabled         = "y2notes.ink.fxEnabled"
         static let userPresets       = "y2notes.ink.userPresets"
         static let activePresetID    = "y2notes.ink.activePresetID"
     }
