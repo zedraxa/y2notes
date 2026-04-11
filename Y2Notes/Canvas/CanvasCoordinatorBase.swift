@@ -892,10 +892,7 @@ enum CanvasViewBuilder {
         onTextObjectsChanged: (([TextObject]) -> Void)?,
         onTextObjectSelectionChanged: ((UUID?) -> Void)?,
         onPlaceTextObject: ((CGPoint) -> Void)?,
-        onShapesChanged: (([ShapeInstance]) -> Void)?,
-        activeFX: WritingFXType,
-        fxColor: UIColor,
-        toolStoreForFade: DrawingToolStore?
+        onShapesChanged: (([ShapeInstance]) -> Void)?
     ) {
         // ── Attachment canvas ────────────────────────────────────────
         let attachCanvas = AttachmentCanvasView(frame: .zero)
@@ -1148,23 +1145,6 @@ enum CanvasViewBuilder {
         coordinator.onTextObjectsChanged = onTextObjectsChanged
         coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
         coordinator.onPlaceTextObject = onPlaceTextObject
-    }
-
-    /// Syncs effects engines with current state.
-    static func syncEffects(
-        coordinator: CanvasCoordinatorBase,
-        layer: CALayer,
-        bounds: CGRect,
-        pageIndex: Int,
-        pageCount: Int,
-        activeFX: WritingFXType,
-        fxColor: UIColor,
-        toolStore: DrawingToolStore?
-    ) {
-        coordinator.coordinatorPageIndex = pageIndex
-        coordinator.coordinatorPageCount = pageCount
-
-        // Effects sync removed
     }
 }
 // swiftlint:enable file_length type_body_length

@@ -203,10 +203,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
             onTextObjectsChanged: onTextObjectsChanged,
             onTextObjectSelectionChanged: onTextObjectSelectionChanged,
             onPlaceTextObject: onPlaceTextObject,
-            onShapesChanged: onShapesChanged,
-            activeFX: activeFX,
-            fxColor: fxColor,
-            toolStoreForFade: toolStoreForFade
+            onShapesChanged: onShapesChanged
         )
 
         // Seed coordinator state.
@@ -346,21 +343,7 @@ struct InfiniteCanvasPageView: UIViewRepresentable {
 
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
-        // Sync effects via shared helper.
-        CanvasViewBuilder.syncEffects(
-            coordinator: context.coordinator,
-            layer: uiView.layer,
-            bounds: uiView.bounds,
-            pageIndex: 0,
-            pageCount: 1,
-            isMagicModeActive: isMagicModeActive,
-            isStudyModeActive: isStudyModeActive,
-            activeAmbientScene: activeAmbientScene,
-            isAmbientSoundEnabled: isAmbientSoundEnabled,
-            activeFX: activeFX,
-            fxColor: fxColor,
-            toolStore: toolStoreForFade
-        )
+        // Effects sync removed
 
         context.coordinator.onZoomChanged = onZoomChanged
     }

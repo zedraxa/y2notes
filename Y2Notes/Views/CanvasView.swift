@@ -359,10 +359,7 @@ struct CanvasView: UIViewRepresentable {
             onTextObjectsChanged: onTextObjectsChanged,
             onTextObjectSelectionChanged: onTextObjectSelectionChanged,
             onPlaceTextObject: onPlaceTextObject,
-            onShapesChanged: onShapesChanged,
-            activeFX: activeFX,
-            fxColor: fxColor,
-            toolStoreForFade: toolStoreForFade
+            onShapesChanged: onShapesChanged
         )
 
         // ── Page gestures (two-finger pan + three-finger pinch) ──────────────
@@ -546,21 +543,7 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.coordinatorPageIndex = pageIndex
         context.coordinator.coordinatorPageCount = pageCount
 
-        // Sync effects via shared helper.
-        CanvasViewBuilder.syncEffects(
-            coordinator: context.coordinator,
-            layer: uiView.layer,
-            bounds: uiView.bounds,
-            pageIndex: pageIndex,
-            pageCount: pageCount,
-            isMagicModeActive: isMagicModeActive,
-            isStudyModeActive: isStudyModeActive,
-            activeAmbientScene: activeAmbientScene,
-            isAmbientSoundEnabled: isAmbientSoundEnabled,
-            activeFX: activeFX,
-            fxColor: fxColor,
-            toolStore: toolStoreForFade
-        )
+        // Effects sync removed
     }
 
     /// Ensures exactly one PDF background layer is bound for the current page.
