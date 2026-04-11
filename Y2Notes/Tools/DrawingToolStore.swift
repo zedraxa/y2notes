@@ -224,6 +224,23 @@ final class DrawingToolStore: ObservableObject {
     /// **Not persisted** — always starts false (normal UI).
     @Published var isFocusModeActive: Bool = false
 
+    // MARK: - Mode Flags (stub – features removed in Phase 4)
+
+    /// Whether Magic Mode is active. Stub property — engine removed in Phase 4.
+    @Published var isMagicModeActive: Bool = false
+
+    /// Whether Study Mode is active. Stub property — engine removed in Phase 4.
+    @Published var isStudyModeActive: Bool = false
+
+    /// The currently active ambient scene, or `nil`. Stub — engine removed in Phase 4.
+    @Published var activeAmbientScene: AmbientScene?
+
+    /// Whether ambient soundscapes are enabled. Stub — engine removed in Phase 4.
+    @Published var isAmbientSoundEnabled: Bool = true
+
+    /// The writing-effect configuration for the current pen. Stub — pipeline removed in Phase 4.
+    var writingEffectConfig: WritingEffectConfig { .default }
+
     // MARK: - Computed Properties
 
     /// The PencilKit tool corresponding to the current state.

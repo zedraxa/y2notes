@@ -171,6 +171,29 @@ class CanvasCoordinatorBase: NSObject, PKCanvasViewDelegate, UIScrollViewDelegat
     /// Called when the scroll view's zoom scale changes.
     var onZoomChanged: ((CGFloat) -> Void)?
 
+    // MARK: - Effect Engine Stubs (Phase 4 – features dormant)
+
+    /// Haptic feedback engine for tool-switch and eraser events.
+    let interactionFeedback = InteractionFeedbackEngine()
+
+    /// Micro-interaction animation engine for selection, drag, snap, and release.
+    let microInteractionEngine = MicroInteractionEngine()
+
+    /// Effects coordinator for magic-mode and study-mode layer overlays.
+    let effects = EffectsCoordinator()
+
+    /// Ambient environment engine for scene activation and soundscape control.
+    let ambientEngine = AmbientEnvironmentEngine()
+
+    /// Adaptive effects engine that scales complexity with page count.
+    let adaptiveEffectsEngine = AdaptiveEffectsEngine()
+
+    /// Writing-effects pipeline for pressure, pooling, and brush modulation.
+    let writingPipeline = WritingEffectsPipeline()
+
+    /// Ink-effect layer engine (optional – only wired when an FX type is active).
+    var effectEngine: InkEffectEngine?
+
     // MARK: - Init / Deinit
 
     init(

@@ -35,6 +35,11 @@ final class InkEffectStore: ObservableObject {
         }
     }
 
+    /// The resolved writing-FX type for the active preset.
+    ///
+    /// Returns `.none` because the full FX pipeline was removed in Phase 4.
+    var resolvedFX: WritingFXType { .none }
+
     // MARK: - Init
 
     init() {

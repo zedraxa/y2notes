@@ -50,6 +50,7 @@
 		AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000092 /* PDFPageAnnotationView.swift */; };
 		AA0001000000000000000097 /* PDFViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000093 /* PDFViewerView.swift */; };
 		AA000100000000000000009E /* InkModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000098 /* InkModels.swift */; };
+		AA000100000000000000101 /* EffectStubs.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000100 /* EffectStubs.swift */; };
 		AA00010000000000000000A0 /* InkFamilyRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009A /* InkFamilyRegistry.swift */; };
 		AA00010000000000000000A1 /* InkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009B /* InkEffectStore.swift */; };
 		AA00010000000000000000A8 /* AppSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A7 /* AppSettingsStore.swift */; };
@@ -270,6 +271,7 @@
 		AA0001000000000000000098 /* InkModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkModels.swift; sourceTree = "<group>"; };
 		AA000100000000000000009A /* InkFamilyRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkFamilyRegistry.swift; sourceTree = "<group>"; };
 		AA000100000000000000009B /* InkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectStore.swift; sourceTree = "<group>"; };
+		AA000100000000000000100 /* EffectStubs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectStubs.swift; sourceTree = "<group>"; };
 		AA0001000000000000000142 /* ReduceMotionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReduceMotionObserver.swift; sourceTree = "<group>"; };
 		AA000100000000000000017C /* EraserCursorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraserCursorOverlay.swift; sourceTree = "<group>"; };
 		AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
@@ -710,6 +712,7 @@
 				AA0001000000000000000166 /* PerlinNoise.swift */,
 				AA0001000000000000000168 /* FluidSimulation.swift */,
 				AA0001000000000000000196 /* StickerRenderer.swift */,
+				AA000100000000000000100 /* EffectStubs.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -1211,6 +1214,7 @@
 				AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */,
 				AA0001000000000000000097 /* PDFViewerView.swift in Sources */,
 				AA000100000000000000009E /* InkModels.swift in Sources */,
+					AA000100000000000000101 /* EffectStubs.swift in Sources */,
 				AA00010000000000000000A0 /* InkFamilyRegistry.swift in Sources */,
 				AA00010000000000000000A1 /* InkEffectStore.swift in Sources */,
 				AA00010000000000000000A3 /* AdvancedToolsPanel.swift in Sources */,

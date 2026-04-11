@@ -40,6 +40,9 @@ extension CanvasView {
         private var pageIsDragging = false
         private var pageDragDirection: PageTransitionDirection = .forward
 
+        /// Page-transition animation engine (stub – engine removed in Phase 4).
+        let pageTransitionEngine = PageTransitionEngine()
+
         /// Light haptic feedback played when a page drag commits.
         private let pageTurnImpact: UIImpactFeedbackGenerator = {
             let g = UIImpactFeedbackGenerator(style: .light)
