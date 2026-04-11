@@ -11,7 +11,7 @@ import UIKit
 ///
 /// **Advanced effects** (user-toggleable) add magical enhancements on top:
 /// glow pen, neon ink, gradient ink, ink trail fade.  Each is rendered in a
-/// lightweight overlay layer and respects `DeviceCapabilityTier` budgets.
+/// lightweight overlay layer.
 enum WritingEffectCategory: String, Codable, CaseIterable {
     case core
     case advanced
@@ -75,9 +75,8 @@ enum CoreWritingEffect: String, CaseIterable, Codable, Identifiable {
 
 /// Toggleable visual enhancements rendered in a lightweight overlay.
 ///
-/// Each effect uses a single `CALayer` or `CAEmitterLayer` above the canvas
-/// and is subject to `DeviceCapabilityTier` gating.  All advanced effects are
-/// disabled by default; the user opts in via the Ink Effect Picker.
+/// Each effect uses a single `CALayer` or `CAEmitterLayer` above the canvas.
+/// All advanced effects are disabled by default; the user opts in via the Ink Effect Picker.
 enum AdvancedWritingEffect: String, CaseIterable, Codable, Identifiable {
     /// Soft outer glow around the nib while writing.
     /// Rendered via a `CAGradientLayer` (radial) sized 40×40 pt, 15 % opacity.
@@ -118,21 +117,6 @@ enum AdvancedWritingEffect: String, CaseIterable, Codable, Identifiable {
         case .gradientInk:  return "paintbrush"
         case .inkTrailFade: return "wind"
         }
-    }
-
-    /// Minimum device tier required.  All advanced effects require at least
-    /// `.standard` (A12+) to guarantee 120 fps headroom.
-    var minimumTier: DeviceCapabilityTier {
-        switch self {
-        case .glowPen:      return .standard
-        case .neonInk:      return .standard
-        case .gradientInk:  return .standard   // no extra layer; just colour math
-        case .inkTrailFade: return .standard
-        }
-    }
-
-    func isSupported(on tier: DeviceCapabilityTier) -> Bool {
-        tier >= minimumTier
     }
 }
 
@@ -220,24 +204,8 @@ struct WritingEffectConfig: Codable, Equatable {
         return result
     }
 
-    /// Filters out advanced effects the device cannot support.
-    func resolved(for tier: DeviceCapabilityTier) -> WritingEffectConfig {
-        var copy = self
-        if !AdvancedWritingEffect.glowPen.isSupported(on: tier)      { copy.glowPenEnabled = false }
-        if !AdvancedWritingEffect.neonInk.isSupported(on: tier)      { copy.neonInkEnabled = false }
-        if !AdvancedWritingEffect.gradientInk.isSupported(on: tier)  { copy.gradientInkEnabled = false }
-        if !AdvancedWritingEffect.inkTrailFade.isSupported(on: tier) { copy.inkTrailFadeEnabled = false }
-        // Taper and pooling overlays require at least .standard to keep 120 fps headroom.
-        if tier < .standard {
-            copy.strokeTaperEnabled = false
-            copy.inkPoolingEnabled  = false
-        }
-        return copy
-    }
-
     /// Further filters effects based on adaptive intensity.
     ///
-    /// Call after `resolved(for:)` to apply runtime adaptive constraints.
     /// At `.reduced`, all advanced effects are disabled.  At `.minimal`,
     /// all optional core effects (micro-texture, opacity fluctuation) are
     /// also disabled.

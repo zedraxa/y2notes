@@ -88,9 +88,6 @@ public final class WritingEffectsPipeline {
     /// Current ink colour.  Drives glow and neon tint.
     private var inkColor: UIColor = .black
 
-    /// Device capability tier — gates advanced effects.
-    private let deviceTier: DeviceCapabilityTier = DeviceCapabilityTier.current
-
     /// Current adaptive effect intensity.  Set by `EffectsCoordinator`.
     public var effectIntensity: EffectIntensity = .full
 
@@ -130,9 +127,7 @@ public final class WritingEffectsPipeline {
     }
 
     private var effectiveConfig: WritingEffectConfig {
-        config
-            .resolved(for: deviceTier)
-            .adapted(for: effectIntensity)
+        config.adapted(for: effectIntensity)
     }
 
     // MARK: - Lifecycle

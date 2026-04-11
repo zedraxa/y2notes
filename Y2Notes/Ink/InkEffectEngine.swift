@@ -6,7 +6,7 @@ import QuartzCore
 ///
 /// Attaches a non-interactive `UIView` above the canvas container to render:
 /// - **Sparkle / Fire / Rainbow / Snow / Dissolve / Glow / Sheen / Shadow / Blood** —
-///   `CAEmitterLayer` with physics-informed parameters and per-tier particle budget.
+///   `CAEmitterLayer` with physics-informed parameters.
 ///   **Fire** uses three emitter cells — bright yellow-white core, orange mid-flame,
 ///   and rare ember sparks — plus a dedicated warm amber `CAGradientLayer` glow aura
 ///   that follows the nib while writing and fades on pencil-lift.
@@ -34,7 +34,6 @@ import QuartzCore
 /// **Performance contract**
 /// - The overlay view is removed from the hierarchy entirely when
 ///   `activeFX == .none` (zero layer cost).
-/// - Particle counts are hard-capped to `DeviceCapabilityTier.maxParticles`.
 /// - Ripple layers are capped at 3 concurrent rings.
 /// - Lightning bolt layers are capped at 2 concurrent bolts.
 /// - All animations are removed and emitter cells cleared in `deactivate()`.
@@ -65,7 +64,6 @@ final class InkEffectEngine {
     // MARK: - Properties
 
     private(set) var activeFX: WritingFXType = .none
-    private let tier: DeviceCapabilityTier
 
     private weak var containerView: UIView?
 
@@ -139,8 +137,7 @@ final class InkEffectEngine {
 
     // MARK: - Init
 
-    init(tier: DeviceCapabilityTier) {
-        self.tier = tier
+    init() {
 
         // Glitch layer — full-bounds, initially hidden
         glitchLayer.isHidden = true
@@ -209,12 +206,10 @@ final class InkEffectEngine {
     func configure(fx: WritingFXType, color: UIColor) {
         strokeColor = color
 
-        // Gracefully downgrade FX that the device cannot support.
-        let resolved = fx.isSupported(on: tier) ? fx : .none
-        guard resolved != activeFX else {
+        guard fx != activeFX else {
             // Same FX, same effect — only the colour changed.
             // Update the Metal renderer's color mode so new particles use the updated colour.
-            switch resolved {
+            switch fx {
             case .fire:
                 metalRenderer?.updateColorMode(.firePalette(inkTint: color.simd4))
             case .sparkle, .dissolve, .blood:
@@ -233,10 +228,10 @@ final class InkEffectEngine {
         }
 
         stopCurrentFX()
-        activeFX = resolved
-        overlayView.isHidden = (resolved == .none)
+        activeFX = fx
+        overlayView.isHidden = (fx == .none)
 
-        switch resolved {
+        switch fx {
         case .fire:
             metalRenderer?.configure(preset: .fire,
                                      colorMode: .firePalette(inkTint: color.simd4))

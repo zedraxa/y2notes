@@ -230,8 +230,7 @@ public final class EffectsCoordinator {
     /// - Parameters:
     ///   - event: The typed canvas event.
     ///   - inkEffectEngine: The optional per-session `InkEffectEngine` (not owned
-    ///     by this coordinator because it requires a `DeviceCapabilityTier` at
-    ///     init time and is created by the editor coordinator).
+    ///     by this coordinator; created by the editor coordinator).
     public func dispatch(_ event: CanvasEvent, inkEffectEngine: InkEffectEngine? = nil) {
         switch event {
 

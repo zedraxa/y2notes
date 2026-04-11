@@ -260,7 +260,7 @@ final class Y2CanvasViewController: UIViewController {
     }
 
     private func setupInkEffectEngine() {
-        let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
+        let engine = InkEffectEngine()
         engine.configure(fx: configuration.activeFX, color: configuration.fxColor)
         engine.attach(to: view)
         self.inkEffectEngine = engine

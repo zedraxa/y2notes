@@ -119,22 +119,6 @@ public enum WritingFXType: String, CaseIterable, Codable, Identifiable {
         case .fire:      return "flame.fill"
         }
     }
-
-    /// Minimum device tier required for this effect.
-    ///
-    /// All emitter-based effects (including fire) run on `.standard`
-    /// and above.  Only `.basic` devices (pre-2018 iPads with < 2 GB RAM) are excluded.
-    /// The engine's per-tier `maxParticles` cap ensures older hardware stays at 60 fps.
-    public var minimumTier: DeviceCapabilityTier {
-        switch self {
-        case .none:                    return .basic
-        case .sparkle, .fire:          return .standard
-        }
-    }
-
-    public func isSupported(on tier: DeviceCapabilityTier) -> Bool {
-        tier >= minimumTier
-    }
 }
 
 // MARK: - Particle Physics

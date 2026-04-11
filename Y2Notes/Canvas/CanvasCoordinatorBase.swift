@@ -1170,7 +1170,7 @@ enum CanvasViewBuilder {
         coordinator.interactionFeedback.prepareAll()
 
         // ── Ink effect engine ────────────────────────────────────────
-        let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
+        let engine = InkEffectEngine()
         engine.configure(fx: activeFX, color: fxColor)
         engine.attach(to: container)
         coordinator.effectEngine = engine
