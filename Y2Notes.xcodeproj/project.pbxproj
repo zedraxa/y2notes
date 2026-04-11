@@ -236,6 +236,7 @@
 		AA0001000000000000000281 /* CanvasCoordinatorBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000280 /* CanvasCoordinatorBase.swift */; };
 		AA0001000000000000000283 /* CanvasConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000282 /* CanvasConstants.swift */; };
 		AA0001000000000000000285 /* InfiniteCanvasPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000284 /* InfiniteCanvasPageView.swift */; };
+		AA0001000000000000000287 /* PerformanceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000286 /* PerformanceMonitor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -488,6 +489,7 @@
 		AA0001000000000000000280 /* CanvasCoordinatorBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasCoordinatorBase.swift; sourceTree = "<group>"; };
 		AA0001000000000000000282 /* CanvasConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasConstants.swift; sourceTree = "<group>"; };
 		AA0001000000000000000284 /* InfiniteCanvasPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvasPageView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000286 /* PerformanceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceMonitor.swift; sourceTree = "<group>"; };
 		AA0001000000000000000270 /* ReaderCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderCanvasView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NotebookReaderView+Canvas.swift"; sourceTree = "<group>"; };
 		AA0001000000000000000276 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -552,6 +554,7 @@
 				AA000100000000000000009D /* Ink */,
 				AA00010000000000000000D1 /* Documents */,
 				AA00010000000000000000B3 /* Settings */,
+				AA0001000000000000000288 /* Performance */,
 				AA00010000000000000000B4 /* Accessibility */,
 				AA00010000000000000000B5 /* GoogleDrive */,
 				AA0001000000000000000188 /* Native */,
@@ -793,6 +796,14 @@
 				AA000100000000000000015C /* OpenSourceCreditsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000288 /* Performance */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000286 /* PerformanceMonitor.swift */,
+			);
+			path = Performance;
 			sourceTree = "<group>";
 		};
 		AA00010000000000000000B4 /* Accessibility */ = {
@@ -1260,6 +1271,7 @@
 				AA00010000000000000000A8 /* AppSettingsStore.swift in Sources */,
 				AA00010000000000000000AA /* SettingsView.swift in Sources */,
 				AA00010000000000000000AC /* DiagnosticsView.swift in Sources */,
+				AA0001000000000000000287 /* PerformanceMonitor.swift in Sources */,
 				AA00010000000000000000AE /* OnboardingView.swift in Sources */,
 				AA00010000000000000000B0 /* AccessibilityHelpers.swift in Sources */,
 				AA00010000000000000000BC /* GoogleDriveModels.swift in Sources */,

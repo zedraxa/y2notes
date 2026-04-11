@@ -68,6 +68,13 @@ struct Y2NotesApp: App {
                     // Navigate to the note in this window's tab session.
                     container.navigationStore.navigateToNote(id: noteID)
                 }
+                .onAppear {
+                    // Phase 5: Record app launch completion
+                    Task { @MainActor in
+                        PerformanceMonitor.shared.recordAppLaunched()
+                        PerformanceMonitor.shared.recordSessionStart()
+                    }
+                }
         }
         .handlesExternalEvents(matching: Set<String>(["*"]))
     }
