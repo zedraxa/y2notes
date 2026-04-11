@@ -1,16 +1,13 @@
 import UIKit
-import Combine
 
 // MARK: - Canvas Event
 
 /// Typed description of a single canvas lifecycle moment.
 ///
 /// `EffectsCoordinator.dispatch(_:inkEffectEngine:)` accepts a `CanvasEvent`
-/// and fans it out to every interested engine in one call, replacing the
-/// previous pattern of calling three separate engine methods from
-/// `NoteEditorView.Coordinator`.
+/// and fans it out to every interested engine in one call.
 ///
-/// **Coordinate space**: all `CGPoint` and `CGRect` values are in **viewport**
+/// **Coordinate space**: all `CGPoint` values are in **viewport**
 /// coordinates (the canvas view's own bounds space), matching what each engine
 /// expects for overlay positioning.
 enum CanvasEvent {
@@ -24,9 +21,7 @@ enum CanvasEvent {
     case strokeUpdated(at: CGPoint, pressure: CGFloat, velocity: CGFloat)
 
     /// The pencil lifted.  The last committed stroke's geometry is provided.
-    /// `headingBounds` is the stroke's `renderBounds` converted to viewport
-    /// space; used by `StudyModeEngine` for heading-glow detection.
-    case strokeEnded(at: CGPoint, start: CGPoint, inkColor: UIColor, headingBounds: CGRect)
+    case strokeEnded(at: CGPoint, start: CGPoint, inkColor: UIColor)
 }
 
 // MARK: - Sensory Context
@@ -91,58 +86,27 @@ struct SensoryContext {
 
 /// Central mediator that owns all effect engines and dispatches canvas events.
 ///
-/// `EffectsCoordinator` provides two services:
-///
-/// 1. **Intensity distribution** — `AdaptiveEffectsEngine.intensity` is
-///    propagated to every sub-engine automatically via Combine.
-///
-/// 2. **Event dispatch** — `dispatch(_:inkEffectEngine:)` accepts a typed
-///    `CanvasEvent` and routes it to every engine that cares, replacing the
-///    previous pattern of making three separate engine calls from
-///    `NoteEditorView.Coordinator` for every stroke lifecycle event.
+/// `EffectsCoordinator` provides event dispatch — `dispatch(_:inkEffectEngine:)`
+/// accepts a typed `CanvasEvent` and routes it to every engine that cares.
 ///
 /// **Usage:**
 /// ```swift
 /// let effects = EffectsCoordinator()
 ///
-/// // Stroke lifecycle (replaces 3 separate engine calls):
+/// // Stroke lifecycle:
 /// effects.dispatch(.strokeBegan(at: pt, inkColor: color), inkEffectEngine: engine)
 /// effects.dispatch(.strokeUpdated(at: pt, pressure: p, velocity: v), inkEffectEngine: engine)
-/// effects.dispatch(.strokeEnded(at: end, start: start, inkColor: color,
-///                               headingBounds: bounds), inkEffectEngine: engine)
-///
-/// // Mode activation:
-/// effects.setMagicMode(active: true, on: canvasView.layer)
-/// effects.setStudyMode(active: true, on: canvasView.layer)
-///
-/// // Notebook complexity signals:
-/// effects.adaptiveEngine.pageCount = pageCount
-/// effects.adaptiveEngine.currentPageStrokeCount = strokeCount
+/// effects.dispatch(.strokeEnded(at: end, start: start, inkColor: color), inkEffectEngine: engine)
 /// ```
 @MainActor
 final class EffectsCoordinator {
 
     // MARK: - Engines
 
-    /// Evaluates context signals and publishes the current `EffectIntensity`.
-    let adaptiveEngine = AdaptiveEffectsEngine()
-
     /// Physical page-turn effects.
     let pageTransitionEngine = PageTransitionEngine()
 
-    /// Background dim / vignette when focus mode is active.
-    let focusModeEngine = FocusModeEngine()
-
-    /// Ambient mood scenes (rain, lo-fi, night grain).
-    let ambientEngine = AmbientEnvironmentEngine()
-
-    /// Writing particles, keyword glow, underline highlights.
-    let magicModeEngine = MagicModeEngine()
-
-    /// Heading recognition glow, checklist pulse, timer overlay.
-    let studyModeEngine = StudyModeEngine()
-
-    /// Core + advanced writing effects (glow pen, neon ink, ink trail, gradient ink).
+    /// Core writing effects (fire, sparkle).
     let writingEffectsPipeline = WritingEffectsPipeline()
 
     /// Physical micro-interactions (tap ripple, selection glow, snap bounce, etc.).
@@ -163,137 +127,51 @@ final class EffectsCoordinator {
     /// output for a coherent, context-aware sensory experience.
     private(set) var sensoryContext: SensoryContext = SensoryContext()
 
-    // MARK: - Private
+    // MARK: - Layout Distribution
 
-    private var cancellables: Set<AnyCancellable> = []
-
-    // MARK: - Init
-
-    init() {
-        // Automatically distribute intensity to all sub-engines when it changes.
-        adaptiveEngine.$intensity
-            .receive(on: RunLoop.main)
-            .sink { [weak self] intensity in
-                self?.distribute(intensity: intensity)
-            }
-            .store(in: &cancellables)
-    }
-
-    // MARK: - Intensity Distribution
-
-    /// Propagates `intensity` to all engines owned by this coordinator.
-    ///
-    /// Also call with optional canvas view references to update their
-    /// internal snap/micro engines.
+    /// Updates layout for canvas overlays.
     func distribute(
-        intensity: EffectIntensity,
-        shapeCanvas: (any EffectIntensityReceiver)? = nil,
-        attachmentCanvas: (any EffectIntensityReceiver)? = nil,
-        widgetCanvas: (any EffectIntensityReceiver)? = nil,
-        stickerCanvas: (any EffectIntensityReceiver)? = nil
+        shapeCanvas: UIView? = nil,
+        attachmentCanvas: UIView? = nil,
+        widgetCanvas: UIView? = nil,
+        stickerCanvas: UIView? = nil
     ) {
-        pageTransitionEngine.effectIntensity = intensity
-        focusModeEngine.effectIntensity = intensity
-        ambientEngine.effectIntensity = intensity
-        magicModeEngine.effectIntensity = intensity
-        studyModeEngine.effectIntensity = intensity
-        writingEffectsPipeline.effectIntensity = intensity
-        microInteractionEngine.effectIntensity = intensity
-        snapAlignEffectEngine.effectIntensity = intensity
-        interactionFeedbackEngine.effectIntensity = intensity
-        shapeCanvas?.effectIntensity = intensity
-        attachmentCanvas?.effectIntensity = intensity
-        widgetCanvas?.effectIntensity = intensity
-        stickerCanvas?.effectIntensity = intensity
-    }
-
-    // MARK: - Mode Lifecycle
-
-    /// Activates or deactivates magic mode on the given canvas layer.
-    func setMagicMode(active: Bool, on layer: CALayer) {
-        if active, !magicModeEngine.isActive {
-            magicModeEngine.activate(on: layer)
-        } else if !active, magicModeEngine.isActive {
-            magicModeEngine.deactivate()
-        }
-    }
-
-    /// Activates or deactivates study mode on the given canvas layer.
-    func setStudyMode(active: Bool, on layer: CALayer) {
-        if active, !studyModeEngine.isActive {
-            studyModeEngine.activate(on: layer)
-        } else if !active, studyModeEngine.isActive {
-            studyModeEngine.deactivate()
-        }
+        // Currently just a placeholder for future canvas-specific updates
     }
 
     // MARK: - Canvas Event Dispatch
 
     /// Single intake point for all stroke lifecycle events.
     ///
-    /// Replaces the previous pattern of calling three separate engine methods
-    /// from `NoteEditorView.Coordinator` on every stroke event.  The coordinator
-    /// fans the event out to every interested engine and updates `sensoryContext`.
+    /// The coordinator fans the event out to interested engines and updates
+    /// `sensoryContext` for dynamic effect modulation.
     ///
     /// - Parameters:
     ///   - event: The typed canvas event.
-    ///   - inkEffectEngine: The optional per-session `InkEffectEngine` (not owned
-    ///     by this coordinator because it requires a `DeviceCapabilityTier` at
-    ///     init time and is created by the editor coordinator).
+    ///   - inkEffectEngine: The optional per-session `InkEffectEngine`.
     func dispatch(_ event: CanvasEvent, inkEffectEngine: InkEffectEngine? = nil) {
         switch event {
 
-        case .strokeBegan(let at, let inkColor):
+        case .strokeBegan(let at, _):
             inkEffectEngine?.onStrokeBegan(at: at)
             writingEffectsPipeline.onStrokeBegan(at: at)
-            if magicModeEngine.isActive {
-                magicModeEngine.strokeBegan(at: at, inkColor: inkColor)
-            }
 
         case .strokeUpdated(let at, let pressure, let velocity):
             inkEffectEngine?.onStrokeUpdated(at: at, pressure: pressure, velocity: velocity)
             writingEffectsPipeline.onStrokeUpdated(at: at, pressure: pressure, velocity: velocity)
-            if magicModeEngine.isActive {
-                magicModeEngine.strokeMoved(to: at)
-            }
             sensoryContext.update(velocity: velocity)
 
-        case .strokeEnded(let at, let start, let inkColor, let headingBounds):
+        case .strokeEnded(let at, _, _):
             inkEffectEngine?.onStrokeEnded(at: at)
             writingEffectsPipeline.onStrokeEnded()
-            if magicModeEngine.isActive {
-                magicModeEngine.strokeEnded(at: at, startPoint: start, inkColor: inkColor)
-            }
-            if studyModeEngine.isActive {
-                studyModeEngine.headingGlow(at: headingBounds)
-            }
             sensoryContext.decay()
         }
     }
 
     // MARK: - Layout Sync
 
-    /// Forwards a layout update to all active, layout-sensitive engines.
+    /// Forwards a layout update to layout-sensitive engines.
     func updateLayout(containerBounds: CGRect) {
-        if magicModeEngine.isActive {
-            magicModeEngine.updateLayout(containerBounds: containerBounds)
-        }
-        if ambientEngine.activeScene != nil {
-            ambientEngine.updateLayout(containerBounds: containerBounds)
-        }
-        if focusModeEngine.isActive {
-            focusModeEngine.updateLayout(containerBounds: containerBounds)
-        }
+        // Currently minimal - engines handle their own layout if needed
     }
-}
-
-// MARK: - Effect Intensity Receiver
-
-/// Describes a canvas view that accepts an `EffectIntensity` update.
-///
-/// All four canvas overlay views (`ShapeCanvasView`, `AttachmentCanvasView`,
-/// `WidgetCanvasView`, `StickerCanvasView`) satisfy this protocol through
-/// their existing `effectIntensity` property.
-protocol EffectIntensityReceiver: AnyObject {
-    var effectIntensity: EffectIntensity { get set }
 }
