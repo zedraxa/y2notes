@@ -93,9 +93,17 @@ struct InkMaterialTraits: Codable, Equatable {
 /// Optional real-time writing effect rendered in a non-interactive overlay above
 /// the PKCanvasView.
 ///
-/// Simplified for product readiness — only `.none` is supported.
+/// Simplified for product readiness — only `.none` is supported as an active effect;
+/// the other cases are stubs that keep `InkFamilyRegistry` presets compiling.
 enum WritingFXType: String, CaseIterable, Codable, Identifiable {
     case none      // no effect
+    case sparkle
+    case ripple
+    case fire
+    case glitch
+    case sheen
+    case shadow
+    case blood
 
     var id: String { rawValue }
 

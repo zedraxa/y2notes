@@ -394,7 +394,7 @@ struct NotebookInfoView: View {
                             }
                             Text("Choose from Photos")
                                 .font(.caption.weight(.medium))
-                                .foregroundStyle(.accentColor)
+                                .foregroundStyle(.tint)
                         }
                     }
                 }
