@@ -22,8 +22,6 @@ protocol InkEffectProvider: AnyObject {
     var activePreset: InkPreset? { get }
     var fxEnabled: Bool { get set }
     var userPresets: [InkPreset] { get }
-    var deviceTier: DeviceCapabilityTier { get }
-    var isEffectsSupported: Bool { get }
     var resolvedFX: WritingFXType { get }
     var allPresets: [InkPreset] { get }
     var presetsByFamily: [(family: InkFamily, presets: [InkPreset])] { get }

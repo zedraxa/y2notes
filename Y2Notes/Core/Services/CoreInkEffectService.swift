@@ -45,14 +45,9 @@ final class CoreInkEffectService: InkEffectProvider {
 
     var userPresets: [InkPreset] { _userPresets.value }
 
-    let deviceTier: DeviceCapabilityTier = .current
-
-    var isEffectsSupported: Bool { deviceTier.supportsAnyFX }
-
     var resolvedFX: WritingFXType {
-        guard fxEnabled, isEffectsSupported, let preset = activePreset else { return .none }
-        let fx = preset.writingFX
-        return fx.isSupported(on: deviceTier) ? fx : .none
+        guard fxEnabled, let preset = activePreset else { return .none }
+        return preset.writingFX
     }
 
     var allPresets: [InkPreset] {

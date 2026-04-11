@@ -35,8 +35,6 @@ final class ObservableInkEffectStore: ObservableObject {
 
     // MARK: - Forwarded computed properties
 
-    var deviceTier: DeviceCapabilityTier { provider.deviceTier }
-    var isEffectsSupported: Bool { provider.isEffectsSupported }
     var resolvedFX: WritingFXType { provider.resolvedFX }
     var allPresets: [InkPreset] { provider.allPresets }
     var presetsByFamily: [(family: InkFamily, presets: [InkPreset])] { provider.presetsByFamily }
