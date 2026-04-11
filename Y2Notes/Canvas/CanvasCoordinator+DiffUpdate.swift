@@ -118,18 +118,10 @@ extension CanvasPageView.Coordinator {
         if let bg = pageBackground {
             if bg.pageColor != config.backgroundColor {
                 bg.pageColor = config.backgroundColor
-                bg.lineColor = CanvasPageView.rulingLineColor(for: config.backgroundColor)
+                bg.lineColor = CanvasConstants.rulingLineColor(for: config.backgroundColor)
             }
             if bg.pageType != config.pageType {
                 bg.pageType = config.pageType
-            }
-            let wantedIntensity = config.paperMaterial.grainIntensity
-            if bg.grainIntensity != wantedIntensity {
-                bg.grainIntensity = wantedIntensity
-            }
-            let wantedTint = config.paperMaterial.rulingTint
-            if bg.rulingTint != wantedTint {
-                bg.rulingTint = wantedTint
             }
             syncBackgroundWithCanvas(canvas)
         }
@@ -230,7 +222,7 @@ extension CanvasPageView.Coordinator {
         DispatchQueue.main.async { [weak canvas] in
             guard let canvas else { return }
             let canvasW = canvas.bounds.width
-            let fitZoom = canvasW > 0 ? canvasW / CanvasPageView.pageSize.width : 1.0
+            let fitZoom = canvasW > 0 ? canvasW / CanvasConstants.pageSize.width : 1.0
             let clamped = max(canvas.minimumZoomScale,
                               min(canvas.maximumZoomScale, fitZoom))
             canvas.setZoomScale(clamped, animated: true)

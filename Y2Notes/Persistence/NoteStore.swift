@@ -192,6 +192,10 @@ final class NoteStore: ObservableObject {
         // Previous session did not exit cleanly. Data is safe due to atomic writes
         // and rolling backups. Log for diagnostics.
         storeLogger.warning("Crash detected — previous session did not exit cleanly. Data recovered from last save.")
+        // Notify PerformanceMonitor to update crash-free rate
+        Task { @MainActor in
+            PerformanceMonitor.shared.recordCrashDetected()
+        }
     }
 
     // MARK: - Note CRUD
@@ -202,7 +206,6 @@ final class NoteStore: ObservableObject {
     func addNote(
         inNotebook notebookID: UUID? = nil,
         pageType: PageType? = nil,
-        paperMaterial: PaperMaterial? = nil,
         canvasMode: CanvasMode? = nil
     ) -> Note {
         // Generate the template PDF before creating the note so `pdfFilename` is set immediately.
@@ -222,7 +225,6 @@ final class NoteStore: ObservableObject {
             title: noteTitle,
             notebookID: notebookID,
             pageType: pageType,
-            paperMaterial: paperMaterial,
             canvasMode: canvasMode,
             pdfFilename: pdfFilename
         )
@@ -383,15 +385,6 @@ final class NoteStore: ObservableObject {
             notes[idx].pageTypes.append(nil)
         }
         notes[idx].pageTypes[pageIndex] = pageType
-        notes[idx].modifiedAt = Date()
-        save()
-    }
-
-    /// Sets or clears the per-note paper material override.
-    /// Pass nil to inherit from the notebook (or fall back to `.standard` for unfiled notes).
-    func updatePaperMaterial(for noteID: UUID, paperMaterial: PaperMaterial?) {
-        guard let idx = notes.firstIndex(where: { $0.id == noteID }) else { return }
-        notes[idx].paperMaterial = paperMaterial
         notes[idx].modifiedAt = Date()
         save()
     }
@@ -727,7 +720,6 @@ final class NoteStore: ObservableObject {
             sortOrder: original.sortOrder + 1,
             templateID: original.templateID,
             pageType: original.pageType,
-            paperMaterial: original.paperMaterial,
             expansionRegions: copiedRegions
         )
         // Shift pages that follow the original so the copy slots in right after it.
@@ -1056,9 +1048,7 @@ final class NoteStore: ObservableObject {
         pageSize: PageSize = .letter,
         orientation: PageOrientation = .portrait,
         defaultTheme: AppTheme? = nil,
-        paperMaterial: PaperMaterial = .standard,
-        customCoverData: Data? = nil,
-        coverTexture: CoverTexture = .smooth
+        customCoverData: Data? = nil
     ) -> Notebook {
         let nb = Notebook(
             name: name,
@@ -1068,9 +1058,7 @@ final class NoteStore: ObservableObject {
             pageSize: pageSize,
             orientation: orientation,
             defaultTheme: defaultTheme,
-            paperMaterial: paperMaterial,
-            customCoverData: customCoverData,
-            coverTexture: coverTexture
+            customCoverData: customCoverData
         )
         notebooks.insert(nb, at: 0)
         save()
@@ -1122,9 +1110,9 @@ final class NoteStore: ObservableObject {
         save()
     }
 
-    func updateNotebookTexture(id: UUID, texture: CoverTexture) {
+    func updateNotebookCustomCover(id: UUID, customCoverData: Data?) {
         guard let idx = notebooks.firstIndex(where: { $0.id == id }) else { return }
-        notebooks[idx].coverTexture = texture
+        notebooks[idx].customCoverData = customCoverData
         notebooks[idx].modifiedAt = Date()
         save()
     }
@@ -1160,9 +1148,7 @@ final class NoteStore: ObservableObject {
             pageSize: original.pageSize,
             orientation: original.orientation,
             defaultTheme: original.defaultTheme,
-            paperMaterial: original.paperMaterial,
-            customCoverData: original.customCoverData,
-            coverTexture: original.coverTexture
+            customCoverData: original.customCoverData
         )
         // Duplicate all sections from the original notebook.
         let originalSections = sections(inNotebook: original.id)
@@ -1205,6 +1191,7 @@ final class NoteStore: ObservableObject {
     /// Writes all data files atomically and updates `saveState`.
     /// Optionally creates a snapshot for notes with dirty pages.
     private func flushToDisk(trigger: SnapshotTrigger = .autosave) {
+        let saveStart = Date()
         saveState = .saving
         var firstError: Error?
 
@@ -1243,6 +1230,10 @@ final class NoteStore: ObservableObject {
             assertionFailure("Y2Notes: save failed — \(error)")
         } else {
             saveState = .saved
+            let saveDuration = Date().timeIntervalSince(saveStart) * 1000
+            Task { @MainActor in
+                PerformanceMonitor.shared.recordSaveOperation(durationMs: saveDuration)
+            }
         }
 
         // Create snapshots for notes with dirty pages (background queue).
@@ -2075,13 +2066,12 @@ extension NoteStore: NoteRepository {
         pageType: PageType?,
         pageSize: PageSize?,
         orientation: PageOrientation?,
-        paperMaterial: PaperMaterial?,
         templateID: String?
     ) -> Note {
         // NoteStore.addNote(inNotebook:) sets the title automatically ("Note N+1"),
         // and does not yet support pageSize/orientation/templateID — those are
         // silently ignored here to satisfy the protocol interface.
-        addNote(inNotebook: notebookID, pageType: pageType, paperMaterial: paperMaterial)
+        addNote(inNotebook: notebookID, pageType: pageType)
     }
 
     @discardableResult
@@ -2091,7 +2081,6 @@ extension NoteStore: NoteRepository {
         defaultPageType: PageType,
         defaultPageSize: PageSize,
         defaultOrientation: PageOrientation,
-        defaultPaperMaterial: PaperMaterial,
         colorTag: NotebookColorTag
     ) -> Notebook {
         // colorTag is not yet exposed by NoteStore.addNotebook; call updateNotebookColorTag
@@ -2101,8 +2090,7 @@ extension NoteStore: NoteRepository {
             cover: cover,
             pageType: defaultPageType,
             pageSize: defaultPageSize,
-            orientation: defaultOrientation,
-            paperMaterial: defaultPaperMaterial
+            orientation: defaultOrientation
         )
         if colorTag != .none {
             updateNotebookColorTag(id: nb.id, colorTag: colorTag)

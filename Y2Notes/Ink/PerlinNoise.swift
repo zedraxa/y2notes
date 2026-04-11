@@ -69,46 +69,29 @@ final class PerlinNoise2D {
 
 // MARK: - Noise Texture Generator
 
-/// Generates CGImage noise textures for use as paper grain, overlay patterns, etc.
+/// Generates CGImage noise textures for use as overlay patterns.
 enum NoiseTextureGenerator {
-
-    /// Material types for paper grain simulation.
-    enum PaperMaterial {
-        /// Standard smooth paper — subtle uniform grain.
-        case smooth
-        /// Textured linen — fibrous directional pattern.
-        case linen
-        /// Rough kraft paper — large coarse grain.
-        case kraft
-        /// Laid paper — visible parallel lines from paper mold.
-        case laid
-        /// Watercolor paper — cold-press bumpy texture.
-        case watercolor
-    }
 
     /// Generate a noise texture tile of the given size.
     ///
     /// - Parameters:
     ///   - width: Tile width in pixels.
     ///   - height: Tile height in pixels.
-    ///   - material: Paper material type affecting noise character.
     ///   - scale: Noise frequency (higher = finer detail). Default 0.05.
     ///   - seed: Random seed for deterministic generation.
     /// - Returns: A grayscale CGImage suitable for tiling.
     static func generateTile(
         width: Int = 128,
         height: Int = 128,
-        material: PaperMaterial = .smooth,
         scale: Double = 0.05,
         seed: UInt64 = 42
     ) -> CGImage? {
         let noise = PerlinNoise2D(seed: seed)
         var pixels = [UInt8](repeating: 0, count: width * height)
 
-        let config = materialConfig(material)
+        let config = defaultConfig()
 
-        // Fast path: delegate entirely to C batch kernel for simple fBm
-        // materials without directional bias.
+        // Fast path: delegate entirely to C batch kernel for simple fBm.
         if config.noiseType == .fbm && config.directionalBias == 0 {
             pixels.withUnsafeMutableBufferPointer { buf in
                 y2_perlin_generate_tile(
@@ -180,7 +163,7 @@ enum NoiseTextureGenerator {
         return context.makeImage()
     }
 
-    // MARK: - Material Configuration
+    // MARK: - Configuration
 
     private enum NoiseType { case fbm, turbulence, ridged }
 
@@ -194,39 +177,12 @@ enum NoiseTextureGenerator {
         let directionalBias: Double
     }
 
-    private static func materialConfig(_ material: PaperMaterial) -> MaterialConfig {
-        switch material {
-        case .smooth:
-            return MaterialConfig(
-                noiseType: .fbm, octaves: 4, persistence: 0.5,
-                lacunarity: 2.0, frequencyScale: 1.0, contrast: 0.6,
-                directionalBias: 0
-            )
-        case .linen:
-            return MaterialConfig(
-                noiseType: .fbm, octaves: 5, persistence: 0.6,
-                lacunarity: 2.2, frequencyScale: 1.5, contrast: 0.8,
-                directionalBias: 0.5  // Horizontal fiber direction
-            )
-        case .kraft:
-            return MaterialConfig(
-                noiseType: .turbulence, octaves: 6, persistence: 0.55,
-                lacunarity: 1.8, frequencyScale: 0.6, contrast: 1.0,
-                directionalBias: 0.1
-            )
-        case .laid:
-            return MaterialConfig(
-                noiseType: .fbm, octaves: 3, persistence: 0.4,
-                lacunarity: 2.0, frequencyScale: 1.2, contrast: 0.5,
-                directionalBias: 0.7  // Strong horizontal lines
-            )
-        case .watercolor:
-            return MaterialConfig(
-                noiseType: .ridged, octaves: 5, persistence: 0.5,
-                lacunarity: 2.1, frequencyScale: 0.8, contrast: 0.9,
-                directionalBias: 0
-            )
-        }
+    private static func defaultConfig() -> MaterialConfig {
+        MaterialConfig(
+            noiseType: .fbm, octaves: 4, persistence: 0.5,
+            lacunarity: 2.0, frequencyScale: 1.0, contrast: 0.6,
+            directionalBias: 0
+        )
     }
 }
 

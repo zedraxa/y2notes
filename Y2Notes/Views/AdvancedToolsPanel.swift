@@ -406,38 +406,6 @@ struct AdvancedToolsPanel: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
             }
-
-            // Pressure curve selector
-            VStack(alignment: .leading, spacing: 6) {
-                sectionSubLabel("Pressure Response")
-                HStack(spacing: 6) {
-                    ForEach(PressureCurvePreset.allCases, id: \.rawValue) { curve in
-                        let isActive = toolStore.activePenSubType.pressureCurvePreset == curve
-                        Button {
-                            // Pressure curve is intrinsic to the sub-type in this model;
-                            // tapping switches to the nearest sub-type that uses this curve.
-                        } label: {
-                            VStack(spacing: 2) {
-                                Text(curve.displayName)
-                                    .font(.system(size: 11, weight: isActive ? .semibold : .regular))
-                                Text(curve.curveExponent == 0 ? "—" : String(format: "%.1f", curve.curveExponent))
-                                    .font(.system(size: 9).monospacedDigit())
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 7)
-                            .background(isActive ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                            .foregroundStyle(isActive ? Color.accentColor : Color(uiColor: .secondaryLabel))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(true)   // read-only indicator — driven by sub-type
-                    }
-                }
-                Text("Determined by pen type — shown for reference.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
         }
         .padding(16)
     }

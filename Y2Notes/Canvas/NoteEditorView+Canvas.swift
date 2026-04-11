@@ -27,7 +27,6 @@ extension NoteEditorView {
             backgroundColor: canvasBackgroundColor,
             defaultInkColor: effectiveDefinition.contrastingInkColor,
             drawingPolicy: pencilOnlyDrawing ? .pencilOnly : .anyInput,
-            paperMaterial: effectivePaperMaterial,
             pageTypeForIndex: { idx in effectivePageType(forPage: idx) },
             pdfURL: noteStore.notePDFURL(for: note),
             zoomResetTrigger: zoomResetTrigger,

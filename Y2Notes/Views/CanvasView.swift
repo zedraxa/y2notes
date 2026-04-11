@@ -47,8 +47,6 @@ struct CanvasView: UIViewRepresentable {
     let zoomResetTrigger: Bool
     /// Page ruling style rendered behind the canvas.
     let pageType: PageType
-    /// Paper material used for background tint and grain texture.
-    let paperMaterial: PaperMaterial
     /// Active writing FX type from the ink-effects system (`.none` = no FX).
     let activeFX: WritingFXType
     /// Ink colour resolved for the active FX preset.
@@ -130,18 +128,9 @@ struct CanvasView: UIViewRepresentable {
 
     // MARK: - Page dimensions
 
-    /// A4 paper aspect ratio (~1 : √2) used to compute page height from width.
-    private static let a4AspectRatio: CGFloat = 1.414
-
-    /// Fixed page size for the canvas content area. Uses the *landscape* screen
-    /// width (the larger dimension) with an A4 aspect ratio so the page fills
-    /// the screen in width regardless of orientation and provides vertical
-    /// scrolling room like a real paper page.
-    static let pageSize: CGSize = {
-        let screen = UIScreen.main.bounds
-        let w = max(screen.width, screen.height)
-        return CGSize(width: w, height: ceil(w * a4AspectRatio))
-    }()
+    /// Canonical page size, forwarded from `CanvasConstants` for call-site
+    /// compatibility (e.g. `CanvasView.pageSize`).
+    static var pageSize: CGSize { CanvasConstants.pageSize }
 
     static func pageToken(noteID: UUID, pageIndex: Int) -> String {
         "\(noteID.uuidString)-\(pageIndex)"
@@ -196,18 +185,14 @@ struct CanvasView: UIViewRepresentable {
         let container = UIView()
         // The container is the "desk surface" — it shows around the page when
         // zoomed out.  The paper colour is rendered by PageBackgroundView instead.
-        container.backgroundColor = Self.deskSurfaceColor
+        container.backgroundColor = CanvasConstants.deskSurfaceColor
 
         // ── Page background (ruling + paper tint, sits behind the canvas) ──────
-        // Frame-based layout sized to the fixed page dimensions so the ruling
-        // zooms and scrolls together with the PencilKit drawing content.
-        let ps = Self.pageSize
+        let ps = CanvasConstants.pageSize
         let pageBackground = PageBackgroundView(frame: CGRect(origin: .zero, size: ps))
         pageBackground.pageColor    = backgroundColor
         pageBackground.pageType     = pageType
-        pageBackground.lineColor    = Self.rulingLineColor(for: backgroundColor)
-        pageBackground.grainIntensity = paperMaterial.grainIntensity
-        pageBackground.rulingTint   = paperMaterial.rulingTint
+        pageBackground.lineColor    = CanvasConstants.rulingLineColor(for: backgroundColor)
         pageBackground.isUserInteractionEnabled = false
 
         // Give the page a soft drop-shadow so it looks like a physical sheet
@@ -301,10 +286,16 @@ struct CanvasView: UIViewRepresentable {
         // can draw across the full page and scroll vertically.
         canvas.contentSize = ps
 
-        // Restore previously saved drawing, if any.
+        // Suppress the drawing-change handler during the initial load so the
+        // delegate callback does not propagate the same drawing data back to
+        // SwiftUI, which would trigger a redundant update cycle ("doubled
+        // writing" bug).
+        context.coordinator.suppressDrawingChangeHandler = true
         if !drawingData.isEmpty, let drawing = try? PKDrawing(data: drawingData) {
             canvas.drawing = drawing
         }
+        context.coordinator.lastPropagatedDrawingData = canvas.drawing.dataRepresentation()
+        context.coordinator.suppressDrawingChangeHandler = false
 
         container.addSubview(canvas)
         canvas.translatesAutoresizingMaskIntoConstraints = false
@@ -345,237 +336,33 @@ struct CanvasView: UIViewRepresentable {
         ])
         context.coordinator.shapeOverlay = overlay
 
-        // ── Attachment canvas (attachment cards layer) ────────────────────────
-        let attachCanvas = AttachmentCanvasView(frame: .zero)
-        attachCanvas.translatesAutoresizingMaskIntoConstraints = false
-        attachCanvas.noteID = attachmentNoteID
-        attachCanvas.attachments = currentPageAttachments
-        attachCanvas.onSelectionChanged = { attachmentID in
-            context.coordinator.onAttachmentSelectionChanged?(attachmentID)
-        }
-        attachCanvas.onAttachmentTransformed = { attachment in
-            context.coordinator.handleAttachmentTransformed(attachment)
-        }
-        attachCanvas.onAttachmentsChanged = { attachments in
-            context.coordinator.handleAttachmentsChanged(attachments)
-        }
-        context.coordinator.onAttachmentsChanged = onAttachmentsChanged
-        context.coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
-        container.addSubview(attachCanvas)
-        NSLayoutConstraint.activate([
-            attachCanvas.topAnchor.constraint(equalTo: container.topAnchor),
-            attachCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            attachCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            attachCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-        context.coordinator.attachmentCanvas = attachCanvas
-
-        // ── Widget canvas (interactive widget cards layer) ───────────────────
-        let widgetCanvas = WidgetCanvasView(frame: .zero)
-        widgetCanvas.translatesAutoresizingMaskIntoConstraints = false
-        widgetCanvas.widgets = currentPageWidgets
-        widgetCanvas.onSelectionChanged = { widgetID in
-            context.coordinator.onWidgetSelectionChanged?(widgetID)
-        }
-        widgetCanvas.onWidgetTransformed = { widget in
-            context.coordinator.handleWidgetTransformed(widget)
-        }
-        widgetCanvas.onWidgetsChanged = { widgets in
-            context.coordinator.handleWidgetsChanged(widgets)
-        }
-        // Study mode: fire checklist completion animation.
-        widgetCanvas.onChecklistCompleted = { _, center in
-            context.coordinator.studyModeEngine.checklistComplete(at: center)
-        }
-        // Study mode: fire timer/progress completion animation.
-        widgetCanvas.onTimerCompleted = { _, _ in
-            context.coordinator.studyModeEngine.timerComplete()
-        }
-        context.coordinator.onWidgetsChanged = onWidgetsChanged
-        context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
-        container.addSubview(widgetCanvas)
-        NSLayoutConstraint.activate([
-            widgetCanvas.topAnchor.constraint(equalTo: container.topAnchor),
-            widgetCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            widgetCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            widgetCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-        context.coordinator.widgetCanvas = widgetCanvas
-
-        // ── Sticker canvas (draggable sticker overlays) ──────────────────────
-        let stickerCanvas = StickerCanvasView(frame: .zero)
-        stickerCanvas.translatesAutoresizingMaskIntoConstraints = false
-        stickerCanvas.stickers = currentPageStickers
-        stickerCanvas.imageProvider = stickerImageProvider
-        stickerCanvas.onStickerTransformed = { sticker in
-            context.coordinator.handleStickerTransformed(sticker)
-        }
-        stickerCanvas.onStickerDeleted = { stickerID in
-            context.coordinator.handleStickerDeleted(stickerID)
-        }
-        stickerCanvas.onSelectionChanged = { stickerID in
-            context.coordinator.handleStickerSelectionChanged(stickerID)
-        }
-        context.coordinator.onStickersChanged = onStickersChanged
-        context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
-        container.addSubview(stickerCanvas)
-        NSLayoutConstraint.activate([
-            stickerCanvas.topAnchor.constraint(equalTo: container.topAnchor),
-            stickerCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stickerCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stickerCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-        context.coordinator.stickerCanvas = stickerCanvas
-
-        // ── Text object canvas (anchored text boxes layer) ───────────────────
-        let textCanvas = TextCanvasView(frame: .zero)
-        textCanvas.translatesAutoresizingMaskIntoConstraints = false
-        textCanvas.isTextToolActive = isTextToolActive
-        textCanvas.textObjects = currentPageTextObjects
-        textCanvas.onSelectionChanged = { textObjectID in
-            context.coordinator.onTextObjectSelectionChanged?(textObjectID)
-        }
-        textCanvas.onTextObjectsChanged = { textObjects in
-            context.coordinator.handleTextObjectsChanged(textObjects)
-        }
-        textCanvas.onPlaceTextObject = { point in
-            context.coordinator.onPlaceTextObject?(point)
-        }
-        textCanvas.onTextObjectTransformed = { textObject in
-            context.coordinator.handleTextObjectTransformed(textObject)
-        }
-        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
-        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
-        context.coordinator.onPlaceTextObject = onPlaceTextObject
-        container.addSubview(textCanvas)
-        NSLayoutConstraint.activate([
-            textCanvas.topAnchor.constraint(equalTo: container.topAnchor),
-            textCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            textCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            textCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-        context.coordinator.textCanvas = textCanvas
-
-        // ── Shape object canvas (editable shapes layer) ──────────────────────
-        let shapeCanvas = ShapeCanvasView(frame: .zero)
-        shapeCanvas.translatesAutoresizingMaskIntoConstraints = false
-        shapeCanvas.shapes = currentPageShapes
-        shapeCanvas.isShapeToolActive = isShapeToolActive
-        shapeCanvas.onShapesChanged = { [weak shapeCanvas] shapes in
-            guard let shapeCanvas else { return }
-            context.coordinator.handleShapesChanged(shapes)
-            shapeCanvas.shapes = shapes
-        }
-        shapeCanvas.onSelectionChanged = { shapeID in
-            context.coordinator.handleShapeSelectionChanged(shapeID)
-        }
-        context.coordinator.onShapesChanged = onShapesChanged
-        container.addSubview(shapeCanvas)
-        NSLayoutConstraint.activate([
-            shapeCanvas.topAnchor.constraint(equalTo: container.topAnchor),
-            shapeCanvas.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            shapeCanvas.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            shapeCanvas.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-        context.coordinator.shapeCanvas = shapeCanvas
-
-        // ── Hover overlay (non-interactive, floats above the canvas) ─────────
-        let hoverOverlay = PencilHoverOverlayView(frame: .zero)
-        hoverOverlay.translatesAutoresizingMaskIntoConstraints = false
-        hoverOverlay.isUserInteractionEnabled = false
-        canvas.addSubview(hoverOverlay)
-        NSLayoutConstraint.activate([
-            hoverOverlay.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
-            hoverOverlay.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
-            hoverOverlay.topAnchor.constraint(equalTo: canvas.topAnchor),
-            hoverOverlay.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
-        ])
-        context.coordinator.hoverOverlay = hoverOverlay
-
-        // ── Eraser cursor overlay (non-interactive, shows ring sized to eraser width) ──
-        let eraserCursor = EraserCursorOverlay(frame: .zero)
-        eraserCursor.translatesAutoresizingMaskIntoConstraints = false
-        eraserCursor.isUserInteractionEnabled = false
-        canvas.addSubview(eraserCursor)
-        NSLayoutConstraint.activate([
-            eraserCursor.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
-            eraserCursor.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
-            eraserCursor.topAnchor.constraint(equalTo: canvas.topAnchor),
-            eraserCursor.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
-        ])
-        context.coordinator.eraserCursorOverlay = eraserCursor
-
-        // ── Apple Pencil interaction coordinator ─────────────────────────────
-        let pencilCoordinator = PencilInteractionCoordinator()
-        pencilCoordinator.delegate = context.coordinator
-        pencilCoordinator.attach(to: canvas)
-        context.coordinator.pencilCoordinator = pencilCoordinator
-        context.coordinator.canvasRef = canvas
-
-        // ── Real-time nib tracker for effects ────────────────────────────────
-        // PencilNibTrackerGestureRecognizer fires on every pencil touchesMoved
-        // event at the hardware's native frame rate (up to 240 Hz).  This drives
-        // ink-effect emitter positions in real time instead of waiting for
-        // canvasViewDrawingDidChange (which only fires on committed stroke batches
-        // and lags 100–300 ms behind the actual pen tip).
-        let nibTracker = PencilNibTrackerGestureRecognizer()
-        nibTracker.onNibBegan = { [context] location in
-            let coordinator = context.coordinator
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
-            let inkColor = (coordinator.canvasRef?.tool as? PKInkingTool)?.color ?? .label
-            coordinator.effects.dispatch(
-                .strokeBegan(at: location, inkColor: inkColor),
-                inkEffectEngine: coordinator.effectEngine
-            )
-        }
-        nibTracker.onNibMoved = { [context] location, force, velocity in
-            let coordinator = context.coordinator
-            guard coordinator.canvasRef?.tool is PKInkingTool else { return }
-            coordinator.effects.dispatch(
-                .strokeUpdated(at: location, pressure: force, velocity: velocity),
-                inkEffectEngine: coordinator.effectEngine
-            )
-        }
-        canvas.addGestureRecognizer(nibTracker)
-        context.coordinator.nibTracker = nibTracker
-
-        // ── Scratch-to-delete gesture recognizer ─────────────────────────────
-        // ScribbleDeleteRecognizer is a fully passive observer: it never cancels
-        // or prevents PKCanvasView's own drawing recognizer.  When a rapid
-        // back-and-forth pencil motion is detected, the matching ink strokes are
-        // removed via deleteScratchStrokes(in:).  The deletion is dispatched
-        // asynchronously to guarantee PKCanvasView has committed the stroke before
-        // we modify canvas.drawing.
-        let scratchRecognizer = ScribbleDeleteRecognizer()
-        scratchRecognizer.onScratchDetected = { [weak coordinator = context.coordinator] viewportRect in
-            DispatchQueue.main.async {
-                coordinator?.deleteScratchStrokes(in: viewportRect)
-            }
-        }
-        canvas.addGestureRecognizer(scratchRecognizer)
-        context.coordinator.scratchDeleteRecognizer = scratchRecognizer
-
-        // Pre-warm all haptic generators for interaction feedback (AGENT-23).
-        context.coordinator.interactionFeedback.prepareAll()
-
-        // ── Ink effect engine (fire / sparkle / glitch / ripple) ────────────
-        let engine = InkEffectEngine(tier: DeviceCapabilityTier.current)
-        engine.configure(fx: activeFX, color: fxColor)
-        engine.attach(to: container)
-        context.coordinator.effectEngine = engine
-
-        // ── Writing Effects Pipeline (glow, neon, trail, taper, pooling) ───
-        context.coordinator.writingPipeline.attach(to: container)
-        context.coordinator.writingPipeline.configure(
-            config: toolStoreForFade?.writingEffectConfig ?? .default,
-            color: toolStoreForFade?.activeColor ?? .black
+        // ── Shared overlays via builder ──────────────────────────────────────
+        CanvasViewBuilder.buildOverlays(
+            in: container,
+            canvas: canvas,
+            coordinator: context.coordinator,
+            currentPageShapes: currentPageShapes,
+            isShapeToolActive: isShapeToolActive,
+            currentPageAttachments: currentPageAttachments,
+            attachmentNoteID: attachmentNoteID,
+            onAttachmentsChanged: onAttachmentsChanged,
+            onAttachmentSelectionChanged: onAttachmentSelectionChanged,
+            currentPageWidgets: currentPageWidgets,
+            onWidgetsChanged: onWidgetsChanged,
+            onWidgetSelectionChanged: onWidgetSelectionChanged,
+            currentPageStickers: currentPageStickers,
+            onStickersChanged: onStickersChanged,
+            onStickerSelectionChanged: onStickerSelectionChanged,
+            stickerImageProvider: stickerImageProvider,
+            isTextToolActive: isTextToolActive,
+            currentPageTextObjects: currentPageTextObjects,
+            onTextObjectsChanged: onTextObjectsChanged,
+            onTextObjectSelectionChanged: onTextObjectSelectionChanged,
+            onPlaceTextObject: onPlaceTextObject,
+            onShapesChanged: onShapesChanged
         )
 
         // ── Page gestures (two-finger pan + three-finger pinch) ──────────────
-        // Two-finger horizontal pan navigates pages.  Using a pan recogniser
-        // (instead of a swipe) allows the page to follow the finger in real-time,
-        // giving the physical "book page" feel.  A horizontal-dominance check in
-        // the handler prevents accidental fires during canvas pan/zoom.
         let pagePan = UIPanGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handlePagePan(_:))
@@ -613,11 +400,16 @@ struct CanvasView: UIViewRepresentable {
             // first open regardless of device orientation or screen size.
             let canvasW = canvas.bounds.width
             if canvasW > 0 {
-                let fitZoom = canvasW / CanvasView.pageSize.width
+                let fitZoom = canvasW / CanvasConstants.pageSize.width
                 let clamped = max(canvas.minimumZoomScale,
                                   min(canvas.maximumZoomScale, fitZoom))
                 canvas.setZoomScale(clamped, animated: false)
             }
+            // Explicitly sync the page background after the initial zoom so
+            // ruling lines and paper are perfectly aligned from the first
+            // frame.  KVO alone may miss this because contentOffset might not
+            // change when only zoomScale is set.
+            context.coordinator.syncBackgroundWithCanvas(canvas)
             editorSignposter.endInterval("CanvasSetup", setupState)
             editorLogger.debug("[\(noteID, privacy: .public)] canvas setup - complete")
         }
@@ -634,7 +426,6 @@ struct CanvasView: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {
         guard let canvas = context.coordinator.canvas else { return }
 
-        // Wire up toolbar store reference for auto-fade (idempotent).
         context.coordinator.toolStoreRef = toolStoreForFade
 
         // Keep a stable PKCanvasView instance and rebind page content when the
@@ -649,21 +440,11 @@ struct CanvasView: UIViewRepresentable {
         if let bg = context.coordinator.pageBackground {
             if bg.pageColor != backgroundColor {
                 bg.pageColor  = backgroundColor
-                bg.lineColor  = Self.rulingLineColor(for: backgroundColor)
+                bg.lineColor  = CanvasConstants.rulingLineColor(for: backgroundColor)
             }
             if bg.pageType != pageType {
                 bg.pageType = pageType
             }
-            let wantedIntensity = paperMaterial.grainIntensity
-            if bg.grainIntensity != wantedIntensity {
-                bg.grainIntensity = wantedIntensity
-            }
-            let wantedTint = paperMaterial.rulingTint
-            if bg.rulingTint != wantedTint {
-                bg.rulingTint = wantedTint
-            }
-            // Re-sync position/scale in case SwiftUI re-rendered while
-            // the canvas was scrolled or zoomed.
             context.coordinator.syncBackgroundWithCanvas(canvas)
         }
 
@@ -680,11 +461,9 @@ struct CanvasView: UIViewRepresentable {
             )
         }
 
-        // Sync drawing policy when the user toggles the finger/pencil preference.
+        // Sync drawing policy.
         if canvas.drawingPolicy != drawingPolicy {
             canvas.drawingPolicy = drawingPolicy
-            // Update touch type filtering to match: pencilOnly → restrict to pencil
-            // touches for faster first-touch discrimination, anyInput → allow all.
             if WritingConfig.useTouchTypeFiltering {
                 if drawingPolicy == .pencilOnly {
                     canvas.drawingGestureRecognizer.allowedTouchTypes = [
@@ -697,23 +476,15 @@ struct CanvasView: UIViewRepresentable {
                     ]
                 }
             }
-            // Reset palm guard when switching modes.
             context.coordinator.palmGuard.reset()
         }
 
-        // Update the active tool from DrawingToolStore — but ONLY when:
-        // 1. The user is not mid-stroke (setting tool mid-stroke kills PencilKit's
-        //    internal pressure/tilt pipeline, destroying pressure sensitivity).
-        // 2. The tool actually changed. We compare a lightweight snapshot of the
-        //    tool's identity (type + ink type + color + width) to avoid redundant
-        //    assignments that would reset PencilKit's state.
+        // Sync active tool.
         if !context.coordinator.isDrawing {
             let snapshot = ToolSnapshot(currentTool)
             if context.coordinator.lastToolSnapshot != snapshot {
                 canvas.tool = currentTool
                 context.coordinator.lastToolSnapshot = snapshot
-
-                // ── Interaction feedback for tool switch (AGENT-23) ─────
                 if currentTool is PKEraserTool {
                     context.coordinator.interactionFeedback.play(.eraserEngage, on: canvas.layer)
                 } else {
@@ -724,67 +495,41 @@ struct CanvasView: UIViewRepresentable {
         }
         canvas.isUserInteractionEnabled = !isShapeToolActive
 
-        // Sync shape overlay properties.
-        if let overlay = context.coordinator.shapeOverlay {
-            overlay.isHidden    = !isShapeToolActive
-            overlay.shapeType   = activeShapeType
-            overlay.strokeColor = shapeColor
-            overlay.strokeWidth = CGFloat(shapeWidth)
-        }
+        // Sync overlays via shared helper.
+        CanvasViewBuilder.syncOverlayCanvases(
+            coordinator: context.coordinator,
+            canvas: canvas,
+            isShapeToolActive: isShapeToolActive,
+            activeShapeType: activeShapeType,
+            shapeColor: shapeColor,
+            shapeWidth: shapeWidth,
+            currentPageShapes: currentPageShapes,
+            currentPageAttachments: currentPageAttachments,
+            attachmentNoteID: attachmentNoteID,
+            currentPageWidgets: currentPageWidgets,
+            currentPageStickers: currentPageStickers,
+            stickerImageProvider: stickerImageProvider,
+            isTextToolActive: isTextToolActive,
+            currentPageTextObjects: currentPageTextObjects,
+            toolStore: toolStoreForFade,
+            onAttachmentsChanged: onAttachmentsChanged,
+            onAttachmentSelectionChanged: onAttachmentSelectionChanged,
+            onWidgetsChanged: onWidgetsChanged,
+            onWidgetSelectionChanged: onWidgetSelectionChanged,
+            onStickersChanged: onStickersChanged,
+            onStickerSelectionChanged: onStickerSelectionChanged,
+            onTextObjectsChanged: onTextObjectsChanged,
+            onTextObjectSelectionChanged: onTextObjectSelectionChanged,
+            onPlaceTextObject: onPlaceTextObject,
+            onShapesChanged: onShapesChanged
+        )
 
-        // Sync shape object canvas.
-        if let shapeCanvas = context.coordinator.shapeCanvas {
-            shapeCanvas.isShapeToolActive = isShapeToolActive
-            shapeCanvas.shapes = currentPageShapes
-            shapeCanvas.selectedShapeID = toolStoreForFade?.activeShapeSelection
-        }
-
-        // Sync attachment canvas.
-        if let attachCanvas = context.coordinator.attachmentCanvas {
-            attachCanvas.attachments = currentPageAttachments
-            attachCanvas.noteID = attachmentNoteID
-            attachCanvas.selectedAttachmentID = toolStoreForFade?.activeAttachmentSelection
-            attachCanvas.zoomScale = canvas.zoomScale
-        }
-        context.coordinator.onAttachmentsChanged = onAttachmentsChanged
-        context.coordinator.onAttachmentSelectionChanged = onAttachmentSelectionChanged
-
-        // Sync widget canvas.
-        if let widgetCanvas = context.coordinator.widgetCanvas {
-            widgetCanvas.widgets = currentPageWidgets
-            widgetCanvas.selectedWidgetID = toolStoreForFade?.activeWidgetSelection
-        }
-        context.coordinator.onWidgetsChanged = onWidgetsChanged
-        context.coordinator.onWidgetSelectionChanged = onWidgetSelectionChanged
-
-        // Sync sticker canvas.
-        if let stickerCanvas = context.coordinator.stickerCanvas {
-            stickerCanvas.stickers = currentPageStickers
-            stickerCanvas.imageProvider = stickerImageProvider
-            stickerCanvas.selectedStickerID = toolStoreForFade?.activeStickerSelection
-        }
-        context.coordinator.onStickersChanged = onStickersChanged
-        context.coordinator.onStickerSelectionChanged = onStickerSelectionChanged
-
-        // Sync text object canvas.
-        if let textCanvas = context.coordinator.textCanvas {
-            textCanvas.isTextToolActive = isTextToolActive
-            textCanvas.textObjects = currentPageTextObjects
-            textCanvas.selectedTextObjectID = toolStoreForFade?.activeTextObjectSelection
-        }
-        context.coordinator.onTextObjectsChanged = onTextObjectsChanged
-        context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
-        context.coordinator.onPlaceTextObject = onPlaceTextObject
-
-        // Zoom reset: animate to fit-to-width when the trigger value flips.
-        // "Fit to width" is more useful than a fixed 1× scale because it adapts
-        // to the current screen size and orientation.
+        // Zoom reset.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
-            // Dispatch to avoid mutating scroll state mid-layout-pass.
             DispatchQueue.main.async {
                 let canvasW = canvas.bounds.width
-                let fitZoom = canvasW > 0 ? canvasW / CanvasView.pageSize.width : 1.0
+                let fitZoom = canvasW > 0 ? canvasW / CanvasConstants.pageSize.width : 1.0
                 let clamped = max(canvas.minimumZoomScale,
                                   min(canvas.maximumZoomScale, fitZoom))
                 canvas.setZoomScale(clamped, animated: true)
@@ -792,61 +537,13 @@ struct CanvasView: UIViewRepresentable {
             }
         }
 
-        // Keep the undo state callback current (closures capture SwiftUI state by value).
         context.coordinator.onUndoStateChanged = onUndoStateChanged
 
         // Sync page boundary info so the page-pan gesture can reject out-of-range drags.
         context.coordinator.coordinatorPageIndex = pageIndex
         context.coordinator.coordinatorPageCount = pageCount
 
-        // Sync adaptive effects engine with current note complexity.
-        context.coordinator.adaptiveEffectsEngine.pageCount = pageCount
-        // Propagate current intensity to canvas sub-views (coordinator
-        // handles its own sub-engines automatically via Combine).
-        let intensity = context.coordinator.adaptiveEffectsEngine.intensity
-        context.coordinator.effects.distribute(
-            intensity: intensity,
-            shapeCanvas: context.coordinator.shapeCanvas,
-            attachmentCanvas: context.coordinator.attachmentCanvas,
-            widgetCanvas: context.coordinator.widgetCanvas,
-            stickerCanvas: context.coordinator.stickerCanvas
-        )
-
-        // Sync magic mode engine — activate/deactivate when toggle changes.
-        context.coordinator.effects.setMagicMode(active: isMagicModeActive, on: uiView.layer)
-        // Sync study mode engine — activate/deactivate when toggle changes.
-        context.coordinator.effects.setStudyMode(active: isStudyModeActive, on: uiView.layer)
-        // Keep layout-sensitive engines in sync on resize / rotation.
-        context.coordinator.effects.updateLayout(containerBounds: uiView.bounds)
-
-        // Sync ambient environment engine — activate/deactivate/sound when scene changes.
-        let ambientEngine = context.coordinator.ambientEngine
-        ambientEngine.soundEnabled = isAmbientSoundEnabled
-        if let ts = toolStoreForFade {
-            switch (activeAmbientScene, ambientEngine.activeScene) {
-            case let (scene?, current) where current != scene:
-                ambientEngine.activate(scene, on: uiView.layer, toolStore: ts)
-            case (nil, .some):
-                ambientEngine.deactivate(toolStore: ts)
-            default:
-                break
-            }
-        }
-        if ambientEngine.activeScene != nil {
-            ambientEngine.updateLayout(containerBounds: uiView.bounds)
-        }
-
-        // Sync ink effect engine configuration when FX type or colour changes.
-        if let engine = context.coordinator.effectEngine {
-            engine.syncLayerFrames()
-            engine.configure(fx: activeFX, color: fxColor)
-        }
-
-        // Sync writing effects pipeline when the pen tool or colour changes.
-        context.coordinator.writingPipeline.configure(
-            config: toolStoreForFade?.writingEffectConfig ?? .default,
-            color: toolStoreForFade?.activeColor ?? .black
-        )
+        // Effects sync removed
     }
 
     /// Ensures exactly one PDF background layer is bound for the current page.
@@ -865,7 +562,7 @@ struct CanvasView: UIViewRepresentable {
               let pdfDoc = PDFDocument(url: pdfURL),
               let pdfPage = pdfDoc.page(at: pageIndex) else { return }
 
-        let ps = Self.pageSize
+        let ps = CanvasConstants.pageSize
         let mediaBox = pdfPage.bounds(for: .mediaBox)
         let format = UIGraphicsImageRendererFormat()
         format.scale = UIScreen.main.scale
@@ -902,47 +599,5 @@ struct CanvasView: UIViewRepresentable {
         if let canvas = coordinator.canvas {
             coordinator.syncBackgroundWithCanvas(canvas)
         }
-    }
-
-    // MARK: - Ruling line color helper
-
-    /// Returns a ruling line color that is visible against the given background.
-    /// On dark backgrounds the lines are white at low opacity; on light backgrounds
-    /// they are black at low opacity.
-    private static func rulingLineColor(for background: UIColor) -> UIColor {
-        let isDarkBackground: Bool = {
-            var white: CGFloat = 0
-            if background.getWhite(&white, alpha: nil) {
-                return white < 0.5
-            }
-
-            var red: CGFloat = 0
-            var green: CGFloat = 0
-            var blue: CGFloat = 0
-            if background.getRed(&red, green: &green, blue: &blue, alpha: nil) {
-                let relativeLuminance =
-                    (0.2126 * red) +
-                    (0.7152 * green) +
-                    (0.0722 * blue)
-                return relativeLuminance < 0.5
-            }
-
-            return false
-        }()
-
-        return isDarkBackground
-            ? UIColor.white.withAlphaComponent(0.12)
-            : UIColor.label.withAlphaComponent(0.10)
-    }
-
-    // MARK: - Desk surface color
-
-    /// The background color shown outside the page boundaries (the "desk" surface).
-    /// Uses a neutral warm-gray that contrasts with the paper in both light and
-    /// dark appearances, giving the canvas the look of a real page resting on a table.
-    private static let deskSurfaceColor: UIColor = UIColor { tc in
-        tc.userInterfaceStyle == .dark
-            ? UIColor(white: 0.13, alpha: 1)
-            : UIColor(white: 0.86, alpha: 1)
     }
 }

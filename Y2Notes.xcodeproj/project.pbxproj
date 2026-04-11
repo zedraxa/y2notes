@@ -50,10 +50,9 @@
 		AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000092 /* PDFPageAnnotationView.swift */; };
 		AA0001000000000000000097 /* PDFViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000093 /* PDFViewerView.swift */; };
 		AA000100000000000000009E /* InkModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000098 /* InkModels.swift */; };
-		AA000100000000000000009F /* InkEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000099 /* InkEffectEngine.swift */; };
+		AA000100000000000000101 /* EffectStubs.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000100 /* EffectStubs.swift */; };
 		AA00010000000000000000A0 /* InkFamilyRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009A /* InkFamilyRegistry.swift */; };
 		AA00010000000000000000A1 /* InkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009B /* InkEffectStore.swift */; };
-		AA00010000000000000000A2 /* InkEffectPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000009C /* InkEffectPickerView.swift */; };
 		AA00010000000000000000A8 /* AppSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A7 /* AppSettingsStore.swift */; };
 		AA00010000000000000000AA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A9 /* SettingsView.swift */; };
 		AA00010000000000000000AC /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000AB /* DiagnosticsView.swift */; };
@@ -110,18 +109,7 @@
 		AA000100000000000000012D /* WidgetPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012C /* WidgetPickerView.swift */; };
 		AA0001000000000000000153 /* WidgetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000152 /* WidgetEditorView.swift */; };
 		AA000100000000000000012F /* PageRegion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000012E /* PageRegion.swift */; };
-		AA0001000000000000000131 /* WritingEffectModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000130 /* WritingEffectModel.swift */; };
-		AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000132 /* MicroInteractionEngine.swift */; };
-		AA0001000000000000000135 /* SnapAlignEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000134 /* SnapAlignEffectEngine.swift */; };
-		AA0001000000000000000137 /* PageTransitionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000136 /* PageTransitionEngine.swift */; };
-		AA0001000000000000000139 /* FocusModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000138 /* FocusModeEngine.swift */; };
-		AA000100000000000000013B /* AmbientEnvironmentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013A /* AmbientEnvironmentEngine.swift */; };
-		AA000100000000000000013D /* AdaptiveEffectsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013C /* AdaptiveEffectsEngine.swift */; };
-		AA000100000000000000013F /* MagicModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000013E /* MagicModeEngine.swift */; };
-		AA0001000000000000000141 /* StudyModeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000140 /* StudyModeEngine.swift */; };
 		AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000142 /* ReduceMotionObserver.swift */; };
-		AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000144 /* EffectsCoordinator.swift */; };
-		AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000146 /* WritingEffectsPipeline.swift */; };
 		AA000100000000000000017D /* EraserCursorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000017C /* EraserCursorOverlay.swift */; };
 		AA0001000000000000000181 /* GoogleDriveFileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000148 /* GoogleDriveFileBrowserView.swift */; };
 		AA000100000000000000017F /* ScribbleDeleteRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */; };
@@ -131,13 +119,11 @@
 		AA000100000000000000018B /* y2_perlin.c in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000018A /* y2_perlin.c */; };
 		AA000100000000000000018E /* y2_sph.c in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000018D /* y2_sph.c */; };
 
-		AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000014A /* InteractionFeedbackEngine.swift */; };
 		AA0001000000000000000155 /* WritingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000154 /* WritingInsights.swift */; };
 		AA0001000000000000000157 /* QuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000156 /* QuickAction.swift */; };
 		AA0001000000000000000159 /* WritingInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000158 /* WritingInsightsView.swift */; };
 		AA000100000000000000015B /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015A /* CommandPaletteView.swift */; };
 		AA000100000000000000015D /* OpenSourceCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015C /* OpenSourceCreditsView.swift */; };
-		AA000100000000000000015F /* CoverTextureOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000015E /* CoverTextureOverlay.swift */; };
 		AA0001000000000000000171 /* NotebookInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000170 /* NotebookInfoView.swift */; };
 		AA0001000000000000000161 /* TextObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000160 /* TextObject.swift */; };
 		AA0001000000000000000163 /* TextCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000162 /* TextCanvasView.swift */; };
@@ -207,25 +193,18 @@
 		AA00010000000000000001B8 /* NoteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001B7 /* NoteRepository.swift */; };
 		AA00010000000000000001BA /* ThemeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001B9 /* ThemeProvider.swift */; };
 		AA00010000000000000001BC /* ToolStateProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BB /* ToolStateProvider.swift */; };
-		AA00010000000000000001BE /* InkEffectProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BD /* InkEffectProvider.swift */; };
 		AA00010000000000000001C0 /* SettingsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001BF /* SettingsProvider.swift */; };
 		AA00010000000000000001C2 /* SyncProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C1 /* SyncProvider.swift */; };
 		AA00010000000000000001C4 /* PersistenceDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C3 /* PersistenceDriver.swift */; };
 		AA00010000000000000001C6 /* JSONFilePersistenceDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */; };
 		AA00010000000000000001C8 /* CoreThemeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C7 /* CoreThemeService.swift */; };
 		AA00010000000000000001CA /* CoreSettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001C9 /* CoreSettingsService.swift */; };
-		AA00010000000000000001CC /* CoreInkEffectService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CB /* CoreInkEffectService.swift */; };
 		AA00010000000000000001CE /* ServiceContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CD /* ServiceContainer.swift */; };
 		AA00010000000000000001D0 /* ObservableNoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001CF /* ObservableNoteStore.swift */; };
 		AA00010000000000000001D2 /* ObservableThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D1 /* ObservableThemeStore.swift */; };
 		AA00010000000000000001D4 /* ObservableToolStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D3 /* ObservableToolStore.swift */; };
-		AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D5 /* ObservableInkEffectStore.swift */; };
 		AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001D7 /* ObservableSettingsStore.swift */; };
 		AA00010000000000000001DB /* CanvasDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DA /* CanvasDelegate.swift */; };
-		AA00010000000000000001DD /* StrokeRenderingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DC /* StrokeRenderingPipeline.swift */; };
-		AA00010000000000000001DF /* EffectOverlayLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001DE /* EffectOverlayLayer.swift */; };
-		AA00010000000000000001E1 /* Y2CanvasViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E0 /* Y2CanvasViewController.swift */; };
-		AA00010000000000000001E3 /* Y2CanvasHostingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000001E2 /* Y2CanvasHostingView.swift */; };
 		AA0001000000000000000262 /* CanvasPageConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000261 /* CanvasPageConfiguration.swift */; };
 		AA0001000000000000000264 /* CanvasPageCallbacks.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000263 /* CanvasPageCallbacks.swift */; };
 		AA0001000000000000000266 /* NotebookCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000265 /* NotebookCanvasView.swift */; };
@@ -236,6 +215,12 @@
 		AA000100000000000000026F /* CanvasCoordinator+DiffUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */; };
 		AA0001000000000000000271 /* ReaderCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000270 /* ReaderCanvasView.swift */; };
 		AA0001000000000000000273 /* NotebookReaderView+Canvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */; };
+		AA0001000000000000000277 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000276 /* HomeView.swift */; };
+		AA0001000000000000000279 /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000278 /* FloatingActionButton.swift */; };
+		AA0001000000000000000281 /* CanvasCoordinatorBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000280 /* CanvasCoordinatorBase.swift */; };
+		AA0001000000000000000283 /* CanvasConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000282 /* CanvasConstants.swift */; };
+		AA0001000000000000000285 /* InfiniteCanvasPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000284 /* InfiniteCanvasPageView.swift */; };
+		AA0001000000000000000287 /* PerformanceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000286 /* PerformanceMonitor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -284,21 +269,10 @@
 		AA0001000000000000000092 /* PDFPageAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFPageAnnotationView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000093 /* PDFViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFViewerView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000098 /* InkModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkModels.swift; sourceTree = "<group>"; };
-		AA0001000000000000000099 /* InkEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectEngine.swift; sourceTree = "<group>"; };
 		AA000100000000000000009A /* InkFamilyRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkFamilyRegistry.swift; sourceTree = "<group>"; };
 		AA000100000000000000009B /* InkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectStore.swift; sourceTree = "<group>"; };
-		AA0001000000000000000130 /* WritingEffectModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectModel.swift; sourceTree = "<group>"; };
-		AA0001000000000000000132 /* MicroInteractionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicroInteractionEngine.swift; sourceTree = "<group>"; };
-		AA0001000000000000000134 /* SnapAlignEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAlignEffectEngine.swift; sourceTree = "<group>"; };
-		AA0001000000000000000136 /* PageTransitionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTransitionEngine.swift; sourceTree = "<group>"; };
-		AA0001000000000000000138 /* FocusModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusModeEngine.swift; sourceTree = "<group>"; };
-		AA000100000000000000013A /* AmbientEnvironmentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientEnvironmentEngine.swift; sourceTree = "<group>"; };
-		AA000100000000000000013C /* AdaptiveEffectsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveEffectsEngine.swift; sourceTree = "<group>"; };
-		AA000100000000000000013E /* MagicModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MagicModeEngine.swift; sourceTree = "<group>"; };
-		AA0001000000000000000140 /* StudyModeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyModeEngine.swift; sourceTree = "<group>"; };
+		AA000100000000000000100 /* EffectStubs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectStubs.swift; sourceTree = "<group>"; };
 		AA0001000000000000000142 /* ReduceMotionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReduceMotionObserver.swift; sourceTree = "<group>"; };
-		AA0001000000000000000144 /* EffectsCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectsCoordinator.swift; sourceTree = "<group>"; };
-		AA0001000000000000000146 /* WritingEffectsPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingEffectsPipeline.swift; sourceTree = "<group>"; };
 		AA000100000000000000017C /* EraserCursorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraserCursorOverlay.swift; sourceTree = "<group>"; };
 		AA000100000000000000017E /* ScribbleDeleteRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribbleDeleteRecognizer.swift; sourceTree = "<group>"; };
 		AA0001000000000000000182 /* PencilNibTrackerGestureRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilNibTrackerGestureRecognizer.swift; sourceTree = "<group>"; };
@@ -313,13 +287,11 @@
 		AA0001000000000000000193 /* y2_levenshtein.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = y2_levenshtein.h; sourceTree = "<group>"; };
 		AA0001000000000000000194 /* y2_levenshtein.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = y2_levenshtein.c; sourceTree = "<group>"; };
 		AA000100000000000000018F /* Y2Notes-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Y2Notes-Bridging-Header.h"; sourceTree = "<group>"; };
-		AA000100000000000000014A /* InteractionFeedbackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionFeedbackEngine.swift; sourceTree = "<group>"; };
 		AA0001000000000000000154 /* WritingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsights.swift; sourceTree = "<group>"; };
 		AA0001000000000000000156 /* QuickAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAction.swift; sourceTree = "<group>"; };
 		AA0001000000000000000158 /* WritingInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingInsightsView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015A /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		AA000100000000000000015C /* OpenSourceCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSourceCreditsView.swift; sourceTree = "<group>"; };
-		AA000100000000000000015E /* CoverTextureOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverTextureOverlay.swift; sourceTree = "<group>"; };
 		AA0001000000000000000170 /* NotebookInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookInfoView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000160 /* TextObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextObject.swift; sourceTree = "<group>"; };
 		AA0001000000000000000162 /* TextCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextCanvasView.swift; sourceTree = "<group>"; };
@@ -330,7 +302,6 @@
 		AA0001000000000000000166 /* PerlinNoise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerlinNoise.swift; sourceTree = "<group>"; };
 		AA0001000000000000000168 /* FluidSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluidSimulation.swift; sourceTree = "<group>"; };
 		AA0001000000000000000196 /* StickerRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerRenderer.swift; sourceTree = "<group>"; };
-		AA000100000000000000009C /* InkEffectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectPickerView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A7 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000000A9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		AA00010000000000000000AB /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
@@ -439,14 +410,11 @@
 		AA0001000000000000000249 /* StickerPackProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickerPackProviding.swift; sourceTree = "<group>"; };
 		AA000100000000000000024B /* Y2LinkInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkInsertionController.swift; sourceTree = "<group>"; };
 		AA000100000000000000024D /* Y2LinkMetadataFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2LinkMetadataFetcher.swift; sourceTree = "<group>"; };
-		AA000100000000000000024F /* Metal */ = {isa = PBXGroup; children = (AA0001000000000000000250 /* Y2ParticleSystem.metal */, AA0001000000000000000252 /* MetalParticleRenderer.swift */,); name = Metal; path = Metal; sourceTree = "<group>"; };
+		AA000100000000000000024F /* Metal */ = {isa = PBXGroup; children = (AA0001000000000000000250 /* Y2ParticleSystem.metal */,); name = Metal; path = Metal; sourceTree = "<group>"; };
 		AA0001000000000000000250 /* Y2ParticleSystem.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Y2ParticleSystem.metal; sourceTree = "<group>"; };
 		AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000250 /* Y2ParticleSystem.metal */; };
-		AA0001000000000000000252 /* MetalParticleRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalParticleRenderer.swift; sourceTree = "<group>"; };
 		AA0001000000000000000254 /* Y2TextBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TextBlockView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2TextBlockInsertionController.swift; sourceTree = "<group>"; };
-
-		AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000252 /* MetalParticleRenderer.swift */; };
 		AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000254 /* Y2TextBlockView.swift */; };
 		AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000256 /* Y2TextBlockInsertionController.swift */; };
 
@@ -466,25 +434,18 @@
 		AA00010000000000000001B7 /* NoteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteRepository.swift; sourceTree = "<group>"; };
 		AA00010000000000000001B9 /* ThemeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeProvider.swift; sourceTree = "<group>"; };
 		AA00010000000000000001BB /* ToolStateProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolStateProvider.swift; sourceTree = "<group>"; };
-		AA00010000000000000001BD /* InkEffectProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkEffectProvider.swift; sourceTree = "<group>"; };
 		AA00010000000000000001BF /* SettingsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProvider.swift; sourceTree = "<group>"; };
 		AA00010000000000000001C1 /* SyncProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncProvider.swift; sourceTree = "<group>"; };
 		AA00010000000000000001C3 /* PersistenceDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceDriver.swift; sourceTree = "<group>"; };
 		AA00010000000000000001C5 /* JSONFilePersistenceDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONFilePersistenceDriver.swift; sourceTree = "<group>"; };
 		AA00010000000000000001C7 /* CoreThemeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreThemeService.swift; sourceTree = "<group>"; };
 		AA00010000000000000001C9 /* CoreSettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreSettingsService.swift; sourceTree = "<group>"; };
-		AA00010000000000000001CB /* CoreInkEffectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreInkEffectService.swift; sourceTree = "<group>"; };
 		AA00010000000000000001CD /* ServiceContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceContainer.swift; sourceTree = "<group>"; };
 		AA00010000000000000001CF /* ObservableNoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableNoteStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000001D1 /* ObservableThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableThemeStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000001D3 /* ObservableToolStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableToolStore.swift; sourceTree = "<group>"; };
-		AA00010000000000000001D5 /* ObservableInkEffectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableInkEffectStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000001D7 /* ObservableSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableSettingsStore.swift; sourceTree = "<group>"; };
 		AA00010000000000000001DA /* CanvasDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasDelegate.swift; sourceTree = "<group>"; };
-		AA00010000000000000001DC /* StrokeRenderingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrokeRenderingPipeline.swift; sourceTree = "<group>"; };
-		AA00010000000000000001DE /* EffectOverlayLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectOverlayLayer.swift; sourceTree = "<group>"; };
-		AA00010000000000000001E0 /* Y2CanvasViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2CanvasViewController.swift; sourceTree = "<group>"; };
-		AA00010000000000000001E2 /* Y2CanvasHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Y2CanvasHostingView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000261 /* CanvasPageConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageConfiguration.swift; sourceTree = "<group>"; };
 		AA0001000000000000000263 /* CanvasPageCallbacks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageCallbacks.swift; sourceTree = "<group>"; };
 		AA0001000000000000000265 /* NotebookCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCanvasView.swift; sourceTree = "<group>"; };
@@ -493,8 +454,14 @@
 		AA0001000000000000000269 /* NoteEditorView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NoteEditorView+Canvas.swift"; sourceTree = "<group>"; };
 		AA000100000000000000026C /* CanvasPageDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasPageDiff.swift; sourceTree = "<group>"; };
 		AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CanvasCoordinator+DiffUpdate.swift"; sourceTree = "<group>"; };
+		AA0001000000000000000280 /* CanvasCoordinatorBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasCoordinatorBase.swift; sourceTree = "<group>"; };
+		AA0001000000000000000282 /* CanvasConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasConstants.swift; sourceTree = "<group>"; };
+		AA0001000000000000000284 /* InfiniteCanvasPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfiniteCanvasPageView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000286 /* PerformanceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceMonitor.swift; sourceTree = "<group>"; };
 		AA0001000000000000000270 /* ReaderCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderCanvasView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000272 /* NotebookReaderView+Canvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NotebookReaderView+Canvas.swift"; sourceTree = "<group>"; };
+		AA0001000000000000000276 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AA0001000000000000000278 /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -555,6 +522,7 @@
 				AA000100000000000000009D /* Ink */,
 				AA00010000000000000000D1 /* Documents */,
 				AA00010000000000000000B3 /* Settings */,
+				AA0001000000000000000288 /* Performance */,
 				AA00010000000000000000B4 /* Accessibility */,
 				AA00010000000000000000B5 /* GoogleDrive */,
 				AA0001000000000000000188 /* Native */,
@@ -612,20 +580,20 @@
 				AA00010000000000000001A8 /* PageOverviewGrid.swift */,
 				AA0001000000000000000186 /* NotePageCarouselView.swift */,
 				AA0001000000000000000024 /* ShelfView.swift */,
+				AA0001000000000000000276 /* HomeView.swift */,
+				AA0001000000000000000278 /* FloatingActionButton.swift */,
 				AA0001000000000000000032 /* ThemePickerView.swift */,
 				AA0001000000000000000082 /* DrawingToolbarView.swift */,
 				AA00010000000000000000DC /* FloatingToolbarCapsule.swift */,
 				AA00010000000000000000DE /* ToolExpansionView.swift */,
 				AA00010000000000000000DA /* NotebookQuickCreator.swift */,
 				AA00010000000000000000D9 /* NotebookReaderView.swift */,
-				AA000100000000000000015E /* CoverTextureOverlay.swift */,
 				AA0001000000000000000170 /* NotebookInfoView.swift */,
 				AA000100000000000000008A /* LibrarySearchView.swift */,
 				AA0001000000000000000102 /* UniversalSearchView.swift */,
 				AA000100000000000000008B /* StudySetListView.swift */,
 				AA000100000000000000008C /* StudySessionView.swift */,
 				AA0001000000000000000087 /* PageRulingView.swift */,
-				AA000100000000000000009C /* InkEffectPickerView.swift */,
 				AA00010000000000000000A4 /* AdvancedToolsPanel.swift */,
 				AA00010000000000000000A6 /* CustomToolAuthoringView.swift */,
 				AA00010000000000000000AD /* OnboardingView.swift */,
@@ -738,25 +706,13 @@
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000098 /* InkModels.swift */,
-				AA0001000000000000000099 /* InkEffectEngine.swift */,
 				AA000100000000000000009A /* InkFamilyRegistry.swift */,
 				AA000100000000000000009B /* InkEffectStore.swift */,
-				AA0001000000000000000130 /* WritingEffectModel.swift */,
-				AA0001000000000000000132 /* MicroInteractionEngine.swift */,
-				AA0001000000000000000134 /* SnapAlignEffectEngine.swift */,
-				AA0001000000000000000136 /* PageTransitionEngine.swift */,
-				AA0001000000000000000138 /* FocusModeEngine.swift */,
-				AA000100000000000000013A /* AmbientEnvironmentEngine.swift */,
-				AA000100000000000000013C /* AdaptiveEffectsEngine.swift */,
-				AA000100000000000000013E /* MagicModeEngine.swift */,
-				AA0001000000000000000140 /* StudyModeEngine.swift */,
 				AA0001000000000000000142 /* ReduceMotionObserver.swift */,
-				AA0001000000000000000144 /* EffectsCoordinator.swift */,
-				AA0001000000000000000146 /* WritingEffectsPipeline.swift */,
-				AA000100000000000000014A /* InteractionFeedbackEngine.swift */,
 				AA0001000000000000000166 /* PerlinNoise.swift */,
 				AA0001000000000000000168 /* FluidSimulation.swift */,
 				AA0001000000000000000196 /* StickerRenderer.swift */,
+				AA000100000000000000100 /* EffectStubs.swift */,
 			);
 			path = Ink;
 			sourceTree = "<group>";
@@ -796,6 +752,14 @@
 				AA000100000000000000015C /* OpenSourceCreditsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		AA0001000000000000000288 /* Performance */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001000000000000000286 /* PerformanceMonitor.swift */,
+			);
+			path = Performance;
 			sourceTree = "<group>";
 		};
 		AA00010000000000000000B4 /* Accessibility */ = {
@@ -846,7 +810,6 @@
 				AA00010000000000000001B7 /* NoteRepository.swift */,
 				AA00010000000000000001B9 /* ThemeProvider.swift */,
 				AA00010000000000000001BB /* ToolStateProvider.swift */,
-				AA00010000000000000001BD /* InkEffectProvider.swift */,
 				AA00010000000000000001BF /* SettingsProvider.swift */,
 				AA00010000000000000001C1 /* SyncProvider.swift */,
 			);
@@ -870,7 +833,6 @@
 			children = (
 				AA00010000000000000001C7 /* CoreThemeService.swift */,
 				AA00010000000000000001C9 /* CoreSettingsService.swift */,
-				AA00010000000000000001CB /* CoreInkEffectService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -881,7 +843,6 @@
 				AA00010000000000000001CF /* ObservableNoteStore.swift */,
 				AA00010000000000000001D1 /* ObservableThemeStore.swift */,
 				AA00010000000000000001D3 /* ObservableToolStore.swift */,
-				AA00010000000000000001D5 /* ObservableInkEffectStore.swift */,
 				AA00010000000000000001D7 /* ObservableSettingsStore.swift */,
 			);
 			path = Adapters;
@@ -891,10 +852,6 @@
 			isa = PBXGroup;
 			children = (
 				AA00010000000000000001DA /* CanvasDelegate.swift */,
-				AA00010000000000000001DC /* StrokeRenderingPipeline.swift */,
-				AA00010000000000000001DE /* EffectOverlayLayer.swift */,
-				AA00010000000000000001E0 /* Y2CanvasViewController.swift */,
-				AA00010000000000000001E2 /* Y2CanvasHostingView.swift */,
 				AA00010000000000000001FE /* Pages */,
 				AA00010000000000000001FF /* Tabs */,
 				AA0001000000000000000219 /* Objects */,
@@ -1069,6 +1026,9 @@
 				AA0001000000000000000263 /* CanvasPageCallbacks.swift */,
 				AA000100000000000000026C /* CanvasPageDiff.swift */,
 				AA000100000000000000026E /* CanvasCoordinator+DiffUpdate.swift */,
+				AA0001000000000000000280 /* CanvasCoordinatorBase.swift */,
+				AA0001000000000000000282 /* CanvasConstants.swift */,
+				AA0001000000000000000284 /* InfiniteCanvasPageView.swift */,
 				AA0001000000000000000265 /* NotebookCanvasView.swift */,
 				AA0001000000000000000274 /* InfiniteCanvasView.swift */,
 				AA0001000000000000000267 /* NotebookCarouselView.swift */,
@@ -1202,6 +1162,8 @@
 				AA000100000000000000001E /* NoteStore.swift in Sources */,
 				AA0001000000000000000023 /* Notebook.swift in Sources */,
 				AA0001000000000000000025 /* ShelfView.swift in Sources */,
+				AA0001000000000000000277 /* HomeView.swift in Sources */,
+				AA0001000000000000000279 /* FloatingActionButton.swift in Sources */,
 				AA0001000000000000000040 /* AppTheme.swift in Sources */,
 				AA0001000000000000000041 /* ThemeStore.swift in Sources */,
 				AA0001000000000000000042 /* ThemePickerView.swift in Sources */,
@@ -1210,7 +1172,6 @@
 				AA0001000000000000000052 /* NotebookConfig.swift in Sources */,
 				AA00010000000000000000DB /* NotebookQuickCreator.swift in Sources */,
 				AA00010000000000000000D8 /* NotebookReaderView.swift in Sources */,
-				AA000100000000000000015F /* CoverTextureOverlay.swift in Sources */,
 			AA0001000000000000000171 /* NotebookInfoView.swift in Sources */,
 				AA000100000000000000016B /* TrieIndex.swift in Sources */,
 				AA000100000000000000016D /* InsightsAnalytics.swift in Sources */,
@@ -1238,7 +1199,6 @@
 				AA0001000000000000000187 /* NotePageCarouselView.swift in Sources */,
 				AA000100000000000000018B /* y2_perlin.c in Sources */,
 				AA0001000000000000000251 /* Y2ParticleSystem.metal in Sources */,
-				AA0001000000000000000253 /* MetalParticleRenderer.swift in Sources */,
 				AA0001000000000000000255 /* Y2TextBlockView.swift in Sources */,
 				AA0001000000000000000257 /* Y2TextBlockInsertionController.swift in Sources */,
 
@@ -1254,15 +1214,15 @@
 				AA0001000000000000000096 /* PDFPageAnnotationView.swift in Sources */,
 				AA0001000000000000000097 /* PDFViewerView.swift in Sources */,
 				AA000100000000000000009E /* InkModels.swift in Sources */,
-				AA000100000000000000009F /* InkEffectEngine.swift in Sources */,
+					AA000100000000000000101 /* EffectStubs.swift in Sources */,
 				AA00010000000000000000A0 /* InkFamilyRegistry.swift in Sources */,
 				AA00010000000000000000A1 /* InkEffectStore.swift in Sources */,
-				AA00010000000000000000A2 /* InkEffectPickerView.swift in Sources */,
 				AA00010000000000000000A3 /* AdvancedToolsPanel.swift in Sources */,
 				AA00010000000000000000A5 /* CustomToolAuthoringView.swift in Sources */,
 				AA00010000000000000000A8 /* AppSettingsStore.swift in Sources */,
 				AA00010000000000000000AA /* SettingsView.swift in Sources */,
 				AA00010000000000000000AC /* DiagnosticsView.swift in Sources */,
+				AA0001000000000000000287 /* PerformanceMonitor.swift in Sources */,
 				AA00010000000000000000AE /* OnboardingView.swift in Sources */,
 				AA00010000000000000000B0 /* AccessibilityHelpers.swift in Sources */,
 				AA00010000000000000000BC /* GoogleDriveModels.swift in Sources */,
@@ -1316,19 +1276,7 @@
 				AA000100000000000000012D /* WidgetPickerView.swift in Sources */,
 				AA0001000000000000000153 /* WidgetEditorView.swift in Sources */,
 				AA000100000000000000012F /* PageRegion.swift in Sources */,
-				AA0001000000000000000131 /* WritingEffectModel.swift in Sources */,
-				AA0001000000000000000133 /* MicroInteractionEngine.swift in Sources */,
-				AA0001000000000000000135 /* SnapAlignEffectEngine.swift in Sources */,
-				AA0001000000000000000137 /* PageTransitionEngine.swift in Sources */,
-				AA0001000000000000000139 /* FocusModeEngine.swift in Sources */,
-				AA000100000000000000013B /* AmbientEnvironmentEngine.swift in Sources */,
-				AA000100000000000000013D /* AdaptiveEffectsEngine.swift in Sources */,
-				AA000100000000000000013F /* MagicModeEngine.swift in Sources */,
-				AA0001000000000000000141 /* StudyModeEngine.swift in Sources */,
 				AA0001000000000000000143 /* ReduceMotionObserver.swift in Sources */,
-				AA0001000000000000000145 /* EffectsCoordinator.swift in Sources */,
-				AA0001000000000000000147 /* WritingEffectsPipeline.swift in Sources */,
-				AA000100000000000000014B /* InteractionFeedbackEngine.swift in Sources */,
 				AA0001000000000000000155 /* WritingInsights.swift in Sources */,
 				AA0001000000000000000157 /* QuickAction.swift in Sources */,
 				AA0001000000000000000159 /* WritingInsightsView.swift in Sources */,
@@ -1341,25 +1289,18 @@
 				AA00010000000000000001B8 /* NoteRepository.swift in Sources */,
 				AA00010000000000000001BA /* ThemeProvider.swift in Sources */,
 				AA00010000000000000001BC /* ToolStateProvider.swift in Sources */,
-				AA00010000000000000001BE /* InkEffectProvider.swift in Sources */,
 				AA00010000000000000001C0 /* SettingsProvider.swift in Sources */,
 				AA00010000000000000001C2 /* SyncProvider.swift in Sources */,
 				AA00010000000000000001C4 /* PersistenceDriver.swift in Sources */,
 				AA00010000000000000001C6 /* JSONFilePersistenceDriver.swift in Sources */,
 				AA00010000000000000001C8 /* CoreThemeService.swift in Sources */,
 				AA00010000000000000001CA /* CoreSettingsService.swift in Sources */,
-				AA00010000000000000001CC /* CoreInkEffectService.swift in Sources */,
 				AA00010000000000000001CE /* ServiceContainer.swift in Sources */,
 				AA00010000000000000001D0 /* ObservableNoteStore.swift in Sources */,
 				AA00010000000000000001D2 /* ObservableThemeStore.swift in Sources */,
 				AA00010000000000000001D4 /* ObservableToolStore.swift in Sources */,
-				AA00010000000000000001D6 /* ObservableInkEffectStore.swift in Sources */,
 				AA00010000000000000001D8 /* ObservableSettingsStore.swift in Sources */,
 				AA00010000000000000001DB /* CanvasDelegate.swift in Sources */,
-				AA00010000000000000001DD /* StrokeRenderingPipeline.swift in Sources */,
-				AA00010000000000000001DF /* EffectOverlayLayer.swift in Sources */,
-				AA00010000000000000001E1 /* Y2CanvasViewController.swift in Sources */,
-				AA00010000000000000001E3 /* Y2CanvasHostingView.swift in Sources */,
 				AA0001000000000000000262 /* CanvasPageConfiguration.swift in Sources */,
 				AA0001000000000000000264 /* CanvasPageCallbacks.swift in Sources */,
 				AA0001000000000000000266 /* NotebookCanvasView.swift in Sources */,
@@ -1368,6 +1309,9 @@
 				AA000100000000000000026A /* NoteEditorView+Canvas.swift in Sources */,
 				AA000100000000000000026D /* CanvasPageDiff.swift in Sources */,
 				AA000100000000000000026F /* CanvasCoordinator+DiffUpdate.swift in Sources */,
+				AA0001000000000000000281 /* CanvasCoordinatorBase.swift in Sources */,
+				AA0001000000000000000283 /* CanvasConstants.swift in Sources */,
+				AA0001000000000000000285 /* InfiniteCanvasPageView.swift in Sources */,
 				AA0001000000000000000271 /* ReaderCanvasView.swift in Sources */,
 				AA0001000000000000000273 /* NotebookReaderView+Canvas.swift in Sources */,
 				AA00010000000000000001EC /* Y2FloatingToolbar.swift in Sources */,

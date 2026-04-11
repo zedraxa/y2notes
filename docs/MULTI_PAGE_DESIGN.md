@@ -260,7 +260,7 @@ A horizontal thumbnail strip below the canvas showing all pages at once (like a 
 page navigator) would improve the multi-page UX for notes with many pages.
 
 ### Per-Page Metadata
-Currently all pages share the note's `pageType` and `paperMaterial`. A future enhancement
+Currently all pages share the note's `pageType`. A future enhancement
 could allow per-page overrides (e.g., one page ruled, the next blank).
 
 ### Page Break Auto-Detection

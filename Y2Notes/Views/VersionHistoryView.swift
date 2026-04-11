@@ -220,8 +220,7 @@ struct VersionHistoryView: View {
                 sectionID: nil,
                 sortOrder: 0,
                 templateID: restored.templateID,
-                pageType: restored.pageType,
-                paperMaterial: restored.paperMaterial
+                pageType: restored.pageType
             )
             noteStore.insertRestoredNote(copy)
         }

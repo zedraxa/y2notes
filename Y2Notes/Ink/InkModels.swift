@@ -2,62 +2,6 @@ import Foundation
 import UIKit
 import PencilKit
 
-// MARK: - Device Capability Tier
-
-/// Classifies the iPad's processing capability to set appropriate FX budgets.
-///
-/// Detection uses `ProcessInfo` memory and processor count as a conservative
-/// proxy for GPU generation.  When in doubt the tier is rounded *down* so FX
-/// are never forced on devices that cannot sustain them at 60 fps.
-///
-/// **Graceful degradation contract**
-/// - `.basic`    → no overlay FX created at all (zero cost)
-/// - `.standard` → sparkle + ripple only (lightweight CAEmitter / CAShape)
-/// - `.pro`      → fire + glitch + all standard FX
-/// - `.ultra`    → all FX at full particle budget
-enum DeviceCapabilityTier: Int, Codable, Comparable {
-    case basic    = 0   // A10 / iPad 7th gen and earlier
-    case standard = 1   // A12 / iPad 8–9, mini 5
-    case pro      = 2   // A14+ / iPad Air 4–5, iPad Pro (A12X–M1)
-    case ultra    = 3   // M2+ / iPad Pro 12.9 5th gen and later
-
-    static func < (lhs: DeviceCapabilityTier, rhs: DeviceCapabilityTier) -> Bool {
-        lhs.rawValue < rhs.rawValue
-    }
-
-    /// Detects the tier from available memory and processor count.
-    ///
-    /// Thresholds are set generously so that fire / glitch / blood effects are
-    /// available on all iPads from ~2018 onward (A12+).  Devices with less than
-    /// 2 GB RAM (iPad 6th gen / A10) are the only ones held to `.basic`.
-    static var current: DeviceCapabilityTier {
-        let memory = ProcessInfo.processInfo.physicalMemory
-        let cores  = ProcessInfo.processInfo.processorCount
-        if memory >= 8_589_934_592 && cores >= 8 { return .ultra    }  // 8 GB+ / 8+ cores  (M2+ iPad Pro)
-        if memory >= 3_221_225_472              { return .pro       }  // 3 GB+              (A12+, iPad Air 3+, mini 5+)
-        if memory >= 2_147_483_648              { return .standard  }  // 2 GB+              (A10, iPad 7th gen)
-        return .basic
-    }
-
-    /// Hard cap on simultaneous emitter particles.  The engine clamps birth rates
-    /// to this value at runtime so the GPU stays within budget.
-    var maxParticles: Int {
-        switch self {
-        case .basic:    return 0
-        case .standard: return 30
-        case .pro:      return 50
-        case .ultra:    return 80
-        }
-    }
-
-    /// Fire and glitch require real-time additive blending that older GPUs cannot
-    /// sustain without dropping below 60 fps.
-    var supportsRealtimeFX: Bool { self >= .pro }
-
-    /// Whether *any* overlay FX should be created (avoids even allocating layers on .basic).
-    var supportsAnyFX: Bool { self >= .standard }
-}
-
 // MARK: - Ink Family
 
 /// High-level character families.  Each maps to a curated set of built-in
@@ -126,8 +70,8 @@ struct InkMaterialTraits: Codable, Equatable {
     var sheenAmount: Double
     /// Stroke width variation factor — influences the look of fountain-pen ink.
     var viscosity: Double
-    /// Paper texture interaction: 0 = ultra-smooth / 1 = rough.
-    /// Reserved for a future texture-renderer agent.
+    /// Granularity: 0 = ultra-smooth / 1 = rough.
+    /// Affects the visual roughness of strokes.
     var granularity: Double
 
     // MARK: Named presets
@@ -149,80 +93,23 @@ struct InkMaterialTraits: Codable, Equatable {
 /// Optional real-time writing effect rendered in a non-interactive overlay above
 /// the PKCanvasView.
 ///
-/// **`.none` has zero runtime cost** — no overlay view or CALayer is created when
-/// the active FX is `.none`.  This means the base note-taking path is completely
-/// unaffected by the FX system.
+/// Simplified for product readiness — only `.none` is supported as an active effect;
+/// the other cases are stubs that keep `InkFamilyRegistry` presets compiling.
 enum WritingFXType: String, CaseIterable, Codable, Identifiable {
-    case none      // no effect; always available on all devices
-    case sparkle   // brief bright sparks on stroke (standard+ tier)
-    case fire      // flame particles trailing the nib (pro+ tier)
-    case glitch    // digital scan-line / colour-shift artefacts (pro+ tier)
-    case ripple    // expanding ring at stroke end (standard+ tier)
-    case rainbow   // multi-hue trail following the nib (standard+ tier)
-    case snow      // falling snowflake particles (standard+ tier)
-    case lightning // electric bolt branching from stroke end (pro+ tier)
-    case dissolve  // particles crumbling away from the stroke (pro+ tier)
-    case glow      // soft luminous aura around the nib (standard+ tier)
-    case sheen     // iridescent holographic shimmer following the nib (standard+ tier)
-    case shadow    // dark smoke particles trailing behind the stroke (standard+ tier)
-    case blood     // viscous dripping crimson particles (pro+ tier)
+    case none      // no effect
+    case sparkle
+    case ripple
+    case fire
+    case glitch
+    case sheen
+    case shadow
+    case blood
 
     var id: String { rawValue }
 
-    var displayName: String {
-        switch self {
-        case .none:      return "None"
-        case .sparkle:   return "Sparkle"
-        case .fire:      return "Fire"
-        case .glitch:    return "Glitch"
-        case .ripple:    return "Ripple"
-        case .rainbow:   return "Rainbow"
-        case .snow:      return "Snow"
-        case .lightning: return "Lightning"
-        case .dissolve:  return "Dissolve"
-        case .glow:      return "Glow"
-        case .sheen:     return "Sheen"
-        case .shadow:    return "Shadow"
-        case .blood:     return "Blood"
-        }
-    }
+    var displayName: String { "None" }
 
-    var systemImage: String {
-        switch self {
-        case .none:      return "slash.circle"
-        case .sparkle:   return "sparkles"
-        case .fire:      return "flame.fill"
-        case .glitch:    return "waveform.path.ecg"
-        case .ripple:    return "circle.dashed"
-        case .rainbow:   return "rainbow"
-        case .snow:      return "snowflake"
-        case .lightning: return "bolt.fill"
-        case .dissolve:  return "aqi.medium"
-        case .glow:      return "light.max"
-        case .sheen:     return "sun.dust.fill"
-        case .shadow:    return "smoke.fill"
-        case .blood:     return "drop.fill"
-        }
-    }
-
-    /// Minimum device tier required for this effect.
-    ///
-    /// All emitter-based effects (including fire, glitch, blood) run on `.standard`
-    /// and above.  Only `.basic` devices (pre-2018 iPads with < 2 GB RAM) are excluded.
-    /// The engine's per-tier `maxParticles` cap ensures older hardware stays at 60 fps.
-    var minimumTier: DeviceCapabilityTier {
-        switch self {
-        case .none:                                   return .basic
-        case .sparkle, .ripple, .rainbow,
-             .snow, .glow, .sheen, .shadow,
-             .fire, .glitch, .lightning,
-             .dissolve, .blood:                       return .standard
-        }
-    }
-
-    func isSupported(on tier: DeviceCapabilityTier) -> Bool {
-        tier >= minimumTier
-    }
+    var systemImage: String { "slash.circle" }
 }
 
 // MARK: - Particle Physics

@@ -56,7 +56,6 @@ struct NotebookCanvasView: View {
             drawingPolicy: configuration.drawingPolicy,
             zoomResetTrigger: configuration.zoomResetTrigger,
             pageType: configuration.pageType,
-            paperMaterial: configuration.paperMaterial,
             activeFX: configuration.activeFX,
             fxColor: configuration.fxColor,
             pageIndex: configuration.pageIndex,
@@ -91,8 +90,7 @@ struct NotebookCanvasView: View {
             isAmbientSoundEnabled: configuration.isAmbientSoundEnabled,
             isNewPage: configuration.isNewPage,
             onZoomChanged: callbacks.onZoomChanged,
-            initialZoomScale: configuration.initialZoomScale,
-            isInfiniteCanvas: configuration.isInfiniteCanvas
+            initialZoomScale: configuration.initialZoomScale
         )
     }
 }

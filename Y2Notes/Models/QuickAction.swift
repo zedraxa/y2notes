@@ -12,18 +12,40 @@ struct QuickAction: Identifiable {
     let subtitle: String
     let systemImage: String
     let category: Category
+    /// Optional keyboard shortcut hint shown next to the action label.
+    let shortcutHint: String?
     let action: () -> Void
 
     /// Grouping categories displayed as section headers.
     enum Category: String, CaseIterable, Identifiable {
+        case recent      = "Recent"
         case navigation  = "Navigation"
         case create      = "Create"
         case tool        = "Tools"
         case appearance  = "Appearance"
         case effect      = "Effects"
         case study       = "Study"
+        case settings    = "Settings"
 
         var id: String { rawValue }
+    }
+
+    init(
+        id: String,
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        category: Category,
+        shortcutHint: String? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self.category = category
+        self.shortcutHint = shortcutHint
+        self.action = action
     }
 }
 
@@ -50,6 +72,10 @@ enum QuickActionRegistry {
     ///   - onToggleStudyMode: Toggle study mode.
     ///   - onCycleTheme: Advance to the next theme.
     ///   - onShowInsights: Open writing insights.
+    ///   - recentNotes: Recent notes for quick navigation.
+    ///   - recentNotebooks: Recent notebooks for quick navigation.
+    ///   - onOpenNote: Callback to open a specific note by ID.
+    ///   - onOpenNotebook: Callback to open a specific notebook by ID.
     static func actions(
         onNewNote: @escaping () -> Void,
         onNewNotebook: @escaping () -> Void,
@@ -60,9 +86,41 @@ enum QuickActionRegistry {
         onToggleMagicMode: @escaping () -> Void,
         onToggleStudyMode: @escaping () -> Void,
         onCycleTheme: @escaping () -> Void,
-        onShowInsights: @escaping () -> Void
+        onShowInsights: @escaping () -> Void,
+        recentNotes: [(id: UUID, title: String)] = [],
+        recentNotebooks: [(id: UUID, name: String)] = [],
+        onOpenNote: ((UUID) -> Void)? = nil,
+        onOpenNotebook: ((UUID) -> Void)? = nil
     ) -> [QuickAction] {
-        [
+        var result: [QuickAction] = []
+
+        // Recent notes
+        for note in recentNotes.prefix(5) {
+            let noteID = note.id
+            result.append(QuickAction(
+                id: "recent.note.\(noteID.uuidString)",
+                title: note.title.isEmpty ? "Untitled Note" : note.title,
+                subtitle: "Open note",
+                systemImage: "doc.text",
+                category: .recent,
+                action: { onOpenNote?(noteID) }
+            ))
+        }
+
+        // Recent notebooks
+        for nb in recentNotebooks.prefix(3) {
+            let nbID = nb.id
+            result.append(QuickAction(
+                id: "recent.notebook.\(nbID.uuidString)",
+                title: nb.name,
+                subtitle: "Open notebook",
+                systemImage: "book.closed",
+                category: .recent,
+                action: { onOpenNotebook?(nbID) }
+            ))
+        }
+
+        result.append(contentsOf: [
             // Navigation
             QuickAction(
                 id: "nav.search",
@@ -70,6 +128,7 @@ enum QuickActionRegistry {
                 subtitle: "Full-text search across all notes",
                 systemImage: "magnifyingglass",
                 category: .navigation,
+                shortcutHint: "⌘F",
                 action: onOpenSearch
             ),
             QuickAction(
@@ -78,6 +137,7 @@ enum QuickActionRegistry {
                 subtitle: "Appearance, tools, accessibility",
                 systemImage: "gear",
                 category: .navigation,
+                shortcutHint: "⌘,",
                 action: onOpenSettings
             ),
             QuickAction(
@@ -96,6 +156,7 @@ enum QuickActionRegistry {
                 subtitle: "Create a blank note",
                 systemImage: "square.and.pencil",
                 category: .create,
+                shortcutHint: "⌘N",
                 action: onNewNote
             ),
             QuickAction(
@@ -104,6 +165,7 @@ enum QuickActionRegistry {
                 subtitle: "Create a new notebook",
                 systemImage: "book.closed",
                 category: .create,
+                shortcutHint: "⌘⇧N",
                 action: onNewNotebook
             ),
 
@@ -154,6 +216,8 @@ enum QuickActionRegistry {
                 category: .study,
                 action: onToggleStudyMode
             ),
-        ]
+        ])
+
+        return result
     }
 }

@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 // MARK: - Library section
 
 enum LibrarySection: Hashable {
+    /// Dashboard landing page with recent activity, quick actions, and pinned content.
+    case home
     case allNotes
     case recents
     case favorites
@@ -107,7 +109,7 @@ struct ShelfView: View {
     @EnvironmentObject var syncEngine: GoogleDriveSyncEngine
     @Environment(TabWorkspaceStore.self) private var tabSession
 
-    @State private var selectedSection: LibrarySection? = .allNotes
+    @State private var selectedSection: LibrarySection? = .home
     @State private var selectedNoteID: UUID?
     @State private var selectedPDFID:  UUID?
     @State private var selectedDocumentID: UUID?
@@ -135,7 +137,22 @@ struct ShelfView: View {
                 onSelectNote: { id in selectedNoteID = id }
             )
         } content: {
-            if case .pdfLibrary = selectedSection {
+            if case .home = selectedSection {
+                HomeView(
+                    onSelectNote: { id in selectedNoteID = id },
+                    onOpenNotebook: { nbID in
+                        selectedNoteID = nil
+                        selectedSection = .notebook(nbID)
+                        if let nb = noteStore.notebooks.first(where: { $0.id == nbID }) {
+                            tabSession.openNotebook(
+                                id: nbID,
+                                displayName: nb.name,
+                                coverColor: nb.cover.rgbComponents
+                            )
+                        }
+                    }
+                )
+            } else if case .pdfLibrary = selectedSection {
                 PDFLibraryView(selectedPDFID: $selectedPDFID)
             } else if case .documentLibrary = selectedSection {
                 DocumentLibraryView(selectedDocumentID: $selectedDocumentID)
@@ -164,9 +181,19 @@ struct ShelfView: View {
                 columnVisibility = .all
             })
         }
+        // Floating action button — visible when no note/PDF/document editor is active.
+        .overlay(alignment: .bottomTrailing) {
+            if tabSession.activeTab == nil {
+                FloatingActionButton(onSelectNote: { id in selectedNoteID = id })
+            }
+        }
         // Clear irrelevant selections when switching sections.
         .onChange(of: selectedSection) { _, section in
             switch section {
+            case .home:
+                selectedNoteID = nil
+                selectedPDFID  = nil
+                selectedDocumentID = nil
             case .pdfLibrary:
                 selectedNoteID = nil
                 selectedDocumentID = nil
@@ -275,11 +302,10 @@ private struct ShelfSidebarView: View {
     // swiftlint:disable:next function_body_length
     var body: some View {
         List(selection: $selectedSection) {
-            // ── Library ──────────────────────────────────────────────────
-            Section("Library") {
-                Label("All Notes", systemImage: "doc.plaintext.fill")
-                    .tag(LibrarySection.allNotes)
-                    .badge(noteStore.notes.count)
+            // ── Pinned ───────────────────────────────────────────────────
+            Section {
+                Label("Home", systemImage: "house.fill")
+                    .tag(LibrarySection.home)
 
                 Label("Recents", systemImage: "clock.fill")
                     .tag(LibrarySection.recents)
@@ -288,6 +314,13 @@ private struct ShelfSidebarView: View {
                     .tag(LibrarySection.favorites)
                     .badge(noteStore.favoritedNotes.count)
                     .foregroundStyle(noteStore.favoritedNotes.isEmpty ? Color(uiColor: .secondaryLabel) : Color.yellow)
+            }
+
+            // ── Library ──────────────────────────────────────────────────
+            Section("Library") {
+                Label("All Notes", systemImage: "doc.plaintext.fill")
+                    .tag(LibrarySection.allNotes)
+                    .badge(noteStore.notes.count)
 
                 if !noteStore.importLinkedNotes.isEmpty {
                     Label("Import Notes", systemImage: "paperclip")
@@ -339,6 +372,12 @@ private struct ShelfSidebarView: View {
                     .tag(LibrarySection.notebook(notebook.id))
                     .contextMenu {
                         Button {
+                            selectedSection = .notebook(notebook.id)
+                        } label: {
+                            Label("Open", systemImage: "book.closed")
+                        }
+
+                        Button {
                             notebookToRename = notebook
                             renameText = notebook.name
                         } label: {
@@ -355,22 +394,19 @@ private struct ShelfSidebarView: View {
                             Label("Change Cover", systemImage: "paintpalette")
                         }
 
-                        Menu {
-                            ForEach(CoverTexture.allCases) { tex in
-                                Button {
-                                    noteStore.updateNotebookTexture(id: notebook.id, texture: tex)
-                                } label: {
-                                    Label(tex.displayName, systemImage: tex.systemImage)
-                                }
-                            }
-                        } label: {
-                            Label("Cover Texture", systemImage: "rectangle.pattern.checkered")
-                        }
-
                         Button {
                             sidebarManageSectionsNotebook = notebook
                         } label: {
                             Label("Manage Sections…", systemImage: "list.bullet.indent")
+                        }
+
+                        Button {
+                            noteStore.toggleNotebookPin(id: notebook.id)
+                        } label: {
+                            Label(
+                                notebook.isPinned ? "Unpin" : "Pin",
+                                systemImage: notebook.isPinned ? "pin.slash" : "pin"
+                            )
                         }
 
                         Button {
@@ -438,6 +474,15 @@ private struct ShelfSidebarView: View {
                 }
                 GoogleDriveSyncStatusView()
             }
+
+            // ── Footer ──────────────────────────────────────────────────
+            Section {
+                Button {
+                    showSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
         }
         .navigationTitle("Y2Notes")
         .toolbar {
@@ -450,12 +495,6 @@ private struct ShelfSidebarView: View {
                     }
                     .accessibilityLabel("Command Palette")
                     .keyboardShortcut("k", modifiers: .command)
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel("Settings")
                     EditButton()
                 }
             }
@@ -523,7 +562,18 @@ private struct ShelfSidebarView: View {
             onToggleMagicMode: { toolStore.isMagicModeActive.toggle() },
             onToggleStudyMode: { toolStore.isStudyModeActive.toggle() },
             onCycleTheme: { themeStore.cycleToNext() },
-            onShowInsights: { showWritingInsights = true }
+            onShowInsights: { showWritingInsights = true },
+            recentNotes: noteStore.recentNotes.prefix(5).map { (id: $0.id, title: $0.title) },
+            recentNotebooks: noteStore.notebooks
+                .sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
+                .prefix(3)
+                .map { (id: $0.id, name: $0.name) },
+            onOpenNote: { noteID in
+                onSelectNote(noteID)
+            },
+            onOpenNotebook: { nbID in
+                selectedSection = .notebook(nbID)
+            }
         )
     }
 }
@@ -549,12 +599,6 @@ private struct NotebookSidebarRow: View {
                 } else {
                     notebook.cover.gradient
                 }
-
-                CoverTextureOverlay(
-                    texture: notebook.coverTexture,
-                    size: CGSize(width: 28, height: 36),
-                    intensity: 0.7
-                )
 
                 Image(systemName: "book.closed.fill")
                     .font(.system(size: 11))
@@ -666,6 +710,8 @@ struct NoteGridView: View {
     /// All notes for non-notebook views (flat).
     private var notes: [Note] {
         switch section {
+        case .home:
+            return noteStore.recentNotes
         case .allNotes:
             return noteStore.notes.sorted { $0.modifiedAt > $1.modifiedAt }
         case .recents:
@@ -714,6 +760,7 @@ struct NoteGridView: View {
 
     private var sectionTitle: String {
         switch section {
+        case .home:               return "Home"
         case .allNotes:           return "All Notes"
         case .recents:            return "Recents"
         case .favorites:          return "Favorites"
@@ -758,8 +805,7 @@ struct NoteGridView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NotebookCoverBadge(
                         cover: nb.cover,
-                        customCoverData: nb.customCoverData,
-                        coverTexture: nb.coverTexture
+                        customCoverData: nb.customCoverData
                     )
                 }
             }
@@ -1340,6 +1386,25 @@ struct NoteGridView: View {
 
     @ViewBuilder
     private func noteContextMenu(for note: Note) -> some View {
+        // Open actions
+        Button {
+            selectNote(note)
+        } label: {
+            Label("Open", systemImage: "doc.text")
+        }
+
+        Button {
+            tabSession.openTab(
+                .note(id: note.id),
+                displayName: note.title.isEmpty ? "Untitled Note" : note.title,
+                accentColor: [0.45, 0.45, 0.5]
+            )
+        } label: {
+            Label("Open in New Tab", systemImage: "plus.rectangle.on.rectangle")
+        }
+
+        Divider()
+
         Button {
             noteToRename = note
             renameText = note.title
@@ -1474,8 +1539,7 @@ struct NoteGridView: View {
         let nb = nbID.flatMap { id in noteStore.notebooks.first { $0.id == id } }
         let note = noteStore.addNote(
             inNotebook: nbID,
-            pageType: nb?.pageType,
-            paperMaterial: nb?.paperMaterial
+            pageType: nb?.pageType
         )
         selectedNoteID = note.id
     }
@@ -1552,6 +1616,7 @@ struct NoteGridView: View {
 
     private var emptyIcon: String {
         switch section {
+        case .home:      return "house"
         case .allNotes:  return "square.and.pencil"
         case .recents:   return "clock"
         case .favorites: return "star"
@@ -1565,6 +1630,7 @@ struct NoteGridView: View {
 
     private var emptyTitle: String {
         switch section {
+        case .home:      return "Welcome to Y2Notes"
         case .allNotes:  return "No Notes Yet"
         case .recents:   return "No Recent Notes"
         case .favorites: return "No Favorites Yet"
@@ -1578,6 +1644,7 @@ struct NoteGridView: View {
 
     private var emptySubtitle: String {
         switch section {
+        case .home:      return "Create your first note or notebook to get started."
         case .allNotes:  return "Tap the pencil button to write your first note."
         case .recents:   return "Notes you open recently will appear here."
         case .favorites: return "Tap ★ in a note's menu to collect favorites here."
@@ -1854,7 +1921,6 @@ private struct ManageSectionsSheet: View {
 private struct NotebookCoverBadge: View {
     let cover: NotebookCover
     var customCoverData: Data?
-    var coverTexture: CoverTexture = .smooth
 
     var body: some View {
         ZStack {
@@ -1868,12 +1934,6 @@ private struct NotebookCoverBadge: View {
             } else {
                 cover.gradient
             }
-
-            CoverTextureOverlay(
-                texture: coverTexture,
-                size: CGSize(width: 22, height: 28),
-                intensity: 0.7
-            )
 
             Image(systemName: "book.closed.fill")
                 .font(.system(size: 10))
@@ -2148,8 +2208,7 @@ private struct TagChipsRow: View {
 // MARK: - Notebook cover card (shelf display)
 
 /// Rich notebook cover card that looks like a physical notebook on a shelf.
-/// Shows the gradient cover with texture overlay, embossed title, page edge
-/// effect, and a subtle 3D perspective tilt.
+/// Shows the gradient cover with a subtle 3D perspective tilt.
 private struct NotebookCoverCard: View {
     let notebook: Notebook
     let pageCount: Int
@@ -2162,10 +2221,6 @@ private struct NotebookCoverCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 0) {
-                // Page edge (visible pages on the right of the book)
-                CoverPageEdge(height: coverHeight)
-                    .offset(x: 2)
-
                 // Book cover
                 ZStack(alignment: .bottomLeading) {
                     // Main cover surface
@@ -2180,48 +2235,19 @@ private struct NotebookCoverCard: View {
                             )
                         )
 
-                    // Texture overlay
-                    CoverTextureOverlay(
-                        texture: notebook.coverTexture,
-                        size: CGSize(width: coverWidth, height: coverHeight)
+                    // Spine
+                    LinearGradient(
+                        colors: [.white.opacity(0.18), .black.opacity(0.06), .clear],
+                        startPoint: .leading,
+                        endPoint: .init(x: 0.15, y: 0)
                     )
-                    .clipShape(
-                        .rect(
-                            topLeadingRadius: 4,
-                            bottomLeadingRadius: 4,
-                            bottomTrailingRadius: 10,
-                            topTrailingRadius: 10
-                        )
-                    )
-
-                    // Spine with stitching
-                    ZStack {
-                        LinearGradient(
-                            colors: [.white.opacity(0.18), .black.opacity(0.06), .clear],
-                            startPoint: .leading,
-                            endPoint: .init(x: 0.15, y: 0)
-                        )
-                        .frame(width: coverWidth, height: coverHeight)
-
-                        CoverSpineStitching(height: coverHeight)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 1)
-                    }
                     .clipShape(
                         .rect(topLeadingRadius: 4, bottomLeadingRadius: 4)
                     )
                     .frame(width: coverWidth, height: coverHeight)
 
-                    // Book icon + page count + embossed title
+                    // Book icon + page count
                     VStack(alignment: .leading, spacing: 4) {
-                        // Embossed title at top
-                        if !notebook.name.isEmpty {
-                            CoverEmbossedTitle(text: notebook.name, maxWidth: coverWidth - 20)
-                                .padding(.top, 14)
-                                .padding(.horizontal, 10)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                        }
-
                         Spacer()
 
                         Image(systemName: "book.fill")

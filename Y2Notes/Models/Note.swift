@@ -115,9 +115,6 @@ struct Note: Identifiable, Codable, Hashable {
         return pageTypes[index] ?? pageType
     }
 
-    /// Per-note paper material override (nil = inherit from notebook, or `.standard` for unfiled notes).
-    var paperMaterial: PaperMaterial?
-
     /// Canvas mode for this note: paginated (default multi-page) or infinite (single boundless canvas).
     /// Nil means paginated for backward compatibility.
     var canvasMode: CanvasMode?
@@ -275,7 +272,6 @@ struct Note: Identifiable, Codable, Hashable {
         themeOverride: AppTheme? = nil,
         pageType: PageType? = nil,
         pageTypes: [PageType?] = [],
-        paperMaterial: PaperMaterial? = nil,
         canvasMode: CanvasMode? = nil,
         pageColors: [[Double]?] = [],
         stickerLayers: [[StickerInstance]?] = [],
@@ -306,7 +302,6 @@ struct Note: Identifiable, Codable, Hashable {
         self.themeOverride = themeOverride
         self.pageType = pageType
         self.pageTypes = pageTypes
-        self.paperMaterial = paperMaterial
         self.canvasMode = canvasMode
         self.pageColors = pageColors
         self.stickerLayers = stickerLayers
@@ -331,7 +326,7 @@ struct Note: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, title, createdAt, modifiedAt, drawingData, pages
         case isFavorited, notebookID, sectionID, sortOrder, templateID, themeOverride
-        case pageType, pageTypes, paperMaterial, canvasMode, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, textLayers, embeddedObjectLayers, expansionRegions, pdfFilename
+        case pageType, pageTypes, canvasMode, pageColors, stickerLayers, shapeLayers, attachmentLayers, widgetLayers, textLayers, embeddedObjectLayers, expansionRegions, pdfFilename
         case linkedPDFID, linkedDocumentID
         case typedText, ocrText, tags, colorLabel
     }
@@ -360,7 +355,6 @@ struct Note: Identifiable, Codable, Hashable {
         themeOverride = try c.decodeIfPresent(AppTheme.self, forKey: .themeOverride)
         pageType      = try c.decodeIfPresent(PageType.self,      forKey: .pageType)
         pageTypes     = try c.decodeIfPresent([PageType?].self,   forKey: .pageTypes)   ?? []
-        paperMaterial = try c.decodeIfPresent(PaperMaterial.self,  forKey: .paperMaterial)
         canvasMode    = try c.decodeIfPresent(CanvasMode.self,     forKey: .canvasMode)
         pageColors    = try c.decodeIfPresent([[Double]?].self,    forKey: .pageColors)  ?? []
         stickerLayers = try c.decodeIfPresent([[StickerInstance]?].self, forKey: .stickerLayers) ?? []
@@ -400,7 +394,6 @@ struct Note: Identifiable, Codable, Hashable {
         try c.encodeIfPresent(themeOverride, forKey: .themeOverride)
         try c.encodeIfPresent(pageType,      forKey: .pageType)
         try c.encode(pageTypes,              forKey: .pageTypes)
-        try c.encodeIfPresent(paperMaterial, forKey: .paperMaterial)
         try c.encodeIfPresent(canvasMode,    forKey: .canvasMode)
         try c.encode(pageColors,              forKey: .pageColors)
         try c.encode(stickerLayers,            forKey: .stickerLayers)
