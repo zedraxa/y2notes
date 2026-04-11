@@ -1187,6 +1187,7 @@ final class NoteStore: ObservableObject {
     /// Writes all data files atomically and updates `saveState`.
     /// Optionally creates a snapshot for notes with dirty pages.
     private func flushToDisk(trigger: SnapshotTrigger = .autosave) {
+        let saveStart = Date()
         saveState = .saving
         var firstError: Error?
 
@@ -1225,6 +1226,10 @@ final class NoteStore: ObservableObject {
             assertionFailure("Y2Notes: save failed — \(error)")
         } else {
             saveState = .saved
+            let saveDuration = Date().timeIntervalSince(saveStart) * 1000
+            Task { @MainActor in
+                PerformanceMonitor.shared.recordSaveOperation(durationMs: saveDuration)
+            }
         }
 
         // Create snapshots for notes with dirty pages (background queue).
