@@ -17,6 +17,8 @@ enum LibrarySection: Hashable {
     case notebook(UUID)
     /// Filter to notes that carry a specific tag.
     case tag(String)
+    /// Full-screen notebook browser (grid / list view).
+    case notebookList
 }
 
 // MARK: - Import Notes sort / filter
