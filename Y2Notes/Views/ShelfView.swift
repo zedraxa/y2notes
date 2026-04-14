@@ -143,6 +143,18 @@ struct ShelfView: View {
                 DocumentLibraryView(selectedDocumentID: $selectedDocumentID)
             } else if case .importNotes = selectedSection {
                 ImportLinkedNotesView(selectedNoteID: $selectedNoteID)
+            } else if case .notebookList = selectedSection {
+                NotebookListView { nbID in
+                    selectedNoteID = nil
+                    selectedSection = .notebook(nbID)
+                    if let nb = noteStore.notebooks.first(where: { $0.id == nbID }) {
+                        tabSession.openNotebook(
+                            id: nbID,
+                            displayName: nb.name,
+                            coverColor: nb.cover.rgbComponents
+                        )
+                    }
+                }
             } else {
                 NoteGridView(
                     section: selectedSection ?? .allNotes,
@@ -332,6 +344,10 @@ private struct ShelfSidebarView: View {
 
             // ── Notebooks ─────────────────────────────────────────────────
             Section {
+                // "Browse All" entry — opens the QuizJet-style grid/list browser
+                Label("Browse All Notebooks", systemImage: "square.grid.2x2")
+                    .tag(LibrarySection.notebookList)
+
                 ForEach(noteStore.notebooks) { notebook in
                     NotebookSidebarRow(
                         notebook: notebook,

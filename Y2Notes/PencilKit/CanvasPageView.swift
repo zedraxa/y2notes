@@ -569,15 +569,21 @@ struct CanvasPageView: UIViewRepresentable {
         DispatchQueue.main.async {
             canvas.becomeFirstResponder()
             // Restore zoom state if the carousel provided a previously recorded
-            // zoom level for this page. Otherwise fit-to-width so the user sees
-            // a complete, correctly-proportioned page on first open.
+            // zoom level for this page. Otherwise fill the screen so the page
+            // always covers the full viewport — using max(fitWidth, fitHeight)
+            // prevents the page from floating as a small centred rectangle when
+            // the column is taller than an A4 page at fit-to-width scale.
             let canvasW = canvas.bounds.width
+            let canvasH = canvas.bounds.height
             if canvasW > 0 {
                 let targetZoom: CGFloat
                 if let saved = self.initialZoomScale {
                     targetZoom = saved
                 } else {
-                    targetZoom = canvasW / CanvasPageView.pageSize.width
+                    let ps = CanvasPageView.pageSize
+                    let fitWidth  = canvasW / ps.width
+                    let fitHeight = canvasH > 0 ? canvasH / ps.height : fitWidth
+                    targetZoom = max(fitWidth, fitHeight)
                 }
                 let clamped = max(canvas.minimumZoomScale,
                                   min(canvas.maximumZoomScale, targetZoom))
@@ -633,11 +639,15 @@ struct CanvasPageView: UIViewRepresentable {
             // Dispatch to avoid mutating scroll state mid-layout-pass.
             DispatchQueue.main.async {
                 let canvasW = canvas.bounds.width
-                let fitZoom = canvasW > 0 ? canvasW / CanvasPageView.pageSize.width : 1.0
+                let canvasH = canvas.bounds.height
+                let ps = CanvasPageView.pageSize
+                let fitWidth  = canvasW > 0 ? canvasW / ps.width  : 1.0
+                let fitHeight = canvasH > 0 ? canvasH / ps.height : fitWidth
+                let fitZoom   = max(fitWidth, fitHeight)
                 let clamped = max(canvas.minimumZoomScale,
                                   min(canvas.maximumZoomScale, fitZoom))
                 canvas.setZoomScale(clamped, animated: true)
-                canvasPageLogger.debug("[\(noteID, privacy: .public)] zoom reset to fit-width (\(clamped, format: .fixed(precision: 2))×)")
+                canvasPageLogger.debug("[\(noteID, privacy: .public)] zoom reset to fill-screen (\(clamped, format: .fixed(precision: 2))×)")
             }
         }
 

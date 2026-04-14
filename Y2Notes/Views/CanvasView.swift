@@ -608,12 +608,18 @@ struct CanvasView: UIViewRepresentable {
         // Become first responder so Apple Pencil is ready immediately.
         DispatchQueue.main.async {
             canvas.becomeFirstResponder()
-            // Set initial zoom so the page width fits the visible canvas exactly.
-            // This ensures the user sees a complete, correctly-proportioned page on
-            // first open regardless of device orientation or screen size.
+            // Set initial zoom so the page fills the visible canvas area.
+            // We use max(fitWidth, fitHeight) so the page covers the full
+            // viewport in both dimensions — preventing the page from floating
+            // as a small centred rectangle when the column is taller than an
+            // A4 page at fit-to-width scale.
             let canvasW = canvas.bounds.width
+            let canvasH = canvas.bounds.height
             if canvasW > 0 {
-                let fitZoom = canvasW / CanvasView.pageSize.width
+                let ps = CanvasView.pageSize
+                let fitWidth  = canvasW / ps.width
+                let fitHeight = canvasH > 0 ? canvasH / ps.height : fitWidth
+                let fitZoom   = max(fitWidth, fitHeight)
                 let clamped = max(canvas.minimumZoomScale,
                                   min(canvas.maximumZoomScale, fitZoom))
                 canvas.setZoomScale(clamped, animated: false)
@@ -776,19 +782,23 @@ struct CanvasView: UIViewRepresentable {
         context.coordinator.onTextObjectSelectionChanged = onTextObjectSelectionChanged
         context.coordinator.onPlaceTextObject = onPlaceTextObject
 
-        // Zoom reset: animate to fit-to-width when the trigger value flips.
-        // "Fit to width" is more useful than a fixed 1× scale because it adapts
-        // to the current screen size and orientation.
+        // Zoom reset: animate to fill-screen when the trigger value flips.
+        // Uses max(fitWidth, fitHeight) so the page always covers the full
+        // viewport rather than leaving empty space around a fit-to-width page.
         if context.coordinator.lastZoomResetTrigger != zoomResetTrigger {
             context.coordinator.lastZoomResetTrigger = zoomResetTrigger
             // Dispatch to avoid mutating scroll state mid-layout-pass.
             DispatchQueue.main.async {
                 let canvasW = canvas.bounds.width
-                let fitZoom = canvasW > 0 ? canvasW / CanvasView.pageSize.width : 1.0
+                let canvasH = canvas.bounds.height
+                let ps = CanvasView.pageSize
+                let fitWidth  = canvasW > 0 ? canvasW / ps.width  : 1.0
+                let fitHeight = canvasH > 0 ? canvasH / ps.height : fitWidth
+                let fitZoom   = max(fitWidth, fitHeight)
                 let clamped = max(canvas.minimumZoomScale,
                                   min(canvas.maximumZoomScale, fitZoom))
                 canvas.setZoomScale(clamped, animated: true)
-                editorLogger.debug("[\(noteID, privacy: .public)] zoom reset to fit-width (\(clamped, format: .fixed(precision: 2))×)")
+                editorLogger.debug("[\(noteID, privacy: .public)] zoom reset to fill-screen (\(clamped, format: .fixed(precision: 2))×)")
             }
         }
 
