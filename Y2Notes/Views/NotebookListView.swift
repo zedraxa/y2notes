@@ -264,6 +264,7 @@ struct NotebookGridCardView: View {
     }()
 
     var body: some View {
+        let currentDate = Date()
         VStack(alignment: .leading, spacing: 0) {
             // ── Cover ──────────────────────────────────────────────────────
             ZStack(alignment: .bottomTrailing) {
@@ -330,7 +331,7 @@ struct NotebookGridCardView: View {
                     }
                 }
 
-                Text(Self.dateFormatter.localizedString(for: notebook.modifiedAt, relativeTo: Date()))
+                Text(Self.dateFormatter.localizedString(for: notebook.modifiedAt, relativeTo: currentDate))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
 
@@ -390,6 +391,7 @@ struct NotebookListRowView: View {
     }()
 
     var body: some View {
+        let currentDate = Date()
         HStack(spacing: 12) {
             // Cover strip
             Group {
@@ -440,7 +442,7 @@ struct NotebookListRowView: View {
                 }
 
                 HStack(spacing: 6) {
-                    Text(Self.dateFormatter.localizedString(for: notebook.modifiedAt, relativeTo: Date()))
+                    Text(Self.dateFormatter.localizedString(for: notebook.modifiedAt, relativeTo: currentDate))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
 
