@@ -11,6 +11,7 @@ struct SettingsView: View {
     @EnvironmentObject var settingsStore: AppSettingsStore
     @EnvironmentObject var toolStore: DrawingToolStore
     @EnvironmentObject var noteStore: NoteStore
+    @EnvironmentObject var iCloudEngine: ICloudSyncEngine
 
     @Environment(\.dismiss) private var dismiss
 
@@ -30,6 +31,7 @@ struct SettingsView: View {
                 documentDefaultsSection
                 toolPreferencesSection
                 effectsSection
+                cloudSyncSection
                 accessibilitySection
                 insightsSection
                 aboutSection
@@ -277,6 +279,54 @@ struct SettingsView: View {
             Text("Accessibility")
         } footer: {
             Text("Reduce Motion suppresses transitions. Increase Contrast enhances borders and text weight.")
+        }
+    }
+
+    // MARK: - Cloud Sync
+
+    private var cloudSyncSection: some View {
+        Section {
+            NavigationLink {
+                ICloudSyncSettingsView()
+                    .environmentObject(iCloudEngine)
+            } label: {
+                HStack {
+                    Image(systemName: iCloudEngine.isICloudAvailable ? "icloud.fill" : "icloud.slash")
+                        .foregroundStyle(iCloudEngine.isICloudAvailable ? Color.accentColor : .secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("iCloud Sync")
+                        Text(iCloudStatusSummary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .accessibilityLabel("iCloud Sync settings. \(iCloudStatusSummary)")
+
+            NavigationLink {
+                GoogleDriveSettingsView()
+            } label: {
+                HStack {
+                    Image(systemName: "externaldrive.fill.badge.wifi")
+                        .foregroundStyle(.blue)
+                    Text("Google Drive Backup")
+                }
+            }
+            .accessibilityLabel("Google Drive Backup settings")
+        } header: {
+            Text("Cloud Sync")
+        } footer: {
+            Text("iCloud Sync keeps your notes automatically up to date across all your Apple devices. Google Drive provides manual backup and restore.")
+        }
+    }
+
+    private var iCloudStatusSummary: String {
+        switch iCloudEngine.syncState {
+        case .unavailable: return "Unavailable — sign in to iCloud in Settings"
+        case .idle:        return "Ready"
+        case .syncing:     return "Syncing…"
+        case .synced(let date): return "Last synced \(date.formatted(.relative(presentation: .named)))"
+        case .error(let msg): return "Error: \(msg)"
         }
     }
 

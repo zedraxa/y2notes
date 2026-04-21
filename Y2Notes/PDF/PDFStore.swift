@@ -164,6 +164,11 @@ final class PDFStore: ObservableObject {
         records = loaded
     }
 
+    /// Reloads PDF records from disk.  Called after an iCloud sync overwrites the metadata file.
+    func reloadFromDisk() {
+        load()
+    }
+
     func save() {
         guard let data = try? JSONEncoder().encode(records) else { return }
         try? data.write(to: metadataURL, options: .atomic)

@@ -14,6 +14,7 @@ struct Y2NotesApp: App {
     @StateObject private var noteStore: NoteStore
     @StateObject private var toolStore: DrawingToolStore
     @StateObject private var syncEngine: GoogleDriveSyncEngine
+    @StateObject private var iCloudEngine: ICloudSyncEngine
 
     // Stores not yet managed by ServiceContainer keep direct init.
     @State private var tabSession = TabWorkspaceStore()
@@ -26,6 +27,7 @@ struct Y2NotesApp: App {
         _noteStore = StateObject(wrappedValue: container.concreteNoteStore)
         _toolStore = StateObject(wrappedValue: container.concreteToolStore)
         _syncEngine = StateObject(wrappedValue: container.concreteSyncEngine)
+        _iCloudEngine = StateObject(wrappedValue: container.concreteICloudSyncEngine)
     }
 
     var body: some Scene {
@@ -35,6 +37,7 @@ struct Y2NotesApp: App {
                 .environmentObject(noteStore)
                 .environmentObject(toolStore)
                 .environmentObject(syncEngine)
+                .environmentObject(iCloudEngine)
 
                 // Core services exposed as legacy store types
                 .environmentObject(container.pdfStore)
