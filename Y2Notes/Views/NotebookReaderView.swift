@@ -1,5 +1,6 @@
 import SwiftUI
 import PencilKit
+import CryptoKit
 
 // MARK: - NotebookReaderView
 
@@ -1346,9 +1347,11 @@ private struct NotebookPagePreviewThumbnail: View {
 
     private static let thumbnailPadding: CGFloat = 20
     private static let targetThumbnailSize = CGSize(width: 240, height: 320)
+    /// Cap thumbnail cache to keep memory bounded while still covering large notebooks.
+    private static let maxCachedThumbnails = 120
     private static let cache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
-        cache.countLimit = 120
+        cache.countLimit = maxCachedThumbnails
         return cache
     }()
 
@@ -1379,12 +1382,8 @@ private struct NotebookPagePreviewThumbnail: View {
     }
 
     private func cacheKey(for data: Data) -> String {
-        var hash: UInt64 = 1469598103934665603
-        for byte in data {
-            hash ^= UInt64(byte)
-            hash &*= 1099511628211
-        }
-        return "\(data.count)-\(String(hash, radix: 16))"
+        let digest = SHA256.hash(data: data)
+        return Data(digest).base64EncodedString()
     }
 
     private func makeThumbnail(from data: Data) async -> UIImage? {
