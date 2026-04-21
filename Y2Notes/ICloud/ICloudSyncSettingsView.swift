@@ -195,7 +195,7 @@ struct ICloudSyncSettingsView: View {
                 isPresented: $showUploadConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Upload") { Task { await iCloudEngine.uploadToiCloud() } }
+                Button("Upload") { Task { await iCloudEngine.uploadToICloud() } }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("All enabled local data will be copied to your iCloud Drive container. This is useful for the initial migration to iCloud sync.")
@@ -216,7 +216,7 @@ struct ICloudSyncSettingsView: View {
                 isPresented: $showDownloadConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Download") { Task { await iCloudEngine.downloadFromiCloud() } }
+                Button("Download") { Task { await iCloudEngine.downloadFromICloud() } }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Data from iCloud will be merged into your local store using the \"\(iCloudEngine.conflictStrategy.displayName)\" strategy. Existing local files are backed up before overwriting.")

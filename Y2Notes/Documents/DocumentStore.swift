@@ -169,6 +169,11 @@ final class DocumentStore: ObservableObject {
         documents = decoded
     }
 
+    /// Reloads imported document records from disk.  Called after an iCloud sync overwrites the index file.
+    func reloadFromDisk() {
+        load()
+    }
+
     private func save() {
         guard let data = try? JSONEncoder().encode(documents) else { return }
         try? data.write(to: indexURL, options: .atomic)

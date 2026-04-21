@@ -53,6 +53,7 @@ final class ICloudSyncEngine: ObservableObject {
 
     private var metadataQuery: NSMetadataQuery?
     private var autoSyncTimer: Timer?
+    private var remoteChangePendingTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     private var manifest: ICloudSyncManifest = ICloudSyncManifest()
 
@@ -76,7 +77,9 @@ final class ICloudSyncEngine: ObservableObject {
         let strategy = UserDefaults.standard.string(forKey: Keys.conflictStrategy)
             .flatMap { ICloudConflictStrategy(rawValue: $0) } ?? .newerWins
         self.conflictStrategy = strategy
-        self.autoSyncEnabled = UserDefaults.standard.bool(forKey: Keys.autoSync)
+        // Use object(forKey:) so we can distinguish an explicit `false` from a missing key;
+        // default to `true` so auto-sync is on from first launch.
+        self.autoSyncEnabled = UserDefaults.standard.object(forKey: Keys.autoSync) as? Bool ?? true
 
         let stored = UserDefaults.standard.stringArray(forKey: Keys.enabledDomains)
         if let stored {
@@ -93,6 +96,7 @@ final class ICloudSyncEngine: ObservableObject {
 
     deinit {
         autoSyncTimer?.invalidate()
+        remoteChangePendingTimer?.invalidate()
         stopMetadataQuery()
     }
 
@@ -169,7 +173,7 @@ final class ICloudSyncEngine: ObservableObject {
     }
 
     /// Forces a download-only pass from iCloud.  Used for manual "pull from iCloud" actions.
-    func downloadFromiCloud() async {
+    func downloadFromICloud() async {
         guard isICloudAvailable, let containerURL = iCloudDocumentsURL() else {
             syncState = .unavailable; return
         }
@@ -192,7 +196,7 @@ final class ICloudSyncEngine: ObservableObject {
 
     /// Forces an upload-only pass to iCloud.  Used for the initial migration of
     /// existing local data to iCloud.
-    func uploadToiCloud() async {
+    func uploadToICloud() async {
         guard isICloudAvailable, let containerURL = iCloudDocumentsURL() else {
             syncState = .unavailable; return
         }
@@ -285,6 +289,8 @@ final class ICloudSyncEngine: ObservableObject {
 
         // Reload data stores so in-memory state reflects any newly downloaded files.
         noteStore?.reloadFromDisk()
+        if domain.id == ICloudSyncDomain.pdfs.id      { pdfStore?.reloadFromDisk() }
+        if domain.id == ICloudSyncDomain.documents.id  { documentStore?.reloadFromDisk() }
     }
 
     // MARK: - Directory sync
@@ -422,11 +428,16 @@ final class ICloudSyncEngine: ObservableObject {
 
     @objc private func handleMetadataQueryUpdate(_ notification: Notification) {
         guard autoSyncEnabled, isICloudAvailable else { return }
-        metadataQuery?.disableUpdates()
-        Task {
-            await downloadFromiCloud()
+        // Debounce: cancel any in-flight download and wait for the burst to settle
+        // before triggering a full download pass.  `metadataQuery.notificationBatchingInterval`
+        // already coalesces notifications; this timer adds an extra 2-second settle window.
+        remoteChangePendingTimer?.invalidate()
+        remoteChangePendingTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.metadataQuery?.disableUpdates()
+            Task { await self.downloadFromICloud() }
+            self.metadataQuery?.enableUpdates()
         }
-        metadataQuery?.enableUpdates()
     }
 
     // MARK: - Auto-sync timer
@@ -490,7 +501,13 @@ final class ICloudSyncEngine: ObservableObject {
 
     @objc private func handleAppWillResignActive() {
         guard isICloudAvailable else { return }
-        Task { await uploadToiCloud() }
+        // Request background execution time so the upload can complete even if the
+        // app is suspended immediately after the notification.
+        let bgTaskID = UIApplication.shared.beginBackgroundTask(withName: "ICloudUpload") {}
+        Task {
+            await uploadToICloud()
+            UIApplication.shared.endBackgroundTask(bgTaskID)
+        }
     }
 
     @objc private func handleUbiquityIdentityDidChange() {
