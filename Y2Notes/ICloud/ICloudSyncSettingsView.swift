@@ -245,7 +245,7 @@ struct ICloudSyncSettingsView: View {
         } header: {
             Text("Actions")
         } footer: {
-            Text("Syncing copies JSON metadata and binary assets between local storage and your iCloud Drive container (iCloud.com.y2notes.app). Large files (PDFs, audio) are only synced when enabled in the domain list above.")
+            Text("Syncing copies JSON metadata and binary assets between local storage and your iCloud Drive container. Large files (PDFs, audio) are only synced when enabled in the domain list above.")
         }
     }
 

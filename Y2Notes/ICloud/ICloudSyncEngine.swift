@@ -401,7 +401,7 @@ final class ICloudSyncEngine: ObservableObject {
     private func startMetadataQuery() {
         guard metadataQuery == nil else { return }
         let query = NSMetadataQuery()
-        query.notificationBatchingInterval = 1.5
+        query.notificationBatchingInterval = 1.0
         query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
         query.predicate = NSPredicate(format: "%K LIKE '*'", NSMetadataItemFSNameKey)
 
@@ -503,7 +503,12 @@ final class ICloudSyncEngine: ObservableObject {
         guard isICloudAvailable else { return }
         // Request background execution time so the upload can complete even if the
         // app is suspended immediately after the notification.
-        let bgTaskID = UIApplication.shared.beginBackgroundTask(withName: "ICloudUpload") {}
+        var bgTaskID = UIBackgroundTaskIdentifier.invalid
+        bgTaskID = UIApplication.shared.beginBackgroundTask(withName: "ICloudUpload") {
+            // Expiration handler: the system calls this when background time runs out.
+            // End the task gracefully to prevent a watchdog termination.
+            UIApplication.shared.endBackgroundTask(bgTaskID)
+        }
         Task {
             await uploadToICloud()
             UIApplication.shared.endBackgroundTask(bgTaskID)
