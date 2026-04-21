@@ -75,6 +75,9 @@ final class ServiceContainer {
     let concreteToolStore: DrawingToolStore
     let concreteSyncEngine: GoogleDriveSyncEngine
 
+    /// iCloud Drive sync engine.  Operates independently of the Google Drive engine.
+    let concreteICloudSyncEngine: ICloudSyncEngine
+
     // MARK: - Init
 
     /// Creates all services and wires cross-dependencies.
@@ -108,13 +111,23 @@ final class ServiceContainer {
 
         // --- Legacy stores (no protocol yet) ---
 
-        pdfStore = PDFStore()
-        documentStore = DocumentStore()
+        let pdf = PDFStore()
+        pdfStore = pdf
+        let docs = DocumentStore()
+        documentStore = docs
         stickerStore = StickerStore()
         navigationStore = NavigationStore()
         legacyThemeStore = ThemeStore()
         legacyInkEffectStore = InkEffectStore()
         legacySettingsStore = AppSettingsStore()
+
+        // --- iCloud sync engine ---
+
+        let icloud = ICloudSyncEngine()
+        icloud.noteStore = notes
+        icloud.pdfStore = pdf
+        icloud.documentStore = docs
+        concreteICloudSyncEngine = icloud
 
         logger.info("ServiceContainer initialised with all services.")
     }
