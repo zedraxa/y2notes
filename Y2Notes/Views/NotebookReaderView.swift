@@ -1260,12 +1260,11 @@ struct NotebookReaderView: View {
             showPageOverview = false
         } label: {
             VStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(uiColor: canvasBackground(for: ref)))
+                NotebookPagePreviewThumbnail(
+                    drawingData: drawingData(for: ref),
+                    backgroundColor: canvasBackground(for: ref)
+                )
                     .aspectRatio(0.75, contentMode: .fit)
-                    .overlay(
-                        pageTypeIndicator(for: ref)
-                    )
                     .overlay(alignment: .topTrailing) {
                         if isMarked {
                             Image(systemName: "bookmark.fill")
@@ -1292,6 +1291,13 @@ struct NotebookReaderView: View {
         .id(ref.id)
         .accessibilityLabel("Page \(flatIndex + 1)\(isMarked ? ", bookmarked" : "")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func drawingData(for ref: PageRef) -> Data {
+        guard let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
+              ref.pageIndex >= 0,
+              ref.pageIndex < note.pages.count else { return Data() }
+        return note.pages[ref.pageIndex]
     }
 
     /// Simple visual indicator of the page ruling type inside a thumbnail.
@@ -1331,5 +1337,40 @@ struct NotebookReaderView: View {
         case .blank:
             EmptyView()
         }
+    }
+}
+
+private struct NotebookPagePreviewThumbnail: View {
+    let drawingData: Data
+    let backgroundColor: UIColor
+
+    @State private var previewImage: UIImage?
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(Color(uiColor: backgroundColor))
+            .overlay {
+                if let previewImage {
+                    Image(uiImage: previewImage)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(8)
+                }
+            }
+            .task(id: drawingData) {
+                previewImage = await makeThumbnail(from: drawingData)
+            }
+    }
+
+    private func makeThumbnail(from data: Data) async -> UIImage? {
+        guard !data.isEmpty else { return nil }
+        return await Task.detached(priority: .utility) {
+            guard let drawing = try? PKDrawing(data: data),
+                  !drawing.bounds.isEmpty else { return nil }
+            let renderRect = drawing.bounds.insetBy(dx: -20, dy: -20)
+            let targetSize = CGSize(width: 240, height: 320)
+            let scale = min(targetSize.width / renderRect.width, targetSize.height / renderRect.height)
+            return drawing.image(from: renderRect, scale: max(scale, 0.1))
+        }.value
     }
 }
