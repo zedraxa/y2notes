@@ -1218,6 +1218,7 @@ struct NotebookReaderView: View {
     private var notebookPageOverviewSheet: some View {
         NavigationStack {
             let pages = allPages
+            let notesByID = Dictionary(uniqueKeysWithValues: noteStore.notes.map { ($0.id, $0) })
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVGrid(
@@ -1225,7 +1226,11 @@ struct NotebookReaderView: View {
                         spacing: 12
                     ) {
                         ForEach(Array(pages.enumerated()), id: \.element.id) { idx, ref in
-                            notebookPageThumbnail(ref: ref, flatIndex: idx)
+                            notebookPageThumbnail(
+                                ref: ref,
+                                flatIndex: idx,
+                                drawingData: drawingData(for: ref, notesByID: notesByID)
+                            )
                         }
                     }
                     .padding()
@@ -1248,7 +1253,7 @@ struct NotebookReaderView: View {
     }
 
     @ViewBuilder
-    private func notebookPageThumbnail(ref: PageRef, flatIndex: Int) -> some View {
+    private func notebookPageThumbnail(ref: PageRef, flatIndex: Int, drawingData: Data) -> some View {
         let isSelected = flatIndex == flatPageIndex
         let isMarked = navigationStore.isBookmarked(
             notebookID: notebook.id,
@@ -1261,7 +1266,7 @@ struct NotebookReaderView: View {
         } label: {
             VStack(spacing: 6) {
                 NotebookPagePreviewThumbnail(
-                    drawingData: drawingData(for: ref),
+                    drawingData: drawingData,
                     backgroundColor: canvasBackground(for: ref)
                 )
                     .aspectRatio(0.75, contentMode: .fit)
@@ -1293,8 +1298,8 @@ struct NotebookReaderView: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private func drawingData(for ref: PageRef) -> Data {
-        guard let note = noteStore.notes.first(where: { $0.id == ref.noteID }),
+    private func drawingData(for ref: PageRef, notesByID: [UUID: Note]) -> Data {
+        guard let note = notesByID[ref.noteID],
               ref.pageIndex >= 0,
               ref.pageIndex < note.pages.count else { return Data() }
         return note.pages[ref.pageIndex]
@@ -1347,6 +1352,7 @@ private struct NotebookPagePreviewThumbnail: View {
     private static let thumbnailPadding: CGFloat = 20
     private static let targetThumbnailSize = CGSize(width: 240, height: 320)
     private static let minimumThumbnailScale: CGFloat = 0.1
+    private static let cache = NSCache<NSString, UIImage>()
 
     @State private var previewImage: UIImage?
 
@@ -1362,8 +1368,20 @@ private struct NotebookPagePreviewThumbnail: View {
                 }
             }
             .task(id: drawingData) {
+                let key = cacheKey(for: drawingData)
+                if let cached = Self.cache.object(forKey: key as NSString) {
+                    previewImage = cached
+                    return
+                }
                 previewImage = await makeThumbnail(from: drawingData)
+                if let previewImage {
+                    Self.cache.setObject(previewImage, forKey: key as NSString)
+                }
             }
+    }
+
+    private func cacheKey(for data: Data) -> String {
+        "\(data.count)-\(data.hashValue)"
     }
 
     private func makeThumbnail(from data: Data) async -> UIImage? {
