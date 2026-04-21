@@ -1344,6 +1344,10 @@ private struct NotebookPagePreviewThumbnail: View {
     let drawingData: Data
     let backgroundColor: UIColor
 
+    private static let thumbnailPadding: CGFloat = 20
+    private static let targetThumbnailSize = CGSize(width: 240, height: 320)
+    private static let minimumThumbnailScale: CGFloat = 0.1
+
     @State private var previewImage: UIImage?
 
     var body: some View {
@@ -1367,10 +1371,15 @@ private struct NotebookPagePreviewThumbnail: View {
         return await Task.detached(priority: .utility) {
             guard let drawing = try? PKDrawing(data: data),
                   !drawing.bounds.isEmpty else { return nil }
-            let renderRect = drawing.bounds.insetBy(dx: -20, dy: -20)
-            let targetSize = CGSize(width: 240, height: 320)
-            let scale = min(targetSize.width / renderRect.width, targetSize.height / renderRect.height)
-            return drawing.image(from: renderRect, scale: max(scale, 0.1))
+            let renderRect = drawing.bounds.insetBy(
+                dx: -Self.thumbnailPadding,
+                dy: -Self.thumbnailPadding
+            )
+            let scale = min(
+                Self.targetThumbnailSize.width / renderRect.width,
+                Self.targetThumbnailSize.height / renderRect.height
+            )
+            return drawing.image(from: renderRect, scale: max(scale, Self.minimumThumbnailScale))
         }.value
     }
 }
