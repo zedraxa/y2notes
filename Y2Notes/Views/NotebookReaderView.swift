@@ -1,5 +1,6 @@
 import SwiftUI
 import PencilKit
+import CryptoKit
 
 // MARK: - NotebookReaderView
 
@@ -1351,7 +1352,6 @@ private struct NotebookPagePreviewThumbnail: View {
 
     private static let thumbnailPadding: CGFloat = 20
     private static let targetThumbnailSize = CGSize(width: 240, height: 320)
-    private static let minimumThumbnailScale: CGFloat = 0.1
     private static let cache = NSCache<NSString, UIImage>()
 
     @State private var previewImage: UIImage?
@@ -1381,7 +1381,8 @@ private struct NotebookPagePreviewThumbnail: View {
     }
 
     private func cacheKey(for data: Data) -> String {
-        "\(data.count)-\(data.hashValue)"
+        let digest = SHA256.hash(data: data)
+        return Data(digest).base64EncodedString()
     }
 
     private func makeThumbnail(from data: Data) async -> UIImage? {
@@ -1397,7 +1398,8 @@ private struct NotebookPagePreviewThumbnail: View {
                 Self.targetThumbnailSize.width / renderRect.width,
                 Self.targetThumbnailSize.height / renderRect.height
             )
-            return drawing.image(from: renderRect, scale: max(scale, Self.minimumThumbnailScale))
+            guard scale.isFinite, scale > 0 else { return nil }
+            return drawing.image(from: renderRect, scale: scale)
         }.value
     }
 }
