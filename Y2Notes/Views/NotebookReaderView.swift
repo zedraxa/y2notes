@@ -1273,6 +1273,9 @@ struct NotebookReaderView: View {
                     backgroundColor: canvasBackground(for: ref)
                 )
                     .aspectRatio(0.75, contentMode: .fit)
+                    .overlay {
+                        pageTypeIndicator(for: ref).opacity(0.22)
+                    }
                     .overlay(alignment: .topTrailing) {
                         if isMarked {
                             Image(systemName: "bookmark.fill")
@@ -1391,10 +1394,17 @@ private struct NotebookPagePreviewThumbnail: View {
         return await Task.detached(priority: .utility) {
             guard let drawing = try? PKDrawing(data: data),
                   !drawing.bounds.isEmpty else { return nil }
-            let renderRect = drawing.bounds.insetBy(
+            let expandedRect = drawing.bounds.insetBy(
                 dx: -Self.thumbnailPadding,
                 dy: -Self.thumbnailPadding
             )
+            let renderRect = CGRect(
+                x: max(expandedRect.minX, 0),
+                y: max(expandedRect.minY, 0),
+                width: expandedRect.width,
+                height: expandedRect.height
+            )
+            guard renderRect.width > 0, renderRect.height > 0 else { return nil }
             let scale = min(
                 Self.targetThumbnailSize.width / renderRect.width,
                 Self.targetThumbnailSize.height / renderRect.height
