@@ -1,5 +1,6 @@
 import SwiftUI
 import PencilKit
+import CryptoKit
 
 // MARK: - NotebookReaderView
 
@@ -64,6 +65,7 @@ struct NotebookReaderView: View {
         let noteID: UUID
         let noteTitle: String
         let pageIndex: Int
+        let drawingData: Data
         let sectionID: UUID?
         let sectionName: String?
         /// True for the very first page contributed by a new section.
@@ -84,6 +86,7 @@ struct NotebookReaderView: View {
                     noteID: note.id,
                     noteTitle: note.title,
                     pageIndex: pIdx,
+                    drawingData: note.pages[pIdx],
                     sectionID: nil,
                     sectionName: nil,
                     isFirstInSection: isFirst
@@ -105,6 +108,7 @@ struct NotebookReaderView: View {
                         noteID: note.id,
                         noteTitle: note.title,
                         pageIndex: pIdx,
+                        drawingData: note.pages[pIdx],
                         sectionID: section.id,
                         sectionName: section.name,
                         isFirstInSection: isFirst
@@ -1225,7 +1229,11 @@ struct NotebookReaderView: View {
                         spacing: 12
                     ) {
                         ForEach(Array(pages.enumerated()), id: \.element.id) { idx, ref in
-                            notebookPageThumbnail(ref: ref, flatIndex: idx)
+                            notebookPageThumbnail(
+                                ref: ref,
+                                flatIndex: idx,
+                                drawingData: ref.drawingData
+                            )
                         }
                     }
                     .padding()
@@ -1248,7 +1256,7 @@ struct NotebookReaderView: View {
     }
 
     @ViewBuilder
-    private func notebookPageThumbnail(ref: PageRef, flatIndex: Int) -> some View {
+    private func notebookPageThumbnail(ref: PageRef, flatIndex: Int, drawingData: Data) -> some View {
         let isSelected = flatIndex == flatPageIndex
         let isMarked = navigationStore.isBookmarked(
             notebookID: notebook.id,
@@ -1260,12 +1268,14 @@ struct NotebookReaderView: View {
             showPageOverview = false
         } label: {
             VStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(uiColor: canvasBackground(for: ref)))
+                NotebookPagePreviewThumbnail(
+                    drawingData: drawingData,
+                    backgroundColor: canvasBackground(for: ref)
+                )
                     .aspectRatio(0.75, contentMode: .fit)
-                    .overlay(
-                        pageTypeIndicator(for: ref)
-                    )
+                    .overlay {
+                        pageTypeIndicator(for: ref).opacity(0.22)
+                    }
                     .overlay(alignment: .topTrailing) {
                         if isMarked {
                             Image(systemName: "bookmark.fill")
@@ -1331,5 +1341,76 @@ struct NotebookReaderView: View {
         case .blank:
             EmptyView()
         }
+    }
+}
+
+private struct NotebookPagePreviewThumbnail: View {
+    let drawingData: Data
+    let backgroundColor: UIColor
+
+    private static let thumbnailPadding: CGFloat = 20
+    private static let targetThumbnailSize = CGSize(width: 240, height: 320)
+    /// Cap thumbnail cache to keep memory bounded while still covering large notebooks.
+    private static let maxCachedThumbnails = 120
+    private static let cache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = maxCachedThumbnails
+        return cache
+    }()
+
+    @State private var previewImage: UIImage?
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(Color(uiColor: backgroundColor))
+            .overlay {
+                if let previewImage {
+                    Image(uiImage: previewImage)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(8)
+                }
+            }
+            .task(id: drawingData) {
+                let key = cacheKey(for: drawingData)
+                if let cached = Self.cache.object(forKey: key as NSString) {
+                    previewImage = cached
+                    return
+                }
+                previewImage = await makeThumbnail(from: drawingData)
+                if let previewImage {
+                    Self.cache.setObject(previewImage, forKey: key as NSString)
+                }
+            }
+    }
+
+    private func cacheKey(for data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        return Data(digest).base64EncodedString()
+    }
+
+    private func makeThumbnail(from data: Data) async -> UIImage? {
+        guard !data.isEmpty else { return nil }
+        return await Task.detached(priority: .utility) {
+            guard let drawing = try? PKDrawing(data: data),
+                  !drawing.bounds.isEmpty else { return nil }
+            let expandedRect = drawing.bounds.insetBy(
+                dx: -Self.thumbnailPadding,
+                dy: -Self.thumbnailPadding
+            )
+            let renderRect = CGRect(
+                x: max(expandedRect.minX, 0),
+                y: max(expandedRect.minY, 0),
+                width: expandedRect.width,
+                height: expandedRect.height
+            )
+            guard renderRect.width > 0, renderRect.height > 0 else { return nil }
+            let scale = min(
+                Self.targetThumbnailSize.width / renderRect.width,
+                Self.targetThumbnailSize.height / renderRect.height
+            )
+            guard scale.isFinite, scale > 0 else { return nil }
+            return drawing.image(from: renderRect, scale: scale)
+        }.value
     }
 }
