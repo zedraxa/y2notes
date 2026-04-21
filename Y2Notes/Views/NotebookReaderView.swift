@@ -1,6 +1,5 @@
 import SwiftUI
 import PencilKit
-import CryptoKit
 
 // MARK: - NotebookReaderView
 
@@ -65,6 +64,7 @@ struct NotebookReaderView: View {
         let noteID: UUID
         let noteTitle: String
         let pageIndex: Int
+        let drawingData: Data
         let sectionID: UUID?
         let sectionName: String?
         /// True for the very first page contributed by a new section.
@@ -85,6 +85,7 @@ struct NotebookReaderView: View {
                     noteID: note.id,
                     noteTitle: note.title,
                     pageIndex: pIdx,
+                    drawingData: note.pages[pIdx],
                     sectionID: nil,
                     sectionName: nil,
                     isFirstInSection: isFirst
@@ -106,6 +107,7 @@ struct NotebookReaderView: View {
                         noteID: note.id,
                         noteTitle: note.title,
                         pageIndex: pIdx,
+                        drawingData: note.pages[pIdx],
                         sectionID: section.id,
                         sectionName: section.name,
                         isFirstInSection: isFirst
@@ -1219,7 +1221,6 @@ struct NotebookReaderView: View {
     private var notebookPageOverviewSheet: some View {
         NavigationStack {
             let pages = allPages
-            let notesByID = Dictionary(uniqueKeysWithValues: noteStore.notes.map { ($0.id, $0) })
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVGrid(
@@ -1230,7 +1231,7 @@ struct NotebookReaderView: View {
                             notebookPageThumbnail(
                                 ref: ref,
                                 flatIndex: idx,
-                                drawingData: drawingData(for: ref, notesByID: notesByID)
+                                drawingData: ref.drawingData
                             )
                         }
                     }
@@ -1299,13 +1300,6 @@ struct NotebookReaderView: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private func drawingData(for ref: PageRef, notesByID: [UUID: Note]) -> Data {
-        guard let note = notesByID[ref.noteID],
-              ref.pageIndex >= 0,
-              ref.pageIndex < note.pages.count else { return Data() }
-        return note.pages[ref.pageIndex]
-    }
-
     /// Simple visual indicator of the page ruling type inside a thumbnail.
     @ViewBuilder
     private func pageTypeIndicator(for ref: PageRef) -> some View {
@@ -1352,7 +1346,11 @@ private struct NotebookPagePreviewThumbnail: View {
 
     private static let thumbnailPadding: CGFloat = 20
     private static let targetThumbnailSize = CGSize(width: 240, height: 320)
-    private static let cache = NSCache<NSString, UIImage>()
+    private static let cache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 120
+        return cache
+    }()
 
     @State private var previewImage: UIImage?
 
@@ -1381,8 +1379,12 @@ private struct NotebookPagePreviewThumbnail: View {
     }
 
     private func cacheKey(for data: Data) -> String {
-        let digest = SHA256.hash(data: data)
-        return Data(digest).base64EncodedString()
+        var hash: UInt64 = 1469598103934665603
+        for byte in data {
+            hash ^= UInt64(byte)
+            hash &*= 1099511628211
+        }
+        return "\(data.count)-\(String(hash, radix: 16))"
     }
 
     private func makeThumbnail(from data: Data) async -> UIImage? {
